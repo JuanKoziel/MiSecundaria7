@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión Escolar</title>
+    <style>
+        :root {
+            --bg-color: #f5f7fa;
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --border-color: #dcdde1;
+            --text-color: #2f3640;
+            --sidebar-width: 240px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- PANEL DE CONTROL (Solo Cursos) --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 15px;
+            box-shadow: 3px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-header {
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }
+
+        .dropdown-btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            width: 100%;
+            text-align: left;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dropdown-container {
+            display: none;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 5px;
+            margin-top: 5px;
+        }
+
+        .dropdown-container button {
+            background: none;
+            border: none;
+            color: #dcdde1;
+            width: 100%;
+            text-align: left;
+            padding: 10px 15px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+
+        .dropdown-container button:hover, .dropdown-container button.active-curso {
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+
+        .btn-cerrar {
+            margin-top: auto;
+            background: #c0392b;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* --- CONTENEDOR PRINCIPAL DE TRABAJO --- */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .top-header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-box {
+            border: 2px dashed var(--border-color);
+            padding: 8px 20px;
+            color: #7f8c8d;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        /* --- BLOQUE DE MATERIAS --- */
+        .materias-wrapper {
+            display: none;
+            margin-bottom: 25px;
+        }
+
+        .materias-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .materia-btn {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            font-weight: bold;
+            color: var(--primary-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .materia-btn:hover, .materia-btn.active-materia {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* --- AREA DE TRABAJO EN DOS COLUMNAS (Botones Izq / Info Der) --- */
+        .workspace-split {
+            display: none; /* Oculto hasta elegir una materia */
+            grid-template-columns: 220px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        /* Lista vertical de apartados (Abajo de materias, a la izquierda) */
+        .apartados-lista {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        .apartados-lista h4 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+        }
+
+        .seccion-btn {
+            background: #f8f9fa;
+            border: 1px solid var(--border-color);
+            color: var(--primary-color);
+            padding: 12px;
+            font-weight: 600;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .seccion-btn:hover, .seccion-btn.active-seccion {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+            padding-left: 16px;
+        }
+
+        /* Panel de Información (A la derecha) */
+        .info-panel-container {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            min-height: 300px;
+            border: 1px solid var(--border-color);
+        }
+
+        .panel-datos {
+            display: none;
+        }
+
+        .panel-datos h3 {
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 8px;
+        }
+
+        /* --- TABLAS Y FORMULARIOS --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 12px 10px;
+            text-align: center;
+        }
+
+        th {
+            background: #f8f9fa;
+            color: var(--primary-color);
+            font-size: 0.9rem;
+        }
+
+        .nested-th {
+            font-size: 0.8rem;
+            background: #f1f2f6;
+        }
+
+        input[type="text"], input[type="number"], input[type="date"], input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .file-link {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .file-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Libro de temas único de la clase */
+        .global-field-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent-color);
+            margin-bottom: 20px;
+        }
+
+        /* Checkboxes excluyentes */
+        .cb-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .cb-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .cb-label input:disabled + span {
+            color: #a4b0be;
+            text-decoration: line-through;
+        }
+
+        .placeholder-text {
+            text-align: center;
+            color: #a4b0be;
+            padding-top: 80px;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">Panel de Control</div>
+        
+        <button class="dropdown-btn" onclick="toggleDropdown()">
+            <span>Cursos</span> <span>▼</span>
+        </button>
+        <div id="cursos-dropdown" class="dropdown-container">
+            <button onclick="seleccionarCurso('1er Año B')">1er Año "B"</button>
+            <button onclick="seleccionarCurso('5to Año A')">5to Año "A"</button>
+            <button onclick="seleccionarCurso('6to Año C')">6to Año "C"</button>
+        </div>
+
+        <button class="btn-cerrar" onclick="location.reload()">Reiniciar Pantalla</button>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="top-header">
+            <div>
+                <h2 id="txt-curso-seleccionado">Seleccione un curso en el Panel de Control</h2>
+                <span id="txt-materia-seleccionada" style="color: var(--accent-color); font-weight: bold; font-size: 1.1rem;"></span>
+            </div>
+            <div class="logo-box">[ LOGO ]</div>
+        </div>
+
+        <div id="wrapper-materias" class="materias-wrapper">
+            <h3>Materias disponibles:</h3>
+            <div class="materias-grid">
+                <button class="materia-btn" onclick="seleccionarMateria('Matemática')">Matemática</button>
+                <button class="materia-btn" onclick="seleccionarMateria('Lengua y Lit.')">Lengua y Lit.</button>
+                <button class="materia-btn" onclick="seleccionarMateria('Física')">Física</button>
+                <button class="materia-btn" onclick="seleccionarMateria('Química')">Química</button>
+            </div>
+        </div>
+
+        <div id="workspace-split" class="workspace-split">
+            
+            <div class="apartados-lista">
+                <h4>Apartados</h4>
+                <button class="seccion-btn" id="btn-sec-alumnos" onclick="abrirSeccion('alumnos')">Alumnos</button>
+                <button class="seccion-btn" id="btn-sec-info" onclick="abrirSeccion('info')">Info del Curso</button>
+                <button class="seccion-btn" id="btn-sec-planif" onclick="abrirSeccion('planif')">Planificaciones</button>
+                <button class="seccion-btn" id="btn-sec-asistencia" onclick="abrirSeccion('asistencia')">Asistencia</button>
+            </div>
+
+            <div class="info-panel-container">
+                
+                <div id="panel-placeholder" class="placeholder-text">
+                    Seleccione un apartado de la lista izquierda para visualizar la información.
+                </div>
+
+                <div id="panel-alumnos" class="panel-datos">
+                    <h3>Planilla de Calificaciones</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Nombre</th>
+                                <th rowspan="2">Actas</th>
+                                <th colspan="2">Período 1</th>
+                                <th colspan="2">Períoring 2</th>
+                                <th rowspan="2">Diagnóstico</th>
+                            </tr>
+                            <tr>
+                                <th class="nested-th">Prenota 1</th>
+                                <th class="nested-th">Nota 1</th>
+                                <th class="nested-th">Prenota 2</th>
+                                <th class="nested-th">Nota 2</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">Álvarez, Luis</td>
+                                <td><a href="#" class="file-link" onclick="alert('Descargando Acta_Luis.pdf')">📄 Ver Archivo</a></td>
+                                <td><input type="number" min="1" max="10" value="7"></td>
+                                <td><input type="number" min="1" max="10" value="8"></td>
+                                <td><input type="number" min="1" max="10" value="6"></td>
+                                <td><input type="number" min="1" max="10" value="7"></td>
+                                <td><input type="text" value="Regular positivo"></td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">Benítez, Ana</td>
+                                <td><a href="#" class="file-link" onclick="alert('Descargando Acta_Ana.pdf')">📄 Ver Archivo</a></td>
+                                <td><input type="number" min="1" max="10" value="9"></td>
+                                <td><input type="number" min="1" max="10" value="9"></td>
+                                <td><input type="number" min="1" max="10" value="10"></td>
+                                <td><input type="number" min="1" max="10" value="10"></td>
+                                <td><input type="text" value="Excelente desempeño"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="panel-info" class="panel-datos">
+                    <h3>Información General del Curso</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Subir Actas del Curso (Archivo)</th>
+                                <th>Diagnóstico del Curso General</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="vertical-align: middle;"><input type="file"></td>
+                                <td><textarea style="width:100%; height:80px; padding:8px; border:1px solid var(--border-color); border-radius:4px;" placeholder="Escriba el diagnóstico del grupo..."></textarea></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="panel-planif" class="panel-datos">
+                    <h3>Planificaciones Curriculares</h3>
+                    <p style="margin-bottom: 15px; color:#7f8c8d;">Carga y visualización de archivos metodológicos:</p>
+                    <input type="file">
+                </div>
+
+                <div id="panel-asistencia" class="panel-datos">
+                    <h3>Registro de Asistencias Diario</h3>
+                    
+                    <div class="global-field-box">
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+                            <div>
+                                <label><strong>Fecha de Clase: </strong></label>
+                                <input type="date" value="2026-05-18" style="width: 160px; display: inline-block;">
+                            </div>
+                            <div style="flex: 1; min-width: 250px;">
+                                <label><strong>Libro de Temas (Único por Clase): </strong></label>
+                                <input type="text" placeholder="Escriba el tema dictado hoy para el curso...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Alumno</th>
+                                <th>Estado (Selección Única)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">Álvarez, Luis</td>
+                                <td>
+                                    <div class="cb-container">
+                                        <label class="cb-label"><input type="checkbox" class="asist-cb" data-row="1" onclick="controlarCheckboxes(this)"> <span>Presente</span></label>
+                                        <label class="cb-label"><input type="checkbox" class="asist-cb" data-row="1" onclick="controlarCheckboxes(this)"> <span>Ausente</span></label>
+                                        <label class="cb-label"><input type="checkbox" class="asist-cb" data-row="1" onclick="controlarCheckboxes(this)"> <span>Tarde</span></label>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left; font-weight: bold;">Benítez, Ana</td>
+                                <td>
+                                    <div class="cb-container">
+                                        <label class="cb-label"><input type="checkbox" class="asist-cb" data-row="2" onclick="controlarCheckboxes(this)"> <span>Presente</span></label>
+                                        <label class="cb-label"><input type="checkbox" class="asist-cb" data-row="2" onclick="controlarCheckboxes(this)"> <span>Ausente</span></label>
+                                        <label class="cb-label"><input type="checkbox" class="asist-cb" data-row="2" onclick="controlarCheckboxes(this)"> <span>Tarde</span></label>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function toggleDropdown() {
+            const dropdown = document.getElementById('cursos-dropdown');
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function seleccionarCurso(nombreCurso) {
+            document.getElementById('txt-curso-seleccionado').innerText = "Curso: " + nombreCurso;
+            document.getElementById('txt-materia-seleccionada').innerText = "";
+            
+            document.getElementById('wrapper-materias').style.display = 'block';
+            document.getElementById('workspace-split').style.display = 'none'; // Esconde apartados hasta que elijan materia
+            
+            document.querySelectorAll('#cursos-dropdown button').forEach(b => b.classList.remove('active-curso'));
+            event.target.classList.add('active-curso');
+        }
+
+        function seleccionarMateria(nombreMateria) {
+            document.getElementById('txt-materia-seleccionada').innerText = " ➔ Materia: " + nombreMateria;
+            
+            // Mostrar la división de dos columnas (Apartados | Información) abajo de las materias
+            document.getElementById('workspace-split').style.display = 'grid';
+            
+            ocultarTodosLosPaneles();
+            document.getElementById('panel-placeholder').style.display = 'block';
+            document.querySelectorAll('.seccion-btn').forEach(b => b.classList.remove('active-seccion'));
+
+            document.querySelectorAll('.materia-btn').forEach(b => b.classList.remove('active-materia'));
+            event.target.classList.add('active-materia');
+        }
+
+        function abrirSeccion(seccion) {
+            ocultarTodosLosPaneles();
+            document.getElementById('panel-placeholder').style.display = 'none';
+            document.getElementById(`panel-${seccion}`).style.display = 'block';
+
+            document.querySelectorAll('.seccion-btn').forEach(b => b.classList.remove('active-seccion'));
+            document.getElementById(`btn-sec-${seccion}`).classList.add('active-seccion');
+        }
+
+        function ocultarTodosLosPaneles() {
+            document.getElementById('panel-alumnos').style.display = 'none';
+            document.getElementById('panel-info').style.display = 'none';
+            document.getElementById('panel-planif').style.display = 'none';
+            document.getElementById('panel-asistencia').style.display = 'none';
+        }
+
+        function controlarCheckboxes(checkboxActivo) {
+            const numFila = checkboxActivo.getAttribute('data-row');
+            const grupoCheckboxes = document.querySelectorAll(`.asist-cb[data-row="${numFila}"]`);
+
+            if (checkboxActivo.checked) {
+                grupoCheckboxes.forEach(cb => {
+                    if (cb !== checkboxActivo) cb.disabled = true;
+                });
+            } else {
+                grupoCheckboxes.forEach(cb => cb.disabled = false);
+            }
+        }
+    </script>
+</body>
+</html>
