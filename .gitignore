@@ -1,0 +1,42 @@
+# Python / Django
+*.py[cod]
+__pycache__/
+*.so
+.Python
+env/
+venv/
+.venv/
+backend/venv/
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+instance/
+.webassets-cache
+*.sqlite3
+db.sqlite3
+backend/db.sqlite3
+*.env
+.env.*
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+# Local files
+package-lock.json
