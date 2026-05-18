@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduGestion - Sistema de Gestión Escolar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div id="loginSection" class="login-container">
+        <div class="login-card">
+            <div class="login-logo"><i class="fa-solid fa-graduation-cap"></i></div>
+            <h2>EduGestion</h2>
+            <p>Ingresa al portal administrativo escolar</p>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username"><i class="fa-solid fa-user"></i> Usuario o Email</label>
+                    <input type="text" id="username" required placeholder="admin o docente">
+                </div>
+                <div class="form-group">
+                    <label for="password"><i class="fa-solid fa-lock"></i> Contraseña</label>
+                    <input type="password" id="password" required placeholder="••••••••">
+                </div>
+                <div class="form-group">
+                    <label for="userRole"><i class="fa-solid fa-id-badge"></i> Rol de Acceso</label>
+                    <select id="userRole">
+                        <option value="admin">Administrador Global</option>
+                        <option value="docente">Cuerpo Docente</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    Iniciar Sesión <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboardLayout" class="dashboard-layout">
+        
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <span>EduGestion</span>
+            </div>
+            <ul class="sidebar-menu">
+                <li class="active nav-item" id="nav-alumnos">
+                    <a href="#" data-view="alumnos"><i class="fa-solid fa-user-graduate"></i> <span>Alumnos</span></a>
+                </li>
+                <li class="nav-item admin-only" id="nav-docentes">
+                    <a href="#" data-view="docentes"><i class="fa-solid fa-chalkboard-teacher"></i> <span>Docentes</span></a>
+                </li>
+                <li class="nav-item" id="nav-asistencias">
+                    <a href="#" data-view="asistencias"><i class="fa-solid fa-calendar-check"></i> <span>Asistencias</span></a>
+                </li>
+                <li class="nav-item" id="nav-notas">
+                    <a href="#" data-view="notas"><i class="fa-solid fa-file-invoice"></i> <span>Notas / Actas</span></a>
+                </li>
+                <li class="nav-item" id="nav-actas">
+                    <a href="#" data-view="actas"><i class="fa-solid fa-folder-open"></i> <span>Legajos Digitales</span></a>
+                </li>
+                <li class="nav-item admin-only" id="nav-inasistencias-doc">
+                    <a href="#" data-view="inasistencias-doc"><i class="fa-solid fa-user-clock"></i> <span>Faltas Docentes</span></a>
+                </li>
+                <li class="sidebar-logout">
+                    <a href="#" id="btnLogout"><i class="fa-solid fa-sign-out-alt"></i> <span>Cerrar Sesión</span></a>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            
+            <header class="main-header">
+                <div>
+                    <h2 id="welcomeTitle">Bienvenido de nuevo</h2>
+                    <p class="header-subtitle">Panel de control educativo e institucional</p>
+                </div>
+                <div class="user-profile-info">
+                    <div class="user-avatar" id="avatarBox">U</div>
+                    <div>
+                        <h4 id="userProfileName">Cargando...</h4>
+                        <span id="userProfileRole" class="badge">Rol</span>
+                    </div>
+                </div>
+            </header>
+
+            <section id="view-alumnos" class="view-section active">
+                <div class="card">
+                    <div class="card-header-flex">
+                        <h3><i class="fa-solid fa-user-graduate"></i> Nómina General de Alumnos</h3>
+                        <button class="btn btn-primary" onclick="alert('Módulo CRUD: Conexión con Endpoint de registro activada.')">
+                            <i class="fa-solid fa-plus"></i> Registrar Nuevo Alumno
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>DNI</th>
+                                    <th>Apellido y Nombre</th>
+                                    <th>Curso / División</th>
+                                    <th>F. Nacimiento</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alumnosTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-docentes" class="view-section">
+                <div class="card">
+                    <div class="card-header-flex">
+                        <h3><i class="fa-solid fa-chalkboard-teacher"></i> Registro de Personal Docente</h3>
+                        <button class="btn btn-primary"><i class="fa-solid fa-plus"></i> Añadir Docente</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Docente</th>
+                                    <th>Materia Especialidad</th>
+                                    <th>Teléfono</th>
+                                    <th>Email de Contacto</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="docentesTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-asistencias" class="view-section">
+                <div class="card">
+                    <h3><i class="fa-solid fa-calendar-check"></i> Control Diario de Asistencia</h3>
+                    <div class="filter-row">
+                        <div class="form-group-filter">
+                            <label>Seleccionar Curso</label>
+                            <select><option>5to Año - División A</option><option>4to Año - División B</option></select>
+                        </div>
+                        <div class="form-group-filter">
+                            <label>Fecha de Control</label>
+                            <input type="date" value="2026-05-18">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Alumno</th>
+                                    <th>Estado de Asistencia</th>
+                                    <th>Modificar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="asistenciaTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="card-footer-actions">
+                        <button class="btn btn-success"><i class="fa-solid fa-floppy-disk"></i> Guardar Parte Diario</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-notas" class="view-section">
+                <div class="card">
+                    <h3><i class="fa-solid fa-file-invoice"></i> Carga Metódica de Calificaciones</h3>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Estudiante</th>
+                                    <th>Nota Trim I</th>
+                                    <th>Nota Trim II</th>
+                                    <th>Nota Trim III</th>
+                                    <th>Promedio Anual</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="notasTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-actas" class="view-section">
+                <div class="card">
+                    <h3><i class="fa-solid fa-folder-open"></i> Actas de Alumnos y Legajos Digitales</h3>
+                    <div class="upload-zone">
+                        <label>
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>Arrastra o selecciona un archivo (PDF / Imagen) para vincular al acta</span>
+                            <input type="file" style="display: none;">
+                        </label>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Alumno Asociado</th>
+                                    <th>Tipo de Acta</th>
+                                    <th>Archivo Adjunto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>12/04/2026</td>
+                                    <td>Hoffer, Agustín</td>
+                                    <td>Justificativo Clínico Inasistencia</td>
+                                    <td><button class="btn btn-primary btn-sm"><i class="fa-solid fa-download"></i> Descargar PDF</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-inasistencias-doc" class="view-section">
+                <div class="card">
+                    <h3><i class="fa-solid fa-user-clock"></i> Registro Inasistencias del Personal Docente</h3>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Docente Afectado</th>
+                                    <th>Fecha Licencia</th>
+                                    <th>Motivo / Observación</th>
+                                    <th>Estado Justificación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Lic. Carlos Rodríguez</td>
+                                    <td>15/05/2026</td>
+                                    <td>Carpeta Médica (Certificado visado)</td>
+                                    <td><span class="badge badge-presente">Justificado</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
