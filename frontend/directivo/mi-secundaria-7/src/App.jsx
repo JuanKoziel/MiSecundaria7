@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react'
 import Directivos from './views/Directivos';
 
 export default function App() {
   // Simulamos que el Login ya validó al Directivo y nos mandó directo acá
-  const [user, setUser] = useState({
-    dni: '12345678',
-    role: 'Directivos',
-    name: 'Director General'
-  });
+const [user] = useState({
+  dni: '12345678',
+  role: 'Directivos',
+  name: 'Director General'
+});
   
   const [currentView, setCurrentView] = useState('inicio');
 
