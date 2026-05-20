@@ -1,13 +1,13 @@
 import { useState } from "react";
-import Sidebar from "./sidebar/sidebar";
+import Sidebar from "./sidebar/sidebar"; // Asegurá las rutas reales en tu proyecto
 import Header from "./header/header";
-import Alumnos from "./alumnos";
-import Docentes from "./docentes";
-import Asistencias from "./asistencias";
-import Notas from "./notas";
-import Actas from "./actas";
+import Alumnos from "./Alumnos";
+import Docentes from "./Docentes";
+import Asistencias from "./Asistencias";
+import Notas from "./Notas";
+import Actas from "./Actas";
 
-function App({ user, onLogout }) {
+function PreceptorDashboard({ user, onLogout }) {
   const [view, setView] = useState("alumnos");
 
   return (
@@ -17,14 +17,17 @@ function App({ user, onLogout }) {
       <main className="main-content">
         <Header user={user} />
 
-        {view === "alumnos" && <Alumnos />}
-        {view === "docentes" && user.role === "admin" && <Docentes />}
-        {view === "asistencias" && <Asistencias />}
-        {view === "notas" && <Notas />}
-        {view === "actas" && <Actas />}
+        {/* Usamos las clases utilitarias de index.css para las animaciones suaves */}
+        <div className="view-section active">
+          {view === "alumnos" && <Alumnos />}
+          {view === "docentes" && user.role === "admin" && <Docentes />}
+          {view === "asistencias" && <Asistencias />}
+          {view === "notas" && <Notas />}
+          {view === "actas" && <Actas />}
+        </div>
       </main>
     </div>
   );
 }
 
-export default App;
+export default PreceptorDashboard;

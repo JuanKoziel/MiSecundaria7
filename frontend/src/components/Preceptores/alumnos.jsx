@@ -6,25 +6,28 @@ const dataAlumnos = [
 function Alumnos() {
   return (
     <div className="card">
-      <h3>Alumnos</h3>
+      <div className="card-header-flex">
+        <h3>Listado de Alumnos</h3>
+      </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>DNI</th>
-            <th>Nombre</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {dataAlumnos.map((a, i) => (
-            <tr key={i}>
-              <td>{a.dni}</td>
-              <td>{a.apellido}, {a.nombre}</td>
+      <div className="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>DNI</th>
+              <th>Nombre Completo</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {dataAlumnos.map((a, i) => (
+              <tr key={i}>
+                <td><strong>{a.dni}</strong></td>
+                <td>{a.apellido}, {a.nombre}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
