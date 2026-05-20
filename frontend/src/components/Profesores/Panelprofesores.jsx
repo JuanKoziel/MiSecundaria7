@@ -7,18 +7,22 @@ import PanelPlanif from './PanelPlanif';
 import PanelAsistencia from './PanelAsistencia';
 
 function App() {
-  const [cursoSeleccionado, setCursoSeleccionado] = useState('1er Año B'); // Inicializado para pruebas
-  const [materiaSeleccionada, setMateriaSeleccionada] = useState('Matemática');
-  const [seccionActiva, setSeccionActiva] = useState('alumnos'); // 'alumnos', 'info', 'planif', 'asistencia'
+  const [cursoSeleccionado, setCursoSeleccionado] = useState('');
+  const [materiaSeleccionada, setMateriaSeleccionada] = useState('');
+  const [seccionActiva, setSeccionActiva] = useState('alumnos');
+
+  const handleCursoChange = (nuevoCurso) => {
+    setCursoSeleccionado(nuevoCurso);
+    setMateriaSeleccionada(''); // Reinicia la materia al cambiar de curso
+  };
 
   const reiniciarPantalla = () => {
     setCursoSeleccionado('');
     setMateriaSeleccionada('');
-    setSeccionActiva('');
+    setSeccionActiva('alumnos');
   };
 
   return (
-    // Se fuerza el block para saltar la validación JS de tu CSS original
     <div className="dashboard-layout" style={{ display: 'block' }}> 
       <Sidebar 
         seccionActiva={seccionActiva} 
@@ -35,18 +39,32 @@ function App() {
         {/* Filtros de Selección Superior */}
         <div className="card">
           <div className="filter-row">
+            
             <div className="form-group-filter">
               <label>Curso Activo</label>
               <select 
                 value={cursoSeleccionado} 
-                onChange={(e) => setCursoSeleccionado(e.target.value)}
+                onChange={(e) => handleCursoChange(e.target.value)}
               >
-                <option value="">Seleccione un curso...</option>
+                <option value="" disabled hidden>Seleccione un curso...</option>
                 <option value="1°1">1°1</option>
                 <option value="1°2">1°2</option>
                 <option value="1°3">1°3</option>
-                <option value="5to Año A">5to Año "A"</option>
-                <option value="6to Año C">6to Año "C"</option>
+                <option value="2°1">2°1</option>
+                <option value="2°2">2°2</option>
+                <option value="2°3">2°3</option>
+                <option value="3°1">3°1</option>
+                <option value="3°2">3°2</option>
+                <option value="3°3">3°3</option>
+                <option value="4°1">4°1</option>
+                <option value="4°2">4°2</option>
+                <option value="4°3">4°3</option>
+                <option value="5°1">5°1</option>
+                <option value="5°2">5°2</option>
+                <option value="5°3">5°3</option>
+                <option value="6°1">6°1</option>
+                <option value="6°2">6°2</option>
+                <option value="6°3">6°3</option>
               </select>
             </div>
 
@@ -57,18 +75,19 @@ function App() {
                 onChange={(e) => setMateriaSeleccionada(e.target.value)}
                 disabled={!cursoSeleccionado}
               >
-                <option value="">Seleccione una materia...</option>
+                <option value="" disabled hidden>Seleccione una materia...</option>
                 <option value="Matemática">Matemática</option>
                 <option value="Lengua y Lit.">Lengua y Lit.</option>
                 <option value="Física">Física</option>
                 <option value="Química">Química</option>
               </select>
             </div>
+
           </div>
         </div>
 
-        {/* Contenedor de Secciones dinámicas con tus clases de animación */}
-        {materiaSeleccionada ? (
+        {/* Vistas condicionales de las planillas */}
+        {cursoSeleccionado && materiaSeleccionada ? (
           <>
             <div className={`view-section ${seccionActiva === 'alumnos' ? 'active' : ''}`}>
               {seccionActiva === 'alumnos' && <PanelAlumnos />}
@@ -84,8 +103,12 @@ function App() {
             </div>
           </>
         ) : (
-          <div className="card text-center" style={{ padding: '60px' }}>
-            <p style={{ color: '#666' }}>Por favor, seleccione un curso y una materia para desplegar las planillas de trabajo.</p>
+          <div className="card" style={{ padding: '60px', textAlign: 'center' }}>
+            <p style={{ color: '#666', fontSize: '1rem' }}>
+              {!cursoSeleccionado 
+                ? 'Por favor, seleccione un curso en el Panel de Control superior.' 
+                : 'Por favor, seleccione una materia para desplegar las planillas de trabajo.'}
+            </p>
           </div>
         )}
       </main>

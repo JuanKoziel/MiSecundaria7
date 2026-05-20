@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 function PanelAlumnos() {
   // Datos iniciales de ejemplo adaptados al nuevo esquema de calificación
   const [alumnos, setAlumnos] = useState([
-    { id: 1, nombre: 'Álvarez, Luis', nota1: 'TEP', nota2: 8, nota3: 'TEA', nota4: 7, diag: 'Regular positivo' },
-    { id: 2, nombre: 'Benítez, Ana', nota1: 'TEA', nota2: 9, nota3: 'TEA', nota4: 10, diag: 'Excelente desempeño' }
+    { id: 1, nombre: 'Álvarez, Luis', nota1: '', nota2: '', nota3: '', nota4: '', diag: 'Regular positivo' },
+    { id: 2, nombre: 'Benítez, Ana', nota1: '', nota2: '', nota3: '', nota4: '', diag: 'Excelente desempeño' }
   ]);
 
   // Manejador genérico para actualizar el estado cuando cambie una nota o diagnóstico
@@ -58,7 +58,7 @@ function PanelAlumnos() {
                     onChange={(e) => handleInputChange(alumno.id, 'nota1', e.target.value)}
                     style={{ width: '90px', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   >
-                    <option value="">--</option>
+                    <option value="" disabled hidden>--</option>
                     <option value="TEA">TEA</option>
                     <option value="TEP">TEP</option>
                     <option value="TED">TED</option>
@@ -84,7 +84,7 @@ function PanelAlumnos() {
                     onChange={(e) => handleInputChange(alumno.id, 'nota3', e.target.value)}
                     style={{ width: '90px', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                   >
-                    <option value="">--</option>
+                    <option value="" disabled hidden>--</option>
                     <option value="TEA">TEA</option>
                     <option value="TEP">TEP</option>
                     <option value="TED">TED</option>
