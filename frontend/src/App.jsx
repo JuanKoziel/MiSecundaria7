@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Login from './components/Login/login';
 import PanelProfesores from './components/Profesores/Panelprofesores';
+import PanelPreceptores from './components/Preceptores/Preceptordashboard';
 
 function App() {
   // Estado para guardar los datos del usuario logueado (ej: username y role)
