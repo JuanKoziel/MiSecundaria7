@@ -17,31 +17,40 @@ function Asistencias() {
 
   return (
     <div className="card">
-      <h3>Asistencias</h3>
+      <div className="card-header-flex">
+        <h3>Control de Asistencia Diaria</h3>
+      </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Alumno</th>
-            <th>Presente</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {alumnos.map((a, i) => (
-            <tr key={i}>
-              <td>{a.nombre}</td>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={asistencias[i] || false}
-                  onChange={() => toggleAsistencia(i)}
-                />
-              </td>
+      <div className="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Alumno</th>
+              <th>Estado de Asistencia</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {alumnos.map((a, i) => {
+              const isPresente = asistencias[i] || false;
+              return (
+                <tr key={i}>
+                  <td>{a.nombre}</td>
+                  <td>
+                    {/* Renderizamos un botón estético usando tus clases CSS de badges */}
+                    <span 
+                      className={`badge ${isPresente ? 'badge-presente' : 'badge-ausente'}`}
+                      onClick={() => toggleAsistencia(i)}
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      {isPresente ? "✓ Presente" : "✕ Ausente"}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

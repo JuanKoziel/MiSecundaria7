@@ -3,17 +3,48 @@ import "./sidebar.css";
 function Sidebar({ setView, onLogout, user }) {
   return (
     <aside className="sidebar">
-      <button onClick={() => setView("alumnos")}>Alumnos</button>
+      <div className="sidebar-brand">
+        <i>🏫</i>
+        <span>EduGestion</span>
+      </div>
 
-      {user.role === "admin" && (
-        <button onClick={() => setView("docentes")}>Docentes</button>
-      )}
+      <ul className="sidebar-menu">
+        <li>
+          <a href="#" onClick={(e) => { e.preventDefault(); setView("alumnos"); }}>
+            <span>Alumnos</span>
+          </a>
+        </li>
 
-      <button onClick={() => setView("asistencias")}>Asistencias</button>
-        <button onClick={() => setView("notas")}>Notas</button>
-        <button onClick={() => setView("actas")}>Actas</button>
-      <button onClick={onLogout}>Cerrar sesión</button>
-      
+        {user.role === "admin" && (
+          <li>
+            <a href="#" onClick={(e) => { e.preventDefault(); setView("docentes"); }}>
+              <span>Docentes</span>
+            </a>
+          </li>
+        )}
+
+        <li>
+          <a href="#" onClick={(e) => { e.preventDefault(); setView("asistencias"); }}>
+            <span>Asistencias</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" onClick={(e) => { e.preventDefault(); setView("notas"); }}>
+            <span>Notas</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" onClick={(e) => { e.preventDefault(); setView("actas"); }}>
+            <span>Actas</span>
+          </a>
+        </li>
+
+        <li className="logout-li">
+          <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }} style={{ color: '#ff6b6b' }}>
+            <span>Cerrar Sesión</span>
+          </a>
+        </li>
+      </ul>
     </aside>
   );
 }
