@@ -4,8 +4,7 @@ function Sidebar({ setView, onLogout, user }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <i>🏫</i>
-        <span>EduGestion</span>
+        <span>MiSecundaria7</span>
       </div>
 
       <ul className="sidebar-menu">
