@@ -12,7 +12,7 @@ function Sidebar({ seccionActiva, onCambiarSeccion, onReiniciar }) {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <i className="fas fa-school"></i>
-        <span>EduGestion</span>
+        <span>MiSecundaria 7</span>
       </div>
 
       <ul className="sidebar-menu">
