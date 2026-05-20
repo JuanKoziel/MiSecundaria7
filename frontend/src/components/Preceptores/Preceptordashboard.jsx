@@ -1,13 +1,13 @@
 import { useState } from "react";
 import Sidebar from "./sidebar/sidebar";
-import Header from "./Header";
-import Alumnos from "./alumnos/alumnos";
-import Docentes from "./Docentes";
-import Asistencias from "./asistencias/asistencias";
-import Notas from "./Notas";
-import Actas from "./actas/actas";
+import Header from "./header/header";
+import Alumnos from "./alumnos";
+import Docentes from "./docentes";
+import Asistencias from "./asistencias";
+import Notas from "./notas";
+import Actas from "./actas";
 
-function Dashboard({ user, onLogout }) {
+function App({ user, onLogout }) {
   const [view, setView] = useState("alumnos");
 
   return (
@@ -27,4 +27,4 @@ function Dashboard({ user, onLogout }) {
   );
 }
 
-export default Dashboard;
+export default App;
