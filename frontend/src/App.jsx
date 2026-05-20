@@ -1,10 +1,9 @@
+import PanelProfesores from "./components/Profesores/Panelprofesores"
 function App() {
   return (
-    <main>
-      <h1>MiSecundaria7</h1>
-      <p>Aplicación React lista en `frontend/`.</p>
-    </main>
+    <PanelProfesores/>
   )
 }
 
 export default App
+
