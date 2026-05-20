@@ -1,9 +1,7 @@
+import PanelProfesores from "./components/Profesores/Panelprofesores"
 function App() {
   return (
-    <main>
-      <h1>MiSecundaria7</h1>
-      <p>valen</p>
-    </main>
+    <PanelProfesores/>
   )
 }
 
