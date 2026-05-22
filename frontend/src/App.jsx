@@ -2,7 +2,6 @@ import { useState } from 'react';
 import Login from './components/Login/login';
 import PanelProfesores from './components/Profesores/PanelProfesores';
 import PreceptorDashboard from './components/Preceptores/PreceptorDashboard';
-import AdminDashboard from './components/Administracion/AdminDashboard';
 import FamiliaDashboard from './components/Familia/FamiliaDashboard';
 
 function App() {
@@ -21,11 +20,9 @@ function App() {
   }
 
   switch (user.role) {
-    case 'admin':
-      return <AdminDashboard user={user} onLogout={handleLogout} />;
-
     case 'preceptor':
       return <PreceptorDashboard user={user} onLogout={handleLogout} />;
+    case 'admin':
 
     case 'docente':
       return <PanelProfesores user={user} onLogout={handleLogout} />;
