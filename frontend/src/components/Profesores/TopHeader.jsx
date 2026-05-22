@@ -1,6 +1,7 @@
-import React from 'react';
+function TopHeader({ cursoSeleccionado, materiaSeleccionada, user }) {
+  const inicial = user?.username ? user.username.charAt(0) : 'U';
+  const rol = user?.role ? user.role.toUpperCase() : 'DOCENTE';
 
-function TopHeader({ cursoSeleccionado, materiaSeleccionada }) {
   return (
     <header className="main-header">
       <div>
@@ -8,7 +9,13 @@ function TopHeader({ cursoSeleccionado, materiaSeleccionada }) {
         <div className="main-header-subtitle">
           {cursoSeleccionado ? (
             <span>
-              {cursoSeleccionado} {materiaSeleccionada && <> &gt; <span className="font-accent">{materiaSeleccionada}</span></>}
+              {cursoSeleccionado}
+              {materiaSeleccionada && (
+                <>
+                  {' '}
+                  &gt; <span className="font-accent">{materiaSeleccionada}</span>
+                </>
+              )}
             </span>
           ) : (
             'Aguardando selección de grupo...'
@@ -16,8 +23,8 @@ function TopHeader({ cursoSeleccionado, materiaSeleccionada }) {
         </div>
       </div>
       <div className="user-profile-info">
-        <span className="badge role-badge-display">Docente</span>
-        <div className="user-avatar">QA</div>
+        <span className="badge role-badge-display">{rol}</span>
+        <div className="user-avatar">{inicial}</div>
       </div>
     </header>
   );

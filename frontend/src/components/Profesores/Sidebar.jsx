@@ -1,35 +1,36 @@
-import React from 'react';
+import { menuItems } from './sidebarMenu';
 
-function Sidebar({ seccionActiva, onCambiarSeccion, onReiniciar }) {
-  const menuItems = [
-    { id: 'alumnos', label: 'Calificaciones', icon: 'fa-graduation-cap' },
-    { id: 'info', label: 'Info General', icon: 'fa-info-circle' },
-    { id: 'planif', label: 'Planificaciones', icon: 'fa-folder-open' },
-    { id: 'asistencia', label: 'Asistencia', icon: 'fa-user-check' },
-  ];
-
+function Sidebar({ seccionActiva, onCambiarSeccion, onLogout }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <i className="fas fa-school"></i>
+        <i className="fas fa-school" aria-hidden="true" />
         <span>MiSecundaria 7</span>
       </div>
 
       <ul className="sidebar-menu">
         {menuItems.map((item) => (
           <li key={item.id} className={seccionActiva === item.id ? 'active' : ''}>
-            <a href={`#${item.id}`} onClick={(e) => { e.preventDefault(); onCambiarSeccion(item.id); }}>
-              <i className={`fas ${item.icon}`}></i>
+            <button
+              type="button"
+              className="sidebar-menu-btn"
+              onClick={() => onCambiarSeccion(item.id)}
+            >
+              <i className={`fas ${item.icon}`} aria-hidden="true" />
               <span>{item.label}</span>
-            </a>
+            </button>
           </li>
         ))}
 
         <li className="logout-li">
-          <a href="#reset" onClick={(e) => { e.preventDefault(); onReiniciar(); }}>
-            <i className="fas fa-sync-alt"></i>
-            <span>Reiniciar App</span>
-          </a>
+          <button
+            type="button"
+            className="sidebar-menu-btn sidebar-logout-btn"
+            onClick={onLogout}
+          >
+            <i className="fas fa-sign-out-alt" aria-hidden="true" />
+            <span>Cerrar Sesión</span>
+          </button>
         </li>
       </ul>
     </aside>

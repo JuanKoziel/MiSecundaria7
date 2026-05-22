@@ -1,30 +1,44 @@
-import { useState } from "react";
-import Sidebar from "./sidebar/sidebar"; // Asegurá las rutas reales en tu proyecto
-import Header from "./header/header";
-import Alumnos from "./Alumnos";
-import Docentes from "./Docentes";
-import Asistencias from "./Asistencias";
-import Notas from "./Notas";
-import Actas from "./Actas";
+import { useState } from 'react';
+import Sidebar from './sidebar/sidebar';
+import Header from './header/header';
+import Alumnos from './alumnos';
+import Docentes from './docentes';
+import Asistencias from './asistencias';
+import Notas from './notas';
+import Actas from './actas';
 
 function PreceptorDashboard({ user, onLogout }) {
-  const [view, setView] = useState("alumnos");
+  const [view, setView] = useState('alumnos');
+
+  const renderView = () => {
+    switch (view) {
+      case 'alumnos':
+        return <Alumnos />;
+      case 'docentes':
+        if (user.role === 'admin') return <Docentes />;
+        return (
+          <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
+            <p style={{ color: 'var(--text-light)' }}>No tenés permisos para ver esta sección.</p>
+          </div>
+        );
+      case 'asistencias':
+        return <Asistencias />;
+      case 'notas':
+        return <Notas />;
+      case 'actas':
+        return <Actas />;
+      default:
+        return <Alumnos />;
+    }
+  };
 
   return (
     <div className="dashboard-layout">
-      <Sidebar user={user} setView={setView} onLogout={onLogout} />
+      <Sidebar user={user} view={view} setView={setView} onLogout={onLogout} />
 
       <main className="main-content">
         <Header user={user} />
-
-        {/* Usamos las clases utilitarias de index.css para las animaciones suaves */}
-        <div className="view-section active">
-          {view === "alumnos" && <Alumnos />}
-          {view === "docentes" && user.role === "admin" && <Docentes />}
-          {view === "asistencias" && <Asistencias />}
-          {view === "notas" && <Notas />}
-          {view === "actas" && <Actas />}
-        </div>
+        <div className="view-section active">{renderView()}</div>
       </main>
     </div>
   );

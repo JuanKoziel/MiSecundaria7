@@ -1,18 +1,14 @@
-import { useState } from "react";
-
-const alumnos = [
-  { nombre: "Agustín Hoffer" },
-  { nombre: "Sofía Martínez" },
-];
+import { useState } from 'react';
+import { alumnos, nombreCorto } from '../../data/mockData';
 
 function Asistencias() {
   const [asistencias, setAsistencias] = useState({});
 
-  const toggleAsistencia = (index) => {
-    setAsistencias({
-      ...asistencias,
-      [index]: !asistencias[index],
-    });
+  const toggleAsistencia = (id) => {
+    setAsistencias((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
   };
 
   return (
@@ -30,20 +26,20 @@ function Asistencias() {
             </tr>
           </thead>
           <tbody>
-            {alumnos.map((a, i) => {
-              const isPresente = asistencias[i] || false;
+            {alumnos.map((a) => {
+              const isPresente = asistencias[a.id] ?? false;
               return (
-                <tr key={i}>
-                  <td>{a.nombre}</td>
+                <tr key={a.id}>
+                  <td>{nombreCorto(a)}</td>
                   <td>
-                    {/* Renderizamos un botón estético usando tus clases CSS de badges */}
-                    <span 
+                    <button
+                      type="button"
                       className={`badge ${isPresente ? 'badge-presente' : 'badge-ausente'}`}
-                      onClick={() => toggleAsistencia(i)}
-                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => toggleAsistencia(a.id)}
+                      style={{ cursor: 'pointer', border: 'none' }}
                     >
-                      {isPresente ? "✓ Presente" : "✕ Ausente"}
-                    </span>
+                      {isPresente ? '✓ Presente' : '✕ Ausente'}
+                    </button>
                   </td>
                 </tr>
               );

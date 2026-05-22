@@ -39,4 +39,4 @@ pnpm-debug.log*
 *~
 .DS_Store
 # Local files
-package-lock.json
+

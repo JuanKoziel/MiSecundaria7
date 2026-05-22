@@ -1,12 +1,14 @@
-import React from 'react';
-
 function PanelInfo() {
+  const handleSubir = () => {
+    alert('Datos subidos correctamente (modo demostración).');
+  };
+
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3>Información y Diagnóstico General</h3>
       </div>
-      
+
       <div className="table-responsive">
         <table>
           <thead>
@@ -21,16 +23,16 @@ function PanelInfo() {
                 <input type="file" />
               </td>
               <td>
-                <textarea 
+                <textarea
                   placeholder="Escriba aquí los detalles observados del comportamiento y rendimiento del grupo..."
-                  style={{ 
-                    width: '100%', 
-                    height: '110px', 
-                    padding: '12px', 
-                    border: '1px solid #ddd', 
+                  style={{
+                    width: '100%',
+                    height: '110px',
+                    padding: '12px',
+                    border: '1px solid #ddd',
                     borderRadius: '8px',
                     outline: 'none',
-                    resize: 'vertical'
+                    resize: 'vertical',
                   }}
                 />
               </td>
@@ -38,10 +40,10 @@ function PanelInfo() {
           </tbody>
         </table>
       </div>
-      
+
       <div className="action-footer-btn">
-        <button className="btn btn-primary">
-          <i className="fas fa-upload"></i> Subir Datos
+        <button type="button" className="btn btn-primary" onClick={handleSubir}>
+          <i className="fas fa-upload" aria-hidden="true" /> Subir Datos
         </button>
       </div>
     </div>

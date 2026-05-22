@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState } from 'react';
+import { alumnos, nombreCorto } from '../../data/mockData';
 
-const alumnos = [
-  { nombre: "Agustín Hoffer" },
-  { nombre: "Sofía Martínez" },
-];
+function clampNota(value) {
+  if (value === '') return '';
+  const num = Number(value);
+  if (Number.isNaN(num)) return '';
+  return String(Math.min(10, Math.max(1, num)));
+}
 
 function Notas() {
   const [notas, setNotas] = useState({});
 
-  const handleChange = (index, value) => {
-    setNotas({ ...notas, [index]: value });
+  const handleChange = (id, value) => {
+    setNotas((prev) => ({ ...prev, [id]: clampNota(value) }));
   };
 
   return (
@@ -27,22 +30,22 @@ function Notas() {
             </tr>
           </thead>
           <tbody>
-            {alumnos.map((a, i) => (
-              <tr key={i}>
-                <td>{a.nombre}</td>
+            {alumnos.map((a) => (
+              <tr key={a.id}>
+                <td>{nombreCorto(a)}</td>
                 <td>
                   <input
                     type="number"
                     min="1"
                     max="10"
-                    value={notas[i] || ""}
-                    onChange={(e) => handleChange(i, e.target.value)}
+                    value={notas[a.id] ?? ''}
+                    onChange={(e) => handleChange(a.id, e.target.value)}
                     style={{
                       width: '80px',
                       padding: '6px 10px',
                       border: '1px solid #ddd',
                       borderRadius: '6px',
-                      textAlign: 'center'
+                      textAlign: 'center',
                     }}
                   />
                 </td>

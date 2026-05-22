@@ -1,15 +1,14 @@
-import React from 'react';
+import { materias } from '../../data/mockData';
 
 function MateriasGrid({ materiaSeleccionada, onSeleccionarMateria }) {
-  const materias = ['Matemática', 'Lengua y Lit.', 'Física', 'Química'];
-
   return (
     <div className="materias-wrapper">
-      <h3>Materias disponibles:</h3>
+      <h3>Materias disponibles</h3>
       <div className="materias-grid">
         {materias.map((materia) => (
           <button
             key={materia}
+            type="button"
             className={`materia-btn ${materiaSeleccionada === materia ? 'active-materia' : ''}`}
             onClick={() => onSeleccionarMateria(materia)}
           >

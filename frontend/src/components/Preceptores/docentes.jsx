@@ -1,32 +1,30 @@
-const dataDocentes = [
-  { dni: "30.123.456", nombre: "Carlos", apellido: "Gómez", materia: "Matemática" },
-  { dni: "28.987.654", nombre: "Laura", apellido: "Pérez", materia: "Lengua" },
-];
+import { docentes } from '../../data/mockData';
 
 function Docentes() {
   return (
     <div className="card">
       <h3>Docentes</h3>
 
-      <table>
-        <thead>
-          <tr>
-            <th>DNI</th>
-            <th>Nombre</th>
-            <th>Materia</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {dataDocentes.map((d, i) => (
-            <tr key={i}>
-              <td>{d.dni}</td>
-              <td>{d.apellido}, {d.nombre}</td>
-              <td>{d.materia}</td>
+      <div className="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>DNI</th>
+              <th>Nombre</th>
+              <th>Materia</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {docentes.map((d) => (
+              <tr key={d.id}>
+                <td>{d.dni}</td>
+                <td>{d.apellido}, {d.nombre}</td>
+                <td>{d.materia}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

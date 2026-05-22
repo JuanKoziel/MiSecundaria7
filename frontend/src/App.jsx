@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import Login from './components/Login/login';
-import PanelProfesores from './components/Profesores/Panelprofesores';
-// 1. Importamos tu nuevo panel de preceptores (ajustá la ruta según tus carpetas)
-import PreceptorDashboard from './components/Preceptores/Preceptordashboard'; 
+import PanelProfesores from './components/Profesores/PanelProfesores';
+import PreceptorDashboard from './components/Preceptores/PreceptorDashboard';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -15,33 +14,45 @@ function App() {
     setUser(null);
   };
 
-  // Si no hay usuario logueado, mostramos la pantalla de Login
   if (!user) {
     return <Login onLogin={handleLogin} />;
   }
 
-  // 2. Control de acceso según el Rol elegido
   switch (user.role) {
     case 'preceptor':
-      // Si entra como preceptor, ejecuta los archivos que me mostraste
-      return <PreceptorDashboard user={user} onLogout={handleLogout} />;
-      
-    case 'docente':
-      // Si entra como docente, va a su panel correspondiente
-      return <PanelProfesores user={user} onLogout={handleLogout} />;
-      
     case 'admin':
-      // Si en el futuro hacés un panel exclusivo de Administrador lo ponés acá.
-      // Por ahora, como tu PreceptorDashboard incluye lógica de "admin" (ver docentes),
-      // podés hacer que comparta el mismo panel o crear uno nuevo.
-      return <Administradorativo user={user} onLogout={handleLogout} />;
+      return <PreceptorDashboard user={user} onLogout={handleLogout} />;
 
-    case 'comun':
+    case 'docente':
+      return <PanelProfesores user={user} onLogout={handleLogout} />;
+
+    case 'familia':
+      return (
+        <div className="login-container">
+          <div className="card" style={{ maxWidth: '480px', textAlign: 'center' }}>
+            <h2>Panel de Familia</h2>
+            <p style={{ color: 'var(--text-light)', margin: '16px 0 24px' }}>
+              Esta sección estará disponible próximamente.
+            </p>
+            <button type="button" className="btn btn-primary" onClick={handleLogout}>
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
+      );
+
     default:
       return (
-        <div style={{ padding: '20px', textAlign: 'center' }}>
-          <h2>Usuario sin panel asignado</h2>
-          <button onClick={handleLogout}>Volver</button>
+        <div className="login-container">
+          <div className="card" style={{ maxWidth: '480px', textAlign: 'center' }}>
+            <h2>Usuario sin panel asignado</h2>
+            <p style={{ color: 'var(--text-light)', margin: '16px 0 24px' }}>
+              El rol seleccionado no tiene un panel configurado.
+            </p>
+            <button type="button" className="btn btn-primary" onClick={handleLogout}>
+              Volver al inicio
+            </button>
+          </div>
         </div>
       );
   }

@@ -1,40 +1,55 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { asistenciaDocenteInicial } from '../../data/mockData';
 
 function PanelAsistencia() {
-  const [alumnos, setAlumnos] = useState([
-    { id: 1, nombre: 'Álvarez, Luis', estado: 'Presente' },
-    { id: 2, nombre: 'Benítez, Ana', estado: 'Ausente' }
-  ]);
+  const [alumnos, setAlumnos] = useState(asistenciaDocenteInicial);
 
   const cambiarAsistencia = (id, nuevoEstado) => {
-    setAlumnos(prev => prev.map(al => al.id === id ? { ...al, estado: nuevoEstado } : al));
+    setAlumnos((prev) => prev.map((al) => (al.id === id ? { ...al, estado: nuevoEstado } : al)));
   };
 
-  // Retorna la clase exacta que definiste en tu archivo CSS para cada badge
   const getBadgeClass = (estado) => {
     if (estado === 'Presente') return 'badge-presente';
     if (estado === 'Ausente') return 'badge-ausente';
     return 'badge-tarde';
   };
 
+  const handleConsolidar = () => {
+    alert('Asistencia del día consolidada (modo demostración).');
+  };
+
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3>Registro de Asistencias Diario</h3>
-        <button className="btn btn-primary">
-          <i className="fas fa-check-double"></i> Consolidar Día
+        <button type="button" className="btn btn-primary" onClick={handleConsolidar}>
+          <i className="fas fa-check-double" aria-hidden="true" /> Consolidar Día
         </button>
       </div>
 
       <div className="global-field-box">
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ minWidth: '180px' }}>
-            <label style={{ fontWeight: '500', fontSize: '0.9rem', display: 'block', marginBottom: '5px' }}>Fecha de Dictado</label>
-            <input type="date" defaultValue="2026-05-18" />
+            <label
+              htmlFor="fecha-dictado"
+              style={{ fontWeight: '500', fontSize: '0.9rem', display: 'block', marginBottom: '5px' }}
+            >
+              Fecha de Dictado
+            </label>
+            <input id="fecha-dictado" type="date" defaultValue="2026-05-18" />
           </div>
           <div style={{ flex: 1, minWidth: '260px' }}>
-            <label style={{ fontWeight: '500', fontSize: '0.9rem', display: 'block', marginBottom: '5px' }}>Libro de Temas de la Clase</label>
-            <input type="text" placeholder="Escriba los contenidos y ejes conceptuales dictados hoy..." />
+            <label
+              htmlFor="libro-temas"
+              style={{ fontWeight: '500', fontSize: '0.9rem', display: 'block', marginBottom: '5px' }}
+            >
+              Libro de Temas de la Clase
+            </label>
+            <input
+              id="libro-temas"
+              type="text"
+              placeholder="Escriba los contenidos y ejes conceptuales dictados hoy..."
+            />
           </div>
         </div>
       </div>
@@ -45,7 +60,7 @@ function PanelAsistencia() {
             <tr>
               <th>Estudiante</th>
               <th>Estado Actual</th>
-              <th>Cambiar Estado (Selección Única)</th>
+              <th>Cambiar Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -53,16 +68,15 @@ function PanelAsistencia() {
               <tr key={alumno.id}>
                 <td style={{ fontWeight: '600' }}>{alumno.nombre}</td>
                 <td>
-                  <span className={`badge ${getBadgeClass(alumno.estado)}`}>
-                    {alumno.estado}
-                  </span>
+                  <span className={`badge ${getBadgeClass(alumno.estado)}`}>{alumno.estado}</span>
                 </td>
                 <td>
-                  <div className="cb-container">
+                  <div className="cb-container" role="radiogroup" aria-label={`Asistencia de ${alumno.nombre}`}>
                     {['Presente', 'Ausente', 'Tarde'].map((tipo) => (
                       <label key={tipo} className="cb-label">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="radio"
+                          name={`asistencia-${alumno.id}`}
                           checked={alumno.estado === tipo}
                           onChange={() => cambiarAsistencia(alumno.id, tipo)}
                         />

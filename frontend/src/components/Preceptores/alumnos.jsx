@@ -1,7 +1,4 @@
-const dataAlumnos = [
-  { dni: "44.123.456", nombre: "Agustín", apellido: "Hoffer" },
-  { dni: "45.987.654", nombre: "Sofía", apellido: "Martínez" },
-];
+import { alumnos, nombreCompleto } from '../../data/mockData';
 
 function Alumnos() {
   return (
@@ -19,10 +16,10 @@ function Alumnos() {
             </tr>
           </thead>
           <tbody>
-            {dataAlumnos.map((a, i) => (
-              <tr key={i}>
+            {alumnos.map((a) => (
+              <tr key={a.id}>
                 <td><strong>{a.dni}</strong></td>
-                <td>{a.apellido}, {a.nombre}</td>
+                <td>{nombreCompleto(a)}</td>
               </tr>
             ))}
           </tbody>
