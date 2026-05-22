@@ -2,17 +2,20 @@ import { useState } from 'react';
 import Sidebar from './sidebar/sidebar';
 import Header from './header/header';
 import Alumnos from './alumnos';
+import Docentes from './docentes';
 import Asistencias from './asistencias';
 import Notas from './notas';
 import Actas from './actas';
 
-function PreceptorDashboard({ user, onLogout }) {
+function AdminDashboard({ user, onLogout }) {
   const [view, setView] = useState('alumnos');
 
   const renderView = () => {
     switch (view) {
       case 'alumnos':
         return <Alumnos />;
+      case 'docentes':
+        return <Docentes />;
       case 'asistencias':
         return <Asistencias />;
       case 'notas':
@@ -36,4 +39,4 @@ function PreceptorDashboard({ user, onLogout }) {
   );
 }
 
-export default PreceptorDashboard;
+export default AdminDashboard;
