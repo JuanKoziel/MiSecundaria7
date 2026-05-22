@@ -1,7 +1,17 @@
-import { calificacionesFamilia } from '../../data/mockData';
+import { useEffect, useState } from 'react';
+import { fetchCalificaciones } from '../../api/services';
 
 function Calificaciones({ hijo }) {
-  const calificaciones = calificacionesFamilia.filter((c) => c.hijoId === hijo.id);
+  const [calificaciones, setCalificaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchCalificaciones({ alumno_id: hijo.alumnoId })
+      .then(setCalificaciones)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [hijo.alumnoId]);
 
   return (
     <div className="card">
@@ -10,32 +20,36 @@ function Calificaciones({ hijo }) {
         <span className="badge role-badge-display">Solo lectura</span>
       </div>
 
-      <div className="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>Materia</th>
-              <th>Prenota 1</th>
-              <th>Nota 1</th>
-              <th>Prenota 2</th>
-              <th>Nota 2</th>
-              <th>Diagnóstico</th>
-            </tr>
-          </thead>
-          <tbody>
-            {calificaciones.map((c) => (
-              <tr key={c.id}>
-                <td className="table-cell-strong">{c.materia}</td>
-                <td><span className="badge badge-cualitativa">{c.prenota1}</span></td>
-                <td>{c.nota1}</td>
-                <td><span className="badge badge-cualitativa">{c.prenota2}</span></td>
-                <td>{c.nota2}</td>
-                <td>{c.diagnostico}</td>
+      {loading ? (
+        <p className="empty-state-message">Cargando calificaciones...</p>
+      ) : (
+        <div className="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Materia</th>
+                <th>Prenota 1</th>
+                <th>Nota 1</th>
+                <th>Prenota 2</th>
+                <th>Nota 2</th>
+                <th>Diagnóstico</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {calificaciones.map((c) => (
+                <tr key={c.id}>
+                  <td className="table-cell-strong">{c.materia}</td>
+                  <td><span className="badge badge-cualitativa">{c.prenota1}</span></td>
+                  <td>{c.nota1}</td>
+                  <td><span className="badge badge-cualitativa">{c.prenota2}</span></td>
+                  <td>{c.nota2}</td>
+                  <td>{c.diagnostico}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

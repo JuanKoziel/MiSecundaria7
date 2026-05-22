@@ -1,34 +1,25 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from './sidebar/sidebar';
 import Header from './header/header';
 import Resumen from './Resumen';
 import Calificaciones from './Calificaciones';
 import Asistencias from './Asistencias';
-import Comunicados from './Comunicados';
 import Actas from './Actas';
-import {
-  getAlumnoById,
-  getHijoLabel,
-  hijosFamilia,
-  nombreCompleto,
-} from '../../data/mockData';
+import Comunicados from './Comunicados';
+import { fetchFamiliaHijos, mapHijo } from '../../api/services';
 
 function FamiliaDashboard({ user, onLogout }) {
   const [view, setView] = useState('resumen');
   const [hijoId, setHijoId] = useState('');
+  const [hijos, setHijos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const hijos = useMemo(
-    () =>
-      hijosFamilia.map((hijo) => {
-        const alumno = getAlumnoById(hijo.alumnoId);
-        return {
-          ...hijo,
-          nombre: alumno ? nombreCompleto(alumno) : 'Alumno',
-          dni: alumno?.dni ?? '—',
-        };
-      }),
-    []
-  );
+  useEffect(() => {
+    fetchFamiliaHijos()
+      .then((data) => setHijos(data.map(mapHijo)))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   const hijoSeleccionado = hijos.find((h) => String(h.id) === hijoId) ?? null;
 
@@ -66,13 +57,14 @@ function FamiliaDashboard({ user, onLogout }) {
                 id="hijo-select"
                 value={hijoId}
                 onChange={(e) => setHijoId(e.target.value)}
+                disabled={loading}
               >
                 <option value="" disabled>
                   Seleccione un alumno...
                 </option>
                 {hijos.map((hijo) => (
                   <option key={hijo.id} value={hijo.id}>
-                    {getHijoLabel(hijo)}
+                    {hijo.nombre} ({hijo.curso})
                   </option>
                 ))}
               </select>
@@ -80,7 +72,11 @@ function FamiliaDashboard({ user, onLogout }) {
           </div>
         </div>
 
-        {hijoSeleccionado ? (
+        {loading ? (
+          <div className="card empty-state-card">
+            <p className="empty-state-message">Cargando alumnos vinculados...</p>
+          </div>
+        ) : hijoSeleccionado ? (
           <div className="view-section active">{renderView()}</div>
         ) : (
           <div className="card empty-state-card">

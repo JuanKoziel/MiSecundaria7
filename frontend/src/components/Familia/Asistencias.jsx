@@ -1,4 +1,5 @@
-import { asistenciasFamilia } from '../../data/mockData';
+import { useEffect, useState } from 'react';
+import { fetchAsistenciasDiarias } from '../../api/services';
 
 function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
@@ -7,9 +8,16 @@ function badgeClass(estado) {
 }
 
 function Asistencias({ hijo }) {
-  const asistencias = asistenciasFamilia
-    .filter((a) => a.hijoId === hijo.id)
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const [asistencias, setAsistencias] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchAsistenciasDiarias(null, hijo.alumnoId)
+      .then((data) => setAsistencias([...data].sort((a, b) => b.fecha.localeCompare(a.fecha))))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [hijo.alumnoId]);
 
   return (
     <div className="card">
@@ -17,26 +25,30 @@ function Asistencias({ hijo }) {
         <h3>Historial de Asistencias — {hijo.nombre}</h3>
       </div>
 
-      <div className="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {asistencias.map((a) => (
-              <tr key={a.id}>
-                <td>{a.fecha}</td>
-                <td>
-                  <span className={`badge ${badgeClass(a.estado)}`}>{a.estado}</span>
-                </td>
+      {loading ? (
+        <p className="empty-state-message">Cargando asistencias...</p>
+      ) : (
+        <div className="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Estado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {asistencias.map((a) => (
+                <tr key={a.id}>
+                  <td>{a.fecha}</td>
+                  <td>
+                    <span className={`badge ${badgeClass(a.estado)}`}>{a.estado}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

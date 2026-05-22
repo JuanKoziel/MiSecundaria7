@@ -1,12 +1,20 @@
-import { actasAlumno } from '../../data/mockData';
+import { useEffect, useState } from 'react';
+import { fetchActasAlumno } from '../../api/services';
 
 function Actas({ hijo }) {
-  const actas = actasAlumno
-    .filter((a) => a.alumnoId === hijo.alumnoId)
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const [actas, setActas] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchActasAlumno(hijo.alumnoId)
+      .then(setActas)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [hijo.alumnoId]);
 
   const handleVerActa = (acta) => {
-    alert(`Abriendo ${acta.archivo} — ${acta.titulo} (modo demostración).`);
+    alert(`Abriendo ${acta.archivo} — ${acta.titulo}`);
   };
 
   return (
@@ -16,7 +24,9 @@ function Actas({ hijo }) {
         <span className="badge role-badge-display">Solo lectura</span>
       </div>
 
-      {actas.length === 0 ? (
+      {loading ? (
+        <p className="empty-state-message">Cargando actas...</p>
+      ) : actas.length === 0 ? (
         <p className="empty-state-message">
           No hay actas cargadas para este alumno en este momento.
         </p>
@@ -38,7 +48,7 @@ function Actas({ hijo }) {
                   <td className="table-cell-strong">{acta.titulo}</td>
                   <td>{acta.materia}</td>
                   <td>{acta.fecha}</td>
-                  <td>{acta.cargadoPor}</td>
+                  <td>{acta.cargado_por}</td>
                   <td>
                     <button
                       type="button"

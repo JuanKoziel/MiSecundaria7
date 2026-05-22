@@ -1,9 +1,17 @@
-import { comunicadosFamilia } from '../../data/mockData';
+import { useEffect, useState } from 'react';
+import { fetchComunicados } from '../../api/services';
 
 function Comunicados({ hijo }) {
-  const comunicados = comunicadosFamilia
-    .filter((c) => c.curso === hijo.curso)
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const [comunicados, setComunicados] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchComunicados(hijo.curso)
+      .then(setComunicados)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [hijo.curso]);
 
   return (
     <div className="card">
@@ -11,7 +19,9 @@ function Comunicados({ hijo }) {
         <h3>Comunicados del curso {hijo.curso}</h3>
       </div>
 
-      {comunicados.length === 0 ? (
+      {loading ? (
+        <p className="empty-state-message">Cargando comunicados...</p>
+      ) : comunicados.length === 0 ? (
         <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
           No hay comunicados para este curso en este momento.
         </p>

@@ -1,16 +1,27 @@
 import './login.css';
 import { useState } from 'react';
+import { login, mapUser } from '../../api/services';
+import { setToken } from '../../api/client';
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
-  const [role, setRole] = useState('admin');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onLogin({
-      username: username.toUpperCase(),
-      role,
-    });
+    setError('');
+    setLoading(true);
+    try {
+      const data = await login(username.trim(), password);
+      setToken(data.token);
+      onLogin(mapUser(data.user));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,27 +38,41 @@ function Login({ onLogin }) {
             <input
               id="username"
               type="text"
-              placeholder="Ej: JMARTINEZ"
+              placeholder="Ej: admin, familia, cgomez"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
+              autoComplete="username"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="role">Rol de Usuario</label>
-            <select id="role" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="admin">Administrador</option>
-              <option value="docente">Docente</option>
-              <option value="preceptor">Preceptor</option>
-              <option value="familia">Familia</option>
-            </select>
+            <label htmlFor="password">Contraseña</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="Contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
           </div>
 
-          <button type="submit" className="btn btn-primary btn-login">
-            Ingresar
+          {error && (
+            <p className="login-error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <button type="submit" className="btn btn-primary btn-login" disabled={loading}>
+            {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>
+
+        <p className="login-hint">
+          Demo: admin / admin123 · preceptor / preceptor123 · cgomez / docente123 · familia / familia123
+        </p>
       </div>
     </div>
   );

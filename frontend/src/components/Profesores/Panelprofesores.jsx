@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import TopHeader from './TopHeader';
 import PanelAlumnos from './PanelAlumnos';
@@ -6,12 +6,23 @@ import PanelInfo from './PanelInfo';
 import PanelPlanif from './PanelPlanif';
 import PanelAsistencia from './PanelAsistencia';
 import MateriasGrid from './MateriasGrid';
-import { cursos } from '../../data/mockData';
+import { fetchCatalogos } from '../../api/services';
 
 function PanelProfesores({ user, onLogout }) {
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
   const [materiaSeleccionada, setMateriaSeleccionada] = useState('');
   const [seccionActiva, setSeccionActiva] = useState('alumnos');
+  const [cursos, setCursos] = useState([]);
+  const [materias, setMaterias] = useState([]);
+
+  useEffect(() => {
+    fetchCatalogos()
+      .then((data) => {
+        setCursos(data.cursos);
+        setMaterias(data.materias);
+      })
+      .catch(console.error);
+  }, []);
 
   const handleCursoChange = (nuevoCurso) => {
     setCursoSeleccionado(nuevoCurso);
@@ -56,6 +67,7 @@ function PanelProfesores({ user, onLogout }) {
 
           {cursoSeleccionado && (
             <MateriasGrid
+              materias={materias}
               materiaSeleccionada={materiaSeleccionada}
               onSeleccionarMateria={setMateriaSeleccionada}
             />
@@ -65,7 +77,9 @@ function PanelProfesores({ user, onLogout }) {
         {cursoSeleccionado && materiaSeleccionada ? (
           <>
             <div className={`view-section ${seccionActiva === 'alumnos' ? 'active' : ''}`}>
-              {seccionActiva === 'alumnos' && <PanelAlumnos />}
+              {seccionActiva === 'alumnos' && (
+                <PanelAlumnos curso={cursoSeleccionado} materia={materiaSeleccionada} />
+              )}
             </div>
             <div className={`view-section ${seccionActiva === 'info' ? 'active' : ''}`}>
               {seccionActiva === 'info' && <PanelInfo />}
@@ -74,7 +88,9 @@ function PanelProfesores({ user, onLogout }) {
               {seccionActiva === 'planif' && <PanelPlanif />}
             </div>
             <div className={`view-section ${seccionActiva === 'asistencia' ? 'active' : ''}`}>
-              {seccionActiva === 'asistencia' && <PanelAsistencia />}
+              {seccionActiva === 'asistencia' && (
+                <PanelAsistencia curso={cursoSeleccionado} materia={materiaSeleccionada} />
+              )}
             </div>
           </>
         ) : (

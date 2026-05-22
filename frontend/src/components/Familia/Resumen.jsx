@@ -1,20 +1,42 @@
-import { asistenciasFamilia, calificacionesFamilia } from '../../data/mockData';
+import { useEffect, useState } from 'react';
+import {
+  fetchAsistenciasDiarias,
+  fetchCalificaciones,
+  fetchNotasPreceptor,
+} from '../../api/services';
 
 function Resumen({ hijo }) {
-  const asistencias = asistenciasFamilia.filter((a) => a.hijoId === hijo.id);
-  const calificaciones = calificacionesFamilia.filter((c) => c.hijoId === hijo.id);
+  const [stats, setStats] = useState({ porcentaje: 0, promedio: '—' });
+  const [loading, setLoading] = useState(true);
 
-  const presentes = asistencias.filter((a) => a.estado === 'Presente').length;
-  const porcentajeAsistencia =
-    asistencias.length > 0 ? Math.round((presentes / asistencias.length) * 100) : 0;
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      fetchAsistenciasDiarias(null, hijo.alumnoId),
+      fetchCalificaciones({ alumno_id: hijo.alumnoId }),
+      fetchNotasPreceptor(hijo.alumnoId),
+    ])
+      .then(([asistencias, calificaciones, notasPreceptor]) => {
+        const presentes = asistencias.filter((a) => a.estado === 'Presente').length;
+        const porcentaje =
+          asistencias.length > 0 ? Math.round((presentes / asistencias.length) * 100) : 0;
 
-  const promedio =
-    calificaciones.length > 0
-      ? (
-          calificaciones.reduce((acc, c) => acc + (Number(c.nota1) + Number(c.nota2)) / 2, 0) /
-          calificaciones.length
-        ).toFixed(1)
-      : '—';
+        let promedio = '—';
+        if (calificaciones.length > 0) {
+          const sum = calificaciones.reduce(
+            (acc, c) => acc + ((Number(c.nota1) || 0) + (Number(c.nota2) || 0)) / 2,
+            0
+          );
+          promedio = (sum / calificaciones.length).toFixed(1);
+        } else if (notasPreceptor[0]?.nota != null) {
+          promedio = String(notasPreceptor[0].nota);
+        }
+
+        setStats({ porcentaje, promedio });
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [hijo.alumnoId]);
 
   return (
     <div className="familia-resumen-grid">
@@ -28,11 +50,15 @@ function Resumen({ hijo }) {
       </div>
       <div className="card familia-stat-card">
         <span className="familia-stat-label">Asistencia reciente</span>
-        <strong className="familia-stat-value font-accent">{porcentajeAsistencia}%</strong>
+        <strong className="familia-stat-value font-accent">
+          {loading ? '...' : `${stats.porcentaje}%`}
+        </strong>
       </div>
       <div className="card familia-stat-card">
         <span className="familia-stat-label">Promedio general</span>
-        <strong className="familia-stat-value font-accent">{promedio}</strong>
+        <strong className="familia-stat-value font-accent">
+          {loading ? '...' : stats.promedio}
+        </strong>
       </div>
 
       <div className="card" style={{ gridColumn: '1 / -1' }}>

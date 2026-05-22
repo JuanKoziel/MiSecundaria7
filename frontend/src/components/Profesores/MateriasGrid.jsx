@@ -1,6 +1,4 @@
-import { materias } from '../../data/mockData';
-
-function MateriasGrid({ materiaSeleccionada, onSeleccionarMateria }) {
+function MateriasGrid({ materias, materiaSeleccionada, onSeleccionarMateria }) {
   return (
     <div className="materias-wrapper">
       <h3>Materias disponibles</h3>

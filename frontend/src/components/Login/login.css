@@ -16,3 +16,17 @@
   justify-content: center;
   margin-top: 10px;
 }
+
+.login-error {
+  color: #c0392b;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.login-hint {
+  margin-top: 20px;
+  font-size: 0.75rem;
+  color: var(--text-light);
+  line-height: 1.4;
+}

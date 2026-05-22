@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { alumnosDocenteInicial } from '../../data/mockData';
+import { useEffect, useState } from 'react';
+import { fetchAlumnos, fetchCalificaciones, saveCalificacionesBulk } from '../../api/services';
 
 function clampNota(value) {
   if (value === '') return '';
@@ -8,8 +8,37 @@ function clampNota(value) {
   return Math.min(10, Math.max(1, num));
 }
 
-function PanelAlumnos() {
-  const [alumnos, setAlumnos] = useState(alumnosDocenteInicial);
+function PanelAlumnos({ curso, materia }) {
+  const [alumnos, setAlumnos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      fetchAlumnos(curso),
+      fetchCalificaciones({ curso, materia }),
+    ])
+      .then(([alumnosData, califs]) => {
+        const califMap = Object.fromEntries(califs.map((c) => [c.alumno_id, c]));
+        setAlumnos(
+          alumnosData.map((a) => {
+            const c = califMap[a.id] || {};
+            return {
+              id: a.id,
+              nombre: `${a.apellido}, ${a.nombre}`,
+              prenota1: c.prenota1 || '',
+              nota1: c.nota1 ?? '',
+              prenota2: c.prenota2 || '',
+              nota2: c.nota2 ?? '',
+              diag: c.diagnostico || '',
+            };
+          })
+        );
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [curso, materia]);
 
   const handleInputChange = (id, campo, valor) => {
     setAlumnos((prev) =>
@@ -17,16 +46,43 @@ function PanelAlumnos() {
     );
   };
 
-  const handleGuardar = () => {
-    alert('Notas guardadas correctamente (modo demostración).');
+  const handleGuardar = async () => {
+    setSaving(true);
+    try {
+      await saveCalificacionesBulk({
+        curso,
+        materia,
+        items: alumnos.map((a) => ({
+          alumno_id: a.id,
+          prenota1: a.prenota1,
+          nota1: a.nota1 === '' ? null : a.nota1,
+          prenota2: a.prenota2,
+          nota2: a.nota2 === '' ? null : a.nota2,
+          diagnostico: a.diag,
+        })),
+      });
+      alert('Notas guardadas correctamente.');
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="card">
+        <p className="empty-state-message">Cargando planilla...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3>Planilla de Calificaciones</h3>
-        <button type="button" className="btn btn-primary" onClick={handleGuardar}>
-          <i className="fas fa-save" aria-hidden="true" /> Guardar Notas
+        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={saving}>
+          <i className="fas fa-save" aria-hidden="true" /> {saving ? 'Guardando...' : 'Guardar Notas'}
         </button>
       </div>
 
@@ -52,7 +108,7 @@ function PanelAlumnos() {
                     type="button"
                     className="btn btn-success table-download-btn"
                     onClick={() =>
-                      alert(`Descargando legajo de ${alumno.nombre} (modo demostración).`)
+                      alert(`Legajo de ${alumno.nombre} (consultar en Actas del alumno).`)
                     }
                   >
                     <i className="fas fa-file-pdf" aria-hidden="true" /> Ver Acta
@@ -64,9 +120,7 @@ function PanelAlumnos() {
                     onChange={(e) => handleInputChange(alumno.id, 'prenota1', e.target.value)}
                     className="select-table"
                   >
-                    <option value="" disabled>
-                      --
-                    </option>
+                    <option value="" disabled>--</option>
                     <option value="TEA">TEA</option>
                     <option value="TEP">TEP</option>
                     <option value="TED">TED</option>
@@ -90,9 +144,7 @@ function PanelAlumnos() {
                     onChange={(e) => handleInputChange(alumno.id, 'prenota2', e.target.value)}
                     className="select-table"
                   >
-                    <option value="" disabled>
-                      --
-                    </option>
+                    <option value="" disabled>--</option>
                     <option value="TEA">TEA</option>
                     <option value="TEP">TEP</option>
                     <option value="TED">TED</option>
@@ -103,11 +155,11 @@ function PanelAlumnos() {
                     type="number"
                     min="1"
                     max="10"
+                    className="input-table"
                     value={alumno.nota2}
                     onChange={(e) =>
                       handleInputChange(alumno.id, 'nota2', clampNota(e.target.value))
                     }
-                    className="input-table"
                   />
                 </td>
                 <td>
