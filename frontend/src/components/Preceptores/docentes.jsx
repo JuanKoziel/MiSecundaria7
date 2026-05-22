@@ -3,7 +3,9 @@ import { docentes } from '../../data/mockData';
 function Docentes() {
   return (
     <div className="card">
-      <h3>Docentes</h3>
+      <div className="card-header-flex">
+        <h3>Docentes</h3>
+      </div>
 
       <div className="table-responsive">
         <table>

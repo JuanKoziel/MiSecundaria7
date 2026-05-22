@@ -43,19 +43,19 @@ function Resumen({ hijo }) {
           <table>
             <tbody>
               <tr>
-                <td style={{ width: '180px', fontWeight: '600', color: 'var(--text-light)' }}>Nombre completo</td>
+                <td className="table-label">Nombre completo</td>
                 <td>{hijo.nombre}</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: '600', color: 'var(--text-light)' }}>DNI</td>
+                <td className="table-label">DNI</td>
                 <td><strong>{hijo.dni}</strong></td>
               </tr>
               <tr>
-                <td style={{ fontWeight: '600', color: 'var(--text-light)' }}>Curso</td>
+                <td className="table-label">Curso</td>
                 <td>{hijo.curso}</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: '600', color: 'var(--text-light)' }}>Preceptoría</td>
+                <td className="table-label">Preceptoría</td>
                 <td>Turno mañana — División {hijo.curso}</td>
               </tr>
             </tbody>

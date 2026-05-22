@@ -1,17 +1,10 @@
-import './sidebar.css';
-
-const menuItems = [
-  { id: 'alumnos', label: 'Alumnos', adminOnly: false },
-  { id: 'docentes', label: 'Docentes', adminOnly: true },
-  { id: 'asistencias', label: 'Asistencias', adminOnly: false },
-  { id: 'notas', label: 'Notas', adminOnly: false },
-  { id: 'actas', label: 'Actas', adminOnly: false },
-];
+import { menuItems } from '../sidebarMenu';
 
 function Sidebar({ setView, onLogout, user, view }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
+        <i className="fas fa-school" aria-hidden="true" />
         <span>MiSecundaria 7</span>
       </div>
 
@@ -25,6 +18,7 @@ function Sidebar({ setView, onLogout, user, view }) {
                 className="sidebar-menu-btn"
                 onClick={() => setView(item.id)}
               >
+                <i className={`fas ${item.icon}`} aria-hidden="true" />
                 <span>{item.label}</span>
               </button>
             </li>
@@ -32,6 +26,7 @@ function Sidebar({ setView, onLogout, user, view }) {
 
         <li className="logout-li">
           <button type="button" className="sidebar-menu-btn sidebar-logout-btn" onClick={onLogout}>
+            <i className="fas fa-sign-out-alt" aria-hidden="true" />
             <span>Cerrar Sesión</span>
           </button>
         </li>

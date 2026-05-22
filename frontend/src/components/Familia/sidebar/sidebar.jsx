@@ -2,6 +2,7 @@ const menuItems = [
   { id: 'resumen', label: 'Resumen', icon: 'fa-home' },
   { id: 'calificaciones', label: 'Calificaciones', icon: 'fa-graduation-cap' },
   { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },
+  { id: 'actas', label: 'Actas', icon: 'fa-file-pdf' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
 ];
 

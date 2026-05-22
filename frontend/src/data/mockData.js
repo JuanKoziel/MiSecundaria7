@@ -13,6 +13,54 @@ export const actas = [
   { id: 2, curso: '1°2', fecha: '2025-03-12', descripcion: 'Reunión de padres' },
 ];
 
+export const actasAlumno = [
+  {
+    id: 1,
+    alumnoId: 1,
+    titulo: 'Informe parcial - Matemática',
+    materia: 'Matemática',
+    fecha: '2026-05-15',
+    cargadoPor: 'Carlos Gómez',
+    archivo: 'informe_mat_agustin.pdf',
+  },
+  {
+    id: 2,
+    alumnoId: 1,
+    titulo: 'Acta de evaluación - Lengua',
+    materia: 'Lengua y Lit.',
+    fecha: '2026-05-10',
+    cargadoPor: 'Laura Pérez',
+    archivo: 'acta_lengua_agustin.pdf',
+  },
+  {
+    id: 3,
+    alumnoId: 1,
+    titulo: 'Informe de conducta 1° bimestre',
+    materia: 'General',
+    fecha: '2026-04-28',
+    cargadoPor: 'Preceptoría',
+    archivo: 'conducta_agustin.pdf',
+  },
+  {
+    id: 4,
+    alumnoId: 2,
+    titulo: 'Informe parcial - Matemática',
+    materia: 'Matemática',
+    fecha: '2026-05-14',
+    cargadoPor: 'Carlos Gómez',
+    archivo: 'informe_mat_sofia.pdf',
+  },
+  {
+    id: 5,
+    alumnoId: 2,
+    titulo: 'Acta reunión tutoría',
+    materia: 'General',
+    fecha: '2026-05-08',
+    cargadoPor: 'Preceptoría',
+    archivo: 'tutoria_sofia.pdf',
+  },
+];
+
 export const cursos = [
   '1°1', '1°2', '1°3',
   '2°1', '2°2', '2°3',

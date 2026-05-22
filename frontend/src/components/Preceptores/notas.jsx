@@ -38,15 +38,9 @@ function Notas() {
                     type="number"
                     min="1"
                     max="10"
+                    className="input-table input-table--wide"
                     value={notas[a.id] ?? ''}
                     onChange={(e) => handleChange(a.id, e.target.value)}
-                    style={{
-                      width: '80px',
-                      padding: '6px 10px',
-                      border: '1px solid #ddd',
-                      borderRadius: '6px',
-                      textAlign: 'center',
-                    }}
                   />
                 </td>
               </tr>

@@ -3,7 +3,9 @@ import { actas } from '../../data/mockData';
 function Actas() {
   return (
     <div className="card">
-      <h3>Actas</h3>
+      <div className="card-header-flex">
+        <h3>Actas</h3>
+      </div>
 
       <div className="table-responsive">
         <table>

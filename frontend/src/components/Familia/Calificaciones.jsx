@@ -25,10 +25,10 @@ function Calificaciones({ hijo }) {
           <tbody>
             {calificaciones.map((c) => (
               <tr key={c.id}>
-                <td style={{ fontWeight: '600' }}>{c.materia}</td>
-                <td><span className="badge badge-presente">{c.prenota1}</span></td>
+                <td className="table-cell-strong">{c.materia}</td>
+                <td><span className="badge badge-cualitativa">{c.prenota1}</span></td>
                 <td>{c.nota1}</td>
-                <td><span className="badge badge-presente">{c.prenota2}</span></td>
+                <td><span className="badge badge-cualitativa">{c.prenota2}</span></td>
                 <td>{c.nota2}</td>
                 <td>{c.diagnostico}</td>
               </tr>

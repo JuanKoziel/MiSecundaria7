@@ -28,23 +28,13 @@ function PanelAsistencia() {
       </div>
 
       <div className="global-field-box">
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ minWidth: '180px' }}>
-            <label
-              htmlFor="fecha-dictado"
-              style={{ fontWeight: '500', fontSize: '0.9rem', display: 'block', marginBottom: '5px' }}
-            >
-              Fecha de Dictado
-            </label>
+        <div className="field-row">
+          <div className="field-group">
+            <label htmlFor="fecha-dictado">Fecha de Dictado</label>
             <input id="fecha-dictado" type="date" defaultValue="2026-05-18" />
           </div>
-          <div style={{ flex: 1, minWidth: '260px' }}>
-            <label
-              htmlFor="libro-temas"
-              style={{ fontWeight: '500', fontSize: '0.9rem', display: 'block', marginBottom: '5px' }}
-            >
-              Libro de Temas de la Clase
-            </label>
+          <div className="field-group field-group--grow">
+            <label htmlFor="libro-temas">Libro de Temas de la Clase</label>
             <input
               id="libro-temas"
               type="text"
@@ -66,7 +56,7 @@ function PanelAsistencia() {
           <tbody>
             {alumnos.map((alumno) => (
               <tr key={alumno.id}>
-                <td style={{ fontWeight: '600' }}>{alumno.nombre}</td>
+                <td className="table-cell-strong">{alumno.nombre}</td>
                 <td>
                   <span className={`badge ${getBadgeClass(alumno.estado)}`}>{alumno.estado}</span>
                 </td>

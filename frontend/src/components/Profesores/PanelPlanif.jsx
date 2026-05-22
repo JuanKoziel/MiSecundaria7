@@ -5,8 +5,10 @@ function PanelPlanif() {
 
   return (
     <div className="card">
-      <h3>Planificaciones Curriculares</h3>
-      <p style={{ color: '#666', marginBottom: '20px', fontSize: '0.9rem' }}>
+      <div className="card-header-flex">
+        <h3>Planificaciones Curriculares</h3>
+      </div>
+      <p className="card-description">
         Espacio de almacenamiento técnico-pedagógico para subir documentos metodológicos trimestrales o anuales.
       </p>
 
@@ -14,7 +16,7 @@ function PanelPlanif() {
         <label>
           <i className="fas fa-cloud-upload-alt cloud-icon" aria-hidden="true" />
           <strong>Seleccionar Planificación Educativa</strong>
-          <span style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>
+          <span className="upload-hint">
             Formatos soportados: PDF, DOCX (Máx 10MB)
           </span>
           <input type="file" style={{ display: 'none' }} onChange={handleArchivo} />

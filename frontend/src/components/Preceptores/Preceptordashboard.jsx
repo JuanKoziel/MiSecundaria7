@@ -17,8 +17,8 @@ function PreceptorDashboard({ user, onLogout }) {
       case 'docentes':
         if (user.role === 'admin') return <Docentes />;
         return (
-          <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-            <p style={{ color: 'var(--text-light)' }}>No tenés permisos para ver esta sección.</p>
+          <div className="card empty-state-card empty-state-card--compact">
+            <p className="empty-state-message">No tenés permisos para ver esta sección.</p>
           </div>
         );
       case 'asistencias':

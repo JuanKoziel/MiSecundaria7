@@ -78,8 +78,8 @@ function PanelProfesores({ user, onLogout }) {
             </div>
           </>
         ) : (
-          <div className="card" style={{ padding: '60px', textAlign: 'center' }}>
-            <p style={{ color: '#666', fontSize: '1rem' }}>
+          <div className="card empty-state-card">
+            <p className="empty-state-message">
               {!cursoSeleccionado
                 ? 'Por favor, seleccione un curso en el Panel de Control superior.'
                 : 'Por favor, seleccione una materia para desplegar las planillas de trabajo.'}

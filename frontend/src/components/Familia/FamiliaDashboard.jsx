@@ -5,6 +5,7 @@ import Resumen from './Resumen';
 import Calificaciones from './Calificaciones';
 import Asistencias from './Asistencias';
 import Comunicados from './Comunicados';
+import Actas from './Actas';
 import {
   getAlumnoById,
   getHijoLabel,
@@ -41,6 +42,8 @@ function FamiliaDashboard({ user, onLogout }) {
         return <Calificaciones hijo={hijoSeleccionado} />;
       case 'asistencias':
         return <Asistencias hijo={hijoSeleccionado} />;
+      case 'actas':
+        return <Actas hijo={hijoSeleccionado} />;
       case 'comunicados':
         return <Comunicados hijo={hijoSeleccionado} />;
       default:
@@ -80,8 +83,8 @@ function FamiliaDashboard({ user, onLogout }) {
         {hijoSeleccionado ? (
           <div className="view-section active">{renderView()}</div>
         ) : (
-          <div className="card" style={{ padding: '60px', textAlign: 'center' }}>
-            <p style={{ color: '#666', fontSize: '1rem' }}>
+          <div className="card empty-state-card">
+            <p className="empty-state-message">
               Seleccioná un alumno vinculado para ver su información académica.
             </p>
           </div>

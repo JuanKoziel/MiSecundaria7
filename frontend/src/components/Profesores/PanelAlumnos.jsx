@@ -46,7 +46,7 @@ function PanelAlumnos() {
           <tbody>
             {alumnos.map((alumno) => (
               <tr key={alumno.id}>
-                <td style={{ fontWeight: '600' }}>{alumno.nombre}</td>
+                <td className="table-cell-strong">{alumno.nombre}</td>
                 <td>
                   <button
                     type="button"
@@ -62,7 +62,7 @@ function PanelAlumnos() {
                   <select
                     value={alumno.prenota1}
                     onChange={(e) => handleInputChange(alumno.id, 'prenota1', e.target.value)}
-                    style={{ width: '90px', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    className="select-table"
                   >
                     <option value="" disabled>
                       --
@@ -77,18 +77,18 @@ function PanelAlumnos() {
                     type="number"
                     min="1"
                     max="10"
+                    className="input-table"
                     value={alumno.nota1}
                     onChange={(e) =>
                       handleInputChange(alumno.id, 'nota1', clampNota(e.target.value))
                     }
-                    style={{ width: '70px' }}
                   />
                 </td>
                 <td>
                   <select
                     value={alumno.prenota2}
                     onChange={(e) => handleInputChange(alumno.id, 'prenota2', e.target.value)}
-                    style={{ width: '90px', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    className="select-table"
                   >
                     <option value="" disabled>
                       --
@@ -107,7 +107,7 @@ function PanelAlumnos() {
                     onChange={(e) =>
                       handleInputChange(alumno.id, 'nota2', clampNota(e.target.value))
                     }
-                    style={{ width: '70px' }}
+                    className="input-table"
                   />
                 </td>
                 <td>

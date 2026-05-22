@@ -34,9 +34,8 @@ function Asistencias() {
                   <td>
                     <button
                       type="button"
-                      className={`badge ${isPresente ? 'badge-presente' : 'badge-ausente'}`}
+                      className={`badge badge-interactive ${isPresente ? 'badge-presente' : 'badge-ausente'}`}
                       onClick={() => toggleAsistencia(a.id)}
-                      style={{ cursor: 'pointer', border: 'none' }}
                     >
                       {isPresente ? '✓ Presente' : '✕ Ausente'}
                     </button>

@@ -2,25 +2,23 @@ function TopHeader({ cursoSeleccionado, materiaSeleccionada, user }) {
   const inicial = user?.username ? user.username.charAt(0) : 'U';
   const rol = user?.role ? user.role.toUpperCase() : 'DOCENTE';
 
+  let subtitulo = 'Panel de Gestión Docente — seleccioná curso y materia';
+  if (cursoSeleccionado) {
+    subtitulo = cursoSeleccionado;
+    if (materiaSeleccionada) {
+      subtitulo = (
+        <>
+          {cursoSeleccionado} &gt; <span className="font-accent">{materiaSeleccionada}</span>
+        </>
+      );
+    }
+  }
+
   return (
     <header className="main-header">
       <div>
-        <h2>Panel de Gestión Docente</h2>
-        <div className="main-header-subtitle">
-          {cursoSeleccionado ? (
-            <span>
-              {cursoSeleccionado}
-              {materiaSeleccionada && (
-                <>
-                  {' '}
-                  &gt; <span className="font-accent">{materiaSeleccionada}</span>
-                </>
-              )}
-            </span>
-          ) : (
-            'Aguardando selección de grupo...'
-          )}
-        </div>
+        <h2>Bienvenido, {user?.username ?? 'Usuario'}</h2>
+        <p className="main-header-subtitle">{subtitulo}</p>
       </div>
       <div className="user-profile-info">
         <span className="badge role-badge-display">{rol}</span>
