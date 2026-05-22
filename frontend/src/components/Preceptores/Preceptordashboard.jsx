@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import Sidebar from './sidebar/sidebar';
-import Header from './header/header';
+import Sidebar from './sidebar';
+import Header from './header';
 import Alumnos from './alumnos';
 import Docentes from './docentes';
 import Asistencias from './asistencias';
@@ -9,26 +9,35 @@ import Actas from './actas';
 
 function PreceptorDashboard({ user, onLogout }) {
   const [view, setView] = useState('alumnos');
+  const [anioLectivo, setAnioLectivo] = useState('');
+  const [curso, setCurso] = useState('');
+
+  const handleAnioChange = (nuevoAnio) => {
+    setAnioLectivo(nuevoAnio);
+    setCurso('');
+  };
+
+  const filtrosProps = {
+    anioLectivo,
+    curso,
+    onAnioChange: handleAnioChange,
+    onCursoChange: setCurso,
+  };
 
   const renderView = () => {
     switch (view) {
       case 'alumnos':
         return <Alumnos />;
       case 'docentes':
-        if (user.role === 'admin') return <Docentes />;
-        return (
-          <div className="card empty-state-card empty-state-card--compact">
-            <p className="empty-state-message">No tenés permisos para ver esta sección.</p>
-          </div>
-        );
+        return <Docentes />;
       case 'asistencias':
-        return <Asistencias />;
+        return <Asistencias {...filtrosProps} />;
       case 'notas':
-        return <Notas />;
+        return <Notas {...filtrosProps} />;
       case 'actas':
-        return <Actas />;
+        return <Actas {...filtrosProps} />;
       default:
-        return <Alumnos />;
+        return <Alumnos {...filtrosProps} />;
     }
   };
 

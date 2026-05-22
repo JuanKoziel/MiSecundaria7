@@ -21,9 +21,9 @@ function App() {
 
   switch (user.role) {
     case 'preceptor':
-    case 'admin':
       return <PreceptorDashboard user={user} onLogout={handleLogout} />;
-
+    case 'admin':
+      pass;
     case 'docente':
       return <PanelProfesores user={user} onLogout={handleLogout} />;
 

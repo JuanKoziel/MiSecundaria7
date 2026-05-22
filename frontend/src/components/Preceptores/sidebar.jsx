@@ -1,4 +1,4 @@
-import { menuItems } from '../sidebarMenu';
+import { menuItems } from './sidebarMenu';
 
 function Sidebar({ setView, onLogout, user, view }) {
   return (

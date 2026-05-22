@@ -61,6 +61,24 @@ export const actasAlumno = [
   },
 ];
 
+export const aniosLectivos = [2025, 2026];
+
+export const inscripciones = [
+  { id: 1, alumnoId: 1, anioLectivo: 2026, curso: '1°1' },
+  { id: 2, alumnoId: 2, anioLectivo: 2026, curso: '1°2' },
+  { id: 3, alumnoId: 1, anioLectivo: 2025, curso: '1°1' },
+  { id: 4, alumnoId: 2, anioLectivo: 2025, curso: '1°1' },
+];
+
+export const asignacionesDocente = [
+  { id: 1, docenteId: 1, anioLectivo: 2026, curso: '1°1', materia: 'Matemática' },
+  { id: 2, docenteId: 2, anioLectivo: 2026, curso: '1°1', materia: 'Lengua y Lit.' },
+  { id: 3, docenteId: 1, anioLectivo: 2026, curso: '1°2', materia: 'Matemática' },
+  { id: 4, docenteId: 2, anioLectivo: 2026, curso: '1°2', materia: 'Lengua y Lit.' },
+  { id: 5, docenteId: 1, anioLectivo: 2025, curso: '1°1', materia: 'Matemática' },
+  { id: 6, docenteId: 2, anioLectivo: 2025, curso: '1°1', materia: 'Lengua y Lit.' },
+];
+
 export const cursos = [
   '1°1', '1°2', '1°3',
   '2°1', '2°2', '2°3',
