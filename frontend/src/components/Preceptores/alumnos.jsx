@@ -1,16 +1,26 @@
 import { useEffect, useState } from 'react';
 import { fetchAlumnos } from '../../api/services';
+import ApiError from '../common/ApiError';
+import CursoFilter from './CursoFilter';
+import { useCursos } from './useCursos';
 
 function Alumnos() {
+  const { cursos, curso, setCurso, error: cursosError, loading: cursosLoading } = useCursos();
   const [alumnos, setAlumnos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchAlumnos()
+    if (!curso) return;
+    setLoading(true);
+    setError('');
+    fetchAlumnos(curso)
       .then(setAlumnos)
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [curso]);
+
+  const displayError = cursosError || error;
 
   return (
     <div className="card">
@@ -18,7 +28,10 @@ function Alumnos() {
         <h3>Listado de Alumnos</h3>
       </div>
 
-      {loading ? (
+      <CursoFilter cursos={cursos} value={curso} onChange={setCurso} id="curso-alumnos" />
+      <ApiError message={displayError} />
+
+      {cursosLoading || loading ? (
         <p className="empty-state-message">Cargando alumnos...</p>
       ) : (
         <div className="table-responsive">

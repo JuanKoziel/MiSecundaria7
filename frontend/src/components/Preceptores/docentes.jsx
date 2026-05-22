@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { fetchDocentes } from '../../api/services';
+import ApiError from '../common/ApiError';
 
 function Docentes() {
   const [docentes, setDocentes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchDocentes()
       .then(setDocentes)
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -17,6 +19,8 @@ function Docentes() {
       <div className="card-header-flex">
         <h3>Docentes</h3>
       </div>
+
+      <ApiError message={error} />
 
       {loading ? (
         <p className="empty-state-message">Cargando docentes...</p>

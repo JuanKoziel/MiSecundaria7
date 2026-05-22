@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { fetchAlumnos, fetchNotasPreceptor, saveNotasPreceptorBulk } from '../../api/services';
+import ApiError from '../common/ApiError';
+import CursoFilter from './CursoFilter';
+import { useCursos } from './useCursos';
 
 function clampNota(value) {
   if (value === '') return '';
@@ -9,24 +12,32 @@ function clampNota(value) {
 }
 
 function Notas() {
+  const { cursos, curso, setCurso, error: cursosError, loading: cursosLoading } = useCursos();
   const [alumnos, setAlumnos] = useState([]);
   const [notas, setNotas] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetchAlumnos(), fetchNotasPreceptor()])
+    if (!curso) return;
+    setLoading(true);
+    setError('');
+    Promise.all([fetchAlumnos(curso), fetchNotasPreceptor()])
       .then(([alumnosData, notasData]) => {
         setAlumnos(alumnosData);
         const map = {};
+        const ids = new Set(alumnosData.map((a) => a.id));
         notasData.forEach((n) => {
-          map[n.alumno_id] = n.nota != null ? String(n.nota) : '';
+          if (ids.has(n.alumno_id)) {
+            map[n.alumno_id] = n.nota != null ? String(n.nota) : '';
+          }
         });
         setNotas(map);
       })
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [curso]);
 
   const handleChange = (id, value) => {
     setNotas((prev) => ({ ...prev, [id]: clampNota(value) }));
@@ -34,6 +45,7 @@ function Notas() {
 
   const handleGuardar = async () => {
     setSaving(true);
+    setError('');
     try {
       const items = alumnos.map((a) => ({
         alumno_id: a.id,
@@ -42,22 +54,27 @@ function Notas() {
       await saveNotasPreceptorBulk(items);
       alert('Notas guardadas correctamente.');
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
     } finally {
       setSaving(false);
     }
   };
 
+  const displayError = cursosError || error;
+
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3>Calificaciones del Periodo</h3>
-        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={saving}>
+        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={saving || !curso}>
           {saving ? 'Guardando...' : 'Guardar notas'}
         </button>
       </div>
 
-      {loading ? (
+      <CursoFilter cursos={cursos} value={curso} onChange={setCurso} id="curso-notas" />
+      <ApiError message={displayError} />
+
+      {cursosLoading || loading ? (
         <p className="empty-state-message">Cargando...</p>
       ) : (
         <div className="table-responsive">

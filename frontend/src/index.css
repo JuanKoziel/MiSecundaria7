@@ -352,6 +352,16 @@ tr:hover td {
     padding: 40px;
 }
 
+.api-error-message {
+    color: #dc3545;
+    background: #fff5f5;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-size: 0.9rem;
+}
+
 .empty-state-message {
     color: var(--text-light);
     font-size: 1rem;

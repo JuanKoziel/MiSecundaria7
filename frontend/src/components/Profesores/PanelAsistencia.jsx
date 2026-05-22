@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchSesionClase, saveSesionClase } from '../../api/services';
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { todayISO } from '../../utils/date';
+import ApiError from '../common/ApiError';
 
 function PanelAsistencia({ curso, materia }) {
   const [alumnos, setAlumnos] = useState([]);
@@ -11,9 +9,11 @@ function PanelAsistencia({ curso, materia }) {
   const [libroTemas, setLibroTemas] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     fetchSesionClase(curso, materia, fecha)
       .then((data) => {
         setLibroTemas(data.libro_temas || '');
@@ -25,7 +25,7 @@ function PanelAsistencia({ curso, materia }) {
           }))
         );
       })
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [curso, materia, fecha]);
 
@@ -70,6 +70,7 @@ function PanelAsistencia({ curso, materia }) {
 
   return (
     <div className="card">
+      <ApiError message={error} />
       <div className="card-header-flex">
         <h3>Registro de Asistencias Diario</h3>
         <button type="button" className="btn btn-primary" onClick={handleConsolidar} disabled={saving}>

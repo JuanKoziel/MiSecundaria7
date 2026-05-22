@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { fetchCalificaciones } from '../../api/services';
+import ApiError from '../common/ApiError';
 
 function Calificaciones({ hijo }) {
   const [calificaciones, setCalificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     fetchCalificaciones({ alumno_id: hijo.alumnoId })
       .then(setCalificaciones)
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [hijo.alumnoId]);
 
@@ -19,6 +22,8 @@ function Calificaciones({ hijo }) {
         <h3>Calificaciones — {hijo.nombre}</h3>
         <span className="badge role-badge-display">Solo lectura</span>
       </div>
+
+      <ApiError message={error} />
 
       {loading ? (
         <p className="empty-state-message">Cargando calificaciones...</p>

@@ -162,16 +162,20 @@ class AsistenciaDiariaListView(APIView):
     def get(self, request):
         fecha_str = request.query_params.get('fecha')
         alumno_id = request.query_params.get('alumno_id')
+        curso = request.query_params.get('curso')
         qs = AsistenciaDiaria.objects.select_related('alumno')
         role = get_role(request.user)
         if role == 'familia':
             qs = qs.filter(alumno__in=alumnos_para_familia(request.user))
             if alumno_id:
                 qs = qs.filter(alumno_id=alumno_id)
-        elif fecha_str:
-            qs = qs.filter(fecha=fecha_str)
         else:
-            qs = qs.filter(fecha=date.today())
+            if curso:
+                qs = qs.filter(alumno__curso=curso)
+            if fecha_str:
+                qs = qs.filter(fecha=fecha_str)
+            elif not alumno_id:
+                qs = qs.filter(fecha=date.today())
         return Response(AsistenciaDiariaSerializer(qs, many=True).data)
 
 

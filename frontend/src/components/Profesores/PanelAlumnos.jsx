@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchAlumnos, fetchCalificaciones, saveCalificacionesBulk } from '../../api/services';
+import ApiError from '../common/ApiError';
 
 function clampNota(value) {
   if (value === '') return '';
@@ -12,9 +13,11 @@ function PanelAlumnos({ curso, materia }) {
   const [alumnos, setAlumnos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     Promise.all([
       fetchAlumnos(curso),
       fetchCalificaciones({ curso, materia }),
@@ -36,7 +39,7 @@ function PanelAlumnos({ curso, materia }) {
           })
         );
       })
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [curso, materia]);
 
@@ -79,6 +82,7 @@ function PanelAlumnos({ curso, materia }) {
 
   return (
     <div className="card">
+      <ApiError message={error} />
       <div className="card-header-flex">
         <h3>Planilla de Calificaciones</h3>
         <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={saving}>

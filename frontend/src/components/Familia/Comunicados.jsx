@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { fetchComunicados } from '../../api/services';
+import ApiError from '../common/ApiError';
 
 function Comunicados({ hijo }) {
   const [comunicados, setComunicados] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     fetchComunicados(hijo.curso)
       .then(setComunicados)
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [hijo.curso]);
 
@@ -18,6 +21,8 @@ function Comunicados({ hijo }) {
       <div className="card-header-flex">
         <h3>Comunicados del curso {hijo.curso}</h3>
       </div>
+
+      <ApiError message={error} />
 
       {loading ? (
         <p className="empty-state-message">Cargando comunicados...</p>

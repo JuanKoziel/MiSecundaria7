@@ -7,6 +7,7 @@ import PanelPlanif from './PanelPlanif';
 import PanelAsistencia from './PanelAsistencia';
 import MateriasGrid from './MateriasGrid';
 import { fetchCatalogos } from '../../api/services';
+import ApiError from '../common/ApiError';
 
 function PanelProfesores({ user, onLogout }) {
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
@@ -14,14 +15,17 @@ function PanelProfesores({ user, onLogout }) {
   const [seccionActiva, setSeccionActiva] = useState('alumnos');
   const [cursos, setCursos] = useState([]);
   const [materias, setMaterias] = useState([]);
+  const [catalogError, setCatalogError] = useState('');
 
   useEffect(() => {
     fetchCatalogos()
       .then((data) => {
-        setCursos(data.cursos);
-        setMaterias(data.materias);
+        const listaCursos = data.cursos || [];
+        setCursos(listaCursos);
+        setMaterias(data.materias || []);
+        if (listaCursos.length > 0) setCursoSeleccionado(listaCursos[0]);
       })
-      .catch(console.error);
+      .catch((err) => setCatalogError(err.message));
   }, []);
 
   const handleCursoChange = (nuevoCurso) => {
@@ -43,6 +47,8 @@ function PanelProfesores({ user, onLogout }) {
           cursoSeleccionado={cursoSeleccionado}
           materiaSeleccionada={materiaSeleccionada}
         />
+
+        <ApiError message={catalogError} />
 
         <div className="card">
           <div className="filter-row">

@@ -4,13 +4,16 @@ import {
   fetchCalificaciones,
   fetchNotasPreceptor,
 } from '../../api/services';
+import ApiError from '../common/ApiError';
 
 function Resumen({ hijo }) {
   const [stats, setStats] = useState({ porcentaje: 0, promedio: '—' });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     Promise.all([
       fetchAsistenciasDiarias(null, hijo.alumnoId),
       fetchCalificaciones({ alumno_id: hijo.alumnoId }),
@@ -34,12 +37,14 @@ function Resumen({ hijo }) {
 
         setStats({ porcentaje, promedio });
       })
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [hijo.alumnoId]);
 
   return (
-    <div className="familia-resumen-grid">
+    <>
+      <ApiError message={error} />
+      <div className="familia-resumen-grid">
       <div className="card familia-stat-card">
         <span className="familia-stat-label">Curso</span>
         <strong className="familia-stat-value">{hijo.curso}</strong>
@@ -89,6 +94,7 @@ function Resumen({ hijo }) {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

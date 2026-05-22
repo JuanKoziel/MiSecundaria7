@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { fetchActasAlumno } from '../../api/services';
+import ApiError from '../common/ApiError';
 
 function Actas({ hijo }) {
   const [actas, setActas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     fetchActasAlumno(hijo.alumnoId)
       .then(setActas)
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [hijo.alumnoId]);
 
@@ -23,6 +26,8 @@ function Actas({ hijo }) {
         <h3>Actas cargadas — {hijo.nombre}</h3>
         <span className="badge role-badge-display">Solo lectura</span>
       </div>
+
+      <ApiError message={error} />
 
       {loading ? (
         <p className="empty-state-message">Cargando actas...</p>

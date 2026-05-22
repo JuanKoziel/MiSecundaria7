@@ -7,6 +7,7 @@ import Asistencias from './Asistencias';
 import Actas from './Actas';
 import Comunicados from './Comunicados';
 import { fetchFamiliaHijos, mapHijo } from '../../api/services';
+import ApiError from '../common/ApiError';
 
 function FamiliaDashboard({ user, onLogout }) {
   const [view, setView] = useState('resumen');
@@ -14,10 +15,16 @@ function FamiliaDashboard({ user, onLogout }) {
   const [hijos, setHijos] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [loadError, setLoadError] = useState('');
+
   useEffect(() => {
     fetchFamiliaHijos()
-      .then((data) => setHijos(data.map(mapHijo)))
-      .catch(console.error)
+      .then((data) => {
+        const mapped = data.map(mapHijo);
+        setHijos(mapped);
+        if (mapped.length > 0) setHijoId(String(mapped[0].id));
+      })
+      .catch((err) => setLoadError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -71,6 +78,8 @@ function FamiliaDashboard({ user, onLogout }) {
             </div>
           </div>
         </div>
+
+        <ApiError message={loadError} />
 
         {loading ? (
           <div className="card empty-state-card">

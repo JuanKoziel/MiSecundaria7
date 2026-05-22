@@ -4,21 +4,25 @@ import {
   fetchAsistenciasDiarias,
   saveAsistenciasDiariasBulk,
 } from '../../api/services';
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { todayISO } from '../../utils/date';
+import ApiError from '../common/ApiError';
+import CursoFilter from './CursoFilter';
+import { useCursos } from './useCursos';
 
 function Asistencias() {
+  const { cursos, curso, setCurso, error: cursosError, loading: cursosLoading } = useCursos();
   const [alumnos, setAlumnos] = useState([]);
   const [asistencias, setAsistencias] = useState({});
   const [fecha, setFecha] = useState(todayISO());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!curso) return;
     setLoading(true);
-    Promise.all([fetchAlumnos(), fetchAsistenciasDiarias(fecha)])
+    setError('');
+    Promise.all([fetchAlumnos(curso), fetchAsistenciasDiarias(fecha, null, curso)])
       .then(([alumnosData, asistData]) => {
         setAlumnos(alumnosData);
         const map = {};
@@ -27,9 +31,9 @@ function Asistencias() {
         });
         setAsistencias(map);
       })
-      .catch(console.error)
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [fecha]);
+  }, [fecha, curso]);
 
   const toggleAsistencia = (id) => {
     setAsistencias((prev) => ({
@@ -40,6 +44,7 @@ function Asistencias() {
 
   const handleGuardar = async () => {
     setSaving(true);
+    setError('');
     try {
       const items = alumnos.map((a) => ({
         alumno_id: a.id,
@@ -48,20 +53,24 @@ function Asistencias() {
       await saveAsistenciasDiariasBulk({ fecha, items });
       alert('Asistencia guardada correctamente.');
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
     } finally {
       setSaving(false);
     }
   };
 
+  const displayError = cursosError || error;
+
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3>Control de Asistencia Diaria</h3>
-        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={saving}>
+        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={saving || !curso}>
           {saving ? 'Guardando...' : 'Guardar día'}
         </button>
       </div>
+
+      <CursoFilter cursos={cursos} value={curso} onChange={setCurso} id="curso-asistencias" />
 
       <div className="global-field-box">
         <div className="field-row">
@@ -77,7 +86,9 @@ function Asistencias() {
         </div>
       </div>
 
-      {loading ? (
+      <ApiError message={displayError} />
+
+      {cursosLoading || loading ? (
         <p className="empty-state-message">Cargando...</p>
       ) : (
         <div className="table-responsive">

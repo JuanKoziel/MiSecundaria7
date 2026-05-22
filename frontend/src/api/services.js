@@ -42,8 +42,12 @@ export function saveCalificacionesBulk(payload) {
   });
 }
 
-export function fetchAsistenciasDiarias(fecha, alumnoId) {
-  return apiRequest(pathWithQuery('/asistencias-diarias/', { fecha, alumno_id: alumnoId }));
+export function fetchAsistenciasDiarias(fecha, alumnoId, curso) {
+  return apiRequest(pathWithQuery('/asistencias-diarias/', {
+    fecha,
+    alumno_id: alumnoId,
+    curso,
+  }));
 }
 
 export function saveAsistenciasDiariasBulk(payload) {
