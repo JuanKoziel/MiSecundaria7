@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Login from './components/Login/login';
 import PanelProfesores from './components/Profesores/PanelProfesores';
 import PreceptorDashboard from './components/Preceptores/PreceptorDashboard';
+import FamiliaDashboard from './components/Familia/FamiliaDashboard';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -27,19 +28,7 @@ function App() {
       return <PanelProfesores user={user} onLogout={handleLogout} />;
 
     case 'familia':
-      return (
-        <div className="login-container">
-          <div className="card" style={{ maxWidth: '480px', textAlign: 'center' }}>
-            <h2>Panel de Familia</h2>
-            <p style={{ color: 'var(--text-light)', margin: '16px 0 24px' }}>
-              Esta sección estará disponible próximamente.
-            </p>
-            <button type="button" className="btn btn-primary" onClick={handleLogout}>
-              Cerrar sesión
-            </button>
-          </div>
-        </div>
-      );
+      return <FamiliaDashboard user={user} onLogout={handleLogout} />;
 
     default:
       return (

@@ -433,6 +433,66 @@ tr:hover td {
     font-size: 0.9rem;
 }
 
+.familia-resumen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.familia-stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 24px !important;
+    margin-bottom: 0 !important;
+}
+
+.familia-stat-label {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.familia-stat-value {
+    font-size: 1.35rem;
+    color: var(--text-dark);
+}
+
+.familia-comunicados-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.familia-comunicado-item {
+    padding: 20px;
+    border: 1px solid #edf2f7;
+    border-radius: 10px;
+    background: #fcfcfc;
+}
+
+.familia-comunicado-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.familia-comunicado-meta h4 {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--text-dark);
+}
+
+.familia-comunicado-item p {
+    margin: 0;
+    color: var(--text-light);
+    line-height: 1.5;
+}
+
 /* ==========================================================================
    RESPONSIVE (Diseño Adaptable)
    ========================================================================== */
