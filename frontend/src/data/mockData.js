@@ -1,11 +1,133 @@
 export const alumnos = [
-  { id: 1, dni: '44.123.456', nombre: 'Agustín', apellido: 'Hoffer' },
-  { id: 2, dni: '45.987.654', nombre: 'Sofía', apellido: 'Martínez' },
+  { id: 1, dni: '44.123.456', nombre: 'Agustín', apellido: 'Hoffer', curso: '1°1' },
+  { id: 2, dni: '45.987.654', nombre: 'Sofía', apellido: 'Martínez', curso: '1°2' },
+  { id: 3, dni: '46.111.222', nombre: 'Lucas', apellido: 'Fernández', curso: '1°1' },
 ];
 
 export const docentes = [
-  { id: 1, dni: '30.123.456', nombre: 'Carlos', apellido: 'Gómez', materia: 'Matemática' },
-  { id: 2, dni: '28.987.654', nombre: 'Laura', apellido: 'Pérez', materia: 'Lengua y Lit.' },
+  {
+    id: 1,
+    dni: '30.123.456',
+    nombre: 'Carlos',
+    apellido: 'Gómez',
+    asignaciones: [
+      { curso: '1°1', materias: ['Matemática', 'Física'] },
+      { curso: '2°1', materias: ['Matemática'] },
+    ],
+  },
+  {
+    id: 2,
+    dni: '28.987.654',
+    nombre: 'Laura',
+    apellido: 'Pérez',
+    asignaciones: [
+      { curso: '1°1', materias: ['Lengua y Lit.'] },
+      { curso: '1°2', materias: ['Lengua y Lit.', 'Química'] },
+    ],
+  },
+];
+
+export const materiasPorCurso = {
+  '1°1': ['Matemática', 'Lengua y Lit.', 'Física'],
+  '1°2': ['Matemática', 'Lengua y Lit.', 'Química'],
+  '2°1': ['Matemática', 'Lengua y Lit.', 'Física'],
+};
+
+export const horariosClase = {
+  Matemática: '07:30 - 09:00',
+  'Lengua y Lit.': '09:15 - 10:45',
+  Física: '11:00 - 12:30',
+  Química: '13:30 - 15:00',
+};
+
+export const asistenciasAdmin = [
+  { id: 1, curso: '1°1', materia: 'Matemática', fecha: '2026-05-21', alumnoId: 1, estado: 'Presente' },
+  { id: 2, curso: '1°1', materia: 'Matemática', fecha: '2026-05-21', alumnoId: 3, estado: 'Presente' },
+  { id: 4, curso: '1°1', materia: 'Lengua y Lit.', fecha: '2026-05-21', alumnoId: 1, estado: 'Presente' },
+  { id: 5, curso: '1°1', materia: 'Lengua y Lit.', fecha: '2026-05-21', alumnoId: 3, estado: 'Ausente' },
+  { id: 6, curso: '1°1', materia: 'Matemática', fecha: '2026-05-20', alumnoId: 1, estado: 'Presente' },
+  { id: 7, curso: '1°1', materia: 'Matemática', fecha: '2026-05-20', alumnoId: 3, estado: 'Presente' },
+  { id: 8, curso: '1°2', materia: 'Lengua y Lit.', fecha: '2026-05-21', alumnoId: 2, estado: 'Presente' },
+];
+
+export const notasDocenteAdmin = [
+  {
+    id: 1,
+    curso: '1°1',
+    materia: 'Matemática',
+    alumnoId: 1,
+    prenota1: 'TEP',
+    nota1: 8,
+    prenota2: 'TEA',
+    nota2: 9,
+    diagnostico: 'Buen desempeño sostenido',
+  },
+  {
+    id: 2,
+    curso: '1°1',
+    materia: 'Matemática',
+    alumnoId: 3,
+    prenota1: 'TEP',
+    nota1: 7,
+    prenota2: 'TEP',
+    nota2: 8,
+    diagnostico: 'En proceso de mejora',
+  },
+  {
+    id: 3,
+    curso: '1°1',
+    materia: 'Lengua y Lit.',
+    alumnoId: 1,
+    prenota1: 'TEA',
+    nota1: 9,
+    prenota2: 'TEP',
+    nota2: 8,
+    diagnostico: 'Participación activa',
+  },
+  {
+    id: 4,
+    curso: '1°1',
+    materia: 'Lengua y Lit.',
+    alumnoId: 3,
+    prenota1: 'TEP',
+    nota1: 6,
+    prenota2: 'TEP',
+    nota2: 7,
+    diagnostico: 'Debe reforzar lectura',
+  },
+  {
+    id: 5,
+    curso: '1°1',
+    materia: 'Física',
+    alumnoId: 1,
+    prenota1: 'TEP',
+    nota1: 7,
+    prenota2: 'TEP',
+    nota2: 8,
+    diagnostico: 'Cumple objetivos',
+  },
+  {
+    id: 6,
+    curso: '1°2',
+    materia: 'Lengua y Lit.',
+    alumnoId: 2,
+    prenota1: 'TEA',
+    nota1: 10,
+    prenota2: 'TEA',
+    nota2: 9,
+    diagnostico: 'Excelente desempeño',
+  },
+  {
+    id: 7,
+    curso: '1°2',
+    materia: 'Química',
+    alumnoId: 2,
+    prenota1: 'TEP',
+    nota1: 8,
+    prenota2: 'TEP',
+    nota2: 8,
+    diagnostico: 'Cumple con los objetivos',
+  },
 ];
 
 export const actas = [
@@ -58,6 +180,15 @@ export const actasAlumno = [
     fecha: '2026-05-08',
     cargadoPor: 'Preceptoría',
     archivo: 'tutoria_sofia.pdf',
+  },
+  {
+    id: 6,
+    alumnoId: 3,
+    titulo: 'Informe parcial - Física',
+    materia: 'Física',
+    fecha: '2026-05-12',
+    cargadoPor: 'Carlos Gómez',
+    archivo: 'informe_fisica_lucas.pdf',
   },
 ];
 
@@ -216,3 +347,22 @@ export function getHijoLabel(hijo) {
   if (!alumno) return 'Alumno';
   return `${nombreCorto(alumno)} (${hijo.curso})`;
 }
+
+export function getAlumnosByCurso(curso) {
+  return alumnos.filter((a) => a.curso === curso);
+}
+
+export function getMateriasByCurso(curso) {
+  return materiasPorCurso[curso] ?? [];
+}
+
+export function getHorarioClase(materia) {
+  return horariosClase[materia] ?? '—';
+}
+
+export function getActasByAlumnoId(alumnoId) {
+  return actasAlumno
+    .filter((a) => a.alumnoId === alumnoId)
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+

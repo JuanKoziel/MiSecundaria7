@@ -1,10 +1,11 @@
 function Header({ user }) {
   const inicial = user.username ? user.username.charAt(0) : 'U';
+
   return (
     <header className="main-header">
       <div>
         <h2>Bienvenido, {user.username}</h2>
-        <p className="main-header-subtitle">Panel de Gestión Escolar</p>
+        <p className="main-header-subtitle">Panel de Administración Escolar</p>
       </div>
 
       <div className="user-profile-info">

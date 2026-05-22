@@ -1,38 +1,27 @@
 import { useState } from 'react';
-import Sidebar from './sidebar';
-import Header from './header';
+import Sidebar from './sidebar/sidebar';
+import Header from './header/header';
 import Alumnos from './alumnos';
+import Docentes from './docentes';
 import Asistencias from './asistencias';
 import Notas from './notas';
-import Actas from './actas';
+import Comunicados from './comunicados';
 
-function PreceptorDashboard({ user, onLogout }) {
+function AdminDashboard({ user, onLogout }) {
   const [view, setView] = useState('alumnos');
-  const [anioLectivo, setAnioLectivo] = useState('');
-  const [curso, setCurso] = useState('');
-
-  const handleAnioChange = (nuevoAnio) => {
-    setAnioLectivo(nuevoAnio);
-    setCurso('');
-  };
-
-  const filtrosProps = {
-    anioLectivo,
-    curso,
-    onAnioChange: handleAnioChange,
-    onCursoChange: setCurso,
-  };
 
   const renderView = () => {
     switch (view) {
       case 'alumnos':
         return <Alumnos />;
+      case 'docentes':
+        return <Docentes />;
       case 'asistencias':
         return <Asistencias />;
       case 'notas':
         return <Notas />;
-      case 'actas':
-        return <Actas />;
+      case 'comunicados':
+        return <Comunicados />;
       default:
         return <Alumnos />;
     }
@@ -50,4 +39,4 @@ function PreceptorDashboard({ user, onLogout }) {
   );
 }
 
-export default PreceptorDashboard;
+export default AdminDashboard;
