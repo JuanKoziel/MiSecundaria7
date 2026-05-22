@@ -3,6 +3,7 @@ import Login from './components/Login/login';
 import PanelProfesores from './components/Profesores/PanelProfesores';
 import PreceptorDashboard from './components/Preceptores/PreceptorDashboard';
 import FamiliaDashboard from './components/Familia/FamiliaDashboard';
+import AdminDashboard from './components/Administracion/AdminDashboard';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -23,7 +24,7 @@ function App() {
     case 'preceptor':
       return <PreceptorDashboard user={user} onLogout={handleLogout} />;
     case 'admin':
-
+      return <AdminDashboard user={user} onLogout={handleLogout} />;
     case 'docente':
       return <PanelProfesores user={user} onLogout={handleLogout} />;
 
