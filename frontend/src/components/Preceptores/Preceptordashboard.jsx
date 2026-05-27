@@ -5,6 +5,7 @@ import Alumnos from './alumnos';
 import Asistencias from './asistencias';
 import Notas from './notas';
 import Actas from './actas';
+import Docentes from './docentes';
 
 function PreceptorDashboard({ user, onLogout }) {
   const [view, setView] = useState('alumnos');
@@ -27,12 +28,14 @@ function PreceptorDashboard({ user, onLogout }) {
     switch (view) {
       case 'alumnos':
         return <Alumnos />;
+      case 'docentes':
+        return <Docentes />;
       case 'asistencias':
-        return <Asistencias />;
+        return <Asistencias {...filtrosProps} />;
       case 'notas':
-        return <Notas />;
+        return <Notas {...filtrosProps} />;
       case 'actas':
-        return <Actas />;
+        return <Actas {...filtrosProps} />;
       default:
         return <Alumnos />;
     }
