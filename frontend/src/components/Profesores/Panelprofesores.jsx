@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
+import PanelDocente from './PanelDocente';
 import TopHeader from './TopHeader';
 import PanelAlumnos from './PanelAlumnos';
 import PanelInfo from './PanelInfo';
@@ -15,7 +16,7 @@ function PanelProfesores({ user, onLogout }) {
 
   const handleCursoChange = (nuevoCurso) => {
     setCursoSeleccionado(nuevoCurso);
-    setMateriaSeleccionada('');
+    setMateriaSeleccionada(''); // Reinicia la materia al cambiar de curso
   };
 
   return (
@@ -33,36 +34,49 @@ function PanelProfesores({ user, onLogout }) {
           materiaSeleccionada={materiaSeleccionada}
         />
 
-        <div className="card">
-          <div className="filter-row">
-            <div className="form-group-filter">
-              <label htmlFor="curso-select">Curso Activo</label>
-              <select
-                id="curso-select"
-                value={cursoSeleccionado}
-                onChange={(e) => handleCursoChange(e.target.value)}
-              >
-                <option value="" disabled>
-                  Seleccione un curso...
-                </option>
-                {cursos.map((curso) => (
-                  <option key={curso} value={curso}>
-                    {curso}
+        {/* ================================================================== */}
+        {/* FILTROS DE SELECCIÓN SUPERIOR (OCULTOS EN "MI PERFIL")             */}
+        {/* ================================================================== */}
+        {seccionActiva !== 'docente' && (
+          <div className="card">
+            <div className="filter-row">
+              <div className="form-group-filter">
+                <label htmlFor="curso-select">Curso Activo</label>
+                <select
+                  id="curso-select"
+                  value={cursoSeleccionado}
+                  onChange={(e) => handleCursoChange(e.target.value)}
+                >
+                  <option value="" disabled hidden>
+                    Seleccione un curso...
                   </option>
-                ))}
-              </select>
+                  {cursos.map((curso) => (
+                    <option key={curso} value={curso}>
+                      {curso}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+
+            {cursoSeleccionado && (
+              <MateriasGrid
+                materiaSeleccionada={materiaSeleccionada}
+                onSeleccionarMateria={setMateriaSeleccionada}
+              />
+            )}
           </div>
+        )}
+        {/* ================================================================== */}
 
-          {cursoSeleccionado && (
-            <MateriasGrid
-              materiaSeleccionada={materiaSeleccionada}
-              onSeleccionarMateria={setMateriaSeleccionada}
-            />
-          )}
-        </div>
-
-        {cursoSeleccionado && materiaSeleccionada ? (
+        {/* Control de Renderizado de las Secciones Dinámicas */}
+        {seccionActiva === 'docente' ? (
+          /* Si está en "Mi Perfil", se renderiza inmediatamente sin validar curso/materia */
+          <div className="view-section active">
+            <PanelDocente />
+          </div>
+        ) : cursoSeleccionado && materiaSeleccionada ? (
+          /* Si está en cualquier otra sección, requiere curso y materia activos */
           <>
             <div className={`view-section ${seccionActiva === 'alumnos' ? 'active' : ''}`}>
               {seccionActiva === 'alumnos' && <PanelAlumnos />}
@@ -78,6 +92,7 @@ function PanelProfesores({ user, onLogout }) {
             </div>
           </>
         ) : (
+          /* Mensaje de aviso de selección (Estado Vacío) */
           <div className="card empty-state-card">
             <p className="empty-state-message">
               {!cursoSeleccionado
