@@ -1,6 +1,6 @@
 import { menuItems } from '../sidebarMenu';
 
-function Sidebar({ setView, onLogout, user, view }) {
+function Sidebar({ setView, onLogout, view }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -9,20 +9,18 @@ function Sidebar({ setView, onLogout, user, view }) {
       </div>
 
       <ul className="sidebar-menu">
-        {menuItems
-          .filter((item) => !item.adminOnly || user.role === 'admin')
-          .map((item) => (
-            <li key={item.id} className={view === item.id ? 'active' : ''}>
-              <button
-                type="button"
-                className="sidebar-menu-btn"
-                onClick={() => setView(item.id)}
-              >
-                <i className={`fas ${item.icon}`} aria-hidden="true" />
-                <span>{item.label}</span>
-              </button>
-            </li>
-          ))}
+        {menuItems.map((item) => (
+          <li key={item.id} className={view === item.id ? 'active' : ''}>
+            <button
+              type="button"
+              className="sidebar-menu-btn"
+              onClick={() => setView(item.id)}
+            >
+              <i className={`fas ${item.icon}`} aria-hidden="true" />
+              <span>{item.label}</span>
+            </button>
+          </li>
+        ))}
 
         <li className="logout-li">
           <button type="button" className="sidebar-menu-btn sidebar-logout-btn" onClick={onLogout}>

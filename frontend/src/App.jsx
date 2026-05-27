@@ -3,8 +3,12 @@ import Login from './components/Login/login';
 import PanelProfesores from './components/Profesores/PanelProfesores';
 import PreceptorDashboard from './components/Preceptores/PreceptorDashboard';
 import FamiliaDashboard from './components/Familia/FamiliaDashboard';
+<<<<<<< HEAD
 import { fetchMe, mapUser } from './api/services';
 import { getToken, setToken } from './api/client';
+=======
+import AdminDashboard from './components/Administracion/AdminDashboard';
+>>>>>>> main
 
 function App() {
   const [user, setUser] = useState(null);
@@ -45,9 +49,9 @@ function App() {
 
   switch (user.role) {
     case 'preceptor':
-    case 'admin':
       return <PreceptorDashboard user={user} onLogout={handleLogout} />;
-
+    case 'admin':
+      return <AdminDashboard user={user} onLogout={handleLogout} />;
     case 'docente':
       return <PanelProfesores user={user} onLogout={handleLogout} />;
 
