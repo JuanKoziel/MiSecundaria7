@@ -88,7 +88,14 @@ function Alumnos() {
       }
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+      const data = err.response?.data;
+      let msg = '';
+      if (data && typeof data === 'object' && !data.detail) {
+        msg = Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
+      } else {
+        msg = data?.detail || err.message;
+      }
+      setMensaje(`Error: ${msg}`);
     } finally {
       setGuardando(false);
     }
