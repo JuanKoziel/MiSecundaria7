@@ -154,6 +154,8 @@ export function DataProvider({ children }) {
         }
       });
 
+      const estadosAsistencia = (Array.isArray(estadosRaw) ? estadosRaw : []);
+
       const ciclosLectivos = (Array.isArray(ciclosRaw) ? ciclosRaw : []);
       const aniosLectivos = ciclosLectivos.map((c) => c.anio);
 
@@ -304,6 +306,7 @@ export function DataProvider({ children }) {
         horariosClase,
         aniosLectivos,
         ciclosLectivos,
+        estadosAsistencia,
         inscripciones,
         asignacionesDocente,
         cursoMateria,
@@ -368,10 +371,12 @@ export function useData() {
       alumnos: [],
       docentes: [],
       cursos: [],
+      cursosObj: [],
       materias: [],
       materiasPorCurso: {},
       horariosClase: {},
       aniosLectivos: [],
+      estadosAsistencia: [],
       inscripciones: [],
       asignacionesDocente: [],
       cursoMateria: [],

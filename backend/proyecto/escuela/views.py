@@ -92,9 +92,11 @@ def login_view(request):
     roles = get_roles_for_usuario(username)
 
     refresh = RefreshToken.for_user(user)
+    usuario_obj = Usuario.objects.filter(usuario=username).first()
     return Response({
         'access': str(refresh.access_token),
         'refresh': str(refresh),
+        'id_usuario': usuario_obj.id_usuario if usuario_obj else None,
         'usuario': username,
         'roles': roles,
     })
@@ -106,7 +108,9 @@ def me_view(request):
     """Devuelve info del usuario autenticado y sus roles."""
     username = request.user.username
     roles = get_roles_for_usuario(username)
+    usuario_obj = Usuario.objects.filter(usuario=username).first()
     return Response({
+        'id_usuario': usuario_obj.id_usuario if usuario_obj else None,
         'usuario': username,
         'roles': roles,
     })

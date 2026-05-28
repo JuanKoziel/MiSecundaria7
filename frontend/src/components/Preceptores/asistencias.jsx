@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { createAsistencia } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import {
@@ -32,11 +33,13 @@ function docenteInicial() {
 }
 
 function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
-  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto } = useData();
+  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto, cursosObj, cursoMateria, estadosAsistencia, refreshData } = useData();
   const [fecha, setFecha] = useState(fechaHoy);
   const [tab, setTab] = useState('alumnos');
   const [asistAlumnos, setAsistAlumnos] = useState({});
   const [asistDocentes, setAsistDocentes] = useState({});
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const listaDocentes = docentesDelCurso(anioLectivo, curso, docentes, asignacionesDocente);
@@ -58,10 +61,44 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
     }));
   };
 
-  const handleGuardar = () => {
-    alert(
-      `Asistencias guardadas — ${curso} (${anioLectivo}), fecha ${fecha}.`,
-    );
+  const handleGuardar = async () => {
+    setGuardando(true);
+    setMensaje('');
+    try {
+      const cursoObj = cursosObj.find((c) => c.nombre_curso === curso);
+      if (!cursoObj) {
+        setMensaje('No se encontró el curso seleccionado.');
+        setGuardando(false);
+        return;
+      }
+      const cmList = cursoMateria.filter((cm) => cm.id_curso === cursoObj.id_curso);
+      const primerCm = cmList[0];
+      if (!primerCm) {
+        setMensaje('No hay materias asignadas a este curso.');
+        setGuardando(false);
+        return;
+      }
+      const estadoMap = {};
+      estadosAsistencia.forEach((e) => { estadoMap[e.nombre_estado] = e.id_estado_asistencia; });
+      const promises = listaAlumnos.map((a) => {
+        const reg = getAlumnoReg(a.id);
+        const estadoId = estadoMap[reg.estado] || estadosAsistencia[0]?.id_estado_asistencia || 1;
+        return createAsistencia({
+          id_alumno: a.id,
+          id_curso_materia: primerCm.id,
+          fecha,
+          id_estado_asistencia: estadoId,
+          id_usuario: 1,
+        });
+      });
+      await Promise.all(promises);
+      setMensaje('Asistencias guardadas exitosamente.');
+      await refreshData();
+    } catch (err) {
+      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setGuardando(false);
+    }
   };
 
   if (!filtrosCompletos(anioLectivo, curso)) {
@@ -93,10 +130,16 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         <h3>
           Control de Asistencia — {curso} ({anioLectivo})
         </h3>
-        <button type="button" className="btn btn-primary" onClick={handleGuardar}>
-          <i className="fas fa-save" aria-hidden="true" /> Guardar
+        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+          <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
         </button>
       </div>
+
+      {mensaje && (
+        <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+          {mensaje}
+        </p>
+      )}
 
       <div className="global-field-box">
         <div className="field-row">

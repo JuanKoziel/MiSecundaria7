@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { createCalificacion } from '../../services/api';
 
 function clampNota(value) {
   if (value === '') return '';
@@ -9,8 +10,10 @@ function clampNota(value) {
 }
 
 function PanelAlumnos() {
-  const { alumnosDocenteInicial } = useData();
+  const { alumnosDocenteInicial, cursoMateria, refreshData } = useData();
   const [alumnos, setAlumnos] = useState(alumnosDocenteInicial);
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
 
   const handleInputChange = (id, campo, valor) => {
     setAlumnos((prev) =>
@@ -18,18 +21,53 @@ function PanelAlumnos() {
     );
   };
 
-  const handleGuardar = () => {
-    alert('Notas guardadas correctamente (modo demostración).');
+  const handleGuardar = async () => {
+    setGuardando(true);
+    setMensaje('');
+    try {
+      const primerCm = cursoMateria[0];
+      if (!primerCm) {
+        setMensaje('No hay curso-materia disponible para guardar notas.');
+        setGuardando(false);
+        return;
+      }
+      const promises = alumnos
+        .filter((a) => a.prenota1 || a.nota1)
+        .map((a) =>
+          createCalificacion({
+            id_alumno: a.id,
+            id_curso_materia: primerCm.id,
+            id_docente: primerCm.id_docente,
+            id_periodo: 1,
+            pre_nota: a.prenota1 || '',
+            nota_numerica: a.nota1 || null,
+            diagnostico: a.diag || '',
+          }),
+        );
+      await Promise.all(promises);
+      setMensaje('Notas guardadas exitosamente.');
+      await refreshData();
+    } catch (err) {
+      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setGuardando(false);
+    }
   };
 
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3>Planilla de Calificaciones</h3>
-        <button type="button" className="btn btn-primary" onClick={handleGuardar}>
-          <i className="fas fa-save" aria-hidden="true" /> Guardar Notas
+        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+          <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Notas'}
         </button>
       </div>
+
+      {mensaje && (
+        <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+          {mensaje}
+        </p>
+      )}
 
       <div className="table-responsive">
         <table>

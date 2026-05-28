@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { createDocente, updateDocente, deleteDocente } from '../../services/api';
 import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
@@ -229,6 +230,8 @@ function Docentes() {
   const [form, setForm] = useState(formVacio);
   const [asignaciones, setAsignaciones] = useState([]);
   const [seleccionado, setSeleccionado] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
 
   const esCrear = modo === 'crear';
   const esVista = modo === 'vista';
@@ -245,20 +248,59 @@ function Docentes() {
     setAnioLectivo('');
     setCurso('');
     setMateria('');
+    setMensaje('');
   };
 
-  const handleGuardar = () => {
-    if (esCrear) {
-      alert(
-        `Docente creado con ${asignaciones.length} asignación(es) (modo demostración).`,
-      );
-      return;
+  const handleGuardar = async () => {
+    setGuardando(true);
+    setMensaje('');
+    try {
+      if (esCrear) {
+        if (!form.dni || !form.nombre || !form.apellido) {
+          setMensaje('Completá DNI, nombre y apellido.');
+          setGuardando(false);
+          return;
+        }
+        await createDocente({
+          dni: form.dni,
+          nombre: form.nombre,
+          apellido: form.apellido,
+        });
+        setMensaje(`Docente creado exitosamente con ${asignaciones.length} asignación(es).`);
+        setForm(formVacio);
+        setAsignaciones([]);
+      } else if (modo === 'modificar') {
+        if (!seleccionado) {
+          setMensaje('Seleccioná un docente para modificar.');
+          setGuardando(false);
+          return;
+        }
+        await updateDocente(seleccionado, {
+          dni: form.dni,
+          nombre: form.nombre,
+          apellido: form.apellido,
+        });
+        setMensaje('Docente modificado exitosamente.');
+      } else if (modo === 'borrar') {
+        if (!seleccionado) {
+          setMensaje('Seleccioná un docente para eliminar.');
+          setGuardando(false);
+          return;
+        }
+        if (!confirm('¿Estás seguro de que querés eliminar este docente?')) {
+          setGuardando(false);
+          return;
+        }
+        await deleteDocente(seleccionado);
+        setMensaje('Docente eliminado exitosamente.');
+        setSeleccionado('');
+      }
+      await dataCtx.refreshData();
+    } catch (err) {
+      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setGuardando(false);
     }
-    const acciones = {
-      modificar: 'Docente modificado',
-      borrar: 'Docente eliminado',
-    };
-    alert(`${acciones[modo] ?? 'Guardado'} (modo demostración).`);
   };
 
   const tablaVista = (
@@ -445,11 +487,16 @@ function Docentes() {
               <div className="card-header-flex">
                 <h3>{tituloModo[modo]}</h3>
                 {modo !== 'vista' && (
-                  <button type="button" className="btn btn-primary" onClick={handleGuardar}>
-                    <i className="fas fa-save" aria-hidden="true" /> Guardar
+                  <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+                    <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
                   </button>
                 )}
               </div>
+              {mensaje && (
+                <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+                  {mensaje}
+                </p>
+              )}
               {(esCrear || esVista || !bloqueadoModificarBorrar) && renderContenido()}
             </>
           )}

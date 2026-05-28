@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { createActa } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 
 function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
-  const { actas: actasCurso, actasAlumno, nombreCorto, inscripciones, alumnos } = useData();
+  const { actas: actasCurso, actasAlumno, nombreCorto, inscripciones, alumnos, refreshData } = useData();
   const [nuevaActa, setNuevaActa] = useState({
     titulo: '',
     descripcion: '',
     fecha: '',
   });
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const actasDelCurso = actasCurso.filter((a) => a.curso === curso);
@@ -18,8 +21,29 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const actasPorAlumno = (alumnoId) =>
     actasAlumno.filter((a) => a.alumnoId === alumnoId);
 
-  const handleGuardar = () => {
-    alert(`Actas guardadas — ${curso} (${anioLectivo}).`);
+  const handleGuardar = async () => {
+    if (!nuevaActa.titulo || !nuevaActa.fecha) {
+      setMensaje('Completá al menos título y fecha.');
+      return;
+    }
+    setGuardando(true);
+    setMensaje('');
+    try {
+      await createActa({
+        titulo: nuevaActa.titulo,
+        descripcion: nuevaActa.descripcion,
+        fecha: nuevaActa.fecha,
+        id_tipo_acta: 1,
+        id_usuario_creador: 1,
+      });
+      setMensaje('Acta creada exitosamente.');
+      setNuevaActa({ titulo: '', descripcion: '', fecha: '' });
+      await refreshData();
+    } catch (err) {
+      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setGuardando(false);
+    }
   };
 
   if (!filtrosCompletos(anioLectivo, curso)) {
@@ -51,10 +75,16 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         <h3>
           Actas — {curso} ({anioLectivo})
         </h3>
-        <button type="button" className="btn btn-primary" onClick={handleGuardar}>
-          <i className="fas fa-save" aria-hidden="true" /> Guardar
+        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+          <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
         </button>
       </div>
+
+      {mensaje && (
+        <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+          {mensaje}
+        </p>
+      )}
 
       <h4 className="preceptor-section-title">Actas del curso</h4>
       <div className="table-responsive">

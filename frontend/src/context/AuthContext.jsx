@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
       return;
     }
     getMe()
-      .then((data) => setUser({ username: data.usuario, roles: data.roles }))
+      .then((data) => setUser({ id: data.id_usuario, username: data.usuario, roles: data.roles }))
       .catch(() => {
         apiLogout();
         setUser(null);
@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (usuario, contrasena) => {
     const data = await apiLogin(usuario, contrasena);
     const role = data.roles?.[0] ?? '';
-    setUser({ username: data.usuario, roles: data.roles, role });
+    setUser({ id: data.id_usuario, username: data.usuario, roles: data.roles, role });
     return data;
   }, []);
 

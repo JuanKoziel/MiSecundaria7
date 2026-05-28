@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { createAlumno, updateAlumno, deleteAlumno } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
@@ -8,13 +9,15 @@ import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './precept
 const formVacio = { dni: '', nombre: '', apellido: '', anioLectivo: '', curso: '' };
 
 function Alumnos() {
-  const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto } = useData();
+  const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto, cursosObj, refreshData } = useData();
   const [modo, setModo] = useState('');
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
   const [observaciones, setObservaciones] = useState({});
   const [form, setForm] = useState(formVacio);
   const [seleccionado, setSeleccionado] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
 
   const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const alumnoSel = lista.find((a) => String(a.id) === seleccionado);
@@ -29,6 +32,7 @@ function Alumnos() {
     setForm(formVacio);
     setAnioLectivo('');
     setCurso('');
+    setMensaje('');
   };
 
   const handleAnioFiltro = (nuevoAnio) => {
@@ -37,14 +41,57 @@ function Alumnos() {
     setSeleccionado('');
   };
 
-  const handleGuardar = () => {
-    const acciones = {
-      crear: `Alumno creado en ${form.curso} (${form.anioLectivo})`,
-      modificar: `Alumno modificado — ${curso} (${anioLectivo})`,
-      borrar: `Alumno eliminado — ${curso} (${anioLectivo})`,
-      vista: `Consulta — ${curso} (${anioLectivo})`,
-    };
-    alert(acciones[modo] ?? 'Guardado');
+  const handleGuardar = async () => {
+    setGuardando(true);
+    setMensaje('');
+    try {
+      if (modo === 'crear') {
+        if (!form.dni || !form.nombre || !form.apellido) {
+          setMensaje('Completá DNI, nombre y apellido.');
+          setGuardando(false);
+          return;
+        }
+        const cursoObj = cursosObj.find((c) => c.nombre_curso === form.curso);
+        await createAlumno({
+          dni: form.dni,
+          nombre: form.nombre,
+          apellido: form.apellido,
+          id_curso: cursoObj?.id_curso || null,
+        });
+        setMensaje('Alumno creado exitosamente.');
+        setForm(formVacio);
+      } else if (modo === 'modificar') {
+        if (!seleccionado) {
+          setMensaje('Seleccioná un alumno para modificar.');
+          setGuardando(false);
+          return;
+        }
+        await updateAlumno(seleccionado, {
+          dni: form.dni,
+          nombre: form.nombre,
+          apellido: form.apellido,
+        });
+        setMensaje('Alumno modificado exitosamente.');
+      } else if (modo === 'borrar') {
+        if (!seleccionado) {
+          setMensaje('Seleccioná un alumno para eliminar.');
+          setGuardando(false);
+          return;
+        }
+        if (!confirm('¿Estás seguro de que querés eliminar este alumno?')) {
+          setGuardando(false);
+          return;
+        }
+        await deleteAlumno(seleccionado);
+        setMensaje('Alumno eliminado exitosamente.');
+        setSeleccionado('');
+      }
+      await refreshData();
+    } catch (err) {
+      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setGuardando(false);
+    }
   };
 
   const renderContenido = () => {
@@ -291,11 +338,22 @@ function Alumnos() {
                   {filtrosOk && ` — ${curso} (${anioLectivo})`}
                 </h3>
                 {modo !== 'vista' && (
-                  <button type="button" className="btn btn-primary" onClick={handleGuardar}>
-                    <i className="fas fa-save" aria-hidden="true" /> Guardar
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleGuardar}
+                    disabled={guardando}
+                  >
+                    <i className="fas fa-save" aria-hidden="true" />{' '}
+                    {guardando ? 'Guardando...' : 'Guardar'}
                   </button>
                 )}
               </div>
+              {mensaje && (
+                <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+                  {mensaje}
+                </p>
+              )}
               {renderContenido()}
             </>
           )}
