@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
       return;
     }
     getMe()
-      .then((data) => setUser({ id: data.id_usuario, username: data.usuario, roles: data.roles }))
+      .then((data) => setUser({ id: data.id_usuario, username: data.usuario, roles: data.roles, role: data.roles?.[0] ?? '' }))
       .catch(() => {
         apiLogout();
         setUser(null);
