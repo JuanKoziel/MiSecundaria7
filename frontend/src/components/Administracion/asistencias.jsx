@@ -1,12 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  alumnos,
-  asistenciasAdmin,
-  cursos,
-  getHorarioClase,
-  getMateriasByCurso,
-  nombreCorto,
-} from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
@@ -15,10 +8,19 @@ function badgeClass(estado) {
 }
 
 function Asistencias() {
+  const {
+    alumnos,
+    asistenciasAdmin,
+    cursos,
+    getHorarioClase,
+    getMateriasByCurso,
+    nombreCorto,
+  } = useData();
+
   const [curso, setCurso] = useState('1°1');
-  const materiasCurso = useMemo(() => getMateriasByCurso(curso), [curso]);
+  const materiasCurso = useMemo(() => getMateriasByCurso(curso), [curso, getMateriasByCurso]);
   const [materia, setMateria] = useState('Matemática');
-  const [fecha, setFecha] = useState('2026-05-21');
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
 
   const handleCursoChange = (nuevoCurso) => {
     setCurso(nuevoCurso);
@@ -42,7 +44,7 @@ function Asistencias() {
         estado: registro?.estado ?? 'Sin registro',
       };
     });
-  }, [curso, materia, fecha]);
+  }, [curso, materia, fecha, asistenciasAdmin, alumnos, getHorarioClase, nombreCorto]);
 
   return (
     <div className="card">

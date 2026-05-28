@@ -1,46 +1,41 @@
 import { useState } from 'react';
-import { asistenciaDocenteInicial } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
+
+const ESTADOS = ['Presente', 'Ausente', 'Tarde'];
 
 function PanelAsistencia() {
+  const { asistenciaDocenteInicial } = useData();
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [alumnos, setAlumnos] = useState(asistenciaDocenteInicial);
 
-  const cambiarAsistencia = (id, nuevoEstado) => {
-    setAlumnos((prev) => prev.map((al) => (al.id === id ? { ...al, estado: nuevoEstado } : al)));
+  const handleEstadoChange = (id, nuevoEstado) => {
+    setAlumnos((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, estado: nuevoEstado } : a))
+    );
   };
 
-  const getBadgeClass = (estado) => {
-    if (estado === 'Presente') return 'badge-presente';
-    if (estado === 'Ausente') return 'badge-ausente';
-    return 'badge-tarde';
-  };
-
-  const handleConsolidar = () => {
-    alert('Asistencia del día consolidada (modo demostración).');
+  const handleGuardar = () => {
+    alert('Asistencia guardada correctamente (modo demostración).');
   };
 
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Registro de Asistencias Diario</h3>
-        <button type="button" className="btn btn-primary" onClick={handleConsolidar}>
-          <i className="fas fa-check-double" aria-hidden="true" /> Consolidar Día
+        <h3>Planilla de Asistencia</h3>
+        <button type="button" className="btn btn-primary" onClick={handleGuardar}>
+          <i className="fas fa-save" aria-hidden="true" /> Guardar Asistencia
         </button>
       </div>
 
-      <div className="global-field-box">
-        <div className="field-row">
-          <div className="field-group">
-            <label htmlFor="fecha-dictado">Fecha de Dictado</label>
-            <input id="fecha-dictado" type="date" defaultValue="2026-05-18" />
-          </div>
-          <div className="field-group field-group--grow">
-            <label htmlFor="libro-temas">Libro de Temas de la Clase</label>
-            <input
-              id="libro-temas"
-              type="text"
-              placeholder="Escriba los contenidos y ejes conceptuales dictados hoy..."
-            />
-          </div>
+      <div className="filter-row">
+        <div className="form-group-filter">
+          <label htmlFor="fecha-asistencia">Fecha</label>
+          <input
+            id="fecha-asistencia"
+            type="date"
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+          />
         </div>
       </div>
 
@@ -48,9 +43,8 @@ function PanelAsistencia() {
         <table>
           <thead>
             <tr>
-              <th>Estudiante</th>
-              <th>Estado Actual</th>
-              <th>Cambiar Estado</th>
+              <th>Alumno</th>
+              <th>Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -58,22 +52,17 @@ function PanelAsistencia() {
               <tr key={alumno.id}>
                 <td className="table-cell-strong">{alumno.nombre}</td>
                 <td>
-                  <span className={`badge ${getBadgeClass(alumno.estado)}`}>{alumno.estado}</span>
-                </td>
-                <td>
-                  <div className="cb-container" role="radiogroup" aria-label={`Asistencia de ${alumno.nombre}`}>
-                    {['Presente', 'Ausente', 'Tarde'].map((tipo) => (
-                      <label key={tipo} className="cb-label">
-                        <input
-                          type="radio"
-                          name={`asistencia-${alumno.id}`}
-                          checked={alumno.estado === tipo}
-                          onChange={() => cambiarAsistencia(alumno.id, tipo)}
-                        />
-                        <span>{tipo}</span>
-                      </label>
+                  <select
+                    value={alumno.estado}
+                    onChange={(e) => handleEstadoChange(alumno.id, e.target.value)}
+                    className="select-table"
+                  >
+                    {ESTADOS.map((est) => (
+                      <option key={est} value={est}>
+                        {est}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 </td>
               </tr>
             ))}

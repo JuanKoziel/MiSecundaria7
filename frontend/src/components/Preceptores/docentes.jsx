@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { aniosLectivos, materias } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
@@ -12,7 +12,8 @@ function nuevaAsignacion() {
 }
 
 function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, onMateria }) {
-  const cursosFiltrados = cursosPorAnio(anioLectivo);
+  const { aniosLectivos, inscripciones, cursos, materias } = useData();
+  const cursosFiltrados = cursosPorAnio(anioLectivo, inscripciones, cursos);
 
   return (
     <div className="filter-row">
@@ -63,8 +64,9 @@ function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, on
 }
 
 function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
+  const { aniosLectivos, inscripciones, cursos, materias } = useData();
   const [borrador, setBorrador] = useState(nuevaAsignacion());
-  const cursosBorrador = cursosPorAnio(borrador.anioLectivo);
+  const cursosBorrador = cursosPorAnio(borrador.anioLectivo, inscripciones, cursos);
   const agregarAsignacion = () => {
     if (!borrador.materia || !borrador.anioLectivo || !borrador.curso) {
       alert('Completá materia, año y curso antes de agregar.');
@@ -219,6 +221,7 @@ function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
 }
 
 function Docentes() {
+  const dataCtx = useData();
   const [modo, setModo] = useState('');
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
@@ -231,7 +234,7 @@ function Docentes() {
   const esVista = modo === 'vista';
   const necesitaFiltroVista = esVista;
   const necesitaFiltroCurso = modo === 'modificar' || modo === 'borrar';
-  const lista = docentesPorFiltros(anioLectivo, curso, materia);
+  const lista = docentesPorFiltros(anioLectivo, curso, materia, dataCtx.docentes, dataCtx.asignacionesDocente);
   const docenteSel = lista.find((d) => String(d.id) === seleccionado);
 
   const resetModo = (m) => {

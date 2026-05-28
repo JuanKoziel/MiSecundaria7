@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { nombreCorto } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import {
@@ -32,13 +32,14 @@ function docenteInicial() {
 }
 
 function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
+  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto } = useData();
   const [fecha, setFecha] = useState(fechaHoy);
   const [tab, setTab] = useState('alumnos');
   const [asistAlumnos, setAsistAlumnos] = useState({});
   const [asistDocentes, setAsistDocentes] = useState({});
 
-  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso);
-  const listaDocentes = docentesDelCurso(anioLectivo, curso);
+  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
+  const listaDocentes = docentesDelCurso(anioLectivo, curso, docentes, asignacionesDocente);
 
   const getAlumnoReg = (id) => asistAlumnos[id] ?? estadoInicial();
   const getDocenteReg = (id) => asistDocentes[id] ?? docenteInicial();

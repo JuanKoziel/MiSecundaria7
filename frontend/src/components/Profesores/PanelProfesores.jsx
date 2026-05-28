@@ -7,16 +7,17 @@ import PanelInfo from './PanelInfo';
 import PanelPlanif from './PanelPlanif';
 import PanelAsistencia from './PanelAsistencia';
 import MateriasGrid from './MateriasGrid';
-import { cursos } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function PanelProfesores({ user, onLogout }) {
+  const { cursos } = useData();
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
   const [materiaSeleccionada, setMateriaSeleccionada] = useState('');
   const [seccionActiva, setSeccionActiva] = useState('alumnos');
 
   const handleCursoChange = (nuevoCurso) => {
     setCursoSeleccionado(nuevoCurso);
-    setMateriaSeleccionada(''); // Reinicia la materia al cambiar de curso
+    setMateriaSeleccionada('');
   };
 
   return (
@@ -34,9 +35,6 @@ function PanelProfesores({ user, onLogout }) {
           materiaSeleccionada={materiaSeleccionada}
         />
 
-        {/* ================================================================== */}
-        {/* FILTROS DE SELECCIÓN SUPERIOR (OCULTOS EN "MI PERFIL")             */}
-        {/* ================================================================== */}
         {seccionActiva !== 'docente' && (
           <div className="card">
             <div className="filter-row">
@@ -67,16 +65,12 @@ function PanelProfesores({ user, onLogout }) {
             )}
           </div>
         )}
-        {/* ================================================================== */}
 
-        {/* Control de Renderizado de las Secciones Dinámicas */}
         {seccionActiva === 'docente' ? (
-          /* Si está en "Mi Perfil", se renderiza inmediatamente sin validar curso/materia */
           <div className="view-section active">
             <PanelDocente />
           </div>
         ) : cursoSeleccionado && materiaSeleccionada ? (
-          /* Si está en cualquier otra sección, requiere curso y materia activos */
           <>
             <div className={`view-section ${seccionActiva === 'alumnos' ? 'active' : ''}`}>
               {seccionActiva === 'alumnos' && <PanelAlumnos />}
@@ -92,7 +86,6 @@ function PanelProfesores({ user, onLogout }) {
             </div>
           </>
         ) : (
-          /* Mensaje de aviso de selección (Estado Vacío) */
           <div className="card empty-state-card">
             <p className="empty-state-message">
               {!cursoSeleccionado

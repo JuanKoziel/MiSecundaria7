@@ -6,14 +6,10 @@ import Calificaciones from './Calificaciones';
 import Asistencias from './Asistencias';
 import Comunicados from './Comunicados';
 import Actas from './Actas';
-import {
-  getAlumnoById,
-  getHijoLabel,
-  hijosFamilia,
-  nombreCompleto,
-} from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function FamiliaDashboard({ user, onLogout }) {
+  const { getAlumnoById, getHijoLabel, hijosFamilia, nombreCompleto } = useData();
   const [view, setView] = useState('resumen');
   const [hijoId, setHijoId] = useState('');
 
@@ -27,7 +23,7 @@ function FamiliaDashboard({ user, onLogout }) {
           dni: alumno?.dni ?? '—',
         };
       }),
-    []
+    [hijosFamilia, getAlumnoById, nombreCompleto]
   );
 
   const hijoSeleccionado = hijos.find((h) => String(h.id) === hijoId) ?? null;

@@ -1,13 +1,3 @@
-import {
-  alumnos,
-  docentes,
-  inscripciones,
-  asignacionesDocente,
-  cursos,
-  hijosFamilia,
-  calificacionesFamilia,
-} from '../../data/mockData';
-
 export function fechaHoy() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -19,7 +9,7 @@ export function clampNota(value) {
   return String(Math.min(10, Math.max(1, num)));
 }
 
-export function alumnosPorAnioYCurso(anioLectivo, curso) {
+export function alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos) {
   if (!anioLectivo || !curso) return [];
   const ids = inscripciones
     .filter((i) => i.anioLectivo === Number(anioLectivo) && i.curso === curso)
@@ -27,7 +17,7 @@ export function alumnosPorAnioYCurso(anioLectivo, curso) {
   return alumnos.filter((a) => ids.includes(a.id));
 }
 
-export function cursosPorAnio(anioLectivo) {
+export function cursosPorAnio(anioLectivo, inscripciones, cursos) {
   if (!anioLectivo) return [];
   const delAnio = [...new Set(
     inscripciones
@@ -37,7 +27,7 @@ export function cursosPorAnio(anioLectivo) {
   return cursos.filter((c) => delAnio.includes(c));
 }
 
-export function docentesPorFiltros(anioLectivo, curso, materia) {
+export function docentesPorFiltros(anioLectivo, curso, materia, docentes, asignacionesDocente) {
   return docentes.filter((d) =>
     asignacionesDocente.some((a) => {
       if (a.docenteId !== d.id) return false;
@@ -49,8 +39,8 @@ export function docentesPorFiltros(anioLectivo, curso, materia) {
   );
 }
 
-export function docentesDelCurso(anioLectivo, curso) {
-  return docentesPorFiltros(anioLectivo, curso, '');
+export function docentesDelCurso(anioLectivo, curso, docentes, asignacionesDocente) {
+  return docentesPorFiltros(anioLectivo, curso, '', docentes, asignacionesDocente);
 }
 
 export function nombreDocente(docente) {
@@ -61,7 +51,7 @@ export function filtrosCompletos(anioLectivo, curso) {
   return Boolean(anioLectivo && curso);
 }
 
-export function boletinPorAlumno(alumnoId, curso) {
+export function boletinPorAlumno(alumnoId, curso, hijosFamilia, calificacionesFamilia) {
   const hijo = hijosFamilia.find(
     (h) => h.alumnoId === alumnoId && (!curso || h.curso === curso),
   );

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { nombreCorto } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, boletinPorAlumno, filtrosCompletos } from './preceptorUtils';
 
 function BoletinAlumno({ alumno, curso, expandido, onToggle }) {
-  const materias = boletinPorAlumno(alumno.id, curso);
+  const { nombreCorto, hijosFamilia, calificacionesFamilia } = useData();
+  const materias = boletinPorAlumno(alumno.id, curso, hijosFamilia, calificacionesFamilia);
 
   return (
     <div className="preceptor-boletin-card">
@@ -74,9 +75,10 @@ function BoletinAlumno({ alumno, curso, expandido, onToggle }) {
 }
 
 function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
+  const { inscripciones, alumnos } = useData();
   const [expandidoId, setExpandidoId] = useState(null);
 
-  const lista = alumnosPorAnioYCurso(anioLectivo, curso);
+  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
 
   const handleGuardar = () => {
     alert(`Boletines consultados — ${curso} (${anioLectivo}).`);

@@ -1,6 +1,7 @@
-import { asistenciasFamilia, calificacionesFamilia } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function Resumen({ hijo }) {
+  const { asistenciasFamilia, calificacionesFamilia } = useData();
   const asistencias = asistenciasFamilia.filter((a) => a.hijoId === hijo.id);
   const calificaciones = calificacionesFamilia.filter((c) => c.hijoId === hijo.id);
 

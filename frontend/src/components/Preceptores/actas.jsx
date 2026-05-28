@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { actas as actasCurso, actasAlumno, nombreCorto } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 
 function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
+  const { actas: actasCurso, actasAlumno, nombreCorto, inscripciones, alumnos } = useData();
   const [nuevaActa, setNuevaActa] = useState({
     titulo: '',
     descripcion: '',
     fecha: '',
   });
 
-  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso);
+  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const actasDelCurso = actasCurso.filter((a) => a.curso === curso);
 
   const actasPorAlumno = (alumnoId) =>

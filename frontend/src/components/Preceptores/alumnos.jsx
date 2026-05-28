@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { aniosLectivos, nombreCompleto } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
@@ -8,6 +8,7 @@ import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './precept
 const formVacio = { dni: '', nombre: '', apellido: '', anioLectivo: '', curso: '' };
 
 function Alumnos() {
+  const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto } = useData();
   const [modo, setModo] = useState('');
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
@@ -15,12 +16,12 @@ function Alumnos() {
   const [form, setForm] = useState(formVacio);
   const [seleccionado, setSeleccionado] = useState('');
 
-  const lista = alumnosPorAnioYCurso(anioLectivo, curso);
+  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const alumnoSel = lista.find((a) => String(a.id) === seleccionado);
   const esCrear = modo === 'crear';
   const necesitaFiltroCurso = modo && !esCrear;
   const filtrosOk = filtrosCompletos(anioLectivo, curso);
-  const cursosCrear = cursosPorAnio(form.anioLectivo);
+  const cursosCrear = cursosPorAnio(form.anioLectivo, inscripciones, cursos);
 
   const resetModo = (m) => {
     setModo(m);

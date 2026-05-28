@@ -1,21 +1,23 @@
 import { useMemo, useState } from 'react';
-import {
-  alumnos,
-  cursos,
-  getActasByAlumnoId,
-  getAlumnosByCurso,
-  nombreCompleto,
-} from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function Alumnos() {
-  const [curso, setCurso] = useState(cursos[0]);
+  const {
+    alumnos,
+    cursos,
+    getActasByAlumnoId,
+    getAlumnosByCurso,
+    nombreCompleto,
+  } = useData();
+
+  const [curso, setCurso] = useState(cursos[0] || '');
   const [alumnoActasId, setAlumnoActasId] = useState(null);
 
-  const alumnosCurso = useMemo(() => getAlumnosByCurso(curso), [curso]);
+  const alumnosCurso = useMemo(() => getAlumnosByCurso(curso), [curso, getAlumnosByCurso]);
   const actasSeleccionadas = useMemo(() => {
     if (!alumnoActasId) return [];
     return getActasByAlumnoId(alumnoActasId);
-  }, [alumnoActasId]);
+  }, [alumnoActasId, getActasByAlumnoId]);
 
   const alumnoActas = alumnos.find((a) => a.id === alumnoActasId);
 

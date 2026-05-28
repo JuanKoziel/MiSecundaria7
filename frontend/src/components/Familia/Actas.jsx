@@ -1,6 +1,7 @@
-import { actasAlumno } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function Actas({ hijo }) {
+  const { actasAlumno } = useData();
   const actas = actasAlumno
     .filter((a) => a.alumnoId === hijo.alumnoId)
     .sort((a, b) => b.fecha.localeCompare(a.fecha));

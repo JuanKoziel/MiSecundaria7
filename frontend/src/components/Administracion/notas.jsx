@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
-import {
-  alumnos,
-  cursos,
-  getMateriasByCurso,
-  nombreCorto,
-  notasDocenteAdmin,
-} from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function Notas() {
+  const {
+    alumnos,
+    cursos,
+    getMateriasByCurso,
+    nombreCorto,
+    notasDocenteAdmin,
+  } = useData();
+
   const [curso, setCurso] = useState('1°1');
-  const materiasCurso = useMemo(() => getMateriasByCurso(curso), [curso]);
+  const materiasCurso = useMemo(() => getMateriasByCurso(curso), [curso, getMateriasByCurso]);
   const [materia, setMateria] = useState('Matemática');
 
   const handleCursoChange = (nuevoCurso) => {
@@ -34,7 +36,7 @@ function Notas() {
         diagnostico: nota?.diagnostico ?? 'Sin carga del docente',
       };
     });
-  }, [curso, materia]);
+  }, [curso, materia, alumnos, notasDocenteAdmin, nombreCorto]);
 
   return (
     <div className="card">

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { alumnosDocenteInicial } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function clampNota(value) {
   if (value === '') return '';
@@ -9,6 +9,7 @@ function clampNota(value) {
 }
 
 function PanelAlumnos() {
+  const { alumnosDocenteInicial } = useData();
   const [alumnos, setAlumnos] = useState(alumnosDocenteInicial);
 
   const handleInputChange = (id, campo, valor) => {
