@@ -185,11 +185,11 @@ export function DataProvider({ children }) {
         curso: c.curso_nombre || '',
         materia: c.materia_nombre || '',
         alumnoId: c.id_alumno,
-        prenota1: c.nota_cualitativa || '',
-        nota1: c.nota_cuantitativa ?? '',
+        prenota1: c.pre_nota || '',
+        nota1: c.nota_numerica ?? '',
         prenota2: '',
         nota2: '',
-        diagnostico: c.observaciones || '',
+        diagnostico: c.diagnostico || '',
       }));
 
       const asistenciasArr = (Array.isArray(asistenciasRaw) ? asistenciasRaw : []);
