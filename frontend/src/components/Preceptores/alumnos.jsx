@@ -6,7 +6,7 @@ import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
 import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
 
-const formVacio = { dni: '', nombre: '', apellido: '', anioLectivo: '', curso: '' };
+const formVacio = { dni: '', nombre: '', apellido: '', fechaNacimiento: '', anioLectivo: '', curso: '' };
 
 function Alumnos() {
   const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto, cursosObj, refreshData } = useData();
@@ -19,12 +19,12 @@ function Alumnos() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
 
-  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
+  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosObj);
   const alumnoSel = lista.find((a) => String(a.id) === seleccionado);
   const esCrear = modo === 'crear';
   const necesitaFiltroCurso = modo && !esCrear;
   const filtrosOk = filtrosCompletos(anioLectivo, curso);
-  const cursosCrear = cursosPorAnio(form.anioLectivo, inscripciones, cursos);
+  const cursosCrear = cursosPorAnio(form.anioLectivo, inscripciones, cursos, cursosObj);
 
   const resetModo = (m) => {
     setModo(m);
@@ -56,6 +56,7 @@ function Alumnos() {
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
+          fecha_nacimiento: form.fechaNacimiento || null,
           id_curso: cursoObj?.id_curso || null,
         });
         setMensaje('Alumno creado exitosamente.');
@@ -163,6 +164,15 @@ function Alumnos() {
               type="text"
               value={form.apellido}
               onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+            />
+          </div>
+          <div className="form-group-filter">
+            <label htmlFor="alumno-fecha-nac">Fecha de Nacimiento</label>
+            <input
+              id="alumno-fecha-nac"
+              type="date"
+              value={form.fechaNacimiento}
+              onChange={(e) => setForm((p) => ({ ...p, fechaNacimiento: e.target.value }))}
             />
           </div>
           <div className="form-group-filter preceptor-form-full">

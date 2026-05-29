@@ -160,7 +160,8 @@ export function DataProvider({ children }) {
       const aniosLectivos = ciclosLectivos.map((c) => c.anio);
 
       const inscripciones = (Array.isArray(inscripcionesRaw) ? inscripcionesRaw : []).map((i) => {
-        const cursoObj = cursosObjArr.find((c) => c.id_curso === i.id_curso_materia);
+        const cm = cursoMateria.find((c) => c.id === i.id_curso_materia);
+        const cursoObj = cm ? cursosObjArr.find((c) => c.id_curso === cm.id_curso) : null;
         return {
           id: i.id_inscripcion,
           alumnoId: i.id_alumno,
