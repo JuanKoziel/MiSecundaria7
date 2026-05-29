@@ -19,7 +19,7 @@ function Alumnos() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
 
-  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosObj);
+  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const alumnoSel = lista.find((a) => String(a.id) === seleccionado);
   const esCrear = modo === 'crear';
   const necesitaFiltroCurso = modo && !esCrear;

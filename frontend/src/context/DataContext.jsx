@@ -73,12 +73,12 @@ export function DataProvider({ children }) {
         getPadresTutores().catch(() => []),
       ]);
 
-      const alumnos = (Array.isArray(alumnosRaw) ? alumnosRaw : []).map((a) => ({
+      const alumnosPreCurso = (Array.isArray(alumnosRaw) ? alumnosRaw : []).map((a) => ({
         id: a.id_alumno,
         dni: a.dni,
         nombre: a.nombre,
         apellido: a.apellido,
-        curso: a.curso_nombre || '',
+        curso_nombre_api: a.curso_nombre || '',
         id_curso: a.id_curso,
       }));
 
@@ -132,6 +132,15 @@ export function DataProvider({ children }) {
       ];
 
       const cursosObjArr = (Array.isArray(cursosRaw) ? cursosRaw : []);
+
+      const alumnos = alumnosPreCurso.map((a) => {
+        const cObj = cursosObjArr.find((c) => c.id_curso === a.id_curso);
+        return {
+          ...a,
+          curso: a.curso_nombre_api || cObj?.nombre_curso || '',
+          ciclo_anio: cObj?.ciclo_anio || null,
+        };
+      });
 
       const materias = (Array.isArray(materiasRaw) ? materiasRaw : []).map(
         (m) => m.nombre_materia,

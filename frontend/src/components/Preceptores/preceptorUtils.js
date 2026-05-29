@@ -11,20 +11,27 @@ export function clampNota(value) {
 
 export function alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos) {
   if (!anioLectivo || !curso) return [];
-  const ids = inscripciones
-    .filter((i) => i.anioLectivo === Number(anioLectivo) && i.curso === curso)
+  const anio = Number(anioLectivo);
+  const idsInscripcion = inscripciones
+    .filter((i) => i.anioLectivo === anio && i.curso === curso)
     .map((i) => i.alumnoId);
-  return alumnos.filter((a) => ids.includes(a.id));
+  return alumnos.filter(
+    (a) => idsInscripcion.includes(a.id) || (a.curso === curso && a.ciclo_anio === anio),
+  );
 }
 
-export function cursosPorAnio(anioLectivo, inscripciones, cursos) {
+export function cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj) {
   if (!anioLectivo) return [];
   const delAnio = [...new Set(
     inscripciones
       .filter((i) => i.anioLectivo === Number(anioLectivo))
       .map((i) => i.curso),
   )];
-  return cursos.filter((c) => delAnio.includes(c));
+  const delAnioCursos = (cursosObj || []).filter(
+    (c) => c.ciclo_anio === Number(anioLectivo),
+  ).map((c) => c.nombre_curso);
+  const todos = [...new Set([...delAnio, ...delAnioCursos])];
+  return cursos.filter((c) => todos.includes(c));
 }
 
 export function docentesPorFiltros(anioLectivo, curso, materia, docentes, asignacionesDocente) {

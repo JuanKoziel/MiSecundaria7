@@ -15,7 +15,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
 
-  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosObj);
+  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const actasDelCurso = actasCurso.filter((a) => a.curso === curso);
 
   const actasPorAlumno = (alumnoId) =>

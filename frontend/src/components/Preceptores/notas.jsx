@@ -78,7 +78,7 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const { inscripciones, alumnos, cursosObj } = useData();
   const [expandidoId, setExpandidoId] = useState(null);
 
-  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosObj);
+  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
 
   const handleGuardar = () => {
     alert(`Boletines consultados — ${curso} (${anioLectivo}).`);
