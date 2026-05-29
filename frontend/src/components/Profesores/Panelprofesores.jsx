@@ -16,7 +16,7 @@ function PanelProfesores({ user, onLogout }) {
 
   const handleCursoChange = (nuevoCurso) => {
     setCursoSeleccionado(nuevoCurso);
-    setMateriaSeleccionada(''); // Reinicia la materia al cambiar de curso
+    setMateriaSeleccionada('');
   };
 
   return (
@@ -34,14 +34,22 @@ function PanelProfesores({ user, onLogout }) {
           materiaSeleccionada={materiaSeleccionada}
         />
 
-        {/* ================================================================== */}
-        {/* FILTROS DE SELECCIÓN SUPERIOR (OCULTOS EN "MI PERFIL")             */}
-        {/* ================================================================== */}
+        {/* ========================================================= */}
+        {/* PANEL SUPERIOR DE FILTROS                                */}
+        {/* ========================================================= */}
+
         {seccionActiva !== 'docente' && (
           <div className="card">
+            <div className="card-header-flex">
+              <h3>Panel de trabajo</h3>
+            </div>
+
             <div className="filter-row">
               <div className="form-group-filter">
-                <label htmlFor="curso-select">Curso Activo</label>
+                <label htmlFor="curso-select">
+                  Curso Activo
+                </label>
+
                 <select
                   id="curso-select"
                   value={cursoSeleccionado}
@@ -50,8 +58,12 @@ function PanelProfesores({ user, onLogout }) {
                   <option value="" disabled hidden>
                     Seleccione un curso...
                   </option>
+
                   {cursos.map((curso) => (
-                    <option key={curso} value={curso}>
+                    <option
+                      key={curso}
+                      value={curso}
+                    >
                       {curso}
                     </option>
                   ))}
@@ -67,39 +79,79 @@ function PanelProfesores({ user, onLogout }) {
             )}
           </div>
         )}
-        {/* ================================================================== */}
 
-        {/* Control de Renderizado de las Secciones Dinámicas */}
+        {/* ========================================================= */}
+        {/* CONTENIDO DINÁMICO                                       */}
+        {/* ========================================================= */}
+
         {seccionActiva === 'docente' ? (
-          /* Si está en "Mi Perfil", se renderiza inmediatamente sin validar curso/materia */
+
           <div className="view-section active">
             <PanelDocente />
           </div>
+
         ) : cursoSeleccionado && materiaSeleccionada ? (
-          /* Si está en cualquier otra sección, requiere curso y materia activos */
+
           <>
-            <div className={`view-section ${seccionActiva === 'alumnos' ? 'active' : ''}`}>
-              {seccionActiva === 'alumnos' && <PanelAlumnos />}
+            <div
+              className={`view-section ${
+                seccionActiva === 'alumnos'
+                  ? 'active'
+                  : ''
+              }`}
+            >
+              {seccionActiva === 'alumnos' && (
+                <PanelAlumnos />
+              )}
             </div>
-            <div className={`view-section ${seccionActiva === 'info' ? 'active' : ''}`}>
-              {seccionActiva === 'info' && <PanelInfo />}
+
+            <div
+              className={`view-section ${
+                seccionActiva === 'info'
+                  ? 'active'
+                  : ''
+              }`}
+            >
+              {seccionActiva === 'info' && (
+                <PanelInfo />
+              )}
             </div>
-            <div className={`view-section ${seccionActiva === 'planif' ? 'active' : ''}`}>
-              {seccionActiva === 'planif' && <PanelPlanif />}
+
+            <div
+              className={`view-section ${
+                seccionActiva === 'planif'
+                  ? 'active'
+                  : ''
+              }`}
+            >
+              {seccionActiva === 'planif' && (
+                <PanelPlanif />
+              )}
             </div>
-            <div className={`view-section ${seccionActiva === 'asistencia' ? 'active' : ''}`}>
-              {seccionActiva === 'asistencia' && <PanelAsistencia />}
+
+            <div
+              className={`view-section ${
+                seccionActiva === 'asistencia'
+                  ? 'active'
+                  : ''
+              }`}
+            >
+              {seccionActiva === 'asistencia' && (
+                <PanelAsistencia />
+              )}
             </div>
           </>
+
         ) : (
-          /* Mensaje de aviso de selección (Estado Vacío) */
+
           <div className="card empty-state-card">
             <p className="empty-state-message">
               {!cursoSeleccionado
-                ? 'Por favor, seleccione un curso en el Panel de Control superior.'
-                : 'Por favor, seleccione una materia para desplegar las planillas de trabajo.'}
+                ? 'Por favor, seleccione un curso.'
+                : 'Por favor, seleccione una materia.'}
             </p>
           </div>
+
         )}
       </main>
     </div>
