@@ -1,6 +1,7 @@
-import { comunicadosFamilia } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function Comunicados({ hijo }) {
+  const { comunicadosFamilia } = useData();
   const comunicados = comunicadosFamilia
     .filter((c) => c.curso === hijo.curso)
     .sort((a, b) => b.fecha.localeCompare(a.fecha));

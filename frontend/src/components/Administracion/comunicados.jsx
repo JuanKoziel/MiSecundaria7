@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { comunicadosFamilia, cursos } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function Comunicados() {
+  const { comunicadosFamilia, cursos } = useData();
   const [curso, setCurso] = useState('1°1');
 
   const comunicados = useMemo(
@@ -9,7 +10,7 @@ function Comunicados() {
       comunicadosFamilia
         .filter((c) => c.curso === curso)
         .sort((a, b) => b.fecha.localeCompare(a.fecha)),
-    [curso]
+    [curso, comunicadosFamilia]
   );
 
   return (

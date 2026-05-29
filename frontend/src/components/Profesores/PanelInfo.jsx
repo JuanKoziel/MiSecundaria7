@@ -1,30 +1,65 @@
-function PanelInfo() {
-  const handleSubir = () => {
-    alert('Datos subidos correctamente (modo demostración).');
+import { useState } from 'react';
+import { createDiagnosticoGrupal } from '../../services/api';
+import { useData } from '../../context/DataContext';
+
+function PanelInfo({ cursoId, docenteId, cursoNombre }) {
+  const { refreshData } = useData();
+  const [diagnostico, setDiagnostico] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+
+  const handleSubir = async () => {
+    if (!diagnostico.trim()) {
+      setMensaje('Escribí un diagnóstico antes de guardar.');
+      return;
+    }
+    setGuardando(true);
+    setMensaje('');
+    try {
+      await createDiagnosticoGrupal({
+        id_curso: cursoId,
+        id_docente: docenteId,
+        descripcion: diagnostico,
+        fecha: new Date().toISOString().slice(0, 10),
+      });
+      setMensaje('Diagnóstico guardado exitosamente.');
+      setDiagnostico('');
+      await refreshData();
+    } catch (err) {
+      const detail = err.response?.data;
+      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
+      setMensaje(`Error: ${msg}`);
+    } finally {
+      setGuardando(false);
+    }
   };
 
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Información y Diagnóstico General</h3>
+        <h3>Información y Diagnóstico General — {cursoNombre}</h3>
       </div>
+
+      {mensaje && (
+        <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+          {mensaje}
+        </p>
+      )}
 
       <div className="table-responsive">
         <table>
           <thead>
             <tr>
-              <th>Subir Actas del Curso</th>
               <th>Informe de Diagnóstico de Grupo</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td style={{ width: '40%' }}>
-                <input type="file" />
-              </td>
               <td>
                 <textarea
                   placeholder="Escriba aquí los detalles observados del comportamiento y rendimiento del grupo..."
+                  value={diagnostico}
+                  onChange={(e) => setDiagnostico(e.target.value)}
                   style={{
                     width: '100%',
                     height: '110px',
@@ -42,8 +77,8 @@ function PanelInfo() {
       </div>
 
       <div className="action-footer-btn">
-        <button type="button" className="btn btn-primary" onClick={handleSubir}>
-          <i className="fas fa-upload" aria-hidden="true" /> Subir Datos
+        <button type="button" className="btn btn-primary" onClick={handleSubir} disabled={guardando}>
+          <i className="fas fa-upload" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Diagnóstico'}
         </button>
       </div>
     </div>

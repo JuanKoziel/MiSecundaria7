@@ -1,8 +1,9 @@
-import { aniosLectivos } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 import { cursosPorAnio } from './preceptorUtils';
 
 function FiltrosAnioCurso({ anioLectivo, curso, onAnioChange, onCursoChange }) {
-  const cursosFiltrados = cursosPorAnio(anioLectivo);
+  const { aniosLectivos, inscripciones, cursos, cursosObj } = useData();
+  const cursosFiltrados = cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj);
 
   return (
     <div className="filter-row">

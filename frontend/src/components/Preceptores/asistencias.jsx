@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { nombreCorto } from '../../data/mockData';
+import { useState, useMemo } from 'react';
+import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
+import { createAsistencia } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import {
@@ -32,13 +34,28 @@ function docenteInicial() {
 }
 
 function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
+  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto, cursosObj, cursoMateria, estadosAsistencia, asistenciasAdmin, refreshData } = useData();
+  const { user } = useAuth();
   const [fecha, setFecha] = useState(fechaHoy);
   const [tab, setTab] = useState('alumnos');
   const [asistAlumnos, setAsistAlumnos] = useState({});
   const [asistDocentes, setAsistDocentes] = useState({});
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
 
-  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso);
-  const listaDocentes = docentesDelCurso(anioLectivo, curso);
+  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
+  const listaDocentes = docentesDelCurso(anioLectivo, curso, docentes, asignacionesDocente);
+
+  const registroAlumnos = useMemo(() => {
+    const alumnoIds = new Set(listaAlumnos.map((a) => a.id));
+    return asistenciasAdmin
+      .filter((a) => alumnoIds.has(a.alumnoId))
+      .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  }, [asistenciasAdmin, listaAlumnos]);
+
+  const asistenciasCargadasHoy = useMemo(() => {
+    return registroAlumnos.filter((a) => a.fecha === fecha).length > 0;
+  }, [registroAlumnos, fecha]);
 
   const getAlumnoReg = (id) => asistAlumnos[id] ?? estadoInicial();
   const getDocenteReg = (id) => asistDocentes[id] ?? docenteInicial();
@@ -57,10 +74,47 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
     }));
   };
 
-  const handleGuardar = () => {
-    alert(
-      `Asistencias guardadas — ${curso} (${anioLectivo}), fecha ${fecha}.`,
-    );
+  const handleGuardar = async () => {
+    setGuardando(true);
+    setMensaje('');
+    try {
+      const anio = Number(anioLectivo);
+      const cursoObj = cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === anio);
+      if (!cursoObj) {
+        setMensaje('No se encontró el curso seleccionado para ese año lectivo.');
+        setGuardando(false);
+        return;
+      }
+      const cmList = cursoMateria.filter((cm) => cm.id_curso === cursoObj.id_curso);
+      const primerCm = cmList[0];
+      if (!primerCm) {
+        setMensaje('No hay materias asignadas a este curso.');
+        setGuardando(false);
+        return;
+      }
+      const estadoMap = {};
+      estadosAsistencia.forEach((e) => { estadoMap[e.nombre_estado] = e.id_estado_asistencia; });
+      const promises = listaAlumnos.map((a) => {
+        const reg = getAlumnoReg(a.id);
+        const estadoId = estadoMap[reg.estado] || estadosAsistencia[0]?.id_estado_asistencia || 1;
+        return createAsistencia({
+          id_alumno: a.id,
+          id_curso_materia: primerCm.id,
+          fecha,
+          id_estado_asistencia: estadoId,
+          id_usuario: user?.id || 1,
+        });
+      });
+      await Promise.all(promises);
+      setMensaje('Asistencias guardadas exitosamente.');
+      await refreshData();
+    } catch (err) {
+      const detail = err.response?.data;
+      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
+      setMensaje(`Error: ${msg}`);
+    } finally {
+      setGuardando(false);
+    }
   };
 
   if (!filtrosCompletos(anioLectivo, curso)) {
@@ -92,10 +146,16 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         <h3>
           Control de Asistencia — {curso} ({anioLectivo})
         </h3>
-        <button type="button" className="btn btn-primary" onClick={handleGuardar}>
-          <i className="fas fa-save" aria-hidden="true" /> Guardar
+        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+          <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
         </button>
       </div>
+
+      {mensaje && (
+        <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+          {mensaje}
+        </p>
+      )}
 
       <div className="global-field-box">
         <div className="field-row">
@@ -110,6 +170,12 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           </div>
         </div>
       </div>
+
+      {asistenciasCargadasHoy && (
+        <p style={{ color: '#2196F3', margin: '8px 0', fontWeight: 500 }}>
+          <i className="fas fa-check-circle" aria-hidden="true" /> Ya se cargaron asistencias para la fecha {fecha}.
+        </p>
+      )}
 
       <div className="preceptor-tabs" role="tablist">
         <button
@@ -129,6 +195,15 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           onClick={() => setTab('docentes')}
         >
           Docentes
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'registro'}
+          className={`preceptor-tab ${tab === 'registro' ? 'preceptor-tab--active' : ''}`}
+          onClick={() => setTab('registro')}
+        >
+          Registro
         </button>
       </div>
 
@@ -283,6 +358,44 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === 'registro' && (
+        <div className="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Alumno</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {registroAlumnos.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="empty-state-message">
+                    No hay registros de asistencia para este curso.
+                  </td>
+                </tr>
+              ) : (
+                registroAlumnos.map((r) => {
+                  const alumno = listaAlumnos.find((a) => a.id === r.alumnoId);
+                  return (
+                    <tr key={r.id}>
+                      <td>{r.fecha}</td>
+                      <td className="table-cell-strong">
+                        {alumno ? nombreCorto(alumno) : `Alumno #${r.alumnoId}`}
+                      </td>
+                      <td>
+                        <span className={`badge ${getBadgeClass(r.estado)}`}>{r.estado}</span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

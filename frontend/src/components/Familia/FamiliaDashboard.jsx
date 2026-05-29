@@ -8,38 +8,33 @@ import Calificaciones from './Calificaciones';
 import Asistencias from './Asistencias';
 import Comunicados from './Comunicados';
 import Actas from './Actas';
-
-import {
-  getAlumnoById,
-  getHijoLabel,
-  hijosFamilia,
-  nombreCompleto,
-} from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function FamiliaDashboard({ user, onLogout }) {
-
+  const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto } = useData();
   const [view, setView] = useState('resumen');
   const [hijoId, setHijoId] = useState('');
 
-  const hijos = useMemo(
-    () =>
-      hijosFamilia.map((hijo) => {
-
-        const alumno = getAlumnoById(hijo.alumnoId);
-
-        return {
-          ...hijo,
-          nombre: alumno
-            ? nombreCompleto(alumno)
-            : 'Alumno',
-          dni: alumno?.dni ?? '—',
-        };
-      }),
-    []
+  const miTutor = useMemo(
+    () => padresTutores.find((pt) => pt.id_usuario === user?.id) || null,
+    [padresTutores, user],
   );
 
-  const hijoSeleccionado =
-    hijos.find((h) => String(h.id) === hijoId) ?? null;
+  const hijos = useMemo(() => {
+    const filtered = miTutor
+      ? hijosFamilia.filter((h) => h.id_tutor === miTutor.id_tutor)
+      : hijosFamilia;
+    return filtered.map((hijo) => {
+      const alumno = getAlumnoById(hijo.alumnoId);
+      return {
+        ...hijo,
+        nombre: alumno ? nombreCompleto(alumno) : 'Alumno',
+        dni: alumno?.dni ?? '—',
+      };
+    });
+  }, [hijosFamilia, getAlumnoById, nombreCompleto, miTutor]);
+
+  const hijoSeleccionado = hijos.find((h) => String(h.id) === hijoId) ?? null;
 
   const renderView = () => {
 
