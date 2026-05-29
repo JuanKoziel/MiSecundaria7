@@ -24,6 +24,7 @@ USUARIOS_PRUEBA = [
     {'usuario': 'docente_test', 'contrasena': 'docente123', 'rol': 'docente'},
     {'usuario': 'preceptor_test', 'contrasena': 'preceptor123', 'rol': 'preceptor'},
     {'usuario': 'familia_test', 'contrasena': 'familia123', 'rol': 'familia'},
+    {'usuario': 'alumno_test', 'contrasena': 'alumno123', 'rol': 'alumno'},
 ]
 
 

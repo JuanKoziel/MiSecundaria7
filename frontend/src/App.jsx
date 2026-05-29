@@ -3,6 +3,7 @@ import PanelProfesores from './components/Profesores/PanelProfesores';
 import PreceptorDashboard from './components/Preceptores/PreceptorDashboard';
 import FamiliaDashboard from './components/Familia/FamiliaDashboard';
 import AdminDashboard from './components/Administracion/AdminDashboard';
+import AlumnoDashboard from './components/Alumno/AlumnoDashboard';
 import { useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 
@@ -18,6 +19,8 @@ function Dashboard({ user, logout }) {
       return <PanelProfesores user={user} onLogout={logout} />;
     case 'familia':
       return <FamiliaDashboard user={user} onLogout={logout} />;
+    case 'alumno':
+      return <AlumnoDashboard user={user} onLogout={logout} />;
     default:
       return (
         <div className="login-container">

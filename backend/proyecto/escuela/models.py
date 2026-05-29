@@ -319,6 +319,7 @@ class Acta(models.Model):
     titulo = models.CharField(max_length=255, blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)
     fecha = models.DateTimeField(blank=True, null=True)
+    ruta_archivo = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
         managed = False

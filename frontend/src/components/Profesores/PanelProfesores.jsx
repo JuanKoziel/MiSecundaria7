@@ -142,7 +142,14 @@ function PanelProfesores({ user, onLogout }) {
               )}
             </div>
             <div className={`view-section ${seccionActiva === 'planif' ? 'active' : ''}`}>
-              {seccionActiva === 'planif' && <PanelPlanif />}
+              {seccionActiva === 'planif' && (
+                <PanelPlanif
+                  cursoMateriaId={cursoMateriaActivo.id}
+                  docenteId={miDocente?.id}
+                  materiaNombre={materiaSeleccionada}
+                  cursoNombre={cursoNombre}
+                />
+              )}
             </div>
             <div className={`view-section ${seccionActiva === 'asistencia' ? 'active' : ''}`}>
               {seccionActiva === 'asistencia' && (

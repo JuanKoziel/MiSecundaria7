@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { createAsistencia } from '../../services/api';
@@ -34,7 +34,7 @@ function docenteInicial() {
 }
 
 function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
-  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto, cursosObj, cursoMateria, estadosAsistencia, refreshData } = useData();
+  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto, cursosObj, cursoMateria, estadosAsistencia, asistenciasAdmin, refreshData } = useData();
   const { user } = useAuth();
   const [fecha, setFecha] = useState(fechaHoy);
   const [tab, setTab] = useState('alumnos');
@@ -45,6 +45,17 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const listaDocentes = docentesDelCurso(anioLectivo, curso, docentes, asignacionesDocente);
+
+  const registroAlumnos = useMemo(() => {
+    const alumnoIds = new Set(listaAlumnos.map((a) => a.id));
+    return asistenciasAdmin
+      .filter((a) => alumnoIds.has(a.alumnoId))
+      .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  }, [asistenciasAdmin, listaAlumnos]);
+
+  const asistenciasCargadasHoy = useMemo(() => {
+    return registroAlumnos.filter((a) => a.fecha === fecha).length > 0;
+  }, [registroAlumnos, fecha]);
 
   const getAlumnoReg = (id) => asistAlumnos[id] ?? estadoInicial();
   const getDocenteReg = (id) => asistDocentes[id] ?? docenteInicial();
@@ -160,6 +171,12 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         </div>
       </div>
 
+      {asistenciasCargadasHoy && (
+        <p style={{ color: '#2196F3', margin: '8px 0', fontWeight: 500 }}>
+          <i className="fas fa-check-circle" aria-hidden="true" /> Ya se cargaron asistencias para la fecha {fecha}.
+        </p>
+      )}
+
       <div className="preceptor-tabs" role="tablist">
         <button
           type="button"
@@ -178,6 +195,15 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           onClick={() => setTab('docentes')}
         >
           Docentes
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'registro'}
+          className={`preceptor-tab ${tab === 'registro' ? 'preceptor-tab--active' : ''}`}
+          onClick={() => setTab('registro')}
+        >
+          Registro
         </button>
       </div>
 
@@ -332,6 +358,44 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === 'registro' && (
+        <div className="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Alumno</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {registroAlumnos.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="empty-state-message">
+                    No hay registros de asistencia para este curso.
+                  </td>
+                </tr>
+              ) : (
+                registroAlumnos.map((r) => {
+                  const alumno = listaAlumnos.find((a) => a.id === r.alumnoId);
+                  return (
+                    <tr key={r.id}>
+                      <td>{r.fecha}</td>
+                      <td className="table-cell-strong">
+                        {alumno ? nombreCorto(alumno) : `Alumno #${r.alumnoId}`}
+                      </td>
+                      <td>
+                        <span className={`badge ${getBadgeClass(r.estado)}`}>{r.estado}</span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

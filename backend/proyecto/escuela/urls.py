@@ -34,5 +34,6 @@ router.register(r'historial', views.HistorialCambioViewSet)
 urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('me/', views.me_view, name='me'),
+    path('upload/', views.upload_file, name='upload_file'),
     path('', include(router.urls)),
 ]

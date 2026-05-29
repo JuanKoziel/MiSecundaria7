@@ -84,6 +84,7 @@ export function DataProvider({ children }) {
         curso_nombre_api: a.curso_nombre || '',
         id_curso: a.id_curso,
         id_tutor: a.id_tutor || null,
+        id_usuario: a.id_usuario || null,
         fecha_nacimiento: a.fecha_nacimiento || null,
       }));
 
@@ -254,6 +255,7 @@ export function DataProvider({ children }) {
         descripcion: a.descripcion || '',
         fecha: a.fecha || '',
         tipo: a.tipo_acta_nombre || '',
+        ruta_archivo: a.ruta_archivo || null,
       }));
 
       const actaAlumnoArr = (Array.isArray(actaAlumnoRaw) ? actaAlumnoRaw : []);
@@ -268,7 +270,7 @@ export function DataProvider({ children }) {
           materia: '',
           fecha: acta?.fecha || '',
           cargadoPor: '',
-          archivo: '',
+          ruta_archivo: acta?.ruta_archivo || null,
         };
       });
 
@@ -280,6 +282,8 @@ export function DataProvider({ children }) {
           curso: cursoObj?.nombre_curso || '',
           fecha: acta?.fecha || '',
           descripcion: acta?.descripcion || '',
+          titulo: acta?.titulo || '',
+          ruta_archivo: acta?.ruta_archivo || null,
         };
       });
 

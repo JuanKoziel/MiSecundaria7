@@ -255,4 +255,24 @@ export async function createNotificacion(payload) {
   return data;
 }
 
+export async function uploadFile(file, carpeta = 'general') {
+  const formData = new FormData();
+  formData.append('archivo', file);
+  formData.append('carpeta', carpeta);
+  const { data } = await api.post('/upload/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function updateActa(id, payload) {
+  const { data } = await api.patch(`/actas/${id}/`, payload);
+  return data;
+}
+
+export async function updatePlanificacion(id, payload) {
+  const { data } = await api.patch(`/planificaciones/${id}/`, payload);
+  return data;
+}
+
 export default api;

@@ -392,3 +392,34 @@ class HistorialCambioViewSet(viewsets.ReadOnlyModelViewSet):
         'id_usuario', 'id_tipo_accion',
     ).all()
     serializer_class = HistorialCambioSerializer
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_file(request):
+    import os
+    from django.conf import settings
+
+    archivo = request.FILES.get('archivo')
+    if not archivo:
+        return Response({'error': 'No se envió ningún archivo.'}, status=400)
+
+    carpeta = request.data.get('carpeta', 'general')
+    dest_dir = os.path.join(settings.MEDIA_ROOT, carpeta)
+    os.makedirs(dest_dir, exist_ok=True)
+
+    nombre = archivo.name
+    ruta = os.path.join(dest_dir, nombre)
+    counter = 1
+    base, ext = os.path.splitext(nombre)
+    while os.path.exists(ruta):
+        nombre = f'{base}_{counter}{ext}'
+        ruta = os.path.join(dest_dir, nombre)
+        counter += 1
+
+    with open(ruta, 'wb+') as f:
+        for chunk in archivo.chunks():
+            f.write(chunk)
+
+    url = f'{settings.MEDIA_URL}{carpeta}/{nombre}'
+    return Response({'url': url, 'nombre': nombre})

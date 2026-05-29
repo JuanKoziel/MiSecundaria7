@@ -157,16 +157,17 @@ class Command(BaseCommand):
         c21_26 = cursos.get('2°1-2026')
         c11_25 = cursos.get('1°1-2025')
 
+        alumno_user = Usuario.objects.filter(usuario='alumno_test').first()
         alumnos_data = [
-            ('Agustín', 'Hoffer', '44.123.456', date(2010, 3, 15), c11_26, tutores[0]),
-            ('Sofía', 'Martínez', '45.987.654', date(2010, 7, 22), c12_26, tutores[1]),
-            ('Lucas', 'Fernández', '46.111.222', date(2010, 11, 5), c11_26, tutores[2]),
-            ('Valentina', 'López', '47.222.333', date(2010, 1, 8), c12_26, tutores[0]),
-            ('Mateo', 'García', '48.333.444', date(2010, 5, 30), c21_26, tutores[1]),
-            ('Camila', 'Rodríguez', '49.444.555', date(2010, 9, 12), c21_26, tutores[2]),
+            ('Agustín', 'Hoffer', '44.123.456', date(2010, 3, 15), c11_26, tutores[0], alumno_user),
+            ('Sofía', 'Martínez', '45.987.654', date(2010, 7, 22), c12_26, tutores[1], None),
+            ('Lucas', 'Fernández', '46.111.222', date(2010, 11, 5), c11_26, tutores[2], None),
+            ('Valentina', 'López', '47.222.333', date(2010, 1, 8), c12_26, tutores[0], None),
+            ('Mateo', 'García', '48.333.444', date(2010, 5, 30), c21_26, tutores[1], None),
+            ('Camila', 'Rodríguez', '49.444.555', date(2010, 9, 12), c21_26, tutores[2], None),
         ]
         alumnos = []
-        for nombre, apellido, dni, fecha_nac, curso, tutor in alumnos_data:
+        for nombre, apellido, dni, fecha_nac, curso, tutor, usr in alumnos_data:
             a, _ = Alumno.objects.get_or_create(
                 dni=dni,
                 defaults={
@@ -176,8 +177,12 @@ class Command(BaseCommand):
                     'direccion': 'Dirección de prueba',
                     'id_curso': curso,
                     'id_tutor': tutor,
+                    'id_usuario': usr,
                 },
             )
+            if usr and not a.id_usuario:
+                a.id_usuario = usr
+                a.save()
             alumnos.append(a)
         self.stdout.write(self.style.SUCCESS(f'  Alumnos: {len(alumnos)} creados'))
 
