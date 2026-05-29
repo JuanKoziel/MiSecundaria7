@@ -293,20 +293,20 @@ class Command(BaseCommand):
         ]
         cal_count = 0
         for alumno, cm, docente, periodo, pre, nota, diag in notas_data:
-            _, created = Calificacion.objects.get_or_create(
+            Calificacion.objects.filter(
+                id_alumno=alumno, id_curso_materia=cm, id_periodo=periodo,
+            ).delete()
+            Calificacion.objects.create(
                 id_alumno=alumno,
                 id_curso_materia=cm,
                 id_periodo=periodo,
-                defaults={
-                    'id_docente': docente,
-                    'pre_nota': pre,
-                    'nota_numerica': nota,
-                    'diagnostico': diag,
-                    'fecha_carga': datetime(2026, 5, 20, 14, 0),
-                },
+                id_docente=docente,
+                pre_nota=pre,
+                nota_numerica=nota,
+                diagnostico=diag,
+                fecha_carga=datetime(2026, 5, 20, 14, 0),
             )
-            if created:
-                cal_count += 1
+            cal_count += 1
         self.stdout.write(self.style.SUCCESS(f'  Calificaciones: {cal_count} creadas'))
 
         # --- Asistencias ---
@@ -323,17 +323,17 @@ class Command(BaseCommand):
                 cm = alumno_cms[0]
                 estado_nombre = patrones[(i + fechas_asist.index(fecha)) % len(patrones)]
                 estado = estados[estado_nombre]
-                _, created = Asistencia.objects.get_or_create(
+                Asistencia.objects.filter(
+                    id_alumno=alumno, id_curso_materia=cm, fecha=fecha,
+                ).delete()
+                Asistencia.objects.create(
                     id_alumno=alumno,
                     id_curso_materia=cm,
                     fecha=fecha,
-                    defaults={
-                        'id_usuario': admin_user,
-                        'id_estado_asistencia': estado,
-                    },
+                    id_usuario=admin_user,
+                    id_estado_asistencia=estado,
                 )
-                if created:
-                    asist_count += 1
+                asist_count += 1
         self.stdout.write(self.style.SUCCESS(f'  Asistencias: {asist_count} creadas'))
 
         # --- Tipos de acta ---
