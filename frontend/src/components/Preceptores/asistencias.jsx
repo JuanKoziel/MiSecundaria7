@@ -41,7 +41,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
 
-  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
+  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosObj);
   const listaDocentes = docentesDelCurso(anioLectivo, curso, docentes, asignacionesDocente);
 
   const getAlumnoReg = (id) => asistAlumnos[id] ?? estadoInicial();

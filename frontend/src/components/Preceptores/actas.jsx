@@ -6,7 +6,7 @@ import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 
 function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
-  const { actas: actasCurso, actasAlumno, nombreCorto, inscripciones, alumnos, refreshData } = useData();
+  const { actas: actasCurso, actasAlumno, nombreCorto, inscripciones, alumnos, cursosObj, refreshData } = useData();
   const [nuevaActa, setNuevaActa] = useState({
     titulo: '',
     descripcion: '',
@@ -15,7 +15,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
 
-  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
+  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosObj);
   const actasDelCurso = actasCurso.filter((a) => a.curso === curso);
 
   const actasPorAlumno = (alumnoId) =>

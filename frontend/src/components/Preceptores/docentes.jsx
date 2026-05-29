@@ -13,8 +13,8 @@ function nuevaAsignacion() {
 }
 
 function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, onMateria }) {
-  const { aniosLectivos, inscripciones, cursos, materias } = useData();
-  const cursosFiltrados = cursosPorAnio(anioLectivo, inscripciones, cursos);
+  const { aniosLectivos, inscripciones, cursos, materias, cursosObj } = useData();
+  const cursosFiltrados = cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj);
 
   return (
     <div className="filter-row">
@@ -65,9 +65,9 @@ function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, on
 }
 
 function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
-  const { aniosLectivos, inscripciones, cursos, materias } = useData();
+  const { aniosLectivos, inscripciones, cursos, materias, cursosObj } = useData();
   const [borrador, setBorrador] = useState(nuevaAsignacion());
-  const cursosBorrador = cursosPorAnio(borrador.anioLectivo, inscripciones, cursos);
+  const cursosBorrador = cursosPorAnio(borrador.anioLectivo, inscripciones, cursos, cursosObj);
   const agregarAsignacion = () => {
     if (!borrador.materia || !borrador.anioLectivo || !borrador.curso) {
       alert('Completá materia, año y curso antes de agregar.');
