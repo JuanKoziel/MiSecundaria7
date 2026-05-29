@@ -231,4 +231,13 @@ export async function deleteDocente(id) {
   await api.delete(`/docentes/${id}/`);
 }
 
+export async function createCursoMateria(payload) {
+  const { data } = await api.post('/curso-materia/', payload);
+  return data;
+}
+
+export async function deleteCursoMateria(id) {
+  await api.delete(`/curso-materia/${id}/`);
+}
+
 export default api;

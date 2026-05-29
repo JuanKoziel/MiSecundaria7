@@ -142,9 +142,8 @@ export function DataProvider({ children }) {
         };
       });
 
-      const materias = (Array.isArray(materiasRaw) ? materiasRaw : []).map(
-        (m) => m.nombre_materia,
-      );
+      const materiasObjArr = (Array.isArray(materiasRaw) ? materiasRaw : []);
+      const materias = materiasObjArr.map((m) => m.nombre_materia);
 
       const materiasPorCurso = {};
       cursoMateria.forEach((cm) => {
@@ -311,6 +310,7 @@ export function DataProvider({ children }) {
         docentes,
         cursos,
         cursosObj: cursosObjArr,
+        materiasObj: materiasObjArr,
         materias,
         materiasPorCurso,
         horariosClase,
@@ -382,6 +382,7 @@ export function useData() {
       docentes: [],
       cursos: [],
       cursosObj: [],
+      materiasObj: [],
       materias: [],
       materiasPorCurso: {},
       horariosClase: {},

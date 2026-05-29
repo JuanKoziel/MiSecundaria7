@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { createDocente, updateDocente, deleteDocente } from '../../services/api';
+import { createDocente, updateDocente, deleteDocente, createCursoMateria, deleteCursoMateria } from '../../services/api';
 import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
@@ -64,10 +64,11 @@ function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, on
   );
 }
 
-function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
+function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
   const { aniosLectivos, inscripciones, cursos, materias, cursosObj } = useData();
   const [borrador, setBorrador] = useState(nuevaAsignacion());
   const cursosBorrador = cursosPorAnio(borrador.anioLectivo, inscripciones, cursos, cursosObj);
+
   const agregarAsignacion = () => {
     if (!borrador.materia || !borrador.anioLectivo || !borrador.curso) {
       alert('Completá materia, año y curso antes de agregar.');
@@ -83,7 +84,7 @@ function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
       alert('Esa combinación de materia, año y curso ya fue agregada.');
       return;
     }
-    setAsignaciones((prev) => [...prev, { ...borrador, id: Date.now() }]);
+    setAsignaciones((prev) => [...prev, { ...borrador, id: Date.now(), isNew: true }]);
     setBorrador(nuevaAsignacion());
   };
 
@@ -91,38 +92,10 @@ function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
     setAsignaciones((prev) => prev.filter((a) => a.id !== id));
   };
 
-  return (
-    <div style={{ maxWidth: 640 }}>
-      <div className="preceptor-form-grid">
-        <div className="form-group-filter preceptor-form-full">
-          <label htmlFor="doc-dni">DNI</label>
-          <input
-            id="doc-dni"
-            type="text"
-            value={form.dni}
-            onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
-          />
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="doc-nombre">Nombre</label>
-          <input
-            id="doc-nombre"
-            type="text"
-            value={form.nombre}
-            onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
-          />
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="doc-apellido">Apellido</label>
-          <input
-            id="doc-apellido"
-            type="text"
-            value={form.apellido}
-            onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
-          />
-        </div>
-      </div>
+  const prefix = idPrefix || 'asig';
 
+  return (
+    <>
       <h4 className="preceptor-section-title">Materias y asignaciones</h4>
       <p className="preceptor-modo-hint">
         Elegí una materia y definí en qué año y curso la dicta. Podés agregar varias.
@@ -131,9 +104,9 @@ function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
       <div className="upload-dashed-box">
         <div className="filter-row">
           <div className="form-group-filter">
-            <label htmlFor="asig-materia">Materia</label>
+            <label htmlFor={`${prefix}-materia`}>Materia</label>
             <select
-              id="asig-materia"
+              id={`${prefix}-materia`}
               value={borrador.materia}
               onChange={(e) => setBorrador((p) => ({ ...p, materia: e.target.value }))}
             >
@@ -146,9 +119,9 @@ function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
             </select>
           </div>
           <div className="form-group-filter">
-            <label htmlFor="asig-anio">Año lectivo</label>
+            <label htmlFor={`${prefix}-anio`}>Año lectivo</label>
             <select
-              id="asig-anio"
+              id={`${prefix}-anio`}
               value={borrador.anioLectivo}
               onChange={(e) =>
                 setBorrador((p) => ({ ...p, anioLectivo: e.target.value, curso: '' }))
@@ -164,9 +137,9 @@ function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
             </select>
           </div>
           <div className="form-group-filter">
-            <label htmlFor="asig-curso">Curso</label>
+            <label htmlFor={`${prefix}-curso`}>Curso</label>
             <select
-              id="asig-curso"
+              id={`${prefix}-curso`}
               value={borrador.curso}
               onChange={(e) => setBorrador((p) => ({ ...p, curso: e.target.value }))}
               disabled={!borrador.anioLectivo}
@@ -217,7 +190,7 @@ function FormCrearDocente({ form, setForm, asignaciones, setAsignaciones }) {
           </table>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -229,6 +202,7 @@ function Docentes() {
   const [materia, setMateria] = useState('');
   const [form, setForm] = useState(formVacio);
   const [asignaciones, setAsignaciones] = useState([]);
+  const [asignacionesOriginales, setAsignacionesOriginales] = useState([]);
   const [seleccionado, setSeleccionado] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -237,7 +211,14 @@ function Docentes() {
   const esVista = modo === 'vista';
   const necesitaFiltroVista = esVista;
   const necesitaFiltroCurso = modo === 'modificar' || modo === 'borrar';
-  const lista = docentesPorFiltros(anioLectivo, curso, materia, dataCtx.docentes, dataCtx.asignacionesDocente);
+
+  const allDocentes = dataCtx.docentes;
+  const tieneAlgunFiltro = anioLectivo || curso || materia;
+  const lista = esVista
+    ? (tieneAlgunFiltro
+        ? docentesPorFiltros(anioLectivo, curso, materia, allDocentes, dataCtx.asignacionesDocente)
+        : allDocentes)
+    : allDocentes;
   const docenteSel = lista.find((d) => String(d.id) === seleccionado);
 
   const resetModo = (m) => {
@@ -245,10 +226,21 @@ function Docentes() {
     setSeleccionado('');
     setForm(formVacio);
     setAsignaciones([]);
+    setAsignacionesOriginales([]);
     setAnioLectivo('');
     setCurso('');
     setMateria('');
     setMensaje('');
+  };
+
+  const resolveIds = (asig) => {
+    const cursoObj = (dataCtx.cursosObj || []).find(
+      (c) => c.nombre_curso === asig.curso && c.ciclo_anio === Number(asig.anioLectivo),
+    );
+    const materiaObj = (dataCtx.materiasObj || []).find(
+      (m) => m.nombre_materia === asig.materia,
+    );
+    return { id_curso: cursoObj?.id_curso, id_materia: materiaObj?.id_materia };
   };
 
   const handleGuardar = async () => {
@@ -261,12 +253,34 @@ function Docentes() {
           setGuardando(false);
           return;
         }
-        await createDocente({
+        const docente = await createDocente({
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
         });
-        setMensaje(`Docente creado exitosamente con ${asignaciones.length} asignación(es).`);
+        const docenteId = docente.id_docente;
+        let asigOk = 0;
+        const errores = [];
+        for (const asig of asignaciones) {
+          const { id_curso, id_materia } = resolveIds(asig);
+          if (!id_curso || !id_materia) {
+            errores.push(`No se encontró curso/materia para ${asig.materia} - ${asig.curso} (${asig.anioLectivo})`);
+            continue;
+          }
+          try {
+            await createCursoMateria({ id_curso, id_materia, id_docente: docenteId });
+            asigOk++;
+          } catch (e) {
+            const d = e.response?.data;
+            const msg = d && typeof d === 'object' ? Object.entries(d).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ') : (d?.detail || e.message);
+            errores.push(`${asig.materia} - ${asig.curso}: ${msg}`);
+          }
+        }
+        if (errores.length > 0) {
+          setMensaje(`Docente creado. ${asigOk} asignación(es) guardadas. Errores: ${errores.join('; ')}`);
+        } else {
+          setMensaje(`Docente creado exitosamente con ${asigOk} asignación(es).`);
+        }
         setForm(formVacio);
         setAsignaciones([]);
       } else if (modo === 'modificar') {
@@ -280,6 +294,19 @@ function Docentes() {
           nombre: form.nombre,
           apellido: form.apellido,
         });
+        const originalesIds = asignacionesOriginales.map((a) => a.cmId);
+        const actualesIds = asignaciones.filter((a) => a.cmId).map((a) => a.cmId);
+        const paraEliminar = originalesIds.filter((id) => !actualesIds.includes(id));
+        const paraCrear = asignaciones.filter((a) => a.isNew);
+        for (const cmId of paraEliminar) {
+          await deleteCursoMateria(cmId);
+        }
+        for (const asig of paraCrear) {
+          const { id_curso, id_materia } = resolveIds(asig);
+          if (id_curso && id_materia) {
+            await createCursoMateria({ id_curso, id_materia, id_docente: Number(seleccionado) });
+          }
+        }
         setMensaje('Docente modificado exitosamente.');
       } else if (modo === 'borrar') {
         if (!seleccionado) {
@@ -287,7 +314,7 @@ function Docentes() {
           setGuardando(false);
           return;
         }
-        if (!confirm('¿Estás seguro de que querés eliminar este docente?')) {
+        if (!confirm('¿Estás seguro de que querés eliminar este docente y todas sus asignaciones?')) {
           setGuardando(false);
           return;
         }
@@ -297,10 +324,34 @@ function Docentes() {
       }
       await dataCtx.refreshData();
     } catch (err) {
-      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+      const data = err.response?.data;
+      let msg = '';
+      if (data && typeof data === 'object' && !data.detail) {
+        msg = Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
+      } else {
+        msg = data?.detail || err.message;
+      }
+      setMensaje(`Error: ${msg}`);
     } finally {
       setGuardando(false);
     }
+  };
+
+  const cargarAsignacionesDocente = (docenteId) => {
+    const cms = (dataCtx.cursoMateria || []).filter((cm) => cm.id_docente === docenteId);
+    const mapped = cms.map((cm) => {
+      const cursoObj = (dataCtx.cursosObj || []).find((c) => c.id_curso === cm.id_curso);
+      return {
+        id: cm.id,
+        cmId: cm.id,
+        materia: cm.materia_nombre || '',
+        anioLectivo: cursoObj?.ciclo_anio ? String(cursoObj.ciclo_anio) : '',
+        curso: cm.curso_nombre || '',
+        isNew: false,
+      };
+    });
+    setAsignaciones(mapped);
+    setAsignacionesOriginales(mapped);
   };
 
   const tablaVista = (
@@ -310,7 +361,7 @@ function Docentes() {
           <tr>
             <th>DNI</th>
             <th>Nombre</th>
-            <th>Materia</th>
+            <th>Asignaciones</th>
           </tr>
         </thead>
         <tbody>
@@ -321,13 +372,19 @@ function Docentes() {
               </td>
             </tr>
           ) : (
-            lista.map((d) => (
-              <tr key={d.id}>
-                <td>{d.dni}</td>
-                <td>{nombreDocente(d)}</td>
-                <td>{d.materia}</td>
-              </tr>
-            ))
+            lista.map((d) => {
+              const asigs = (dataCtx.cursoMateria || []).filter((cm) => cm.id_docente === d.id);
+              const asigTexto = asigs.length > 0
+                ? asigs.map((cm) => `${cm.materia_nombre} (${cm.curso_nombre})`).join(', ')
+                : 'Sin asignaciones';
+              return (
+                <tr key={d.id}>
+                  <td>{d.dni}</td>
+                  <td>{nombreDocente(d)}</td>
+                  <td>{asigTexto}</td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>
@@ -339,12 +396,42 @@ function Docentes() {
 
     if (esCrear) {
       return (
-        <FormCrearDocente
-          form={form}
-          setForm={setForm}
-          asignaciones={asignaciones}
-          setAsignaciones={setAsignaciones}
-        />
+        <div style={{ maxWidth: 640 }}>
+          <div className="preceptor-form-grid">
+            <div className="form-group-filter preceptor-form-full">
+              <label htmlFor="doc-dni">DNI</label>
+              <input
+                id="doc-dni"
+                type="text"
+                value={form.dni}
+                onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
+              />
+            </div>
+            <div className="form-group-filter">
+              <label htmlFor="doc-nombre">Nombre</label>
+              <input
+                id="doc-nombre"
+                type="text"
+                value={form.nombre}
+                onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+              />
+            </div>
+            <div className="form-group-filter">
+              <label htmlFor="doc-apellido">Apellido</label>
+              <input
+                id="doc-apellido"
+                type="text"
+                value={form.apellido}
+                onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+              />
+            </div>
+          </div>
+          <AsignacionesEditor
+            asignaciones={asignaciones}
+            setAsignaciones={setAsignaciones}
+            idPrefix="asig-crear"
+          />
+        </div>
       );
     }
 
@@ -358,55 +445,60 @@ function Docentes() {
                 id="doc-select-mod"
                 value={seleccionado}
                 onChange={(e) => {
-                  setSeleccionado(e.target.value);
-                  const d = lista.find((doc) => String(doc.id) === e.target.value);
+                  const val = e.target.value;
+                  setSeleccionado(val);
+                  const d = allDocentes.find((doc) => String(doc.id) === val);
                   if (d) {
-                    setForm({
-                      dni: d.dni,
-                      nombre: d.nombre,
-                      apellido: d.apellido,
-                    });
+                    setForm({ dni: d.dni, nombre: d.nombre, apellido: d.apellido });
+                    cargarAsignacionesDocente(d.id);
                   }
                 }}
               >
                 <option value="">Seleccionar...</option>
-                {lista.map((d) => (
+                {allDocentes.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {nombreDocente(d)} — {d.materia}
+                    {nombreDocente(d)}
                   </option>
                 ))}
               </select>
             </div>
           </div>
           {docenteSel && (
-            <div className="preceptor-form-grid" style={{ maxWidth: 520 }}>
-              <div className="form-group-filter preceptor-form-full">
-                <label htmlFor="doc-dni-mod">DNI</label>
-                <input
-                  id="doc-dni-mod"
-                  type="text"
-                  value={form.dni}
-                  onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
-                />
+            <div style={{ maxWidth: 640 }}>
+              <div className="preceptor-form-grid">
+                <div className="form-group-filter preceptor-form-full">
+                  <label htmlFor="doc-dni-mod">DNI</label>
+                  <input
+                    id="doc-dni-mod"
+                    type="text"
+                    value={form.dni}
+                    onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group-filter">
+                  <label htmlFor="doc-nombre-mod">Nombre</label>
+                  <input
+                    id="doc-nombre-mod"
+                    type="text"
+                    value={form.nombre}
+                    onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group-filter">
+                  <label htmlFor="doc-apellido-mod">Apellido</label>
+                  <input
+                    id="doc-apellido-mod"
+                    type="text"
+                    value={form.apellido}
+                    onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+                  />
+                </div>
               </div>
-              <div className="form-group-filter">
-                <label htmlFor="doc-nombre-mod">Nombre</label>
-                <input
-                  id="doc-nombre-mod"
-                  type="text"
-                  value={form.nombre}
-                  onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
-                />
-              </div>
-              <div className="form-group-filter">
-                <label htmlFor="doc-apellido-mod">Apellido</label>
-                <input
-                  id="doc-apellido-mod"
-                  type="text"
-                  value={form.apellido}
-                  onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
-                />
-              </div>
+              <AsignacionesEditor
+                asignaciones={asignaciones}
+                setAsignaciones={setAsignaciones}
+                idPrefix="asig-mod"
+              />
             </div>
           )}
         </>
@@ -424,9 +516,9 @@ function Docentes() {
               onChange={(e) => setSeleccionado(e.target.value)}
             >
               <option value="">Seleccionar...</option>
-              {lista.map((d) => (
+              {allDocentes.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {nombreDocente(d)} — {d.materia}
+                  {nombreDocente(d)}
                 </option>
               ))}
             </select>
@@ -444,8 +536,6 @@ function Docentes() {
     modificar: 'Modificar docente',
     borrar: 'Borrar docente',
   };
-
-  const bloqueadoModificarBorrar = necesitaFiltroCurso && (!anioLectivo || !curso);
 
   return (
     <div className="card">
@@ -467,39 +557,22 @@ function Docentes() {
             />
           )}
 
-          {necesitaFiltroCurso && (
-            <FiltrosAnioCurso
-              anioLectivo={anioLectivo}
-              curso={curso}
-              onAnioChange={(v) => {
-                setAnioLectivo(v);
-                setCurso('');
-                setSeleccionado('');
-              }}
-              onCursoChange={setCurso}
-            />
-          )}
-
-          {bloqueadoModificarBorrar ? (
-            <EmptyFiltros mensaje="Seleccioná año lectivo y curso para continuar." />
-          ) : (
-            <>
-              <div className="card-header-flex">
-                <h3>{tituloModo[modo]}</h3>
-                {modo !== 'vista' && (
-                  <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
-                    <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
-                  </button>
-                )}
-              </div>
-              {mensaje && (
-                <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
-                  {mensaje}
-                </p>
+          <>
+            <div className="card-header-flex">
+              <h3>{tituloModo[modo]}</h3>
+              {modo !== 'vista' && (
+                <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+                  <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
+                </button>
               )}
-              {(esCrear || esVista || !bloqueadoModificarBorrar) && renderContenido()}
-            </>
-          )}
+            </div>
+            {mensaje && (
+              <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+                {mensaje}
+              </p>
+            )}
+            {renderContenido()}
+          </>
         </>
       )}
     </div>
