@@ -16,6 +16,7 @@ import {
   getNotificaciones,
   getInscripciones,
   getPadresTutores,
+  getPeriodos,
 } from '../services/api';
 
 const DataContext = createContext(null);
@@ -54,6 +55,7 @@ export function DataProvider({ children }) {
         notificacionesRaw,
         inscripcionesRaw,
         padresTutoresRaw,
+        periodosRaw,
       ] = await Promise.all([
         getAlumnos().catch(() => []),
         getDocentes().catch(() => []),
@@ -71,6 +73,7 @@ export function DataProvider({ children }) {
         getNotificaciones().catch(() => []),
         getInscripciones().catch(() => []),
         getPadresTutores().catch(() => []),
+        getPeriodos().catch(() => []),
       ]);
 
       const alumnosPreCurso = (Array.isArray(alumnosRaw) ? alumnosRaw : []).map((a) => ({
@@ -80,6 +83,8 @@ export function DataProvider({ children }) {
         apellido: a.apellido,
         curso_nombre_api: a.curso_nombre || '',
         id_curso: a.id_curso,
+        id_tutor: a.id_tutor || null,
+        fecha_nacimiento: a.fecha_nacimiento || null,
       }));
 
       const cursoMateria = (Array.isArray(cursoMateriaRaw) ? cursoMateriaRaw : []).map((cm) => ({
@@ -98,9 +103,12 @@ export function DataProvider({ children }) {
         if (!docenteMap[id]) {
           docenteMap[id] = {
             id,
+            id_usuario: d.id_usuario || null,
             dni: d.dni,
             nombre: d.nombre,
             apellido: d.apellido,
+            correo: d.correo || '',
+            telefono: d.telefono || '',
             materia: '',
             asignaciones: [],
           };
@@ -191,16 +199,43 @@ export function DataProvider({ children }) {
 
       const calificacionesArr = (Array.isArray(calificacionesRaw) ? calificacionesRaw : []);
 
-      const notasDocenteAdmin = calificacionesArr.map((c) => ({
-        id: c.id_calificacion,
-        curso: c.curso_nombre || '',
-        materia: c.materia_nombre || '',
-        alumnoId: c.id_alumno,
-        prenota1: c.pre_nota || '',
-        nota1: c.nota_numerica ?? '',
-        prenota2: '',
-        nota2: '',
-        diagnostico: c.diagnostico || '',
+      const periodosArr = (Array.isArray(periodosRaw) ? periodosRaw : []);
+      const periodoOrderMap = {};
+      periodosArr.forEach((p) => {
+        periodoOrderMap[p.id_periodo] = p.orden_periodo || 0;
+      });
+
+      const calGroups = {};
+      calificacionesArr.forEach((c) => {
+        const key = `${c.id_alumno}-${c.id_curso_materia}`;
+        if (!calGroups[key]) {
+          calGroups[key] = {
+            alumnoId: c.id_alumno,
+            id_curso_materia: c.id_curso_materia,
+            curso: c.curso_nombre || '',
+            materia: c.materia_nombre || '',
+            prenota1: '', nota1: '', prenota2: '', nota2: '',
+            diagnostico: '',
+            calId1: null, calId2: null,
+          };
+        }
+        const g = calGroups[key];
+        const orden = periodoOrderMap[c.id_periodo] || 0;
+        if (orden <= 1) {
+          g.prenota1 = c.pre_nota || '';
+          g.nota1 = c.nota_numerica ?? '';
+          g.diagnostico = c.diagnostico || g.diagnostico;
+          g.calId1 = c.id_calificacion;
+        } else if (orden === 2) {
+          g.prenota2 = c.pre_nota || '';
+          g.nota2 = c.nota_numerica ?? '';
+          if (c.diagnostico) g.diagnostico = c.diagnostico;
+          g.calId2 = c.id_calificacion;
+        }
+      });
+      const notasDocenteAdmin = Object.values(calGroups).map((g, idx) => ({
+        id: idx + 1,
+        ...g,
       }));
 
       const asistenciasArr = (Array.isArray(asistenciasRaw) ? asistenciasRaw : []);
@@ -256,6 +291,7 @@ export function DataProvider({ children }) {
           alumnoId: a.id,
           curso: a.curso,
           vinculo: 'Padre/Madre/Tutor',
+          id_tutor: a.id_tutor || null,
         }));
 
       const calificacionesFamilia = notasDocenteAdmin.map((n, idx) => ({
@@ -289,21 +325,7 @@ export function DataProvider({ children }) {
         },
       );
 
-      const alumnosDocenteInicial = alumnos.map((a) => ({
-        id: a.id,
-        nombre: `${a.apellido}, ${a.nombre}`,
-        prenota1: '',
-        nota1: '',
-        prenota2: '',
-        nota2: '',
-        diag: '',
-      }));
 
-      const asistenciaDocenteInicial = alumnos.map((a) => ({
-        id: a.id,
-        nombre: `${a.apellido}, ${a.nombre}`,
-        estado: 'Presente',
-      }));
 
       setData({
         alumnos,
@@ -321,6 +343,8 @@ export function DataProvider({ children }) {
         asignacionesDocente,
         cursoMateria,
         notasDocenteAdmin,
+        calificacionesCompletas: calificacionesArr,
+        periodos: periodosArr,
         asistenciasAdmin,
         actasAlumno,
         actas: actasCurso,
@@ -328,8 +352,6 @@ export function DataProvider({ children }) {
         calificacionesFamilia,
         asistenciasFamilia,
         comunicadosFamilia,
-        alumnosDocenteInicial,
-        asistenciaDocenteInicial,
         padresTutores,
         nombreCompleto,
         nombreCorto,
@@ -399,8 +421,10 @@ export function useData() {
       calificacionesFamilia: [],
       asistenciasFamilia: [],
       comunicadosFamilia: [],
-      alumnosDocenteInicial: [],
-      asistenciaDocenteInicial: [],
+      calificacionesCompletas: [],
+      periodos: [],
+      padresTutores: [],
+      ciclosLectivos: [],
       nombreCompleto: (a) => `${a.apellido}, ${a.nombre}`,
       nombreCorto: (a) => `${a.nombre} ${a.apellido}`,
       getAlumnoById: () => null,

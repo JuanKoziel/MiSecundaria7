@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import { createCalificacion } from '../../services/api';
+import { createCalificacion, updateCalificacion } from '../../services/api';
 
 function clampNota(value) {
   if (value === '') return '';
@@ -9,15 +9,56 @@ function clampNota(value) {
   return Math.min(10, Math.max(1, num));
 }
 
-function PanelAlumnos() {
-  const { alumnosDocenteInicial, cursoMateria, refreshData } = useData();
-  const [alumnos, setAlumnos] = useState(alumnosDocenteInicial);
+function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, docenteId }) {
+  const { alumnos, calificacionesCompletas, periodos, refreshData } = useData();
+  const [filas, setFilas] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
 
+  const alumnosCurso = useMemo(
+    () => alumnos.filter((a) => a.id_curso === cursoId),
+    [alumnos, cursoId],
+  );
+
+  const periodo1 = useMemo(
+    () => periodos.find((p) => p.orden_periodo === 1) || periodos[0],
+    [periodos],
+  );
+  const periodo2 = useMemo(
+    () => periodos.find((p) => p.orden_periodo === 2) || periodos[1],
+    [periodos],
+  );
+
+  useEffect(() => {
+    const calsCm = calificacionesCompletas.filter(
+      (c) => c.id_curso_materia === cursoMateriaId,
+    );
+
+    const nuevasFilas = alumnosCurso.map((a) => {
+      const cal1 = calsCm.find(
+        (c) => c.id_alumno === a.id && c.id_periodo === periodo1?.id_periodo,
+      );
+      const cal2 = calsCm.find(
+        (c) => c.id_alumno === a.id && c.id_periodo === periodo2?.id_periodo,
+      );
+      return {
+        id: a.id,
+        nombre: `${a.apellido}, ${a.nombre}`,
+        prenota1: cal1?.pre_nota || '',
+        nota1: cal1?.nota_numerica ?? '',
+        prenota2: cal2?.pre_nota || '',
+        nota2: cal2?.nota_numerica ?? '',
+        diag: cal1?.diagnostico || cal2?.diagnostico || '',
+        calId1: cal1?.id_calificacion || null,
+        calId2: cal2?.id_calificacion || null,
+      };
+    });
+    setFilas(nuevasFilas);
+  }, [alumnosCurso, calificacionesCompletas, cursoMateriaId, periodo1, periodo2]);
+
   const handleInputChange = (id, campo, valor) => {
-    setAlumnos((prev) =>
-      prev.map((alumno) => (alumno.id === id ? { ...alumno, [campo]: valor } : alumno))
+    setFilas((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, [campo]: valor } : f)),
     );
   };
 
@@ -25,30 +66,62 @@ function PanelAlumnos() {
     setGuardando(true);
     setMensaje('');
     try {
-      const primerCm = cursoMateria[0];
-      if (!primerCm) {
-        setMensaje('No hay curso-materia disponible para guardar notas.');
+      if (!periodo1) {
+        setMensaje('No hay periodos de evaluación configurados.');
         setGuardando(false);
         return;
       }
-      const promises = alumnos
-        .filter((a) => a.prenota1 || a.nota1)
-        .map((a) =>
-          createCalificacion({
-            id_alumno: a.id,
-            id_curso_materia: primerCm.id,
-            id_docente: primerCm.id_docente,
-            id_periodo: 1,
-            pre_nota: a.prenota1 || '',
-            nota_numerica: a.nota1 || null,
-            diagnostico: a.diag || '',
-          }),
-        );
+
+      const promises = [];
+      for (const fila of filas) {
+        if (fila.prenota1 || fila.nota1 || fila.diag) {
+          const payload1 = {
+            id_alumno: fila.id,
+            id_curso_materia: cursoMateriaId,
+            id_docente: docenteId,
+            id_periodo: periodo1.id_periodo,
+            pre_nota: fila.prenota1 || '',
+            nota_numerica: fila.nota1 !== '' ? fila.nota1 : null,
+            diagnostico: fila.diag || '',
+          };
+          if (fila.calId1) {
+            promises.push(updateCalificacion(fila.calId1, payload1));
+          } else {
+            promises.push(createCalificacion(payload1));
+          }
+        }
+
+        if (periodo2 && (fila.prenota2 || fila.nota2)) {
+          const payload2 = {
+            id_alumno: fila.id,
+            id_curso_materia: cursoMateriaId,
+            id_docente: docenteId,
+            id_periodo: periodo2.id_periodo,
+            pre_nota: fila.prenota2 || '',
+            nota_numerica: fila.nota2 !== '' ? fila.nota2 : null,
+            diagnostico: '',
+          };
+          if (fila.calId2) {
+            promises.push(updateCalificacion(fila.calId2, payload2));
+          } else {
+            promises.push(createCalificacion(payload2));
+          }
+        }
+      }
+
+      if (promises.length === 0) {
+        setMensaje('No hay notas para guardar.');
+        setGuardando(false);
+        return;
+      }
+
       await Promise.all(promises);
       setMensaje('Notas guardadas exitosamente.');
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+      const detail = err.response?.data;
+      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
+      setMensaje(`Error: ${msg}`);
     } finally {
       setGuardando(false);
     }
@@ -57,7 +130,7 @@ function PanelAlumnos() {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Planilla de Calificaciones</h3>
+        <h3>Planilla de Calificaciones — {cursoNombre} &gt; {materiaNombre}</h3>
         <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
           <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Notas'}
         </button>
@@ -74,7 +147,6 @@ function PanelAlumnos() {
           <thead>
             <tr>
               <th>Nombre del Estudiante</th>
-              <th>Documentación</th>
               <th>Prenota 1 (TEA/TEP/TED)</th>
               <th>Nota 1</th>
               <th>Prenota 2 (TEA/TEP/TED)</th>
@@ -83,81 +155,74 @@ function PanelAlumnos() {
             </tr>
           </thead>
           <tbody>
-            {alumnos.map((alumno) => (
-              <tr key={alumno.id}>
-                <td className="table-cell-strong">{alumno.nombre}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="btn btn-success table-download-btn"
-                    onClick={() =>
-                      alert(`Descargando legajo de ${alumno.nombre} (modo demostración).`)
-                    }
-                  >
-                    <i className="fas fa-file-pdf" aria-hidden="true" /> Ver Acta
-                  </button>
-                </td>
-                <td>
-                  <select
-                    value={alumno.prenota1}
-                    onChange={(e) => handleInputChange(alumno.id, 'prenota1', e.target.value)}
-                    className="select-table"
-                  >
-                    <option value="" disabled>
-                      --
-                    </option>
-                    <option value="TEA">TEA</option>
-                    <option value="TEP">TEP</option>
-                    <option value="TED">TED</option>
-                  </select>
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    className="input-table"
-                    value={alumno.nota1}
-                    onChange={(e) =>
-                      handleInputChange(alumno.id, 'nota1', clampNota(e.target.value))
-                    }
-                  />
-                </td>
-                <td>
-                  <select
-                    value={alumno.prenota2}
-                    onChange={(e) => handleInputChange(alumno.id, 'prenota2', e.target.value)}
-                    className="select-table"
-                  >
-                    <option value="" disabled>
-                      --
-                    </option>
-                    <option value="TEA">TEA</option>
-                    <option value="TEP">TEP</option>
-                    <option value="TED">TED</option>
-                  </select>
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={alumno.nota2}
-                    onChange={(e) =>
-                      handleInputChange(alumno.id, 'nota2', clampNota(e.target.value))
-                    }
-                    className="input-table"
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={alumno.diag}
-                    onChange={(e) => handleInputChange(alumno.id, 'diag', e.target.value)}
-                  />
+            {filas.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="empty-state-message">
+                  No hay alumnos en este curso.
                 </td>
               </tr>
-            ))}
+            ) : (
+              filas.map((fila) => (
+                <tr key={fila.id}>
+                  <td className="table-cell-strong">{fila.nombre}</td>
+                  <td>
+                    <select
+                      value={fila.prenota1}
+                      onChange={(e) => handleInputChange(fila.id, 'prenota1', e.target.value)}
+                      className="select-table"
+                    >
+                      <option value="">--</option>
+                      <option value="TEA">TEA</option>
+                      <option value="TEP">TEP</option>
+                      <option value="TED">TED</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      className="input-table"
+                      value={fila.nota1}
+                      onChange={(e) =>
+                        handleInputChange(fila.id, 'nota1', clampNota(e.target.value))
+                      }
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={fila.prenota2}
+                      onChange={(e) => handleInputChange(fila.id, 'prenota2', e.target.value)}
+                      className="select-table"
+                    >
+                      <option value="">--</option>
+                      <option value="TEA">TEA</option>
+                      <option value="TEP">TEP</option>
+                      <option value="TED">TED</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={fila.nota2}
+                      onChange={(e) =>
+                        handleInputChange(fila.id, 'nota2', clampNota(e.target.value))
+                      }
+                      className="input-table"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={fila.diag}
+                      onChange={(e) => handleInputChange(fila.id, 'diag', e.target.value)}
+                    />
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

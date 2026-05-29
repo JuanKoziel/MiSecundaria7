@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
 import { createAsistencia } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
@@ -34,6 +35,7 @@ function docenteInicial() {
 
 function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto, cursosObj, cursoMateria, estadosAsistencia, refreshData } = useData();
+  const { user } = useAuth();
   const [fecha, setFecha] = useState(fechaHoy);
   const [tab, setTab] = useState('alumnos');
   const [asistAlumnos, setAsistAlumnos] = useState({});
@@ -65,9 +67,10 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
     setGuardando(true);
     setMensaje('');
     try {
-      const cursoObj = cursosObj.find((c) => c.nombre_curso === curso);
+      const anio = Number(anioLectivo);
+      const cursoObj = cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === anio);
       if (!cursoObj) {
-        setMensaje('No se encontró el curso seleccionado.');
+        setMensaje('No se encontró el curso seleccionado para ese año lectivo.');
         setGuardando(false);
         return;
       }
@@ -88,14 +91,16 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           id_curso_materia: primerCm.id,
           fecha,
           id_estado_asistencia: estadoId,
-          id_usuario: 1,
+          id_usuario: user?.id || 1,
         });
       });
       await Promise.all(promises);
       setMensaje('Asistencias guardadas exitosamente.');
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+      const detail = err.response?.data;
+      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
+      setMensaje(`Error: ${msg}`);
     } finally {
       setGuardando(false);
     }

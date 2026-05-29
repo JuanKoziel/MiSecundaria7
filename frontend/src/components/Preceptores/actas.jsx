@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { createActa } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { createActa, createActaCurso } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 
 function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const { actas: actasCurso, actasAlumno, nombreCorto, inscripciones, alumnos, cursosObj, refreshData } = useData();
+  const { user } = useAuth();
   const [nuevaActa, setNuevaActa] = useState({
     titulo: '',
     descripcion: '',
@@ -29,18 +31,28 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
     setGuardando(true);
     setMensaje('');
     try {
-      await createActa({
+      const anio = Number(anioLectivo);
+      const cursoObj = cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === anio);
+      const acta = await createActa({
         titulo: nuevaActa.titulo,
         descripcion: nuevaActa.descripcion,
         fecha: nuevaActa.fecha,
         id_tipo_acta: 1,
-        id_usuario_creador: 1,
+        id_usuario_creador: user?.id || 1,
       });
+      if (cursoObj && acta?.id_acta) {
+        await createActaCurso({
+          id_acta: acta.id_acta,
+          id_curso: cursoObj.id_curso,
+        });
+      }
       setMensaje('Acta creada exitosamente.');
       setNuevaActa({ titulo: '', descripcion: '', fecha: '' });
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${err.response?.data?.detail || err.message}`);
+      const detail = err.response?.data;
+      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
+      setMensaje(`Error: ${msg}`);
     } finally {
       setGuardando(false);
     }

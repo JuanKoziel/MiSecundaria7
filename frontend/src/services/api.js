@@ -240,4 +240,19 @@ export async function deleteCursoMateria(id) {
   await api.delete(`/curso-materia/${id}/`);
 }
 
+export async function createActaCurso(payload) {
+  const { data } = await api.post('/acta-curso/', payload);
+  return data;
+}
+
+export async function createActaAlumno(payload) {
+  const { data } = await api.post('/acta-alumno/', payload);
+  return data;
+}
+
+export async function createNotificacion(payload) {
+  const { data } = await api.post('/notificaciones/', payload);
+  return data;
+}
+
 export default api;
