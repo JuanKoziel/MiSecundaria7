@@ -268,6 +268,9 @@ export function DataProvider({ children }) {
         fecha: a.fecha || '',
         alumnoId: a.id_alumno,
         estado: a.estado_nombre || '',
+        id_curso_materia: a.id_curso_materia,
+        numero_modulo: a.numero_modulo ?? null,
+        tipo: a.tipo || (a.numero_modulo ? 'materia' : 'general'),
       }));
 
       const actasArr = (Array.isArray(actasRaw) ? actasRaw : []).map((a) => ({

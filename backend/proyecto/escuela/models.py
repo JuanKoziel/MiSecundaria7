@@ -289,6 +289,8 @@ class Asistencia(models.Model):
         db_column='id_estado_asistencia',
     )
     fecha = models.DateField()
+    # numero_modulo NULL = Asistencia General del Día; con valor = por Materia.
+    numero_modulo = models.IntegerField(blank=True, null=True)
     observacion = models.TextField(blank=True, null=True)
 
     class Meta:

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { createAsistencia } from '../../services/api';
+import { MODULOS, diaSemanaNombre } from '../../utils/modulos';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import {
@@ -33,11 +34,20 @@ function docenteInicial() {
   };
 }
 
+function diaDeFecha(fechaStr) {
+  if (!fechaStr) return '';
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  return diaSemanaNombre(new Date(y, (m || 1) - 1, d || 1));
+}
+
 function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
-  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto, cursosObj, cursoMateria, estadosAsistencia, asistenciasAdmin, refreshData } = useData();
+  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto, cursosObj, cursoMateria, estadosAsistencia, asistenciasAdmin, horarios, refreshData } = useData();
   const { user } = useAuth();
   const [fecha, setFecha] = useState(fechaHoy);
   const [tab, setTab] = useState('alumnos');
+  const [tipoAsist, setTipoAsist] = useState('general');
+  const [materiaCmId, setMateriaCmId] = useState('');
+  const [numModulo, setNumModulo] = useState('');
   const [asistAlumnos, setAsistAlumnos] = useState({});
   const [asistDocentes, setAsistDocentes] = useState({});
   const [guardando, setGuardando] = useState(false);
@@ -45,6 +55,35 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const listaDocentes = docentesDelCurso(anioLectivo, curso, docentes, asignacionesDocente);
+
+  const cursoObjSel = useMemo(
+    () => cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === Number(anioLectivo)),
+    [cursosObj, curso, anioLectivo],
+  );
+  const cmCurso = useMemo(
+    () => (cursoObjSel ? cursoMateria.filter((cm) => cm.id_curso === cursoObjSel.id_curso) : []),
+    [cursoMateria, cursoObjSel],
+  );
+  const diaSel = diaDeFecha(fecha);
+  const horarioMateria = useMemo(() => {
+    if (!materiaCmId || !numModulo) return null;
+    return horarios.find(
+      (h) =>
+        h.id_curso_materia === Number(materiaCmId) &&
+        h.dia_semana === diaSel &&
+        h.numero_modulo === Number(numModulo),
+    ) || null;
+  }, [horarios, materiaCmId, numModulo, diaSel]);
+
+  const asistMateria = useMemo(() => {
+    if (!materiaCmId || !numModulo) return [];
+    return asistenciasAdmin.filter(
+      (a) =>
+        a.fecha === fecha &&
+        a.id_curso_materia === Number(materiaCmId) &&
+        a.numero_modulo === Number(numModulo),
+    );
+  }, [asistenciasAdmin, fecha, materiaCmId, numModulo]);
 
   const registroAlumnos = useMemo(() => {
     const alumnoIds = new Set(listaAlumnos.map((a) => a.id));
@@ -101,6 +140,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           id_alumno: a.id,
           id_curso_materia: primerCm.id,
           fecha,
+          numero_modulo: null,
           id_estado_asistencia: estadoId,
           id_usuario: user?.id || 1,
         });
@@ -146,10 +186,36 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         <h3>
           Control de Asistencia — {curso} ({anioLectivo})
         </h3>
-        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
-          <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
+        {tipoAsist === 'general' && (
+          <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+            <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        )}
+      </div>
+
+      <div className="asist-tipo-selector">
+        <button
+          type="button"
+          className={`btn btn-sm ${tipoAsist === 'general' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setTipoAsist('general')}
+        >
+          Asistencia General del Día
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${tipoAsist === 'materia' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setTipoAsist('materia')}
+        >
+          Asistencia por Materia
         </button>
       </div>
+
+      {tipoAsist === 'materia' && (
+        <p className="asist-info-banner">
+          <i className="fas fa-info-circle" aria-hidden="true" /> Como preceptor solo podés
+          <strong> visualizar</strong> la asistencia por materia. La carga la realiza el docente.
+        </p>
+      )}
 
       {mensaje && (
         <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
@@ -177,6 +243,85 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         </p>
       )}
 
+      {tipoAsist === 'materia' && (
+        <>
+          <div className="filter-row">
+            <div className="form-group-filter">
+              <label htmlFor="materia-asist-prec">Materia</label>
+              <select
+                id="materia-asist-prec"
+                value={materiaCmId}
+                onChange={(e) => setMateriaCmId(e.target.value)}
+              >
+                <option value="">Seleccione materia...</option>
+                {cmCurso.map((cm) => (
+                  <option key={cm.id} value={cm.id}>
+                    {cm.materia_nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group-filter">
+              <label htmlFor="modulo-asist-prec">Módulo</label>
+              <select
+                id="modulo-asist-prec"
+                value={numModulo}
+                onChange={(e) => setNumModulo(e.target.value)}
+              >
+                <option value="">Seleccione módulo...</option>
+                {MODULOS.map((m) => (
+                  <option key={m.numero} value={m.numero}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group-filter filtro-orientacion">
+              <span className="badge">Día: {diaSel || '—'}</span>
+            </div>
+          </div>
+
+          {materiaCmId && numModulo && !horarioMateria && (
+            <p className="asist-info-banner asist-bloqueado">
+              <i className="fas fa-ban" aria-hidden="true" /> Esta materia no posee clases
+              programadas para este día y horario.
+            </p>
+          )}
+
+          {materiaCmId && numModulo && horarioMateria && (
+            <div className="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Alumno</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaAlumnos.map((a) => {
+                    const reg = asistMateria.find((r) => r.alumnoId === a.id);
+                    const estado = reg?.estado || 'Sin registro';
+                    return (
+                      <tr key={a.id}>
+                        <td className="table-cell-strong">{nombreCorto(a)}</td>
+                        <td>
+                          <span
+                            className={`badge ${estado === 'Sin registro' ? '' : getBadgeClass(estado)}`}
+                          >
+                            {estado}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {tipoAsist === 'general' && (
       <div className="preceptor-tabs" role="tablist">
         <button
           type="button"
@@ -206,8 +351,9 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           Registro
         </button>
       </div>
+      )}
 
-      {tab === 'alumnos' && (
+      {tipoAsist === 'general' && tab === 'alumnos' && (
         <div className="table-responsive">
           <table>
             <thead>
@@ -269,7 +415,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         </div>
       )}
 
-      {tab === 'docentes' && (
+      {tipoAsist === 'general' && tab === 'docentes' && (
         <div className="table-responsive">
           <table>
             <thead>
@@ -363,7 +509,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         </div>
       )}
 
-      {tab === 'registro' && (
+      {tipoAsist === 'general' && tab === 'registro' && (
         <div className="table-responsive">
           <table>
             <thead>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { cursoConOrientacion } from '../../utils/orientacion';
 
 function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
@@ -12,12 +13,12 @@ function Asistencias() {
     alumnos,
     asistenciasAdmin,
     cursos,
-    getHorarioClase,
     getMateriasByCurso,
     nombreCorto,
   } = useData();
 
   const [curso, setCurso] = useState('1°1');
+  const [tipo, setTipo] = useState('general');
   const materiasCurso = useMemo(() => getMateriasByCurso(curso), [curso, getMateriasByCurso]);
   const [materia, setMateria] = useState('Matemática');
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
@@ -29,28 +30,46 @@ function Asistencias() {
   };
 
   const registros = useMemo(() => {
-    const filtrados = asistenciasAdmin.filter(
-      (a) => a.curso === curso && a.materia === materia && a.fecha === fecha
-    );
     const alumnosCurso = alumnos.filter((a) => a.curso === curso);
-    const horario = getHorarioClase(materia);
+    const filtrados = asistenciasAdmin.filter((a) => {
+      if (a.curso !== curso || a.fecha !== fecha) return false;
+      if (tipo === 'general') return a.tipo === 'general';
+      return a.tipo === 'materia' && a.materia === materia;
+    });
 
     return alumnosCurso.map((alumno) => {
       const registro = filtrados.find((r) => r.alumnoId === alumno.id);
       return {
         alumnoId: alumno.id,
         nombre: nombreCorto(alumno),
-        horario,
+        modulo: registro?.numero_modulo ? `Módulo ${registro.numero_modulo}` : '—',
         estado: registro?.estado ?? 'Sin registro',
       };
     });
-  }, [curso, materia, fecha, asistenciasAdmin, alumnos, getHorarioClase, nombreCorto]);
+  }, [curso, materia, fecha, tipo, asistenciasAdmin, alumnos, nombreCorto]);
 
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3>Control de Asistencia</h3>
         <span className="badge role-badge-display">Solo lectura</span>
+      </div>
+
+      <div className="asist-tipo-selector">
+        <button
+          type="button"
+          className={`btn btn-sm ${tipo === 'general' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setTipo('general')}
+        >
+          Asistencia General del Día
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${tipo === 'materia' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setTipo('materia')}
+        >
+          Asistencia por Materia
+        </button>
       </div>
 
       <div className="filter-row">
@@ -63,25 +82,27 @@ function Asistencias() {
           >
             {cursos.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {cursoConOrientacion(c)}
               </option>
             ))}
           </select>
         </div>
-        <div className="form-group-filter">
-          <label htmlFor="materia-asistencias">Materia</label>
-          <select
-            id="materia-asistencias"
-            value={materia}
-            onChange={(e) => setMateria(e.target.value)}
-          >
-            {materiasCurso.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
+        {tipo === 'materia' && (
+          <div className="form-group-filter">
+            <label htmlFor="materia-asistencias">Materia</label>
+            <select
+              id="materia-asistencias"
+              value={materia}
+              onChange={(e) => setMateria(e.target.value)}
+            >
+              {materiasCurso.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="form-group-filter">
           <label htmlFor="fecha-asistencias">Fecha</label>
           <input
@@ -98,14 +119,14 @@ function Asistencias() {
           <thead>
             <tr>
               <th>Alumno</th>
-              <th>Horario</th>
+              {tipo === 'materia' && <th>Módulo</th>}
               <th>Estado</th>
             </tr>
           </thead>
           <tbody>
             {registros.length === 0 ? (
               <tr>
-                <td colSpan={3} className="empty-state-message">
+                <td colSpan={tipo === 'materia' ? 3 : 2} className="empty-state-message">
                   No hay alumnos en este curso.
                 </td>
               </tr>
@@ -113,7 +134,7 @@ function Asistencias() {
               registros.map((r) => (
                 <tr key={r.alumnoId}>
                   <td className="table-cell-strong">{r.nombre}</td>
-                  <td>{r.horario}</td>
+                  {tipo === 'materia' && <td>{r.modulo}</td>}
                   <td>
                     <span
                       className={`badge ${

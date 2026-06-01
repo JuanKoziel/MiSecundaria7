@@ -360,6 +360,9 @@ tr:hover td {
 .form-error-message { color: #b91c1c; font-size: 0.9rem; margin: 8px 0 0; }
 .data-table th, .data-table td { padding: 8px 10px; }
 td .btn-sm + .btn-sm { margin-left: 6px; }
+.asist-tipo-selector { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.asist-info-banner { background: #eff6ff; color: #1e40af; padding: 8px 12px; border-radius: 8px; margin: 8px 0; font-size: 0.9rem; }
+.asist-bloqueado { background: #fef2f2; color: #b91c1c; }
 .filtro-orientacion { justify-content: flex-end; }
 .filtro-orientacion .orientacion-badge { display: inline-block; width: fit-content; }
 .badge-presente { background: #d4edda; color: #155724; }

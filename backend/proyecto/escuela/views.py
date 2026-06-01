@@ -280,6 +280,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         curso = self.request.query_params.get('curso')
         fecha = self.request.query_params.get('fecha')
         curso_materia = self.request.query_params.get('curso_materia')
+        modo = self.request.query_params.get('modo')
         if alumno:
             qs = qs.filter(id_alumno=alumno)
         if curso:
@@ -288,7 +289,32 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             qs = qs.filter(fecha=fecha)
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)
+        if modo == 'general':
+            qs = qs.filter(numero_modulo__isnull=True)
+        elif modo == 'materia':
+            qs = qs.filter(numero_modulo__isnull=False)
         return qs
+
+    def create(self, request, *args, **kwargs):
+        """Upsert: evita duplicados por (alumno, curso_materia, fecha, modulo).
+
+        Si ya existe una asistencia para esa combinación, la actualiza en lugar
+        de crear una nueva. numero_modulo NULL = general; con valor = por materia.
+        """
+        data = request.data
+        numero_modulo = data.get('numero_modulo')
+        existing = Asistencia.objects.filter(
+            id_alumno=data.get('id_alumno'),
+            id_curso_materia=data.get('id_curso_materia'),
+            fecha=data.get('fecha'),
+            numero_modulo=numero_modulo if numero_modulo not in ('', None) else None,
+        ).first()
+        if existing:
+            serializer = self.get_serializer(existing, data=data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
 
 
 class TipoActaViewSet(viewsets.ReadOnlyModelViewSet):
