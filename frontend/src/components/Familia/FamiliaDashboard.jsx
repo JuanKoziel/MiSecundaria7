@@ -8,6 +8,7 @@ import Calificaciones from './Calificaciones';
 import Asistencias from './Asistencias';
 import Comunicados from './Comunicados';
 import Actas from './Actas';
+import Notificaciones from '../Notificaciones';
 import { useData } from '../../context/DataContext';
 
 function FamiliaDashboard({ user, onLogout }) {
@@ -150,7 +151,15 @@ function FamiliaDashboard({ user, onLogout }) {
         {/* CONTENIDO PRINCIPAL                                   */}
         {/* ===================================================== */}
 
-        {hijoSeleccionado ? (
+        {view === 'notificaciones' ? (
+
+          <div className="dashboard-content">
+            <div className="view-section active">
+              <Notificaciones />
+            </div>
+          </div>
+
+        ) : hijoSeleccionado ? (
 
           <div className="dashboard-content">
             {renderView()}

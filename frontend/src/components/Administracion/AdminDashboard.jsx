@@ -6,6 +6,7 @@ import Docentes from './docentes';
 import Asistencias from './asistencias';
 import Notas from './notas';
 import Comunicados from './comunicados';
+import Notificaciones from '../Notificaciones';
 
 function AdminDashboard({ user, onLogout }) {
   const [view, setView] = useState('alumnos');
@@ -22,6 +23,8 @@ function AdminDashboard({ user, onLogout }) {
         return <Notas />;
       case 'comunicados':
         return <Comunicados />;
+      case 'notificaciones':
+        return <Notificaciones />;
       default:
         return <Alumnos />;
     }

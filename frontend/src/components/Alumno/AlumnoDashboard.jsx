@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
+import Notificaciones from '../Notificaciones';
 
 function AlumnoDashboard({ user, onLogout }) {
   const {
@@ -68,46 +69,56 @@ function AlumnoDashboard({ user, onLogout }) {
   return (
     <div className="dashboard-layout">
       <aside className="sidebar">
-        <div className="sidebar-header">
-          <h2 className="sidebar-title">Portal Alumno</h2>
+        <div className="sidebar-brand">
+          <i className="fas fa-user-graduate" aria-hidden="true" />
+          <span>Portal Alumno</span>
         </div>
-        <nav className="sidebar-nav">
-          <button
-            type="button"
-            className={`sidebar-link ${view === 'calificaciones' ? 'active' : ''}`}
-            onClick={() => setView('calificaciones')}
-          >
-            <i className="fas fa-book" aria-hidden="true" />
-            <span>Calificaciones</span>
-          </button>
-          <button
-            type="button"
-            className={`sidebar-link ${view === 'asistencias' ? 'active' : ''}`}
-            onClick={() => setView('asistencias')}
-          >
-            <i className="fas fa-clipboard-check" aria-hidden="true" />
-            <span>Asistencias</span>
-          </button>
-        </nav>
-        <div className="sidebar-footer">
-          <button type="button" className="sidebar-link logout-link" onClick={onLogout}>
-            <i className="fas fa-sign-out-alt" aria-hidden="true" />
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
+
+        <ul className="sidebar-menu">
+          <li className={view === 'calificaciones' ? 'active' : ''}>
+            <button type="button" className="sidebar-menu-btn" onClick={() => setView('calificaciones')}>
+              <i className="fas fa-book" aria-hidden="true" />
+              <span>Calificaciones</span>
+            </button>
+          </li>
+          <li className={view === 'asistencias' ? 'active' : ''}>
+            <button type="button" className="sidebar-menu-btn" onClick={() => setView('asistencias')}>
+              <i className="fas fa-clipboard-check" aria-hidden="true" />
+              <span>Asistencias</span>
+            </button>
+          </li>
+          <li className={view === 'notificaciones' ? 'active' : ''}>
+            <button type="button" className="sidebar-menu-btn" onClick={() => setView('notificaciones')}>
+              <i className="fas fa-bell" aria-hidden="true" />
+              <span>Notificaciones</span>
+            </button>
+          </li>
+
+          <li className="logout-li">
+            <button type="button" className="sidebar-menu-btn sidebar-logout-btn" onClick={onLogout}>
+              <i className="fas fa-sign-out-alt" aria-hidden="true" />
+              <span>Cerrar Sesión</span>
+            </button>
+          </li>
+        </ul>
       </aside>
 
       <main className="main-content">
-        <header className="top-header">
-          <h1 className="header-title">
-            {miAlumno ? `${miAlumno.nombre} ${miAlumno.apellido}` : 'Alumno'}
-          </h1>
-          <span className="badge role-badge-display">
-            {miAlumno ? `Curso: ${miAlumno.curso}` : 'alumno'}
-          </span>
+        <header className="main-header">
+          <div>
+            <h1>{miAlumno ? `${miAlumno.nombre} ${miAlumno.apellido}` : 'Alumno'}</h1>
+            <p className="main-header-subtitle">
+              {miAlumno ? `Curso: ${miAlumno.curso}` : 'Portal del Alumno'}
+            </p>
+          </div>
+          <span className="badge role-badge-display">Alumno</span>
         </header>
 
-        {!miAlumno ? (
+        {view === 'notificaciones' ? (
+          <div className="view-section active">
+            <Notificaciones />
+          </div>
+        ) : !miAlumno ? (
           <div className="card">
             <p className="empty-state-message">
               No se encontró un alumno vinculado a este usuario.

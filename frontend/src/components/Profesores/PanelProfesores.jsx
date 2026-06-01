@@ -6,6 +6,7 @@ import PanelAlumnos from './PanelAlumnos';
 import PanelInfo from './PanelInfo';
 import PanelPlanif from './PanelPlanif';
 import PanelAsistencia from './PanelAsistencia';
+import Notificaciones from '../Notificaciones';
 import { useData } from '../../context/DataContext';
 
 function PanelProfesores({ user, onLogout }) {
@@ -77,7 +78,7 @@ function PanelProfesores({ user, onLogout }) {
           materiaSeleccionada={materiaSeleccionada}
         />
 
-        {seccionActiva !== 'docente' && (
+        {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && (
           <div className="card">
             <div className="filter-row">
               <div className="form-group-filter">
@@ -119,7 +120,11 @@ function PanelProfesores({ user, onLogout }) {
           </div>
         )}
 
-        {seccionActiva === 'docente' ? (
+        {seccionActiva === 'notificaciones' ? (
+          <div className="view-section active">
+            <Notificaciones />
+          </div>
+        ) : seccionActiva === 'docente' ? (
           <div className="view-section active">
             <PanelDocente miDocente={miDocente} />
           </div>

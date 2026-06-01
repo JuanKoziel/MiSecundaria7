@@ -16,3 +16,26 @@
   justify-content: center;
   margin-top: 10px;
 }
+
+/* Checkbox "Recordar usuario" */
+.login-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 6px;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+}
+
+.login-remember input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--primary, #f97316);
+}
+
+.login-remember label {
+  cursor: pointer;
+  user-select: none;
+}

@@ -2,10 +2,13 @@ import './login.css';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
+const REMEMBER_KEY = 'remembered_user';
+
 function Login() {
   const { login } = useAuth();
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => localStorage.getItem(REMEMBER_KEY) || '');
   const [password, setPassword] = useState('');
+  const [recordar, setRecordar] = useState(() => !!localStorage.getItem(REMEMBER_KEY));
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,6 +18,11 @@ function Login() {
     setLoading(true);
     try {
       await login(username, password);
+      if (recordar) {
+        localStorage.setItem(REMEMBER_KEY, username);
+      } else {
+        localStorage.removeItem(REMEMBER_KEY);
+      }
     } catch (err) {
       const msg =
         err.response?.data?.error ||
@@ -73,6 +81,16 @@ function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+          </div>
+
+          <div className="login-remember">
+            <input
+              id="recordar"
+              type="checkbox"
+              checked={recordar}
+              onChange={(e) => setRecordar(e.target.checked)}
+            />
+            <label htmlFor="recordar">Recordar usuario</label>
           </div>
 
           <button

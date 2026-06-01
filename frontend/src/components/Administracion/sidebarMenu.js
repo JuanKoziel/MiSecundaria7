@@ -4,4 +4,5 @@ export const menuItems = [
   { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },
   { id: 'notas', label: 'Notas', icon: 'fa-clipboard-list' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
+  { id: 'notificaciones', label: 'Notificaciones', icon: 'fa-bell' },
 ];

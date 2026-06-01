@@ -8,6 +8,7 @@ import Asistencias from './asistencias';
 import Notas from './notas';
 import Actas from './actas';
 import Docentes from './docentes';
+import Notificaciones from '../Notificaciones';
 
 function PreceptorDashboard({ user, onLogout }) {
 
@@ -64,6 +65,13 @@ function PreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Actas {...filtrosProps} />
+          </div>
+        );
+
+      case 'notificaciones':
+        return (
+          <div className="view-section active">
+            <Notificaciones />
           </div>
         );
 

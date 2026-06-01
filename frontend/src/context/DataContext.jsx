@@ -294,7 +294,7 @@ export function DataProvider({ children }) {
           id: idx + 1,
           alumnoId: a.id,
           curso: a.curso,
-          vinculo: 'Padre/Madre/Tutor',
+          vinculo: 'Tutor',
           id_tutor: a.id_tutor || null,
         }));
 
