@@ -1,13 +1,12 @@
-import { actasAlumno } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
+
+const API_BASE = 'http://localhost:8000';
 
 function Actas({ hijo }) {
+  const { actasAlumno } = useData();
   const actas = actasAlumno
     .filter((a) => a.alumnoId === hijo.alumnoId)
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
-
-  const handleVerActa = (acta) => {
-    alert(`Abriendo ${acta.archivo} — ${acta.titulo} (modo demostración).`);
-  };
+    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
   return (
     <div className="card">
@@ -26,9 +25,7 @@ function Actas({ hijo }) {
             <thead>
               <tr>
                 <th>Documento</th>
-                <th>Materia</th>
                 <th>Fecha de carga</th>
-                <th>Cargado por</th>
                 <th>Acción</th>
               </tr>
             </thead>
@@ -36,17 +33,20 @@ function Actas({ hijo }) {
               {actas.map((acta) => (
                 <tr key={acta.id}>
                   <td className="table-cell-strong">{acta.titulo}</td>
-                  <td>{acta.materia}</td>
                   <td>{acta.fecha}</td>
-                  <td>{acta.cargadoPor}</td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn btn-success table-download-btn"
-                      onClick={() => handleVerActa(acta)}
-                    >
-                      <i className="fas fa-file-pdf" aria-hidden="true" /> Ver Acta
-                    </button>
+                    {acta.ruta_archivo ? (
+                      <a
+                        href={`${API_BASE}${acta.ruta_archivo}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-success table-download-btn"
+                      >
+                        <i className="fas fa-file-pdf" aria-hidden="true" /> Ver Acta
+                      </a>
+                    ) : (
+                      <span className="empty-state-message">Sin archivo</span>
+                    )}
                   </td>
                 </tr>
               ))}

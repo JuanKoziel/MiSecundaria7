@@ -1,4 +1,4 @@
-import { asistenciasFamilia } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
@@ -7,6 +7,7 @@ function badgeClass(estado) {
 }
 
 function Asistencias({ hijo }) {
+  const { asistenciasFamilia } = useData();
   const asistencias = asistenciasFamilia
     .filter((a) => a.hijoId === hijo.id)
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
