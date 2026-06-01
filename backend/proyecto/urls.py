@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 """
 URL configuration for proyecto project.
 
@@ -22,6 +23,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 ]
 =======
+=======
+>>>>>>> 90f79511f86210c3406dd87820275db1dec768d0
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -36,4 +39,7 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+<<<<<<< HEAD
 >>>>>>> main
+=======
+>>>>>>> 90f79511f86210c3406dd87820275db1dec768d0
