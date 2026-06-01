@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
 import { cursoConOrientacion } from '../../utils/orientacion';
+import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 
 function AlumnoDashboard({ user, onLogout }) {
   const {
@@ -58,6 +59,32 @@ function AlumnoDashboard({ user, onLogout }) {
       .filter((a) => a.alumnoId === miAlumno.id)
       .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
   }, [asistenciasAdmin, miAlumno]);
+
+  const inasistenciasPorMateria = useMemo(() => {
+    const porMateria = {};
+    asistenciasAdmin
+      .filter((a) => miAlumno && a.alumnoId === miAlumno.id && (a.estado === 'Ausente' || a.estado === 'Tarde'))
+      .forEach((a) => {
+        const mat = a.materia || 'General';
+        if (!porMateria[mat]) porMateria[mat] = { ausencias: 0, tardanzas: 0 };
+        if (a.estado === 'Ausente') porMateria[mat].ausencias += 1;
+        else porMateria[mat].tardanzas += 1;
+      });
+    return porMateria;
+  }, [asistenciasAdmin, miAlumno]);
+
+  const handleDescargarBoletin = () => {
+    if (!miAlumno) return;
+    const html = boletinHTML({
+      alumnoNombre: `${miAlumno.apellido}, ${miAlumno.nombre}`,
+      dni: miAlumno.dni,
+      cursoNombre: miAlumno.curso,
+      anioLectivo: new Date().getFullYear(),
+      materias: calsPorMateria,
+      inasistenciasPorMateria,
+    });
+    exportarBoletinPDF(html, `Boletín — ${miAlumno.apellido}, ${miAlumno.nombre}`);
+  };
 
   const resumenAsistencia = useMemo(() => {
     const total = misAsistencias.length;
@@ -131,7 +158,14 @@ function AlumnoDashboard({ user, onLogout }) {
               <div className="card">
                 <div className="card-header-flex">
                   <h3>Mis Calificaciones</h3>
-                  <span className="badge role-badge-display">Solo lectura</span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={handleDescargarBoletin}
+                    disabled={calsPorMateria.length === 0}
+                  >
+                    <i className="fas fa-file-pdf" aria-hidden="true" /> Descargar boletín PDF
+                  </button>
                 </div>
 
                 {calsPorMateria.length === 0 ? (

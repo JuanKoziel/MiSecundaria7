@@ -1,28 +1,61 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, boletinPorAlumno, filtrosCompletos } from './preceptorUtils';
+import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 
-function BoletinAlumno({ alumno, curso, expandido, onToggle, inasistencias }) {
+function totalesInasistencias(inasistenciasPorMateria) {
+  return Object.values(inasistenciasPorMateria).reduce(
+    (acc, m) => ({ ausencias: acc.ausencias + m.ausencias, tardanzas: acc.tardanzas + m.tardanzas }),
+    { ausencias: 0, tardanzas: 0 },
+  );
+}
+
+function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasistenciasPorMateria }) {
   const { nombreCorto, hijosFamilia, calificacionesFamilia } = useData();
   const materias = boletinPorAlumno(alumno.id, curso, hijosFamilia, calificacionesFamilia);
+  const totales = totalesInasistencias(inasistenciasPorMateria);
+
+  const handleExportar = (e) => {
+    e.stopPropagation();
+    const html = boletinHTML({
+      alumnoNombre: `${alumno.apellido}, ${alumno.nombre}`,
+      dni: alumno.dni,
+      cursoNombre: curso,
+      anioLectivo,
+      materias,
+      inasistenciasPorMateria,
+    });
+    exportarBoletinPDF(html, `Boletín — ${alumno.apellido}, ${alumno.nombre}`);
+  };
 
   return (
     <div className="preceptor-boletin-card">
-      <button type="button" className="preceptor-boletin-header" onClick={onToggle}>
+      <div
+        className="preceptor-boletin-header"
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); }}
+      >
         <span>
           Boletín de {nombreCorto(alumno)}
           <span className="preceptor-boletin-meta">
             {' '}
-            — {materias.length} materia{materias.length !== 1 ? 's' : ''} — Inasist: {inasistencias.ausencias} | Tardanzas: {inasistencias.tardanzas}
+            — {materias.length} materia{materias.length !== 1 ? 's' : ''} — Inasist: {totales.ausencias} | Tardanzas: {totales.tardanzas}
           </span>
         </span>
-        <i
-          className={`fas fa-chevron-${expandido ? 'up' : 'down'}`}
-          aria-hidden="true"
-        />
-      </button>
+        <span className="preceptor-boletin-actions">
+          <button type="button" className="btn btn-sm btn-secondary" onClick={handleExportar}>
+            <i className="fas fa-file-pdf" aria-hidden="true" /> Exportar
+          </button>
+          <i
+            className={`fas fa-chevron-${expandido ? 'up' : 'down'}`}
+            aria-hidden="true"
+          />
+        </span>
+      </div>
 
       {expandido && (
         <div className="preceptor-boletin-body">
@@ -48,22 +81,25 @@ function BoletinAlumno({ alumno, curso, expandido, onToggle, inasistencias }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {materias.map((m) => (
+                  {materias.map((m) => {
+                    const ina = inasistenciasPorMateria[m.materia] || { ausencias: 0, tardanzas: 0 };
+                    return (
                     <tr key={m.id}>
                       <td className="table-cell-strong">{m.materia}</td>
                       <td>
                         <span className="badge badge-cualitativa">{m.prenota1 || '—'}</span>
                       </td>
                       <td>{m.nota1 ?? '—'}</td>
-                      <td>{inasistencias.ausencias}</td>
+                      <td>{ina.ausencias}</td>
                       <td>
                         <span className="badge badge-cualitativa">{m.prenota2 || '—'}</span>
                       </td>
                       <td>{m.nota2 ?? '—'}</td>
-                      <td>{inasistencias.ausencias}</td>
+                      <td>{ina.ausencias}</td>
                       <td>{m.diagnostico || '—'}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -75,46 +111,27 @@ function BoletinAlumno({ alumno, curso, expandido, onToggle, inasistencias }) {
 }
 
 function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
-  const { inscripciones, alumnos, asistenciasAdmin, nombreCorto } = useData();
+  const { inscripciones, alumnos, asistenciasAdmin } = useData();
   const [expandidoId, setExpandidoId] = useState(null);
-  const printRef = useRef(null);
 
   const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
 
   const inasistenciasPorAlumno = useMemo(() => {
     const map = {};
     lista.forEach((a) => {
-      const asistAlumno = asistenciasAdmin.filter((r) => r.alumnoId === a.id);
-      map[a.id] = {
-        ausencias: asistAlumno.filter((r) => r.estado === 'Ausente').length,
-        tardanzas: asistAlumno.filter((r) => r.estado === 'Tarde').length,
-      };
+      const porMateria = {};
+      asistenciasAdmin
+        .filter((r) => r.alumnoId === a.id && (r.estado === 'Ausente' || r.estado === 'Tarde'))
+        .forEach((r) => {
+          const mat = r.materia || 'General';
+          if (!porMateria[mat]) porMateria[mat] = { ausencias: 0, tardanzas: 0 };
+          if (r.estado === 'Ausente') porMateria[mat].ausencias += 1;
+          else porMateria[mat].tardanzas += 1;
+        });
+      map[a.id] = porMateria;
     });
     return map;
   }, [lista, asistenciasAdmin]);
-
-  const handleExportarPDF = () => {
-    const el = printRef.current;
-    if (!el) return;
-    const win = window.open('', '_blank');
-    win.document.write(`
-      <html><head><title>Boletines — ${curso} (${anioLectivo})</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 13px; }
-        th { background: #f5f5f5; }
-        h2, h3 { margin: 10px 0; }
-        .alumno-header { background: #e3f2fd; padding: 8px 12px; margin-top: 16px; border-radius: 4px; }
-        @media print { button { display: none; } }
-      </style></head><body>
-      <h2>Boletines del curso ${curso} — Año lectivo ${anioLectivo}</h2>
-      ${el.innerHTML}
-      <script>window.print();<\/script>
-      </body></html>
-    `);
-    win.document.close();
-  };
 
   if (!filtrosCompletos(anioLectivo, curso)) {
     return (
@@ -145,17 +162,14 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         <h3>
           Boletines del curso — {curso} ({anioLectivo})
         </h3>
-        <button type="button" className="btn btn-secondary" onClick={handleExportarPDF}>
-          <i className="fas fa-file-pdf" aria-hidden="true" /> Exportar PDF
-        </button>
       </div>
 
       <p className="preceptor-modo-hint">
-        Vista consolidada por alumno. Las calificaciones por materia las cargan los
-        docentes; desde preceptoría podés consultar el boletín completo del curso.
+        Vista consolidada por alumno. Cada boletín tiene su propio botón <strong>Exportar</strong>
+        {' '}para descargar/imprimir el PDF individual.
       </p>
 
-      <div ref={printRef}>
+      <div>
         {lista.length === 0 ? (
           <EmptyFiltros mensaje="No hay alumnos inscriptos en este curso." />
         ) : (
@@ -164,9 +178,10 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
               key={a.id}
               alumno={a}
               curso={curso}
+              anioLectivo={anioLectivo}
               expandido={expandidoId === a.id}
               onToggle={() => setExpandidoId(expandidoId === a.id ? null : a.id)}
-              inasistencias={inasistenciasPorAlumno[a.id] || { ausencias: 0, tardanzas: 0 }}
+              inasistenciasPorMateria={inasistenciasPorAlumno[a.id] || {}}
             />
           ))
         )}
