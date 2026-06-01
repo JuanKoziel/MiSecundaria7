@@ -171,6 +171,27 @@ export function DataProvider({ children }) {
         }
       });
 
+      const horarios = (Array.isArray(horariosRaw) ? horariosRaw : []).map((h) => {
+        const cm = cursoMateria.find((c) => c.id === h.id_curso_materia);
+        const cursoObj = cm
+          ? cursosObjArr.find((c) => c.id_curso === cm.id_curso)
+          : null;
+        return {
+          id: h.id_horario,
+          id_curso_materia: h.id_curso_materia,
+          id_curso: cm?.id_curso || h.id_curso || null,
+          curso_nombre: h.curso_nombre || cm?.curso_nombre || '',
+          materia_nombre: h.materia_nombre || cm?.materia_nombre || '',
+          docente_nombre: h.docente_nombre || cm?.docente_nombre || '',
+          ciclo_anio: cursoObj?.ciclo_anio || null,
+          dia_semana: h.dia_semana || '',
+          numero_modulo: h.numero_modulo ?? null,
+          hora_inicio: h.hora_inicio || '',
+          hora_fin: h.hora_fin || '',
+          aula: h.aula || '',
+        };
+      });
+
       const estadosAsistencia = (Array.isArray(estadosRaw) ? estadosRaw : []);
 
       const ciclosLectivos = (Array.isArray(ciclosRaw) ? ciclosRaw : []);
@@ -340,6 +361,7 @@ export function DataProvider({ children }) {
         materias,
         materiasPorCurso,
         horariosClase,
+        horarios,
         aniosLectivos,
         ciclosLectivos,
         estadosAsistencia,
@@ -412,6 +434,7 @@ export function useData() {
       materias: [],
       materiasPorCurso: {},
       horariosClase: {},
+      horarios: [],
       aniosLectivos: [],
       estadosAsistencia: [],
       inscripciones: [],

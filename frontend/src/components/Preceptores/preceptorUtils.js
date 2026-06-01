@@ -55,7 +55,8 @@ export function nombreDocente(docente) {
 }
 
 export function filtrosCompletos(anioLectivo, curso) {
-  return Boolean(anioLectivo && curso);
+  // El curso debe incluir año y división (ej: "2°1"), no solo el año ("2°").
+  return Boolean(anioLectivo && curso && /\d+\s*[°º]\s*\d+/.test(String(curso)));
 }
 
 export function boletinPorAlumno(alumnoId, curso, hijosFamilia, calificacionesFamilia) {

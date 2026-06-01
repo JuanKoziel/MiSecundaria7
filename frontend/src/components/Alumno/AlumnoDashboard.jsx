@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
+import { cursoConOrientacion } from '../../utils/orientacion';
 
 function AlumnoDashboard({ user, onLogout }) {
   const {
@@ -108,7 +109,7 @@ function AlumnoDashboard({ user, onLogout }) {
           <div>
             <h1>{miAlumno ? `${miAlumno.nombre} ${miAlumno.apellido}` : 'Alumno'}</h1>
             <p className="main-header-subtitle">
-              {miAlumno ? `Curso: ${miAlumno.curso}` : 'Portal del Alumno'}
+              {miAlumno ? `Curso: ${cursoConOrientacion(miAlumno.curso)}` : 'Portal del Alumno'}
             </p>
           </div>
           <span className="badge role-badge-display">Alumno</span>

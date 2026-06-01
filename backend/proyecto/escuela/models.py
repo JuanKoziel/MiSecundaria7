@@ -363,6 +363,7 @@ class Horario(models.Model):
         CursoMateria, on_delete=models.CASCADE, db_column='id_curso_materia',
     )
     dia_semana = models.CharField(max_length=20, blank=True, null=True)
+    numero_modulo = models.IntegerField(blank=True, null=True)
     hora_inicio = models.TimeField(blank=True, null=True)
     hora_fin = models.TimeField(blank=True, null=True)
     aula = models.CharField(max_length=50, blank=True, null=True)

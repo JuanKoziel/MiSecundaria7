@@ -148,6 +148,20 @@ export async function getHorarios(params) {
   return data;
 }
 
+export async function createHorario(payload) {
+  const { data } = await api.post('/horarios/', payload);
+  return data;
+}
+
+export async function updateHorario(id, payload) {
+  const { data } = await api.patch(`/horarios/${id}/`, payload);
+  return data;
+}
+
+export async function deleteHorario(id) {
+  await api.delete(`/horarios/${id}/`);
+}
+
 export async function getCiclosLectivos() {
   const { data } = await api.get('/ciclos-lectivos/');
   return data;

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { cursoConOrientacion } from '../../utils/orientacion';
 
 function Comunicados() {
   const { comunicadosFamilia, cursos } = useData();
@@ -29,7 +30,7 @@ function Comunicados() {
           >
             {cursos.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {cursoConOrientacion(c)}
               </option>
             ))}
           </select>

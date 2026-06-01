@@ -160,9 +160,29 @@ class CursoMateriaSerializer(serializers.ModelSerializer):
 
 
 class HorarioSerializer(serializers.ModelSerializer):
+    curso_nombre = serializers.CharField(
+        source='id_curso_materia.id_curso.nombre_curso',
+        read_only=True, default=None,
+    )
+    materia_nombre = serializers.CharField(
+        source='id_curso_materia.id_materia.nombre_materia',
+        read_only=True, default=None,
+    )
+    docente_nombre = serializers.SerializerMethodField()
+    id_curso = serializers.IntegerField(
+        source='id_curso_materia.id_curso.id_curso',
+        read_only=True, default=None,
+    )
+
     class Meta:
         model = Horario
         fields = '__all__'
+
+    def get_docente_nombre(self, obj):
+        docente = getattr(obj.id_curso_materia, 'id_docente', None)
+        if docente:
+            return f'{docente.apellido}, {docente.nombre}'
+        return None
 
 
 class InscripcionMateriaSerializer(serializers.ModelSerializer):

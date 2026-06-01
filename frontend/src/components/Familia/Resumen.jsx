@@ -1,4 +1,5 @@
 import { useData } from '../../context/DataContext';
+import { cursoConOrientacion } from '../../utils/orientacion';
 
 function Resumen({ hijo }) {
   const { asistenciasFamilia, calificacionesFamilia } = useData();
@@ -21,7 +22,7 @@ function Resumen({ hijo }) {
     <div className="familia-resumen-grid">
       <div className="card familia-stat-card">
         <span className="familia-stat-label">Curso</span>
-        <strong className="familia-stat-value">{hijo.curso}</strong>
+        <strong className="familia-stat-value">{cursoConOrientacion(hijo.curso)}</strong>
       </div>
       <div className="card familia-stat-card">
         <span className="familia-stat-label">Vínculo</span>
@@ -53,7 +54,7 @@ function Resumen({ hijo }) {
               </tr>
               <tr>
                 <td className="table-label">Curso</td>
-                <td>{hijo.curso}</td>
+                <td>{cursoConOrientacion(hijo.curso)}</td>
               </tr>
               <tr>
                 <td className="table-label">Preceptoría</td>

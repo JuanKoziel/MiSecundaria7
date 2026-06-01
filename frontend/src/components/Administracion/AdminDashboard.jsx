@@ -3,6 +3,7 @@ import Sidebar from './sidebar/sidebar';
 import Header from './header/header';
 import Alumnos from './alumnos';
 import Docentes from './docentes';
+import Horarios from './horarios';
 import Asistencias from './asistencias';
 import Notas from './notas';
 import Comunicados from './comunicados';
@@ -17,6 +18,8 @@ function AdminDashboard({ user, onLogout }) {
         return <Alumnos />;
       case 'docentes':
         return <Docentes />;
+      case 'horarios':
+        return <Horarios />;
       case 'asistencias':
         return <Asistencias />;
       case 'notas':

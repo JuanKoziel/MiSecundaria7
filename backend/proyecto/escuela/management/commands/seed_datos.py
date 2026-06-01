@@ -78,22 +78,25 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS('  Preceptores: 2 creados'))
 
-        # --- Cursos ---
-        cursos_data = [
-            ('1°1', 'Mañana', ciclo26, preceptor1),
-            ('1°2', 'Mañana', ciclo26, preceptor1),
-            ('2°1', 'Mañana', ciclo26, preceptor2),
-            ('1°1', 'Mañana', ciclo25, preceptor1),
-        ]
+        # --- Cursos: 18 cursos (6 años x 3 divisiones) para el ciclo activo ---
         cursos = {}
-        for nombre, turno, ciclo, prec in cursos_data:
-            key = f'{nombre}-{ciclo.anio}'
-            c, _ = Curso.objects.get_or_create(
-                nombre_curso=nombre,
-                id_ciclo=ciclo,
-                defaults={'turno': turno, 'id_preceptor': prec},
-            )
-            cursos[key] = c
+        preceptores_rr = [preceptor1, preceptor2]
+        for anio in range(1, 7):
+            for div in range(1, 4):
+                nombre = f'{anio}°{div}'
+                prec = preceptores_rr[(anio + div) % 2]
+                c, _ = Curso.objects.get_or_create(
+                    nombre_curso=nombre,
+                    id_ciclo=ciclo26,
+                    defaults={'turno': 'Mañana', 'id_preceptor': prec},
+                )
+                cursos[f'{nombre}-{ciclo26.anio}'] = c
+        # Curso histórico 2025 para datos de prueba
+        c25, _ = Curso.objects.get_or_create(
+            nombre_curso='1°1', id_ciclo=ciclo25,
+            defaults={'turno': 'Mañana', 'id_preceptor': preceptor1},
+        )
+        cursos['1°1-2025'] = c25
         self.stdout.write(self.style.SUCCESS(f'  Cursos: {len(cursos)} creados'))
 
         # --- Materias ---
@@ -212,19 +215,26 @@ class Command(BaseCommand):
             cms.append(cm)
         self.stdout.write(self.style.SUCCESS(f'  Curso-Materia: {len(cms)} asignaciones'))
 
-        # --- Horarios ---
-        horas = [
-            (time(7, 30), time(9, 0)),
-            (time(9, 15), time(10, 45)),
-            (time(11, 0), time(12, 30)),
-            (time(13, 30), time(15, 0)),
-        ]
+        # --- Horarios (módulos de 1h, 07:30-19:30) ---
+        # Módulo N: inicio 07:30 + (N-1) horas.
+        def modulo_horas(numero):
+            inicio_min = 7 * 60 + 30 + (numero - 1) * 60
+            fin_min = inicio_min + 60
+            return (
+                time(inicio_min // 60, inicio_min % 60),
+                time(fin_min // 60, fin_min % 60),
+            )
+
+        dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
         horarios_count = 0
         for i, cm in enumerate(cms):
-            h_inicio, h_fin = horas[i % len(horas)]
+            dia = dias[i % len(dias)]
+            numero_modulo = (i % 6) + 1
+            h_inicio, h_fin = modulo_horas(numero_modulo)
             _, created = Horario.objects.get_or_create(
                 id_curso_materia=cm,
-                dia_semana='Lunes',
+                dia_semana=dia,
+                numero_modulo=numero_modulo,
                 defaults={
                     'hora_inicio': h_inicio,
                     'hora_fin': h_fin,
