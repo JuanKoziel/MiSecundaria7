@@ -15,6 +15,8 @@ from escuela.models import (
     Asistencia,
     Calificacion,
     CicloLectivo,
+    Comunicado,
+    ComunicadoArchivo,
     Curso,
     CursoMateria,
     DiagnosticoGrupal,
@@ -40,6 +42,8 @@ from escuela.serializers import (
     ActaCursoSerializer,
     ActaDocenteSerializer,
     ActaSerializer,
+    ComunicadoArchivoSerializer,
+    ComunicadoSerializer,
     AlumnoSerializer,
     AsistenciaSerializer,
     CalificacionSerializer,
@@ -360,6 +364,25 @@ class ActaCursoViewSet(viewsets.ModelViewSet):
 class ActaDocenteViewSet(viewsets.ModelViewSet):
     queryset = ActaDocente.objects.select_related('id_acta', 'id_docente').all()
     serializer_class = ActaDocenteSerializer
+
+
+class ComunicadoViewSet(viewsets.ModelViewSet):
+    queryset = Comunicado.objects.select_related(
+        'id_curso', 'id_materia',
+    ).prefetch_related('archivos').all()
+    serializer_class = ComunicadoSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        curso = self.request.query_params.get('curso')
+        if curso:
+            qs = qs.filter(id_curso=curso)
+        return qs
+
+
+class ComunicadoArchivoViewSet(viewsets.ModelViewSet):
+    queryset = ComunicadoArchivo.objects.all()
+    serializer_class = ComunicadoArchivoSerializer
 
 
 class PlanificacionViewSet(viewsets.ModelViewSet):

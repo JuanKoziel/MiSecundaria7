@@ -486,3 +486,38 @@ class HistorialCambio(models.Model):
     class Meta:
         managed = False
         db_table = 'historial_cambios'
+
+
+class Comunicado(models.Model):
+    id_comunicado = models.AutoField(primary_key=True)
+    id_usuario_creador = models.ForeignKey(
+        Usuario, on_delete=models.CASCADE, db_column='id_usuario_creador',
+        blank=True, null=True,
+    )
+    id_curso = models.ForeignKey(
+        Curso, on_delete=models.CASCADE, db_column='id_curso',
+    )
+    id_materia = models.ForeignKey(
+        Materia, on_delete=models.SET_NULL, db_column='id_materia',
+        blank=True, null=True,
+    )
+    titulo = models.CharField(max_length=255)
+    cuerpo = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'comunicados'
+
+
+class ComunicadoArchivo(models.Model):
+    id_comunicado_archivo = models.AutoField(primary_key=True)
+    id_comunicado = models.ForeignKey(
+        Comunicado, on_delete=models.CASCADE, db_column='id_comunicado',
+        related_name='archivos',
+    )
+    ruta_archivo = models.CharField(max_length=255)
+
+    class Meta:
+        managed = False
+        db_table = 'comunicado_archivo'

@@ -9,6 +9,8 @@ from escuela.models import (
     Asistencia,
     Calificacion,
     CicloLectivo,
+    Comunicado,
+    ComunicadoArchivo,
     Curso,
     CursoMateria,
     DiagnosticoGrupal,
@@ -257,10 +259,16 @@ class ActaSerializer(serializers.ModelSerializer):
         source='id_tipo_acta.nombre_tipo',
         read_only=True, default=None,
     )
+    creador_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = Acta
         fields = '__all__'
+
+    def get_creador_nombre(self, obj):
+        if obj.id_usuario_creador:
+            return obj.id_usuario_creador.usuario
+        return None
 
 
 class ActaAlumnoSerializer(serializers.ModelSerializer):
@@ -278,6 +286,28 @@ class ActaCursoSerializer(serializers.ModelSerializer):
 class ActaDocenteSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActaDocente
+        fields = '__all__'
+
+
+# ---------- Comunicados ----------
+
+class ComunicadoArchivoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComunicadoArchivo
+        fields = '__all__'
+
+
+class ComunicadoSerializer(serializers.ModelSerializer):
+    curso_nombre = serializers.CharField(
+        source='id_curso.nombre_curso', read_only=True, default=None,
+    )
+    materia_nombre = serializers.CharField(
+        source='id_materia.nombre_materia', read_only=True, default=None,
+    )
+    archivos = ComunicadoArchivoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Comunicado
         fields = '__all__'
 
 

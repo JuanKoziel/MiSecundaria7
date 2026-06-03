@@ -18,6 +18,7 @@ import {
   getInscripciones,
   getPadresTutores,
   getPeriodos,
+  getComunicados,
 } from '../services/api';
 
 const DataContext = createContext(null);
@@ -58,6 +59,7 @@ export function DataProvider({ children }) {
         inscripcionesRaw,
         padresTutoresRaw,
         periodosRaw,
+        comunicadosRaw,
       ] = await Promise.all([
         getAlumnos().catch(() => []),
         getDocentes().catch(() => []),
@@ -77,6 +79,7 @@ export function DataProvider({ children }) {
         getInscripciones().catch(() => []),
         getPadresTutores().catch(() => []),
         getPeriodos().catch(() => []),
+        getComunicados().catch(() => []),
       ]);
 
       const alumnosPreCurso = (Array.isArray(alumnosRaw) ? alumnosRaw : []).map((a) => ({
@@ -89,6 +92,9 @@ export function DataProvider({ children }) {
         id_tutor: a.id_tutor || null,
         id_usuario: a.id_usuario || null,
         fecha_nacimiento: a.fecha_nacimiento || null,
+        direccion: a.direccion || '',
+        telefono: a.telefono || '',
+        procedencia: a.procedencia || '',
       }));
 
       const cursoMateria = (Array.isArray(cursoMateriaRaw) ? cursoMateriaRaw : []).map((cm) => ({
@@ -283,6 +289,7 @@ export function DataProvider({ children }) {
         fecha: a.fecha || '',
         tipo: a.tipo_acta_nombre || '',
         ruta_archivo: a.ruta_archivo || null,
+        autor: a.creador_nombre || '',
       }));
 
       const actaAlumnoArr = (Array.isArray(actaAlumnoRaw) ? actaAlumnoRaw : []);
@@ -299,6 +306,7 @@ export function DataProvider({ children }) {
           fecha: acta?.fecha || '',
           descripcion: acta?.descripcion || '',
           cargadoPor: '',
+          autor: acta?.autor || '',
           ruta_archivo: acta?.ruta_archivo || null,
         };
       });
@@ -313,6 +321,7 @@ export function DataProvider({ children }) {
           titulo: acta?.titulo || '',
           fecha: acta?.fecha || '',
           descripcion: acta?.descripcion || '',
+          autor: acta?.autor || '',
           ruta_archivo: acta?.ruta_archivo || null,
         };
       });
@@ -360,18 +369,26 @@ export function DataProvider({ children }) {
         estado: a.estado,
       }));
 
-      const comunicadosFamilia = (Array.isArray(notificacionesRaw) ? notificacionesRaw : []).map(
-        (n) => {
-          const cursoObj = cursosObjArr.find((c) => c.id_curso === n.id_curso);
-          return {
-            id: n.id_notificacion,
-            curso: cursoObj?.nombre_curso || '',
-            fecha: n.fecha || '',
-            titulo: n.titulo || '',
-            descripcion: n.mensaje || '',
-          };
-        },
-      );
+      const comunicados = (Array.isArray(comunicadosRaw) ? comunicadosRaw : []).map((c) => {
+        const cursoObj = cursosObjArr.find((x) => x.id_curso === c.id_curso);
+        return {
+          id: c.id_comunicado,
+          cursoId: c.id_curso,
+          materiaId: c.id_materia || null,
+          curso: c.curso_nombre || cursoObj?.nombre_curso || '',
+          materia: c.materia_nombre || '',
+          fecha: c.fecha || '',
+          titulo: c.titulo || '',
+          descripcion: c.cuerpo || '',
+          archivos: Array.isArray(c.archivos)
+            ? c.archivos.map((a) => ({
+                id: a.id_comunicado_archivo,
+                ruta_archivo: a.ruta_archivo,
+              }))
+            : [],
+        };
+      });
+      const comunicadosFamilia = comunicados;
 
 
 
@@ -402,6 +419,7 @@ export function DataProvider({ children }) {
         calificacionesFamilia,
         asistenciasFamilia,
         comunicadosFamilia,
+        comunicados,
         padresTutores,
         nombreCompleto,
         nombreCorto,
@@ -473,6 +491,7 @@ export function useData() {
       calificacionesFamilia: [],
       asistenciasFamilia: [],
       comunicadosFamilia: [],
+      comunicados: [],
       calificacionesCompletas: [],
       periodos: [],
       padresTutores: [],

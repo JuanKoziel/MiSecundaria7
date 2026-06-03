@@ -295,6 +295,25 @@ export async function createNotificacion(payload) {
   return data;
 }
 
+export async function getComunicados(params) {
+  const { data } = await api.get('/comunicados/', { params });
+  return data;
+}
+
+export async function createComunicado(payload) {
+  const { data } = await api.post('/comunicados/', payload);
+  return data;
+}
+
+export async function deleteComunicado(id) {
+  await api.delete(`/comunicados/${id}/`);
+}
+
+export async function createComunicadoArchivo(payload) {
+  const { data } = await api.post('/comunicado-archivo/', payload);
+  return data;
+}
+
 export async function uploadFile(file, carpeta = 'general') {
   const formData = new FormData();
   formData.append('archivo', file);
