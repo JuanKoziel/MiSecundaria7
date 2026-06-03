@@ -10,6 +10,7 @@ import {
   getActas,
   getActaAlumno,
   getActaCurso,
+  getActaDocente,
   getHorarios,
   getCiclosLectivos,
   getEstadosAsistencia,
@@ -49,6 +50,7 @@ export function DataProvider({ children }) {
         actasRaw,
         actaAlumnoRaw,
         actaCursoRaw,
+        actaDocenteRaw,
         horariosRaw,
         ciclosRaw,
         estadosRaw,
@@ -67,6 +69,7 @@ export function DataProvider({ children }) {
         getActas().catch(() => []),
         getActaAlumno().catch(() => []),
         getActaCurso().catch(() => []),
+        getActaDocente().catch(() => []),
         getHorarios().catch(() => []),
         getCiclosLectivos().catch(() => []),
         getEstadosAsistencia().catch(() => []),
@@ -289,11 +292,27 @@ export function DataProvider({ children }) {
         const acta = actasArr.find((a) => a.id === aa.id_acta);
         return {
           id: aa.id_acta_alumno || aa.id,
+          actaId: aa.id_acta,
           alumnoId: aa.id_alumno,
           titulo: acta?.titulo || '',
           materia: '',
           fecha: acta?.fecha || '',
+          descripcion: acta?.descripcion || '',
           cargadoPor: '',
+          ruta_archivo: acta?.ruta_archivo || null,
+        };
+      });
+
+      const actaDocenteArr = (Array.isArray(actaDocenteRaw) ? actaDocenteRaw : []);
+      const actasDocente = actaDocenteArr.map((ad) => {
+        const acta = actasArr.find((a) => a.id === ad.id_acta);
+        return {
+          id: ad.id_acta_docente || ad.id,
+          actaId: ad.id_acta,
+          docenteId: ad.id_docente,
+          titulo: acta?.titulo || '',
+          fecha: acta?.fecha || '',
+          descripcion: acta?.descripcion || '',
           ruta_archivo: acta?.ruta_archivo || null,
         };
       });
@@ -303,6 +322,7 @@ export function DataProvider({ children }) {
         const cursoObj = cursosObjArr.find((c) => c.id_curso === ac.id_curso);
         return {
           id: ac.id_acta_curso || ac.id,
+          actaId: ac.id_acta,
           curso: cursoObj?.nombre_curso || '',
           fecha: acta?.fecha || '',
           descripcion: acta?.descripcion || '',
@@ -376,6 +396,7 @@ export function DataProvider({ children }) {
         periodos: periodosArr,
         asistenciasAdmin,
         actasAlumno,
+        actasDocente,
         actas: actasCurso,
         hijosFamilia,
         calificacionesFamilia,
@@ -446,6 +467,7 @@ export function useData() {
       notasDocenteAdmin: [],
       asistenciasAdmin: [],
       actasAlumno: [],
+      actasDocente: [],
       actas: [],
       hijosFamilia: [],
       calificacionesFamilia: [],

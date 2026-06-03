@@ -359,6 +359,20 @@ class ActaCurso(models.Model):
         db_table = 'acta_curso'
 
 
+class ActaDocente(models.Model):
+    id_acta_docente = models.AutoField(primary_key=True)
+    id_acta = models.ForeignKey(
+        Acta, on_delete=models.CASCADE, db_column='id_acta',
+    )
+    id_docente = models.ForeignKey(
+        'Docente', on_delete=models.CASCADE, db_column='id_docente',
+    )
+
+    class Meta:
+        managed = False
+        db_table = 'acta_docente'
+
+
 class Horario(models.Model):
     id_horario = models.AutoField(primary_key=True)
     id_curso_materia = models.ForeignKey(

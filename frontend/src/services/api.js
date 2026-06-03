@@ -143,6 +143,32 @@ export async function getActaCurso(params) {
   return data;
 }
 
+export async function getActaDocente(params) {
+  const { data } = await api.get('/acta-docente/', { params });
+  return data;
+}
+
+export async function createActaDocente(payload) {
+  const { data } = await api.post('/acta-docente/', payload);
+  return data;
+}
+
+export async function deleteActa(id) {
+  await api.delete(`/actas/${id}/`);
+}
+
+export async function deleteActaAlumno(id) {
+  await api.delete(`/acta-alumno/${id}/`);
+}
+
+export async function deleteActaCurso(id) {
+  await api.delete(`/acta-curso/${id}/`);
+}
+
+export async function deleteActaDocente(id) {
+  await api.delete(`/acta-docente/${id}/`);
+}
+
 export async function getHorarios(params) {
   const { data } = await api.get('/horarios/', { params });
   return data;

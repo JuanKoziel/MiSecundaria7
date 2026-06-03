@@ -10,6 +10,7 @@ from escuela.models import (
     Acta,
     ActaAlumno,
     ActaCurso,
+    ActaDocente,
     Alumno,
     Asistencia,
     Calificacion,
@@ -37,6 +38,7 @@ from escuela.models import (
 from escuela.serializers import (
     ActaAlumnoSerializer,
     ActaCursoSerializer,
+    ActaDocenteSerializer,
     ActaSerializer,
     AlumnoSerializer,
     AsistenciaSerializer,
@@ -353,6 +355,11 @@ class ActaAlumnoViewSet(viewsets.ModelViewSet):
 class ActaCursoViewSet(viewsets.ModelViewSet):
     queryset = ActaCurso.objects.select_related('id_acta', 'id_curso').all()
     serializer_class = ActaCursoSerializer
+
+
+class ActaDocenteViewSet(viewsets.ModelViewSet):
+    queryset = ActaDocente.objects.select_related('id_acta', 'id_docente').all()
+    serializer_class = ActaDocenteSerializer
 
 
 class PlanificacionViewSet(viewsets.ModelViewSet):

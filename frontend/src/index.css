@@ -701,6 +701,19 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     font-size: 0.9rem;
 }
 
+.btn-link-danger {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+}
+
+.btn-link-danger:hover {
+    text-decoration: underline;
+}
+
 .preceptor-form-grid {
     display: grid;
     grid-template-columns: 1fr minmax(160px, 220px);

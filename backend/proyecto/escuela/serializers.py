@@ -4,6 +4,7 @@ from escuela.models import (
     Acta,
     ActaAlumno,
     ActaCurso,
+    ActaDocente,
     Alumno,
     Asistencia,
     Calificacion,
@@ -271,6 +272,12 @@ class ActaAlumnoSerializer(serializers.ModelSerializer):
 class ActaCursoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActaCurso
+        fields = '__all__'
+
+
+class ActaDocenteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActaDocente
         fields = '__all__'
 
 
