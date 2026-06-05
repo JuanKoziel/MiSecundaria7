@@ -1,6 +1,8 @@
-import { docentes } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function Docentes() {
+  const { docentes } = useData();
+
   return (
     <div className="card">
       <div className="card-header-flex">

@@ -1,3 +1,4 @@
+<<<<<<< HEAD:backend/gestion_escolar/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
@@ -25,3 +26,9 @@ urlpatterns = [
     # Rutas del router
     path('', include(router.urls)),
 ]
+=======
+from django.urls import path
+
+urlpatterns = [
+]
+>>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f:backend/usuarios/urls.py

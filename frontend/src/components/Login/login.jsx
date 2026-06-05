@@ -1,10 +1,19 @@
 import './login.css';
 import { useState } from 'react';
+<<<<<<< HEAD
 import apiClient from '../../services/apiClient';
 
 function Login({ onLogin }) {
   const [usuario, setUsuario] = useState('');
   const [contrasena, setContrasena] = useState('');
+=======
+import { useAuth } from '../../context/AuthContext';
+
+function Login() {
+  const { login } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+>>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -12,6 +21,7 @@ function Login({ onLogin }) {
     e.preventDefault();
     setError('');
     setLoading(true);
+<<<<<<< HEAD
 
     try {
       // Llamar a la API de login
@@ -36,6 +46,16 @@ function Login({ onLogin }) {
       } else {
         setError('Error al iniciar sesión. Verifique usuario y contraseña.');
       }
+=======
+    try {
+      await login(username, password);
+    } catch (err) {
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        'Error de conexión con el servidor';
+      setError(msg);
+>>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
     } finally {
       setLoading(false);
     }
@@ -49,6 +69,7 @@ function Login({ onLogin }) {
         <h2>MiSecundaria 7</h2>
         <p>Ingresa tus credenciales para acceder</p>
 
+<<<<<<< HEAD
         {error && <div className="error-message" style={{ 
           color: '#d32f2f', 
           marginBottom: '1rem', 
@@ -59,6 +80,23 @@ function Login({ onLogin }) {
         }}>
           ⚠️ {error}
         </div>}
+=======
+        {error && (
+          <div
+            style={{
+              background: '#fef2f2',
+              border: '1px solid #fca5a5',
+              color: '#b91c1c',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              marginBottom: '12px',
+              fontSize: '0.9rem',
+            }}
+          >
+            {error}
+          </div>
+        )}
+>>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -66,15 +104,22 @@ function Login({ onLogin }) {
             <input
               id="usuario"
               type="text"
+<<<<<<< HEAD
               placeholder="Ej: admin, prof_juan, alumno_lucas"
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
+=======
+              placeholder="Ej: admin_test"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+>>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
               required
               disabled={loading}
             />
           </div>
 
           <div className="form-group">
+<<<<<<< HEAD
             <label htmlFor="contrasena">Contraseña</label>
             <input
               id="contrasena"
@@ -89,6 +134,21 @@ function Login({ onLogin }) {
 
           <button 
             type="submit" 
+=======
+            <label htmlFor="password">Contraseña</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="Ingrese su contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+>>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
             className="btn btn-primary btn-login"
             disabled={loading}
           >

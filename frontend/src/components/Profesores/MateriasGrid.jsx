@@ -1,6 +1,8 @@
-import { materias } from '../../data/mockData';
+import { useData } from '../../context/DataContext';
 
 function MateriasGrid({ materiaSeleccionada, onSeleccionarMateria }) {
+  const { materias } = useData();
+
   return (
     <div className="materias-wrapper">
       <h3>Materias disponibles</h3>

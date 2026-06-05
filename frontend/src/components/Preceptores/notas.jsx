@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { nombreCorto } from '../../data/mockData';
+import { useState, useMemo, useRef } from 'react';
+import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, boletinPorAlumno, filtrosCompletos } from './preceptorUtils';
 
-function BoletinAlumno({ alumno, curso, expandido, onToggle }) {
-  const materias = boletinPorAlumno(alumno.id, curso);
+function BoletinAlumno({ alumno, curso, expandido, onToggle, inasistencias }) {
+  const { nombreCorto, hijosFamilia, calificacionesFamilia } = useData();
+  const materias = boletinPorAlumno(alumno.id, curso, hijosFamilia, calificacionesFamilia);
 
   return (
     <div className="preceptor-boletin-card">
@@ -14,7 +15,7 @@ function BoletinAlumno({ alumno, curso, expandido, onToggle }) {
           Boletín de {nombreCorto(alumno)}
           <span className="preceptor-boletin-meta">
             {' '}
-            — {materias.length} materia{materias.length !== 1 ? 's' : ''}
+            — {materias.length} materia{materias.length !== 1 ? 's' : ''} — Inasist: {inasistencias.ausencias} | Tardanzas: {inasistencias.tardanzas}
           </span>
         </span>
         <i
@@ -54,12 +55,12 @@ function BoletinAlumno({ alumno, curso, expandido, onToggle }) {
                         <span className="badge badge-cualitativa">{m.prenota1 || '—'}</span>
                       </td>
                       <td>{m.nota1 ?? '—'}</td>
-                      <td>—</td>
+                      <td>{inasistencias.ausencias}</td>
                       <td>
                         <span className="badge badge-cualitativa">{m.prenota2 || '—'}</span>
                       </td>
                       <td>{m.nota2 ?? '—'}</td>
-                      <td>—</td>
+                      <td>{inasistencias.ausencias}</td>
                       <td>{m.diagnostico || '—'}</td>
                     </tr>
                   ))}
@@ -74,12 +75,45 @@ function BoletinAlumno({ alumno, curso, expandido, onToggle }) {
 }
 
 function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
+  const { inscripciones, alumnos, asistenciasAdmin, nombreCorto } = useData();
   const [expandidoId, setExpandidoId] = useState(null);
+  const printRef = useRef(null);
 
-  const lista = alumnosPorAnioYCurso(anioLectivo, curso);
+  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
 
-  const handleGuardar = () => {
-    alert(`Boletines consultados — ${curso} (${anioLectivo}).`);
+  const inasistenciasPorAlumno = useMemo(() => {
+    const map = {};
+    lista.forEach((a) => {
+      const asistAlumno = asistenciasAdmin.filter((r) => r.alumnoId === a.id);
+      map[a.id] = {
+        ausencias: asistAlumno.filter((r) => r.estado === 'Ausente').length,
+        tardanzas: asistAlumno.filter((r) => r.estado === 'Tarde').length,
+      };
+    });
+    return map;
+  }, [lista, asistenciasAdmin]);
+
+  const handleExportarPDF = () => {
+    const el = printRef.current;
+    if (!el) return;
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <html><head><title>Boletines — ${curso} (${anioLectivo})</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 13px; }
+        th { background: #f5f5f5; }
+        h2, h3 { margin: 10px 0; }
+        .alumno-header { background: #e3f2fd; padding: 8px 12px; margin-top: 16px; border-radius: 4px; }
+        @media print { button { display: none; } }
+      </style></head><body>
+      <h2>Boletines del curso ${curso} — Año lectivo ${anioLectivo}</h2>
+      ${el.innerHTML}
+      <script>window.print();<\/script>
+      </body></html>
+    `);
+    win.document.close();
   };
 
   if (!filtrosCompletos(anioLectivo, curso)) {
@@ -111,8 +145,8 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         <h3>
           Boletines del curso — {curso} ({anioLectivo})
         </h3>
-        <button type="button" className="btn btn-secondary" onClick={handleGuardar}>
-          <i className="fas fa-download" aria-hidden="true" /> Exportar
+        <button type="button" className="btn btn-secondary" onClick={handleExportarPDF}>
+          <i className="fas fa-file-pdf" aria-hidden="true" /> Exportar PDF
         </button>
       </div>
 
@@ -121,19 +155,22 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         docentes; desde preceptoría podés consultar el boletín completo del curso.
       </p>
 
-      {lista.length === 0 ? (
-        <EmptyFiltros mensaje="No hay alumnos inscriptos en este curso." />
-      ) : (
-        lista.map((a) => (
-          <BoletinAlumno
-            key={a.id}
-            alumno={a}
-            curso={curso}
-            expandido={expandidoId === a.id}
-            onToggle={() => setExpandidoId(expandidoId === a.id ? null : a.id)}
-          />
-        ))
-      )}
+      <div ref={printRef}>
+        {lista.length === 0 ? (
+          <EmptyFiltros mensaje="No hay alumnos inscriptos en este curso." />
+        ) : (
+          lista.map((a) => (
+            <BoletinAlumno
+              key={a.id}
+              alumno={a}
+              curso={curso}
+              expandido={expandidoId === a.id}
+              onToggle={() => setExpandidoId(expandidoId === a.id ? null : a.id)}
+              inasistencias={inasistenciasPorAlumno[a.id] || { ausencias: 0, tardanzas: 0 }}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }
