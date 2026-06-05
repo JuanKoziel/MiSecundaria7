@@ -41,15 +41,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
-    'gestion_escolar',
-    'corsheaders',
-    'rest_framework_simplejwt.token_blacklist',
-    'rest_framework_simplejwt',
-    
-    'usuarios',
-    'escuela',
+    'usuarios.apps.UsuariosConfig',
+    'escuela.apps.EscuelaConfig',
 ]
 
 MIDDLEWARE = [
@@ -91,8 +87,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'sistema_escolar',
-        'USER': 'root',
-        'PASSWORD': '383521',
+        'USER': 'alumno',
+        'PASSWORD': 'alumno',
         'HOST': 'localhost',
         'PORT': '3306',
         'OPTIONS': {

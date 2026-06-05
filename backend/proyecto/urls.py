@@ -17,15 +17,9 @@ urlpatterns = [
         admin.site.urls
     ),
 
-    # APIs de la aplicación
+    # APIs de usuarios y autenticación
     path(
         'api/',
-        include('escuela.urls')
-    ),
-
-    # APIs de usuarios/autenticación
-    path(
-        'api/usuarios/',
         include('usuarios.urls')
     ),
 

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -24,7 +24,7 @@ api.interceptors.response.use(
       const refresh = localStorage.getItem('refresh_token');
       if (refresh) {
         try {
-          const { data } = await axios.post(`${API_BASE}/token/refresh/`, {
+          const { data } = await axios.post(`${API_BASE}/auth/refresh/`, {
             refresh,
           });
           localStorage.setItem('access_token', data.access);
@@ -42,9 +42,24 @@ api.interceptors.response.use(
 );
 
 export async function login(usuario, contrasena) {
-  const { data } = await api.post('/login/', { usuario, contrasena });
+  const { data } = await api.post('/auth/login/', { usuario, contrasena });
   localStorage.setItem('access_token', data.access);
   localStorage.setItem('refresh_token', data.refresh);
+  return data;
+}
+
+export async function forgotPassword(usuario) {
+  const { data } = await api.post('/auth/forgot-password/', { usuario });
+  return data;
+}
+
+export async function resetPassword({ usuario, token, nueva_contrasena, confirmar_contrasena }) {
+  const { data } = await api.post('/auth/reset-password/', {
+    usuario,
+    token,
+    nueva_contrasena,
+    confirmar_contrasena,
+  });
   return data;
 }
 
@@ -54,7 +69,7 @@ export function logout() {
 }
 
 export async function getMe() {
-  const { data } = await api.get('/me/');
+  const { data } = await api.get('/usuarios/me/');
   return data;
 }
 

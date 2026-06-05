@@ -1,181 +1,134 @@
-import './login.css';
 import { useState } from 'react';
-<<<<<<< HEAD
-import apiClient from '../../services/apiClient';
-
-function Login({ onLogin }) {
-  const [usuario, setUsuario] = useState('');
-  const [contrasena, setContrasena] = useState('');
-=======
 import { useAuth } from '../../context/AuthContext';
 
 function Login() {
-  const { login } = useAuth();
+  const { login, requestPasswordReset, confirmPasswordReset } = useAuth();
+  const [mode, setMode] = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
->>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [token, setToken] = useState('');
+  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const resetForm = () => {
+    setMessage('');
+    setError('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setToken('');
+  };
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    setMessage('');
     setLoading(true);
-<<<<<<< HEAD
-
-    try {
-      // Llamar a la API de login
-      const response = await apiClient.login(usuario, contrasena);
-
-      // Pasar los datos del usuario autenticado con su rol
-      onLogin({
-        usuario: response.usuario,
-        rol_actual: response.rol_actual,
-        roles: response.usuario.rol_nombres,
-      });
-    } catch (err) {
-      console.error('Login error:', err);
-      
-      // Mostrar error específico
-      if (err.data && err.data.error) {
-        // Error es un string o un diccionario
-        const errorMsg = typeof err.data.error === 'string' 
-          ? err.data.error 
-          : Object.values(err.data.error).flat().join(' ');
-        setError(errorMsg);
-      } else {
-        setError('Error al iniciar sesión. Verifique usuario y contraseña.');
-      }
-=======
     try {
       await login(username, password);
+      setMessage('Sesión iniciada correctamente.');
     } catch (err) {
-      const msg =
-        err.response?.data?.error ||
-        err.response?.data?.detail ||
-        'Error de conexión con el servidor';
-      setError(msg);
->>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
+      setError(err.response?.data?.error || err.response?.data?.detail || 'No se pudo iniciar sesión.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRecover = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    setLoading(true);
+    try {
+      const data = await requestPasswordReset(username || 'admin');
+      setToken(data.token || '');
+      setMessage(data.mensaje || 'Token generado correctamente.');
+      setMode('reset');
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo generar el token.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    if (newPassword !== confirmPassword) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await confirmPasswordReset({ usuario: username, token, nueva_contrasena: newPassword, confirmar_contrasena: confirmPassword });
+      setMessage(data.mensaje || 'Contraseña actualizada.');
+      setMode('login');
+      setToken('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo restablecer la contraseña.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-icon">🏫</div>
+    <main className="min-h-screen bg-[linear-gradient(135deg,#0f172a_0%,#111827_45%,#1f2937_100%)] px-4 py-10 text-slate-100">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl flex-col items-center justify-center gap-8 lg:flex-row">
+        <section className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl lg:p-10">
+          <p className="text-sm uppercase tracking-[0.35em] text-orange-300">MiSecundaria 7</p>
+          <h1 className="mt-3 text-4xl font-semibold">Acceso seguro para estudiantes, docentes y familias</h1>
+          <p className="mt-4 text-slate-200">Inicia sesión con tu usuario y contraseña, o recupera el acceso si lo olvidaste. El flujo se integra con la API real del backend.</p>
+        </section>
 
-        <h2>MiSecundaria 7</h2>
-        <p>Ingresa tus credenciales para acceder</p>
-
-<<<<<<< HEAD
-        {error && <div className="error-message" style={{ 
-          color: '#d32f2f', 
-          marginBottom: '1rem', 
-          padding: '0.75rem', 
-          backgroundColor: '#ffebee',
-          borderRadius: '4px',
-          fontSize: '0.9rem'
-        }}>
-          ⚠️ {error}
-        </div>}
-=======
-        {error && (
-          <div
-            style={{
-              background: '#fef2f2',
-              border: '1px solid #fca5a5',
-              color: '#b91c1c',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              marginBottom: '12px',
-              fontSize: '0.9rem',
-            }}
-          >
-            {error}
-          </div>
-        )}
->>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="usuario">Usuario</label>
-            <input
-              id="usuario"
-              type="text"
-<<<<<<< HEAD
-              placeholder="Ej: admin, prof_juan, alumno_lucas"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-=======
-              placeholder="Ej: admin_test"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
->>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
-              required
-              disabled={loading}
-            />
+        <section className="w-full max-w-md rounded-3xl bg-white p-8 text-slate-800 shadow-2xl">
+          <div className="flex items-center gap-2 text-sm">
+            <button type="button" onClick={() => { setMode('login'); resetForm(); }} className={`rounded-full px-3 py-1 ${mode === 'login' ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-500'}`}>Login</button>
+            <button type="button" onClick={() => { setMode('recover'); resetForm(); }} className={`rounded-full px-3 py-1 ${mode === 'recover' || mode === 'reset' ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-500'}`}>Recuperar</button>
           </div>
 
-          <div className="form-group">
-<<<<<<< HEAD
-            <label htmlFor="contrasena">Contraseña</label>
-            <input
-              id="contrasena"
-              type="password"
-              placeholder="Ingresa tu contraseña"
-              value={contrasena}
-              onChange={(e) => setContrasena(e.target.value)}
-              required
-              disabled={loading}
-            />
+          {message && <div className="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
+          {error && <div className="mt-4 rounded-2xl bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+
+          {mode === 'login' && (
+            <form className="mt-6 space-y-4" onSubmit={handleLogin}>
+              <label className="block text-sm font-medium">Usuario</label>
+              <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100" value={username} onChange={(e) => setUsername(e.target.value)} required placeholder="admin, prof_juan..." />
+              <label className="block text-sm font-medium">Contraseña</label>
+              <input type="password" className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" />
+              <button type="submit" disabled={loading} className="w-full rounded-2xl bg-orange-500 px-4 py-3 font-semibold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70">{loading ? 'Ingresando...' : 'Ingresar'}</button>
+            </form>
+          )}
+
+          {(mode === 'recover' || mode === 'reset') && (
+            <form className="mt-6 space-y-4" onSubmit={mode === 'recover' ? handleRecover : handleReset}>
+              <label className="block text-sm font-medium">Usuario</label>
+              <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100" value={username} onChange={(e) => setUsername(e.target.value)} required placeholder="Tu nombre de usuario" />
+              {mode === 'reset' && (
+                <>
+                  <label className="block text-sm font-medium">Token de recuperación</label>
+                  <input className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100" value={token} onChange={(e) => setToken(e.target.value)} required placeholder="Pegá el token recibido" />
+                  <label className="block text-sm font-medium">Nueva contraseña</label>
+                  <input type="password" className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+                  <label className="block text-sm font-medium">Confirmar contraseña</label>
+                  <input type="password" className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                </>
+              )}
+              <button type="submit" disabled={loading} className="w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70">{mode === 'recover' ? 'Generar token' : 'Restablecer contraseña'}</button>
+            </form>
+          )}
+
+          <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-xs text-slate-500">
+            <p className="font-semibold text-slate-700">Usuarios demo</p>
+            <p className="mt-1">admin / admin123 • prof_juan / docente123 • familia_anna / familia123</p>
           </div>
-
-          <button 
-            type="submit" 
-=======
-            <label htmlFor="password">Contraseña</label>
-            <input
-              id="password"
-              type="password"
-              placeholder="Ingrese su contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
->>>>>>> 5e4dc3228e3b802dcda3721ee7db3cdb90281b0f
-            className="btn btn-primary btn-login"
-            disabled={loading}
-          >
-            {loading ? 'Ingresando...' : 'Ingresar'}
-          </button>
-        </form>
-
-        <div style={{
-          marginTop: '1.5rem',
-          padding: '1rem',
-          backgroundColor: '#f5f5f5',
-          borderRadius: '4px',
-          fontSize: '0.85rem',
-          color: '#666'
-        }}>
-          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>📋 Usuarios de prueba:</p>
-          <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
-            <li>admin / admin123</li>
-            <li>prof_juan / docente123</li>
-            <li>prof_maria / docente123</li>
-            <li>preceptor_carlos / preceptor123</li>
-            <li>familia_anna / familia123</li>
-            <li>alumno_lucas / alumno123</li>
-          </ul>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
