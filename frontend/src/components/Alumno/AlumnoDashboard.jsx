@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
+import ComunicadosView from '../Shared/ComunicadosView';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 
@@ -14,6 +15,14 @@ function AlumnoDashboard({ user, onLogout }) {
   } = useData();
 
   const [view, setView] = useState('calificaciones');
+  const [asistenciaTipo, setAsistenciaTipo] = useState(() => {
+    const saved = sessionStorage.getItem('alumno_asistencia_tipo');
+    return saved || 'general';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('alumno_asistencia_tipo', asistenciaTipo);
+  }, [asistenciaTipo]);
 
   const miAlumno = useMemo(
     () => alumnos.find((a) => a.id_usuario === user?.id) || null,
@@ -59,6 +68,48 @@ function AlumnoDashboard({ user, onLogout }) {
       .filter((a) => a.alumnoId === miAlumno.id)
       .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
   }, [asistenciasAdmin, miAlumno]);
+
+  const asistenciasFiltradas = useMemo(() => {
+    if (!miAlumno) return [];
+    const filtradas = misAsistencias.filter(a => {
+      if (asistenciaTipo === 'general') return a.tipo === 'general';
+      return a.tipo === 'materia';
+    });
+    return filtradas;
+  }, [misAsistencias, asistenciaTipo]);
+
+  const historialPorDia = useMemo(() => {
+    if (!miAlumno) return [];
+    const fechasUnicas = [...new Set(misAsistencias.filter(a => a.tipo === 'general').map(a => a.fecha))];
+    return fechasUnicas.map(fecha => {
+      const asistenciasFecha = misAsistencias.filter(a => a.fecha === fecha && a.tipo === 'general');
+      const presentes = asistenciasFecha.filter(a => a.estado === 'Presente').length;
+      const ausentes = asistenciasFecha.filter(a => a.estado === 'Ausente').length;
+      const estadoGeneral = presentes > ausentes ? 'Bueno' : presentes < ausentes ? 'Atención' : 'Regular';
+      return {
+        fecha,
+        curso: miAlumno.curso || '—',
+        presentes,
+        ausentes,
+        estadoGeneral
+      };
+    }).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [misAsistencias, miAlumno]);
+
+  const historialPorMateria = useMemo(() => {
+    if (!miAlumno) return [];
+    return misAsistencias
+      .filter(a => a.tipo === 'materia')
+      .map(a => ({
+        fecha: a.fecha,
+        curso: miAlumno.curso || '—',
+        materia: a.materia || '—',
+        modulo: a.numero_modulo ? `Módulo ${a.numero_modulo}` : '—',
+        docente: a.docente_nombre || '—',
+        estado: a.estado
+      }))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [misAsistencias, miAlumno]);
 
   const inasistenciasPorMateria = useMemo(() => {
     const porMateria = {};
@@ -115,6 +166,12 @@ function AlumnoDashboard({ user, onLogout }) {
               <span>Asistencias</span>
             </button>
           </li>
+          <li className={view === 'comunicados' ? 'active' : ''}>
+            <button type="button" className="sidebar-menu-btn" onClick={() => setView('comunicados')}>
+              <i className="fas fa-bullhorn" aria-hidden="true" />
+              <span>Comunicados</span>
+            </button>
+          </li>
           <li className={view === 'notificaciones' ? 'active' : ''}>
             <button type="button" className="sidebar-menu-btn" onClick={() => setView('notificaciones')}>
               <i className="fas fa-bell" aria-hidden="true" />
@@ -145,6 +202,10 @@ function AlumnoDashboard({ user, onLogout }) {
         {view === 'notificaciones' ? (
           <div className="view-section active">
             <Notificaciones />
+          </div>
+        ) : view === 'comunicados' ? (
+          <div className="view-section active">
+            <ComunicadosView userRole="alumno" />
           </div>
         ) : !miAlumno ? (
           <div className="card">
@@ -231,6 +292,23 @@ function AlumnoDashboard({ user, onLogout }) {
                   <span className="badge role-badge-display">Solo lectura</span>
                 </div>
 
+                <div className="asist-tipo-selector">
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${asistenciaTipo === 'general' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setAsistenciaTipo('general')}
+                  >
+                    Asistencia por Día
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${asistenciaTipo === 'materia' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setAsistenciaTipo('materia')}
+                  >
+                    Asistencia por Materia
+                  </button>
+                </div>
+
                 <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                   <div style={{ padding: '8px 16px', borderRadius: '8px', background: '#ffebee' }}>
                     <strong>{resumenAsistencia.ausencias}</strong> Inasistencias
@@ -243,35 +321,92 @@ function AlumnoDashboard({ user, onLogout }) {
                   </div>
                 </div>
 
-                {misAsistencias.length === 0 ? (
-                  <p className="empty-state-message">No hay registros de asistencia.</p>
-                ) : (
-                  <div className="table-responsive">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Fecha</th>
-                          <th>Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {misAsistencias.map((a) => (
-                          <tr key={a.id}>
-                            <td>{a.fecha}</td>
-                            <td>
-                              <span className={`badge ${
-                                a.estado === 'Presente' ? 'badge-presente' :
-                                a.estado === 'Ausente' ? 'badge-ausente' : 'badge-tarde'
-                              }`}>
-                                {a.estado}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <div className="card" style={{ marginTop: '16px' }}>
+                  <div className="card-header-flex">
+                    <h3>Historial</h3>
                   </div>
-                )}
+
+                  {asistenciaTipo === 'general' ? (
+                    <div className="table-responsive">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Fecha</th>
+                            <th>Curso</th>
+                            <th>Presentes</th>
+                            <th>Ausentes</th>
+                            <th>Estado General</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {historialPorDia.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="empty-state-message">
+                                No hay registros de historial por día.
+                              </td>
+                            </tr>
+                          ) : (
+                            historialPorDia.map((h, idx) => (
+                              <tr key={idx}>
+                                <td>{h.fecha}</td>
+                                <td>{h.curso}</td>
+                                <td>{h.presentes}</td>
+                                <td>{h.ausentes}</td>
+                                <td>
+                                  <span className={`badge ${h.estadoGeneral === 'Bueno' ? 'badge-presente' : h.estadoGeneral === 'Atención' ? 'badge-ausente' : 'badge-tarde'}`}>
+                                    {h.estadoGeneral}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Fecha</th>
+                            <th>Curso</th>
+                            <th>Materia</th>
+                            <th>Módulo</th>
+                            <th>Docente</th>
+                            <th>Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {historialPorMateria.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="empty-state-message">
+                                No hay registros de historial por materia.
+                              </td>
+                            </tr>
+                          ) : (
+                            historialPorMateria.map((h, idx) => (
+                              <tr key={idx}>
+                                <td>{h.fecha}</td>
+                                <td>{h.curso}</td>
+                                <td>{h.materia}</td>
+                                <td>{h.modulo}</td>
+                                <td>{h.docente}</td>
+                                <td>
+                                  <span className={`badge ${
+                                    h.estado === 'Presente' ? 'badge-presente' :
+                                    h.estado === 'Ausente' ? 'badge-ausente' : 'badge-tarde'
+                                  }`}>
+                                    {h.estado}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

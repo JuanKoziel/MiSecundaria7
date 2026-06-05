@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate
+from django.db import models
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -377,12 +378,142 @@ class ComunicadoViewSet(viewsets.ModelViewSet):
         curso = self.request.query_params.get('curso')
         if curso:
             qs = qs.filter(id_curso=curso)
+
+        # Permission filtering based on user role
+        from escuela.auth_backend import get_roles_for_usuario
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            return qs.none()
+
+        roles = get_roles_for_usuario(username)
+        usuario_obj = Usuario.objects.filter(usuario=username).first()
+
+        if 'admin' in roles:
+            # Administrators can see all communications
+            return qs
+
+        if 'alumno' in roles and usuario_obj:
+            # Students can see communications for their course or their subjects
+            alumno = Alumno.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if alumno:
+                mi_curso_id = alumno.id_curso
+                mis_materias_ids = list(CursoMateria.objects.filter(
+                    id_curso=mi_curso_id
+                ).values_list('id_materia', flat=True))
+                qs = qs.filter(
+                    models.Q(id_curso=mi_curso_id) | models.Q(id_materia__in=mis_materias_ids)
+                )
+            else:
+                qs = qs.none()
+
+        elif 'familia' in roles and usuario_obj:
+            # Families can see communications from their linked students' courses and subjects
+            tutor = PadreTutor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if tutor:
+                hijos = Alumno.objects.filter(id_tutor=tutor.id_tutor)
+                cursos_hijos_ids = list(hijos.values_list('id_curso', flat=True))
+                materias_hijos_ids = list(CursoMateria.objects.filter(
+                    id_curso__in=cursos_hijos_ids
+                ).values_list('id_materia', flat=True))
+                qs = qs.filter(
+                    models.Q(id_curso__in=cursos_hijos_ids) | models.Q(id_materia__in=materias_hijos_ids)
+                )
+            else:
+                qs = qs.none()
+
+        elif 'docente' in roles and usuario_obj:
+            # Teachers can see communications from courses where they teach and subjects they have assigned
+            docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if docente:
+                asignaciones = CursoMateria.objects.filter(id_docente=docente.id_docente)
+                cursos_ids = list(asignaciones.values_list('id_curso', flat=True))
+                materias_ids = list(asignaciones.values_list('id_materia', flat=True))
+                qs = qs.filter(
+                    models.Q(id_curso__in=cursos_ids) | models.Q(id_materia__in=materias_ids)
+                )
+            else:
+                qs = qs.none()
+
+        elif 'preceptor' in roles and usuario_obj:
+            # Preceptors can see communications from the courses they manage and general communications
+            preceptor = Preceptor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if preceptor:
+                cursos_ids = list(Curso.objects.filter(id_preceptor=preceptor.id_preceptor).values_list('id_curso', flat=True))
+                # Communications for their courses OR general communications (no course/materia specified)
+                qs = qs.filter(
+                    models.Q(id_curso__in=cursos_ids) | models.Q(id_curso__isnull=True, id_materia__isnull=True)
+                )
+            else:
+                qs = qs.none()
+
         return qs
 
 
-class ComunicadoArchivoViewSet(viewsets.ModelViewSet):
-    queryset = ComunicadoArchivo.objects.all()
+class ComunicadoArchivoViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ComunicadoArchivo.objects.select_related('id_comunicado').all()
     serializer_class = ComunicadoArchivoSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        
+        # Security: Users can only access files from communications they're allowed to see
+        from escuela.auth_backend import get_roles_for_usuario
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            return qs.none()
+
+        roles = get_roles_for_usuario(username)
+        usuario_obj = Usuario.objects.filter(usuario=username).first()
+
+        if 'admin' in roles:
+            # Administrators can access all files
+            return qs
+
+        # Get the IDs of communications the user is allowed to see
+        comunicado_ids = []
+        
+        if 'alumno' in roles and usuario_obj:
+            alumno = Alumno.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if alumno:
+                mi_curso_id = alumno.id_curso
+                mis_materias_ids = list(CursoMateria.objects.filter(
+                    id_curso=mi_curso_id
+                ).values_list('id_materia', flat=True))
+                comunicado_ids = list(Comunicado.objects.filter(
+                    models.Q(id_curso=mi_curso_id) | models.Q(id_materia__in=mis_materias_ids)
+                ).values_list('id_comunicado', flat=True))
+
+        elif 'familia' in roles and usuario_obj:
+            tutor = PadreTutor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if tutor:
+                hijos = Alumno.objects.filter(id_tutor=tutor.id_tutor)
+                cursos_hijos_ids = list(hijos.values_list('id_curso', flat=True))
+                materias_hijos_ids = list(CursoMateria.objects.filter(
+                    id_curso__in=cursos_hijos_ids
+                ).values_list('id_materia', flat=True))
+                comunicado_ids = list(Comunicado.objects.filter(
+                    models.Q(id_curso__in=cursos_hijos_ids) | models.Q(id_materia__in=materias_hijos_ids)
+                ).values_list('id_comunicado', flat=True))
+
+        elif 'docente' in roles and usuario_obj:
+            docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if docente:
+                asignaciones = CursoMateria.objects.filter(id_docente=docente.id_docente)
+                cursos_ids = list(asignaciones.values_list('id_curso', flat=True))
+                materias_ids = list(asignaciones.values_list('id_materia', flat=True))
+                comunicado_ids = list(Comunicado.objects.filter(
+                    models.Q(id_curso__in=cursos_ids) | models.Q(id_materia__in=materias_ids)
+                ).values_list('id_comunicado', flat=True))
+
+        elif 'preceptor' in roles and usuario_obj:
+            preceptor = Preceptor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if preceptor:
+                cursos_ids = list(Curso.objects.filter(id_preceptor=preceptor.id_preceptor).values_list('id_curso', flat=True))
+                comunicado_ids = list(Comunicado.objects.filter(
+                    models.Q(id_curso__in=cursos_ids) | models.Q(id_curso__isnull=True, id_materia__isnull=True)
+                ).values_list('id_comunicado', flat=True))
+
+        return qs.filter(id_comunicado__in=comunicado_ids)
 
 
 class PlanificacionViewSet(viewsets.ModelViewSet):

@@ -7,6 +7,7 @@ import PanelInfo from './PanelInfo';
 import PanelPlanif from './PanelPlanif';
 import PanelAsistencia from './PanelAsistencia';
 import Notificaciones from '../Notificaciones';
+import ComunicadosView from '../Shared/ComunicadosView';
 import { useData } from '../../context/DataContext';
 
 function PanelProfesores({ user, onLogout }) {
@@ -123,6 +124,10 @@ function PanelProfesores({ user, onLogout }) {
         {seccionActiva === 'notificaciones' ? (
           <div className="view-section active">
             <Notificaciones />
+          </div>
+        ) : seccionActiva === 'comunicados' ? (
+          <div className="view-section active">
+            <ComunicadosView userRole="docente" />
           </div>
         ) : seccionActiva === 'docente' ? (
           <div className="view-section active">

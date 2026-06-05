@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { createAsistencia } from '../../services/api';
@@ -45,13 +45,20 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const { user } = useAuth();
   const [fecha, setFecha] = useState(fechaHoy);
   const [tab, setTab] = useState('alumnos');
-  const [tipoAsist, setTipoAsist] = useState('general');
+  const [tipoAsist, setTipoAsist] = useState(() => {
+    const saved = sessionStorage.getItem('preceptor_asistencia_tipo');
+    return saved || 'general';
+  });
   const [materiaCmId, setMateriaCmId] = useState('');
   const [numModulo, setNumModulo] = useState('');
   const [asistAlumnos, setAsistAlumnos] = useState({});
   const [asistDocentes, setAsistDocentes] = useState({});
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+
+  useEffect(() => {
+    sessionStorage.setItem('preceptor_asistencia_tipo', tipoAsist);
+  }, [tipoAsist]);
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const listaDocentes = docentesDelCurso(anioLectivo, curso, docentes, asignacionesDocente);
@@ -91,6 +98,39 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
       .filter((a) => alumnoIds.has(a.alumnoId))
       .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
   }, [asistenciasAdmin, listaAlumnos]);
+
+  const historialPorDia = useMemo(() => {
+    if (!cursoObjSel) return [];
+    const fechasUnicas = [...new Set(asistenciasAdmin.filter(a => a.curso === curso && a.tipo === 'general').map(a => a.fecha))];
+    return fechasUnicas.map(fecha => {
+      const asistenciasFecha = asistenciasAdmin.filter(a => a.curso === curso && a.fecha === fecha && a.tipo === 'general');
+      const presentes = asistenciasFecha.filter(a => a.estado === 'Presente').length;
+      const ausentes = asistenciasFecha.filter(a => a.estado === 'Ausente').length;
+      const estadoGeneral = presentes > ausentes ? 'Bueno' : presentes < ausentes ? 'Atención' : 'Regular';
+      return {
+        fecha,
+        curso,
+        presentes,
+        ausentes,
+        estadoGeneral
+      };
+    }).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [asistenciasAdmin, curso, cursoObjSel]);
+
+  const historialPorMateria = useMemo(() => {
+    if (!cursoObjSel) return [];
+    return asistenciasAdmin
+      .filter(a => a.curso === curso && a.tipo === 'materia')
+      .map(a => ({
+        fecha: a.fecha,
+        curso: a.curso,
+        materia: a.materia,
+        modulo: a.numero_modulo ? `Módulo ${a.numero_modulo}` : '—',
+        docente: a.docente_nombre || '—',
+        estado: a.estado
+      }))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [asistenciasAdmin, curso, cursoObjSel]);
 
   const asistenciasCargadasHoy = useMemo(() => {
     return registroAlumnos.filter((a) => a.fecha === fecha).length > 0;
@@ -544,6 +584,109 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {tipoAsist === 'general' && (
+        <div className="card" style={{ marginTop: '24px' }}>
+          <div className="card-header-flex">
+            <h3>Historial de Asistencias</h3>
+          </div>
+
+          <div className="asist-tipo-selector" style={{ marginBottom: '16px' }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${tipoAsist === 'general' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTipoAsist('general')}
+            >
+              Por Día
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${tipoAsist === 'materia' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTipoAsist('materia')}
+            >
+              Por Materia
+            </button>
+          </div>
+
+          {tipoAsist === 'general' ? (
+            <div className="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Curso</th>
+                    <th>Presentes</th>
+                    <th>Ausentes</th>
+                    <th>Estado General</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historialPorDia.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="empty-state-message">
+                        No hay registros de historial por día.
+                      </td>
+                    </tr>
+                  ) : (
+                    historialPorDia.map((h, idx) => (
+                      <tr key={idx}>
+                        <td>{h.fecha}</td>
+                        <td>{h.curso}</td>
+                        <td>{h.presentes}</td>
+                        <td>{h.ausentes}</td>
+                        <td>
+                          <span className={`badge ${h.estadoGeneral === 'Bueno' ? 'badge-presente' : h.estadoGeneral === 'Atención' ? 'badge-ausente' : 'badge-tarde'}`}>
+                            {h.estadoGeneral}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Curso</th>
+                    <th>Materia</th>
+                    <th>Módulo</th>
+                    <th>Docente</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historialPorMateria.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="empty-state-message">
+                        No hay registros de historial por materia.
+                      </td>
+                    </tr>
+                  ) : (
+                    historialPorMateria.map((h, idx) => (
+                      <tr key={idx}>
+                        <td>{h.fecha}</td>
+                        <td>{h.curso}</td>
+                        <td>{h.materia}</td>
+                        <td>{h.modulo}</td>
+                        <td>{h.docente}</td>
+                        <td>
+                          <span className={`badge ${getBadgeClass(h.estado)}`}>
+                            {h.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
