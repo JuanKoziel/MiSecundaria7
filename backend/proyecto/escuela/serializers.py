@@ -157,9 +157,24 @@ class CursoMateriaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_docente_nombre(self, obj):
-        if obj.id_docente:
+        if obj.id_docente_id:
             return f'{obj.id_docente.apellido}, {obj.id_docente.nombre}'
         return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Ensure nested fields are included even if they're None
+        if 'id_curso' in data and data['id_curso'] is not None:
+            try:
+                data['curso_nombre'] = instance.id_curso.nombre_curso
+            except:
+                data['curso_nombre'] = None
+        if 'id_materia' in data and data['id_materia'] is not None:
+            try:
+                data['materia_nombre'] = instance.id_materia.nombre_materia
+            except:
+                data['materia_nombre'] = None
+        return data
 
 
 class HorarioSerializer(serializers.ModelSerializer):

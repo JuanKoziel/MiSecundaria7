@@ -276,6 +276,11 @@ export async function createCursoMateria(payload) {
   return data;
 }
 
+export async function updateCursoMateria(id, payload) {
+  const { data } = await api.patch(`/curso-materia/${id}/`, payload);
+  return data;
+}
+
 export async function deleteCursoMateria(id) {
   await api.delete(`/curso-materia/${id}/`);
 }

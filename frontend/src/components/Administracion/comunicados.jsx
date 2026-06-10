@@ -17,6 +17,8 @@ function Comunicados() {
     cursos,
     cursosObj,
     materiasObj,
+    materiasPorCurso,
+    cursoMateria,
     refreshData,
   } = useData();
   const { user } = useAuth();
@@ -27,6 +29,13 @@ function Comunicados() {
   const filesRef = useRef(null);
 
   const [cursoFiltro, setCursoFiltro] = useState('');
+
+  const materiasDelCurso = useMemo(() => {
+    if (!form.cursoId) return [];
+    const cursoSeleccionado = cursosObj.find((c) => c.id_curso === Number(form.cursoId));
+    if (!cursoSeleccionado) return [];
+    return materiasPorCurso[cursoSeleccionado.nombre_curso] || [];
+  }, [form.cursoId, cursosObj, materiasPorCurso]);
 
   const listaFiltrada = useMemo(() => {
     const arr = cursoFiltro
@@ -48,24 +57,40 @@ function Comunicados() {
         cuerpo: form.cuerpo,
         id_curso: Number(form.cursoId),
         id_materia: form.materiaId ? Number(form.materiaId) : null,
-        fecha: new Date().toISOString().slice(0, 10),
-        id_usuario_creador: user?.id || null,
+        fecha: new Date().toISOString(),
+        id_usuario_creador: user?.id_usuario || user?.id || null,
       });
+      
+      console.log('Comunicado creado:', comunicado);
+      
       const files = filesRef.current?.files;
       if (comunicado?.id_comunicado && files?.length) {
         for (const file of Array.from(files)) {
-          const uploaded = await uploadFile(file, 'comunicados');
-          await createComunicadoArchivo({
-            id_comunicado: comunicado.id_comunicado,
-            ruta_archivo: uploaded.url,
-          });
+          try {
+            const uploaded = await uploadFile(file, 'comunicados');
+            console.log('Archivo subido:', uploaded);
+            await createComunicadoArchivo({
+              id_comunicado: comunicado.id_comunicado,
+              ruta_archivo: uploaded.url,
+            });
+          } catch (fileErr) {
+            console.error('Error al subir archivo:', fileErr);
+            setMensaje(`Comunicado creado pero hubo error al subir archivos: ${fileErr.message}`);
+          }
         }
       }
+      
       setMensaje('Comunicado enviado exitosamente.');
       setForm({ titulo: '', cuerpo: '', cursoId: '', materiaId: '' });
       if (filesRef.current) filesRef.current.value = '';
+      
+      // Refresh data to show the new comunicado
       await refreshData();
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setMensaje(''), 3000);
     } catch (err) {
+      console.error('Error al crear comunicado:', err);
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
       setMensaje(`Error: ${msg}`);
@@ -116,7 +141,8 @@ function Comunicados() {
               <label htmlFor="com-cuerpo">Cuerpo del comunicado *</label>
               <textarea
                 id="com-cuerpo"
-                rows={4}
+                rows={6}
+                style={{ width: '100%', resize: 'vertical' }}
                 value={form.cuerpo}
                 onChange={(e) => setForm((p) => ({ ...p, cuerpo: e.target.value }))}
               />
@@ -143,13 +169,17 @@ function Comunicados() {
                 id="com-materia"
                 value={form.materiaId}
                 onChange={(e) => setForm((p) => ({ ...p, materiaId: e.target.value }))}
+                disabled={!form.cursoId}
               >
                 <option value="">Todo el curso</option>
-                {materiasObj.map((m) => (
-                  <option key={m.id_materia} value={m.id_materia}>
-                    {m.nombre_materia}
-                  </option>
-                ))}
+                {materiasDelCurso.map((materiaNombre) => {
+                  const materiaObj = materiasObj.find((m) => m.nombre_materia === materiaNombre);
+                  return (
+                    <option key={materiaObj?.id_materia || materiaNombre} value={materiaObj?.id_materia || ''}>
+                      {materiaNombre}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div className="form-group-filter preceptor-form-full">
@@ -205,7 +235,7 @@ function Comunicados() {
                     {cursoConOrientacion(c.curso)}{c.materia ? ` · ${c.materia}` : ''}
                   </span>
                 </div>
-                <p>{c.descripcion}</p>
+                <p>{c.cuerpo || c.descripcion}</p>
                 {c.archivos?.length > 0 && (
                   <div className="comunicado-archivos">
                     {c.archivos.map((a) => (

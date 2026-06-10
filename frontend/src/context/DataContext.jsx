@@ -65,7 +65,10 @@ export function DataProvider({ children }) {
         getDocentes().catch(() => []),
         getCursos().catch(() => []),
         getMaterias().catch(() => []),
-        getCursoMateria().catch(() => []),
+        getCursoMateria().catch((err) => {
+          console.error('Error fetching cursoMateria:', err);
+          return [];
+        }),
         getCalificaciones().catch(() => []),
         getAsistencias().catch(() => []),
         getActas().catch(() => []),
@@ -354,6 +357,9 @@ export function DataProvider({ children }) {
       const calificacionesFamilia = notasDocenteAdmin.map((n, idx) => ({
         id: idx + 1,
         hijoId: hijosFamilia.find((h) => h.alumnoId === n.alumnoId)?.id || 0,
+        alumnoId: n.alumnoId,
+        id_curso_materia: n.id_curso_materia,
+        curso: n.curso,
         materia: n.materia,
         prenota1: n.prenota1,
         nota1: n.nota1,
@@ -373,6 +379,8 @@ export function DataProvider({ children }) {
         const cursoObj = cursosObjArr.find((x) => x.id_curso === c.id_curso);
         return {
           id: c.id_comunicado,
+          id_curso: c.id_curso,
+          id_materia: c.id_materia || null,
           cursoId: c.id_curso,
           materiaId: c.id_materia || null,
           curso: c.curso_nombre || cursoObj?.nombre_curso || '',

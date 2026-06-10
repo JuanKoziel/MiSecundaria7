@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import { createDocente, updateDocente, deleteDocente, createCursoMateria, deleteCursoMateria } from '../../services/api';
+import { createDocente, updateDocente, deleteDocente, createCursoMateria, updateCursoMateria, deleteCursoMateria } from '../../services/api';
 import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
@@ -65,13 +65,26 @@ function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, on
 }
 
 function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
-  const { aniosLectivos, inscripciones, cursos, materias, cursosObj } = useData();
+  const { aniosLectivos, inscripciones, cursos, materias, cursosObj, cursoMateria, materiasObj } = useData();
   const [borrador, setBorrador] = useState(nuevaAsignacion());
   const cursosBorrador = cursosPorAnio(borrador.anioLectivo, inscripciones, cursos, cursosObj);
 
+  // Filter materias based on selected course
+  const materiasFiltradas = useMemo(() => {
+    if (!borrador.curso || !borrador.anioLectivo) return [];
+    
+    // Get materia names directly from cursoMateria for the selected course
+    const materiasCurso = cursoMateria
+      .filter((cm) => cm.curso_nombre === borrador.curso)
+      .map((cm) => cm.materia_nombre)
+      .filter((m) => m); // Remove null/undefined
+    
+    return materiasCurso;
+  }, [borrador.curso, borrador.anioLectivo, cursoMateria]);
+
   const agregarAsignacion = () => {
     if (!borrador.materia || !borrador.anioLectivo || !borrador.curso) {
-      alert('Completá materia, año y curso antes de agregar.');
+      alert('Completá año, curso y materia antes de agregar.');
       return;
     }
     const duplicada = asignaciones.some(
@@ -98,35 +111,19 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
     <>
       <h4 className="preceptor-section-title">Materias y asignaciones</h4>
       <p className="preceptor-modo-hint">
-        Elegí una materia y definí en qué año y curso la dicta. Podés agregar varias.
+        Seleccioná el año lectivo y curso, luego elegí la materia asignada a ese curso. Podés agregar varias.
       </p>
 
       <div className="upload-dashed-box">
         <div className="filter-row">
-          <div className="form-group-filter">
-            <label htmlFor={`${prefix}-materia`}>Materia</label>
-            <select
-              id={`${prefix}-materia`}
-              value={borrador.materia}
-              onChange={(e) => setBorrador((p) => ({ ...p, materia: e.target.value }))}
-            >
-              <option value="">Seleccionar...</option>
-              {materias.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="form-group-filter">
             <label htmlFor={`${prefix}-anio`}>Año lectivo</label>
             <select
               id={`${prefix}-anio`}
               value={borrador.anioLectivo}
               onChange={(e) =>
-                setBorrador((p) => ({ ...p, anioLectivo: e.target.value, curso: '' }))
+                setBorrador((p) => ({ ...p, anioLectivo: e.target.value, curso: '', materia: '' }))
               }
-              disabled={!borrador.materia}
             >
               <option value="">Año...</option>
               {aniosLectivos.map((anio) => (
@@ -141,13 +138,29 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
             <select
               id={`${prefix}-curso`}
               value={borrador.curso}
-              onChange={(e) => setBorrador((p) => ({ ...p, curso: e.target.value }))}
+              onChange={(e) => setBorrador((p) => ({ ...p, curso: e.target.value, materia: '' }))}
               disabled={!borrador.anioLectivo}
             >
               <option value="">Curso...</option>
               {cursosBorrador.map((c) => (
                 <option key={c} value={c}>
                   {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group-filter">
+            <label htmlFor={`${prefix}-materia`}>Materia</label>
+            <select
+              id={`${prefix}-materia`}
+              value={borrador.materia}
+              onChange={(e) => setBorrador((p) => ({ ...p, materia: e.target.value }))}
+              disabled={!borrador.curso}
+            >
+              <option value="">Seleccionar...</option>
+              {materiasFiltradas.map((m) => (
+                <option key={m} value={m}>
+                  {m}
                 </option>
               ))}
             </select>
@@ -268,7 +281,17 @@ function Docentes() {
             continue;
           }
           try {
-            await createCursoMateria({ id_curso, id_materia, id_docente: docenteId });
+            // Check if curso_materia already exists
+            const existing = dataCtx.cursoMateria.find(
+              (cm) => cm.id_curso === id_curso && cm.id_materia === id_materia
+            );
+            if (existing) {
+              // Update existing record with docente
+              await updateCursoMateria(existing.id, { id_docente: docenteId });
+            } else {
+              // Create new record
+              await createCursoMateria({ id_curso, id_materia, id_docente: docenteId });
+            }
             asigOk++;
           } catch (e) {
             const d = e.response?.data;
@@ -304,7 +327,17 @@ function Docentes() {
         for (const asig of paraCrear) {
           const { id_curso, id_materia } = resolveIds(asig);
           if (id_curso && id_materia) {
-            await createCursoMateria({ id_curso, id_materia, id_docente: Number(seleccionado) });
+            // Check if curso_materia already exists
+            const existing = dataCtx.cursoMateria.find(
+              (cm) => cm.id_curso === id_curso && cm.id_materia === id_materia
+            );
+            if (existing) {
+              // Update existing record with docente
+              await updateCursoMateria(existing.id, { id_docente: Number(seleccionado) });
+            } else {
+              // Create new record
+              await createCursoMateria({ id_curso, id_materia, id_docente: Number(seleccionado) });
+            }
           }
         }
         setMensaje('Docente modificado exitosamente.');

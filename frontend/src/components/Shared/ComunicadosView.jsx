@@ -10,7 +10,7 @@ function badgeClass(estado) {
   return 'badge-tarde';
 }
 
-function ComunicadosView({ userRole }) {
+function ComunicadosView({ userRole, selectedChild }) {
   const {
     comunicados,
     alumnos,
@@ -37,15 +37,49 @@ function ComunicadosView({ userRole }) {
         const misMaterias = cursoMateria
           .filter((cm) => cm.id_curso === miCursoId)
           .map((cm) => cm.id_materia);
-        
-        return comunicados.filter((c) => {
+
+        const filtered = comunicados.filter((c) => {
           if (c.id_curso === miCursoId) return true;
           if (c.id_materia && misMaterias.includes(c.id_materia)) return true;
           return false;
         });
+        return filtered;
       }
 
       case 'familia': {
+        console.log('=== CAMBIO HIJO ===');
+        console.log('selectedChild:', selectedChild);
+        console.log('selectedChild.alumnoId:', selectedChild?.alumnoId);
+
+        // If a specific child is selected, filter only for that child
+        if (selectedChild && selectedChild.alumnoId) {
+          console.log('=== FILTRANDO COMUNICADOS ===');
+          const alumno = alumnos.find((a) => a.id === selectedChild.alumnoId);
+          console.log('alumno encontrado:', alumno);
+          console.log('curso hijo seleccionado:', alumno?.id_curso);
+
+          comunicados.forEach((c) => {
+            console.log(
+              'comunicado:',
+              c.id,
+              'curso:',
+              c.id_curso,
+              'coincide:',
+              c.id_curso === alumno?.id_curso
+            );
+          });
+
+          if (alumno) {
+            const cursoId = alumno.id_curso;
+            const filtered = comunicados.filter((c) => c.id_curso === cursoId);
+            console.log('resultado filtrado (selectedChild):', filtered);
+            return filtered;
+          }
+          console.log('resultado filtrado (selectedChild): []');
+          return [];
+        }
+
+        // Fallback: show all children's communications (original behavior)
         const miTutor = padresTutores.find((pt) => pt.id_usuario === userId);
         if (!miTutor) return [];
         const misHijos = alumnos.filter((a) => a.id_tutor === miTutor.id_tutor);
@@ -56,25 +90,52 @@ function ComunicadosView({ userRole }) {
             .map((cm) => cm.id_materia)
         );
 
-        return comunicados.filter((c) => {
+        const filtered = comunicados.filter((c) => {
           if (c.id_curso && cursosHijos.has(c.id_curso)) return true;
           if (c.id_materia && materiasHijos.has(c.id_materia)) return true;
           return false;
         });
+        console.log('resultado filtrado (fallback):', filtered);
+        return filtered;
       }
 
       case 'docente': {
+        console.log('=== DOCENTE DEBUG ===');
+        console.log('user:', user);
+        console.log('userRole:', userRole);
+        console.log('comunicados:', comunicados);
+        console.log('comunicados length:', comunicados.length);
+        console.log('cursoMateria:', cursoMateria);
+        console.log('cursoMateria length:', cursoMateria.length);
+        console.log('primer cursoMateria:', cursoMateria[0]);
+
         const miDocente = docentes.find((d) => d.id_usuario === userId);
+        console.log('miDocente:', miDocente);
+        console.log('miDocente.id:', miDocente?.id);
+        console.log('miDocente.id_docente:', miDocente?.id_docente);
         if (!miDocente) return [];
-        const misAsignaciones = cursoMateria.filter((cm) => cm.id_docente === miDocente.id_docente);
+
+        console.log('Buscando asignaciones con id_docente ===', miDocente.id);
+        const asignacionesEncontradas = cursoMateria.filter((cm) => cm.id_docente === miDocente.id);
+        console.log('asignaciones encontradas:', asignacionesEncontradas);
+
+        const misAsignaciones = cursoMateria.filter((cm) => cm.id_docente === miDocente.id);
         const misCursos = new Set(misAsignaciones.map((cm) => cm.id_curso));
         const misMaterias = new Set(misAsignaciones.map((cm) => cm.id_materia));
+        console.log('misCursos:', misCursos);
+        console.log('misMaterias:', misMaterias);
 
-        return comunicados.filter((c) => {
+        comunicados.forEach((c) => {
+          console.log('COMUNICADO:', c);
+        });
+
+        const filtered = comunicados.filter((c) => {
           if (c.id_curso && misCursos.has(c.id_curso)) return true;
           if (c.id_materia && misMaterias.has(c.id_materia)) return true;
           return false;
         });
+        console.log('resultado filtrado:', filtered);
+        return filtered;
       }
 
       case 'preceptor': {
@@ -83,11 +144,12 @@ function ComunicadosView({ userRole }) {
         const misCursos = cursosObj.filter((c) => c.id_preceptor === miPreceptor.id_preceptor);
         const misCursosIds = new Set(misCursos.map((c) => c.id_curso));
 
-        return comunicados.filter((c) => {
+        const filtered = comunicados.filter((c) => {
           if (c.id_curso && misCursosIds.has(c.id_curso)) return true;
           if (!c.id_curso && !c.id_materia) return true;
           return false;
         });
+        return filtered;
       }
 
       case 'admin':
@@ -96,7 +158,7 @@ function ComunicadosView({ userRole }) {
       default:
         return [];
     }
-  }, [comunicados, user, userRole, alumnos, cursoMateria, cursosObj, docentes, padresTutores, preceptores]);
+  }, [comunicados, user, userRole, alumnos, cursoMateria, cursosObj, docentes, padresTutores, preceptores, selectedChild]);
 
   const comunicadosOrdenados = useMemo(() => {
     return [...comunicadosFiltrados].sort((a, b) => {
@@ -157,9 +219,9 @@ function ComunicadosView({ userRole }) {
             <div style={{ marginTop: '20px' }}>
               <h4>Archivos adjuntos ({selectedComunicado.archivos.length})</h4>
               <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {selectedComunicado.archivos.map((archivo, idx) => (
+                {selectedComunicado.archivos.map((archivo) => (
                   <div
-                    key={idx}
+                    key={archivo.id}
                     style={{
                       display: 'flex',
                       alignItems: 'center',

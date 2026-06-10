@@ -12,6 +12,9 @@ function AlumnoDashboard({ user, onLogout }) {
     asistenciasAdmin,
     periodos,
     nombreCompleto,
+    materiasPorCurso,
+    cursoMateria,
+    cursosObj,
   } = useData();
 
   const [view, setView] = useState('calificaciones');
@@ -38,11 +41,18 @@ function AlumnoDashboard({ user, onLogout }) {
   }, [calificacionesCompletas, miAlumno]);
 
   const calsPorMateria = useMemo(() => {
-    const map = {};
+    if (!miAlumno) return [];
+    
+    // Get all subjects for the student's course
+    const cursoNombre = miAlumno.curso;
+    const materiasDelCurso = materiasPorCurso[cursoNombre] || [];
+    
+    // Build a map of existing grades by curso_materia ID
+    const gradesMap = {};
     misCalificaciones.forEach((c) => {
       const key = c.id_curso_materia;
-      if (!map[key]) {
-        map[key] = {
+      if (!gradesMap[key]) {
+        gradesMap[key] = {
           materia: c.materia_nombre || 'Sin materia',
           curso: c.curso_nombre || '',
           prenota1: '', nota1: '', prenota2: '', nota2: '', diagnostico: '',
@@ -50,17 +60,42 @@ function AlumnoDashboard({ user, onLogout }) {
       }
       const orden = periodos.find((p) => p.id_periodo === c.id_periodo)?.orden_periodo || 0;
       if (orden <= 1) {
-        map[key].prenota1 = c.pre_nota || '';
-        map[key].nota1 = c.nota_numerica ?? '';
-        map[key].diagnostico = c.diagnostico || map[key].diagnostico;
+        gradesMap[key].prenota1 = c.pre_nota || '';
+        gradesMap[key].nota1 = c.nota_numerica ?? '';
+        gradesMap[key].diagnostico = c.diagnostico || gradesMap[key].diagnostico;
       } else if (orden === 2) {
-        map[key].prenota2 = c.pre_nota || '';
-        map[key].nota2 = c.nota_numerica ?? '';
-        if (c.diagnostico) map[key].diagnostico = c.diagnostico;
+        gradesMap[key].prenota2 = c.pre_nota || '';
+        gradesMap[key].nota2 = c.nota_numerica ?? '';
+        if (c.diagnostico) gradesMap[key].diagnostico = c.diagnostico;
       }
     });
-    return Object.values(map);
-  }, [misCalificaciones, periodos]);
+    
+    // Build the final list from all course subjects
+    const result = materiasDelCurso.map((materiaNombre) => {
+      // Find if there's a grade for this subject
+      const cursoMateriaEntry = cursoMateria.find(
+        (cm) => cm.curso_nombre === cursoNombre && cm.materia_nombre === materiaNombre
+      );
+      
+      if (cursoMateriaEntry && gradesMap[cursoMateriaEntry.id]) {
+        // Has grades
+        return gradesMap[cursoMateriaEntry.id];
+      } else {
+        // No grades - show "Sin calificaciones"
+        return {
+          materia: materiaNombre,
+          curso: cursoNombre,
+          prenota1: 'Sin calificaciones',
+          nota1: '',
+          prenota2: 'Sin calificaciones',
+          nota2: '',
+          diagnostico: '',
+        };
+      }
+    });
+    
+    return result;
+  }, [misCalificaciones, periodos, miAlumno, materiasPorCurso, cursoMateria]);
 
   const misAsistencias = useMemo(() => {
     if (!miAlumno) return [];

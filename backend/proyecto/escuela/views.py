@@ -196,18 +196,21 @@ class MateriaViewSet(viewsets.ModelViewSet):
 
 class CursoMateriaViewSet(viewsets.ModelViewSet):
     queryset = CursoMateria.objects.select_related(
-        'id_curso', 'id_materia', 'id_docente',
-    ).all()
+        'id_curso', 'id_materia',
+    ).prefetch_related('id_docente').all()
     serializer_class = CursoMateriaSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = super().get_queryset()
         curso = self.request.query_params.get('curso')
         docente = self.request.query_params.get('docente')
+        
         if curso:
             qs = qs.filter(id_curso=curso)
         if docente:
             qs = qs.filter(id_docente=docente)
+        
         return qs
 
 
@@ -372,6 +375,7 @@ class ComunicadoViewSet(viewsets.ModelViewSet):
         'id_curso', 'id_materia',
     ).prefetch_related('archivos').all()
     serializer_class = ComunicadoSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -393,44 +397,54 @@ class ComunicadoViewSet(viewsets.ModelViewSet):
             return qs
 
         if 'alumno' in roles and usuario_obj:
-            # Students can see communications for their course or their subjects
+            # Students can see communications for their course (general or subject-specific)
             alumno = Alumno.objects.filter(id_usuario=usuario_obj.id_usuario).first()
             if alumno:
                 mi_curso_id = alumno.id_curso
-                mis_materias_ids = list(CursoMateria.objects.filter(
-                    id_curso=mi_curso_id
-                ).values_list('id_materia', flat=True))
-                qs = qs.filter(
-                    models.Q(id_curso=mi_curso_id) | models.Q(id_materia__in=mis_materias_ids)
-                )
+                # All communications for their course (general + subject-specific)
+                qs = qs.filter(id_curso=mi_curso_id)
             else:
                 qs = qs.none()
 
         elif 'familia' in roles and usuario_obj:
-            # Families can see communications from their linked students' courses and subjects
+            # Families can see communications from their linked students' courses (general or subject-specific)
             tutor = PadreTutor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
             if tutor:
                 hijos = Alumno.objects.filter(id_tutor=tutor.id_tutor)
                 cursos_hijos_ids = list(hijos.values_list('id_curso', flat=True))
-                materias_hijos_ids = list(CursoMateria.objects.filter(
-                    id_curso__in=cursos_hijos_ids
-                ).values_list('id_materia', flat=True))
-                qs = qs.filter(
-                    models.Q(id_curso__in=cursos_hijos_ids) | models.Q(id_materia__in=materias_hijos_ids)
-                )
+                # All communications for their children's courses (general + subject-specific)
+                qs = qs.filter(id_curso__in=cursos_hijos_ids)
             else:
                 qs = qs.none()
 
         elif 'docente' in roles and usuario_obj:
-            # Teachers can see communications from courses where they teach and subjects they have assigned
+            # Teachers can see:
+            # - General communications (no specific subject) for courses where they teach
+            # - Subject-specific communications only for subjects they have assigned in that specific course
             docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
             if docente:
+                print('=== DOCENTE COMUNICADOS DEBUG ===')
+                print(f'id_docente: {docente.id_docente}')
                 asignaciones = CursoMateria.objects.filter(id_docente=docente.id_docente)
                 cursos_ids = list(asignaciones.values_list('id_curso', flat=True))
                 materias_ids = list(asignaciones.values_list('id_materia', flat=True))
-                qs = qs.filter(
-                    models.Q(id_curso__in=cursos_ids) | models.Q(id_materia__in=materias_ids)
+                print(f'asignaciones: {list(asignaciones.values_list("id_curso", "id_materia"))}')
+                print(f'cursos_ids: {cursos_ids}')
+                print(f'materias_ids: {materias_ids}')
+                
+                # Build Q objects for each specific (curso, materia) assignment
+                curso_materia_q = models.Q()
+                for cm in asignaciones:
+                    curso_materia_q |= models.Q(id_curso=cm.id_curso, id_materia=cm.id_materia)
+                print(f'curso_materia_q: {curso_materia_q}')
+                
+                # Filter by courses where they teach, then by general OR their specific (curso, materia) assignments
+                qs = qs.filter(id_curso__in=cursos_ids).filter(
+                    models.Q(id_materia__isnull=True) | curso_materia_q
                 )
+                print(f'QuerySet final count: {qs.count()}')
+                print(f'QuerySet final: {list(qs.values("id_comunicado", "id_curso", "id_materia", "titulo"))}')
+                print('===============================')
             else:
                 qs = qs.none()
 
@@ -449,9 +463,10 @@ class ComunicadoViewSet(viewsets.ModelViewSet):
         return qs
 
 
-class ComunicadoArchivoViewSet(viewsets.ReadOnlyModelViewSet):
+class ComunicadoArchivoViewSet(viewsets.ModelViewSet):
     queryset = ComunicadoArchivo.objects.select_related('id_comunicado').all()
     serializer_class = ComunicadoArchivoSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = super().get_queryset()

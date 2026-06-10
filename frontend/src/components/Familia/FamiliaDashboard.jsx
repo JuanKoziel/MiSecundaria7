@@ -75,7 +75,7 @@ function FamiliaDashboard({ user, onLogout }) {
       case 'comunicados':
         return (
           <div className="view-section active">
-            <ComunicadosView userRole="familia" />
+            <ComunicadosView userRole="familia" selectedChild={hijoSeleccionado} />
           </div>
         );
 
