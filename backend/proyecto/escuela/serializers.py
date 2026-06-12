@@ -30,6 +30,7 @@ from escuela.models import (
     TipoAccion,
     TipoActa,
     Usuario,
+    UsuarioRol,
 )
 
 
@@ -103,117 +104,65 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     def get_roles(self, obj):
         user_roles = UsuarioRol.objects.filter(id_usuario=obj).select_related('id_rol')
-        roles_list = [ur.id_rol.nombre_rol for ur in user_roles]
-        print(f"[UsuarioSerializer.get_roles] Usuario: {obj.usuario}, Roles encontrados: {roles_list}")
-        return roles_list
+        return [ur.id_rol.nombre_rol for ur in user_roles]
 
     def get_directivo_nombre(self, obj):
-        try:
-            directivo = Directivo.objects.filter(id_usuario=obj).first()
-            return directivo.nombre if directivo else None
-        except Exception as e:
-            print(f"[get_directivo_nombre] Error: {e}")
-            return None
+        directivo = Directivo.objects.filter(id_usuario=obj).first()
+        return directivo.nombre if directivo else None
 
     def get_directivo_apellido(self, obj):
-        try:
-            directivo = Directivo.objects.filter(id_usuario=obj).first()
-            return directivo.apellido if directivo else None
-        except Exception as e:
-            print(f"[get_directivo_apellido] Error: {e}")
-            return None
+        directivo = Directivo.objects.filter(id_usuario=obj).first()
+        return directivo.apellido if directivo else None
 
     def get_directivo_dni(self, obj):
-        try:
-            directivo = Directivo.objects.filter(id_usuario=obj).first()
-            return directivo.dni if directivo else None
-        except Exception as e:
-            print(f"[get_directivo_dni] Error: {e}")
-            return None
+        directivo = Directivo.objects.filter(id_usuario=obj).first()
+        return directivo.dni if directivo else None
 
     def get_directivo_telefono(self, obj):
-        try:
-            directivo = Directivo.objects.filter(id_usuario=obj).first()
-            return directivo.telefono if directivo else None
-        except Exception as e:
-            print(f"[get_directivo_telefono] Error: {e}")
-            return None
+        directivo = Directivo.objects.filter(id_usuario=obj).first()
+        return directivo.telefono if directivo else None
 
     def get_directivo_cargo(self, obj):
-        try:
-            directivo = Directivo.objects.filter(id_usuario=obj).first()
-            return directivo.cargo if directivo else None
-        except Exception as e:
-            print(f"[get_directivo_cargo] Error: {e}")
-            return None
+        directivo = Directivo.objects.filter(id_usuario=obj).first()
+        return directivo.cargo if directivo else None
 
     def create(self, validated_data):
-        from django.contrib.auth.hashers import make_password
-
         contrasena = validated_data.pop('contrasena', None)
-        roles = validated_data.pop('roles', None)
+        roles = self.initial_data.get('roles', [])
         nombre = validated_data.pop('nombre', None)
         apellido = validated_data.pop('apellido', None)
         dni = validated_data.pop('dni', None)
         telefono = validated_data.pop('telefono', None)
         cargo = validated_data.pop('cargo', None)
 
-        print(f"[UsuarioSerializer.create] Iniciando creación de usuario")
-        print(f"[UsuarioSerializer.create] validated_data: {validated_data}")
-        print(f"[UsuarioSerializer.create] roles: {roles}")
-        print(f"[UsuarioSerializer.create] nombre: {nombre}, apellido: {apellido}, dni: {dni}")
-
-        # Hash password before creating user
+        usuario = Usuario(**validated_data)
         if contrasena:
-            validated_data['contrasena'] = make_password(contrasena)
-
-        usuario = Usuario.objects.create(**validated_data)
-        print(f"[UsuarioSerializer.create] Usuario creado: id={usuario.id_usuario}, usuario={usuario.usuario}")
+            usuario.set_password(contrasena)
+        usuario.save()
 
         # Assign roles
         if roles:
             for role_name in roles:
                 rol = Rol.objects.filter(nombre_rol=role_name).first()
-                print(f"[UsuarioSerializer.create] Buscando rol: {role_name}, encontrado: {rol}")
                 if rol:
-                    try:
-                        # Check if role already exists
-                        existing = UsuarioRol.objects.filter(id_usuario=usuario, id_rol=rol).first()
-                        if existing:
-                            print(f"[UsuarioSerializer.create] Rol ya existe para este usuario")
-                        else:
-                            usuario_rol = UsuarioRol.objects.create(id_usuario=usuario, id_rol=rol)
-                            print(f"[UsuarioSerializer.create] UsuarioRol creado: id_usuario={usuario.id_usuario}, id_rol={rol.id_rol}")
-                    except Exception as e:
-                        print(f"[UsuarioSerializer.create] Error creando UsuarioRol: {e}")
-                        import traceback
-                        traceback.print_exc()
+                    UsuarioRol.objects.get_or_create(id_usuario=usuario, id_rol=rol)
 
         # Create Directivo if fields are provided
         if nombre and apellido and dni:
-            try:
-                directivo = Directivo.objects.create(
-                    id_usuario=usuario,
-                    nombre=nombre,
-                    apellido=apellido,
-                    dni=dni,
-                    telefono=telefono or '',
-                    cargo=cargo or 'Administrador'
-                )
-                print(f"[UsuarioSerializer.create] Directivo creado: id={directivo.id_directivo}")
-            except Exception as e:
-                print(f"[UsuarioSerializer.create] Error creando Directivo: {e}")
-                import traceback
-                traceback.print_exc()
+            Directivo.objects.create(
+                id_usuario=usuario,
+                nombre=nombre,
+                apellido=apellido,
+                dni=dni,
+                telefono=telefono or '',
+                cargo=cargo or 'Administrador'
+            )
 
-        print(f"[UsuarioSerializer.create] Creación completada exitosamente")
         return usuario
 
     def update(self, instance, validated_data):
-        from django.contrib.auth.hashers import make_password
-
         contrasena = validated_data.pop('contrasena', None)
-        roles = validated_data.pop('roles', None)
+        roles = self.initial_data.get('roles', None)
         nombre = validated_data.pop('nombre', None)
         apellido = validated_data.pop('apellido', None)
         dni = validated_data.pop('dni', None)
@@ -224,7 +173,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
 
         if contrasena:
-            instance.contrasena = make_password(contrasena)
+            instance.set_password(contrasena)
 
         instance.save()
 
@@ -263,9 +212,100 @@ class PadreTutorSerializer(serializers.ModelSerializer):
 
 
 class PreceptorSerializer(serializers.ModelSerializer):
+    usuario = serializers.CharField(source='id_usuario.usuario', read_only=True)
+    usuario_nombre = serializers.CharField(write_only=True, required=False)
+    contrasena = serializers.CharField(write_only=True, required=False)
+    cursos_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+    )
+    cursos_asignados = serializers.SerializerMethodField()
+
     class Meta:
         model = Preceptor
-        fields = '__all__'
+        fields = [
+            'id_preceptor',
+            'id_usuario',
+            'usuario',
+            'usuario_nombre',
+            'contrasena',
+            'nombre',
+            'apellido',
+            'dni',
+            'correo',
+            'telefono',
+            'cursos_ids',
+            'cursos_asignados',
+        ]
+        extra_kwargs = {
+            'id_usuario': {'read_only': True},
+            'correo': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'telefono': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
+
+    def get_cursos_asignados(self, obj):
+        cursos = Curso.objects.filter(id_preceptor=obj).order_by('nombre_curso')
+        return [
+            {
+                'id_curso': curso.id_curso,
+                'nombre_curso': curso.nombre_curso,
+                'ciclo_anio': curso.id_ciclo.anio if curso.id_ciclo else None,
+            }
+            for curso in cursos
+        ]
+
+    def create(self, validated_data):
+        usuario_nombre = validated_data.pop('usuario_nombre', None)
+        contrasena = validated_data.pop('contrasena', None)
+        cursos_ids = validated_data.pop('cursos_ids', [])
+
+        usuario = None
+        if usuario_nombre:
+            usuario = Usuario(usuario=usuario_nombre, estado=True)
+            if contrasena:
+                usuario.set_password(contrasena)
+            usuario.save()
+
+            rol, _ = Rol.objects.get_or_create(nombre_rol='preceptor')
+            UsuarioRol.objects.get_or_create(id_usuario=usuario, id_rol=rol)
+
+        preceptor = Preceptor.objects.create(id_usuario=usuario, **validated_data)
+        Curso.objects.filter(id_curso__in=cursos_ids).update(id_preceptor=preceptor)
+        return preceptor
+
+    def update(self, instance, validated_data):
+        usuario_nombre = validated_data.pop('usuario_nombre', None)
+        contrasena = validated_data.pop('contrasena', None)
+        cursos_ids = validated_data.pop('cursos_ids', None)
+
+        usuario = instance.id_usuario
+        if usuario:
+            if usuario_nombre is not None:
+                usuario.usuario = usuario_nombre
+            if contrasena:
+                usuario.set_password(contrasena)
+            usuario.save()
+        elif usuario_nombre:
+            usuario = Usuario(usuario=usuario_nombre, estado=True)
+            if contrasena:
+                usuario.set_password(contrasena)
+            usuario.save()
+            instance.id_usuario = usuario
+
+        if usuario:
+            rol, _ = Rol.objects.get_or_create(nombre_rol='preceptor')
+            UsuarioRol.objects.get_or_create(id_usuario=usuario, id_rol=rol)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if cursos_ids is not None:
+            Curso.objects.filter(id_preceptor=instance).update(id_preceptor=None)
+            Curso.objects.filter(id_curso__in=cursos_ids).update(id_preceptor=instance)
+
+        return instance
 
 
 class DocenteSerializer(serializers.ModelSerializer):

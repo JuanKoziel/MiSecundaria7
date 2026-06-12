@@ -73,6 +73,20 @@ export async function getPreceptores() {
   return data;
 }
 
+export async function createPreceptor(payload) {
+  const { data } = await api.post('/preceptores/', payload);
+  return data;
+}
+
+export async function updatePreceptor(id, payload) {
+  const { data } = await api.patch(`/preceptores/${id}/`, payload);
+  return data;
+}
+
+export async function deletePreceptor(id) {
+  await api.delete(`/preceptores/${id}/`);
+}
+
 export async function getCursos(params) {
   const { data } = await api.get('/cursos/', { params });
   return data;

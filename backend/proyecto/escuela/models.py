@@ -7,6 +7,8 @@ class Usuario(models.Model):
     contrasena = models.CharField(max_length=255)
     estado = models.BooleanField(default=True)
     ultimo_acceso = models.DateTimeField(blank=True, null=True)
+    fecha_deshabilitacion_programada = models.DateTimeField(blank=True, null=True)
+    fecha_habilitacion_programada = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False
@@ -14,6 +16,11 @@ class Usuario(models.Model):
 
     def __str__(self):
         return self.usuario
+
+    def set_password(self, raw_password):
+        from django.contrib.auth.hashers import make_password
+
+        self.contrasena = make_password(raw_password)
 
 
 class Rol(models.Model):

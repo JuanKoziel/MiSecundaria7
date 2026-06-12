@@ -61,14 +61,11 @@ function Comunicados() {
         id_usuario_creador: user?.id_usuario || user?.id || null,
       });
       
-      console.log('Comunicado creado:', comunicado);
-      
       const files = filesRef.current?.files;
       if (comunicado?.id_comunicado && files?.length) {
         for (const file of Array.from(files)) {
           try {
             const uploaded = await uploadFile(file, 'comunicados');
-            console.log('Archivo subido:', uploaded);
             await createComunicadoArchivo({
               id_comunicado: comunicado.id_comunicado,
               ruta_archivo: uploaded.url,

@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate
 from django.db import models
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -37,6 +38,7 @@ from escuela.models import (
     TipoAccion,
     TipoActa,
     Usuario,
+    UsuarioRol,
 )
 from escuela.serializers import (
     ActaAlumnoSerializer,
@@ -132,73 +134,27 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated]
 
-    def list(self, request, *args, **kwargs):
-        try:
-            print("[UsuarioViewSet.list] Iniciando listado de usuarios")
-            response = super().list(request, *args, **kwargs)
-            print(f"[UsuarioViewSet.list] Listado exitoso, cantidad: {len(response.data)}")
-            return response
-        except Exception as e:
-            print("[UsuarioViewSet.list] ERROR:")
-            print(f"Exception: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            raise
-
-    def create(self, request, *args, **kwargs):
-        try:
-            print("[UsuarioViewSet.create] Iniciando creación de usuario")
-            print(f"[UsuarioViewSet.create] Request data: {request.data}")
-            response = super().create(request, *args, **kwargs)
-            print(f"[UsuarioViewSet.create] Creación exitosa: {response.data}")
-            return response
-        except Exception as e:
-            print("[UsuarioViewSet.create] ERROR:")
-            print(f"Exception: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            raise
-
     def get_queryset(self):
-        try:
-            qs = super().get_queryset()
-            print(f"[UsuarioViewSet.get_queryset] Queryset base: {qs.count()} usuarios")
+        qs = super().get_queryset()
 
-            # Permission filtering based on user role
-            from escuela.auth_backend import get_roles_for_usuario
-            username = self.request.user.username if self.request.user.is_authenticated else None
-            if not username:
-                print("[UsuarioViewSet.get_queryset] Usuario no autenticado, retornando none()")
-                return qs.none()
-
-            roles = get_roles_for_usuario(username)
-            print(f"[UsuarioViewSet.get_queryset] Usuario: {username}, Roles: {roles}")
-
-            # Only directors can manage admin users
-            if 'director' in roles:
-                print("[UsuarioViewSet.get_queryset] Rol director, retornando todos los usuarios")
-                return qs
-
-            # Admins can see all users but cannot manage other admins
-            if 'admin' in roles:
-                print("[UsuarioViewSet.get_queryset] Rol admin, retornando todos los usuarios")
-                return qs
-
-            # Other roles can only see themselves
-            usuario = Usuario.objects.filter(usuario=username).first()
-            if usuario:
-                filtered = qs.filter(id_usuario=usuario.id_usuario)
-                print(f"[UsuarioViewSet.get_queryset] Rol común, filtrando por usuario: {filtered.count()} usuarios")
-                return filtered
-
-            print("[UsuarioViewSet.get_queryset] Usuario no encontrado, retornando none()")
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
             return qs.none()
-        except Exception as e:
-            print("[UsuarioViewSet.get_queryset] ERROR:")
-            print(f"Exception: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            raise
+
+        roles = get_roles_for_usuario(username)
+        if 'director' in roles or 'admin' in roles:
+            return qs.filter(
+                usuariorol__id_rol__nombre_rol='admin',
+            ).distinct()
+
+        usuario = Usuario.objects.filter(usuario=username).first()
+        if usuario:
+            return qs.filter(
+                id_usuario=usuario.id_usuario,
+                usuariorol__id_rol__nombre_rol='admin',
+            ).distinct()
+
+        return qs.none()
 
     def perform_create(self, serializer):
         from escuela.auth_backend import get_roles_for_usuario
@@ -207,7 +163,6 @@ class UsuarioViewSet(viewsets.ModelViewSet):
             raise PermissionError("Usuario no autenticado")
 
         roles = get_roles_for_usuario(username)
-        print(f"[UsuarioViewSet.perform_create] Usuario: {username}, Roles: {roles}")
 
         # Only directors can create admin users
         if 'director' not in roles:
@@ -215,7 +170,6 @@ class UsuarioViewSet(viewsets.ModelViewSet):
 
         # Check if trying to create an admin user
         requested_roles = self.request.data.get('roles', [])
-        print(f"[UsuarioViewSet.perform_create] Requested roles: {requested_roles}")
         if 'admin' in requested_roles and 'director' not in roles:
             raise PermissionError("Solo directores pueden crear usuarios con rol administrador")
 
@@ -276,6 +230,19 @@ class AlumnoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
+
+        if 'preceptor' in roles and usuario_obj:
+            preceptor = Preceptor.objects.filter(id_usuario=usuario_obj).first()
+            if not preceptor:
+                return qs.none()
+            cursos_ids = Curso.objects.filter(
+                id_preceptor=preceptor,
+            ).values_list('id_curso', flat=True)
+            qs = qs.filter(id_curso__in=cursos_ids)
+
         curso_id = self.request.query_params.get('curso')
         if curso_id:
             qs = qs.filter(id_curso=curso_id)
@@ -290,6 +257,38 @@ class DocenteViewSet(viewsets.ModelViewSet):
 class PreceptorViewSet(viewsets.ModelViewSet):
     queryset = Preceptor.objects.select_related('id_usuario').all()
     serializer_class = PreceptorSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' in roles or 'director' in roles:
+            return qs
+        if 'preceptor' in roles and username:
+            return qs.filter(id_usuario__usuario=username)
+        return qs.none()
+
+    def _require_admin_or_director(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' not in roles and 'director' not in roles:
+            raise PermissionDenied("Solo administradores o directores pueden gestionar preceptores")
+
+    def perform_create(self, serializer):
+        self._require_admin_or_director()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._require_admin_or_director()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._require_admin_or_director()
+        usuario = instance.id_usuario
+        Curso.objects.filter(id_preceptor=instance).update(id_preceptor=None)
+        if usuario:
+            UsuarioRol.objects.filter(id_usuario=usuario).delete()
+        instance.delete()
 
 
 class DirectivoViewSet(viewsets.ModelViewSet):
@@ -313,6 +312,16 @@ class CursoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
+
+        if 'preceptor' in roles and usuario_obj:
+            preceptor = Preceptor.objects.filter(id_usuario=usuario_obj).first()
+            if not preceptor:
+                return qs.none()
+            qs = qs.filter(id_preceptor=preceptor)
+
         ciclo = self.request.query_params.get('ciclo')
         if ciclo:
             qs = qs.filter(id_ciclo=ciclo)
@@ -553,28 +562,19 @@ class ComunicadoViewSet(viewsets.ModelViewSet):
             # - Subject-specific communications only for subjects they have assigned in that specific course
             docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
             if docente:
-                print('=== DOCENTE COMUNICADOS DEBUG ===')
-                print(f'id_docente: {docente.id_docente}')
                 asignaciones = CursoMateria.objects.filter(id_docente=docente.id_docente)
                 cursos_ids = list(asignaciones.values_list('id_curso', flat=True))
                 materias_ids = list(asignaciones.values_list('id_materia', flat=True))
-                print(f'asignaciones: {list(asignaciones.values_list("id_curso", "id_materia"))}')
-                print(f'cursos_ids: {cursos_ids}')
-                print(f'materias_ids: {materias_ids}')
                 
                 # Build Q objects for each specific (curso, materia) assignment
                 curso_materia_q = models.Q()
                 for cm in asignaciones:
                     curso_materia_q |= models.Q(id_curso=cm.id_curso, id_materia=cm.id_materia)
-                print(f'curso_materia_q: {curso_materia_q}')
                 
                 # Filter by courses where they teach, then by general OR their specific (curso, materia) assignments
                 qs = qs.filter(id_curso__in=cursos_ids).filter(
                     models.Q(id_materia__isnull=True) | curso_materia_q
                 )
-                print(f'QuerySet final count: {qs.count()}')
-                print(f'QuerySet final: {list(qs.values("id_comunicado", "id_curso", "id_materia", "titulo"))}')
-                print('===============================')
             else:
                 qs = qs.none()
 

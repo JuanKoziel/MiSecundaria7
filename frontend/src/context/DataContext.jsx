@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import {
   getAlumnos,
   getDocentes,
+  getPreceptores,
   getCursos,
   getMaterias,
   getCursoMateria,
@@ -44,6 +45,7 @@ export function DataProvider({ children }) {
       const [
         alumnosRaw,
         docentesRaw,
+        preceptoresRaw,
         cursosRaw,
         materiasRaw,
         cursoMateriaRaw,
@@ -65,6 +67,7 @@ export function DataProvider({ children }) {
       ] = await Promise.all([
         getAlumnos().catch(() => []),
         getDocentes().catch(() => []),
+        getPreceptores().catch(() => []),
         getCursos().catch(() => []),
         getMaterias().catch(() => []),
         getCursoMateria().catch((err) => {
@@ -147,6 +150,17 @@ export function DataProvider({ children }) {
         }
       });
       const docentes = Object.values(docenteMap);
+
+      const preceptores = (Array.isArray(preceptoresRaw) ? preceptoresRaw : []).map((p) => ({
+        id: p.id_preceptor,
+        id_usuario: p.id_usuario || null,
+        usuario: p.usuario || '',
+        dni: p.dni,
+        nombre: p.nombre,
+        apellido: p.apellido,
+        telefono: p.telefono || '',
+        cursos: Array.isArray(p.cursos_asignados) ? p.cursos_asignados : [],
+      }));
 
       const cursosArr = (Array.isArray(cursosRaw) ? cursosRaw : []).map((c) => c.nombre_curso);
       const cursos = cursosArr.length > 0 ? cursosArr : [
@@ -420,6 +434,7 @@ export function DataProvider({ children }) {
       setData({
         alumnos,
         docentes,
+        preceptores,
         cursos,
         cursosObj: cursosObjArr,
         materiasObj: materiasObjArr,
@@ -496,6 +511,7 @@ export function useData() {
       error: ctx.error,
       alumnos: [],
       docentes: [],
+      preceptores: [],
       cursos: [],
       cursosObj: [],
       materiasObj: [],

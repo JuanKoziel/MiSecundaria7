@@ -10,6 +10,7 @@ import Comunicados from './comunicados';
 import Notificaciones from '../Notificaciones';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import Administradores from './administradores';
+import Preceptores from './preceptores';
 
 function AdminDashboard({ user, onLogout }) {
   const [view, setView] = useState('alumnos');
@@ -20,6 +21,8 @@ function AdminDashboard({ user, onLogout }) {
         return <Alumnos />;
       case 'docentes':
         return <Docentes />;
+      case 'preceptores':
+        return <Preceptores />;
       case 'horarios':
         return <Horarios />;
       case 'asistencias':

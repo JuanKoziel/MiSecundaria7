@@ -26,27 +26,9 @@ function Administradores() {
   const fetchUsuarios = async () => {
     try {
       const data = await getUsuarios();
-      console.log('[fetchUsuarios] Usuarios recibidos:', data);
-      console.log('[fetchUsuarios] Cantidad de usuarios:', data?.length || 0);
-
-      // Log each user with their roles
-      data?.forEach((u, idx) => {
-        console.log(`[fetchUsuarios] Usuario ${idx}:`, {
-          id: u.id_usuario,
-          usuario: u.usuario,
-          roles: u.roles,
-          hasRoles: !!u.roles,
-          isAdmin: u.roles?.includes('admin')
-        });
-      });
-
-      // Filter only users with admin role
       const adminUsers = data.filter((u) => u.roles && u.roles.includes('admin'));
-      console.log('[fetchUsuarios] Administradores filtrados:', adminUsers);
-      console.log('[fetchUsuarios] Cantidad de administradores:', adminUsers.length);
       setUsuarios(adminUsers);
     } catch (err) {
-      console.error('[fetchUsuarios] Error fetching usuarios:', err);
       setError('Error al cargar administradores');
     } finally {
       setLoading(false);
@@ -95,7 +77,6 @@ function Administradores() {
       setSuccess('Administrador eliminado correctamente');
       fetchUsuarios();
     } catch (err) {
-      console.error('Error deleting usuario:', err);
       setError('Error al eliminar administrador');
     }
   };
@@ -131,7 +112,6 @@ function Administradores() {
       setShowModal(false);
       fetchUsuarios();
     } catch (err) {
-      console.error('Error saving usuario:', err);
       setError(err.response?.data?.detail || 'Error al guardar administrador');
     }
   };
