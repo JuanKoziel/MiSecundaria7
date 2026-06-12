@@ -10,6 +10,7 @@ import Comunicados from './Comunicados';
 import Actas from './Actas';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
+import DiagnosticosView from '../Shared/DiagnosticosView';
 import { useData } from '../../context/DataContext';
 
 function FamiliaDashboard({ user, onLogout }) {
@@ -76,6 +77,13 @@ function FamiliaDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <ComunicadosView userRole="familia" selectedChild={hijoSeleccionado} />
+          </div>
+        );
+
+      case 'info':
+        return (
+          <div className="view-section active">
+            <DiagnosticosView userRole="familia" selectedChild={hijoSeleccionado} />
           </div>
         );
 
@@ -156,7 +164,7 @@ function FamiliaDashboard({ user, onLogout }) {
 
           <div className="dashboard-content">
             <div className="view-section active">
-              <Notificaciones />
+              <Notificaciones userRole="familia" selectedChild={hijoSeleccionado} />
             </div>
           </div>
 

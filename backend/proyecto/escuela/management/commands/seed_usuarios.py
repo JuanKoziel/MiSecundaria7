@@ -11,12 +11,13 @@ correspondiente en 'usuario_roles'. Si los roles no existen, los crea.
     usuario: docente_test    | contraseña: docente123    | rol: docente
     usuario: preceptor_test  | contraseña: preceptor123  | rol: preceptor
     usuario: familia_test    | contraseña: familia123    | rol: familia
+    usuario: director_test   | contraseña: director123   | rol: director
 """
 
 from django.contrib.auth.hashers import make_password
 from django.core.management.base import BaseCommand
 
-from escuela.models import Rol, Usuario, UsuarioRol
+from escuela.models import Rol, Usuario, UsuarioRol, Directivo
 
 
 USUARIOS_PRUEBA = [
@@ -25,6 +26,8 @@ USUARIOS_PRUEBA = [
     {'usuario': 'preceptor_test', 'contrasena': 'preceptor123', 'rol': 'preceptor'},
     {'usuario': 'familia_test', 'contrasena': 'familia123', 'rol': 'familia'},
     {'usuario': 'alumno_test', 'contrasena': 'alumno123', 'rol': 'alumno'},
+    {'usuario': 'director_test', 'contrasena': 'director123', 'rol': 'director'},
+    {'usuario': 'gperez', 'contrasena': 'director123', 'rol': 'director', 'nombre': 'Guillermo', 'apellido': 'Pérez'},
 ]
 
 
@@ -55,5 +58,18 @@ class Command(BaseCommand):
             ).exists():
                 UsuarioRol.objects.create(id_usuario=usuario, id_rol=rol)
                 self.stdout.write(f"    Rol asignado: {data['rol']}")
+
+            # Create Directivo profile for director role if nombre and apellido are provided
+            if data['rol'] == 'director' and 'nombre' in data and 'apellido' in data:
+                Directivo.objects.get_or_create(
+                    id_usuario=usuario,
+                    defaults={
+                        'nombre': data['nombre'],
+                        'apellido': data['apellido'],
+                        'dni': data['usuario'],  # Use username as placeholder DNI
+                        'cargo': 'Director',
+                    }
+                )
+                self.stdout.write(f"    Perfil Directivo creado: {data['nombre']} {data['apellido']}")
 
         self.stdout.write(self.style.SUCCESS('\nUsuarios de prueba listos.'))

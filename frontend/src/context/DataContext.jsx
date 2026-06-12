@@ -19,6 +19,7 @@ import {
   getPadresTutores,
   getPeriodos,
   getComunicados,
+  getDiagnosticosGrupales,
 } from '../services/api';
 
 const DataContext = createContext(null);
@@ -60,6 +61,7 @@ export function DataProvider({ children }) {
         padresTutoresRaw,
         periodosRaw,
         comunicadosRaw,
+        diagnosticosRaw,
       ] = await Promise.all([
         getAlumnos().catch(() => []),
         getDocentes().catch(() => []),
@@ -83,6 +85,7 @@ export function DataProvider({ children }) {
         getPadresTutores().catch(() => []),
         getPeriodos().catch(() => []),
         getComunicados().catch(() => []),
+        getDiagnosticosGrupales().catch(() => []),
       ]);
 
       const alumnosPreCurso = (Array.isArray(alumnosRaw) ? alumnosRaw : []).map((a) => ({
@@ -398,6 +401,20 @@ export function DataProvider({ children }) {
       });
       const comunicadosFamilia = comunicados;
 
+      const diagnosticos = (Array.isArray(diagnosticosRaw) ? diagnosticosRaw : []).map((d) => {
+        const cursoObj = cursosObjArr.find((x) => x.id_curso === d.id_curso);
+        const docenteObj = docentes.find((doc) => doc.id === d.id_docente);
+        return {
+          id: d.id_diagnostico_grupal,
+          id_curso: d.id_curso,
+          id_docente: d.id_docente,
+          curso: d.curso_nombre || cursoObj?.nombre_curso || '',
+          docente: docenteObj ? `${docenteObj.nombre} ${docenteObj.apellido}` : '',
+          fecha: d.fecha || '',
+          descripcion: d.descripcion || '',
+        };
+      });
+
 
 
       setData({
@@ -428,6 +445,7 @@ export function DataProvider({ children }) {
         asistenciasFamilia,
         comunicadosFamilia,
         comunicados,
+        diagnosticos,
         padresTutores,
         nombreCompleto,
         nombreCorto,
@@ -500,6 +518,7 @@ export function useData() {
       asistenciasFamilia: [],
       comunicadosFamilia: [],
       comunicados: [],
+      diagnosticos: [],
       calificacionesCompletas: [],
       periodos: [],
       padresTutores: [],

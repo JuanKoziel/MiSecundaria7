@@ -130,6 +130,136 @@ def me_view(request):
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
     serializer_class = UsuarioSerializer
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        try:
+            print("[UsuarioViewSet.list] Iniciando listado de usuarios")
+            response = super().list(request, *args, **kwargs)
+            print(f"[UsuarioViewSet.list] Listado exitoso, cantidad: {len(response.data)}")
+            return response
+        except Exception as e:
+            print("[UsuarioViewSet.list] ERROR:")
+            print(f"Exception: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
+
+    def create(self, request, *args, **kwargs):
+        try:
+            print("[UsuarioViewSet.create] Iniciando creación de usuario")
+            print(f"[UsuarioViewSet.create] Request data: {request.data}")
+            response = super().create(request, *args, **kwargs)
+            print(f"[UsuarioViewSet.create] Creación exitosa: {response.data}")
+            return response
+        except Exception as e:
+            print("[UsuarioViewSet.create] ERROR:")
+            print(f"Exception: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
+
+    def get_queryset(self):
+        try:
+            qs = super().get_queryset()
+            print(f"[UsuarioViewSet.get_queryset] Queryset base: {qs.count()} usuarios")
+
+            # Permission filtering based on user role
+            from escuela.auth_backend import get_roles_for_usuario
+            username = self.request.user.username if self.request.user.is_authenticated else None
+            if not username:
+                print("[UsuarioViewSet.get_queryset] Usuario no autenticado, retornando none()")
+                return qs.none()
+
+            roles = get_roles_for_usuario(username)
+            print(f"[UsuarioViewSet.get_queryset] Usuario: {username}, Roles: {roles}")
+
+            # Only directors can manage admin users
+            if 'director' in roles:
+                print("[UsuarioViewSet.get_queryset] Rol director, retornando todos los usuarios")
+                return qs
+
+            # Admins can see all users but cannot manage other admins
+            if 'admin' in roles:
+                print("[UsuarioViewSet.get_queryset] Rol admin, retornando todos los usuarios")
+                return qs
+
+            # Other roles can only see themselves
+            usuario = Usuario.objects.filter(usuario=username).first()
+            if usuario:
+                filtered = qs.filter(id_usuario=usuario.id_usuario)
+                print(f"[UsuarioViewSet.get_queryset] Rol común, filtrando por usuario: {filtered.count()} usuarios")
+                return filtered
+
+            print("[UsuarioViewSet.get_queryset] Usuario no encontrado, retornando none()")
+            return qs.none()
+        except Exception as e:
+            print("[UsuarioViewSet.get_queryset] ERROR:")
+            print(f"Exception: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
+
+    def perform_create(self, serializer):
+        from escuela.auth_backend import get_roles_for_usuario
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            raise PermissionError("Usuario no autenticado")
+
+        roles = get_roles_for_usuario(username)
+        print(f"[UsuarioViewSet.perform_create] Usuario: {username}, Roles: {roles}")
+
+        # Only directors can create admin users
+        if 'director' not in roles:
+            raise PermissionError("Solo directores pueden crear administradores")
+
+        # Check if trying to create an admin user
+        requested_roles = self.request.data.get('roles', [])
+        print(f"[UsuarioViewSet.perform_create] Requested roles: {requested_roles}")
+        if 'admin' in requested_roles and 'director' not in roles:
+            raise PermissionError("Solo directores pueden crear usuarios con rol administrador")
+
+        serializer.save()
+
+    def perform_update(self, serializer):
+        from escuela.auth_backend import get_roles_for_usuario
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            raise PermissionError("Usuario no autenticado")
+
+        roles = get_roles_for_usuario(username)
+
+        # Only directors can update admin users
+        if 'director' not in roles:
+            raise PermissionError("Solo directores pueden modificar administradores")
+
+        # Check if trying to assign admin role
+        requested_roles = self.request.data.get('roles', [])
+        if 'admin' in requested_roles and 'director' not in roles:
+            raise PermissionError("Solo directores pueden asignar rol administrador")
+
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        from escuela.auth_backend import get_roles_for_usuario
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            raise PermissionError("Usuario no autenticado")
+
+        roles = get_roles_for_usuario(username)
+
+        # Only directors can delete admin users
+        if 'director' not in roles:
+            raise PermissionError("Solo directores pueden eliminar administradores")
+
+        # Check if the user being deleted has admin role
+        user_roles = UsuarioRol.objects.filter(id_usuario=instance).select_related('id_rol')
+        has_admin_role = any(ur.id_rol.nombre_rol == 'admin' for ur in user_roles)
+
+        if has_admin_role and 'director' not in roles:
+            raise PermissionError("Solo directores pueden eliminar administradores")
+
+        instance.delete()
 
 
 class RolViewSet(viewsets.ReadOnlyModelViewSet):
@@ -392,8 +522,8 @@ class ComunicadoViewSet(viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username)
         usuario_obj = Usuario.objects.filter(usuario=username).first()
 
-        if 'admin' in roles:
-            # Administrators can see all communications
+        if 'admin' in roles or 'director' in roles:
+            # Administrators and directors can see all communications
             return qs
 
         if 'alumno' in roles and usuario_obj:
@@ -480,8 +610,8 @@ class ComunicadoArchivoViewSet(viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username)
         usuario_obj = Usuario.objects.filter(usuario=username).first()
 
-        if 'admin' in roles:
-            # Administrators can access all files
+        if 'admin' in roles or 'director' in roles:
+            # Administrators and directors can access all files
             return qs
 
         # Get the IDs of communications the user is allowed to see
@@ -553,6 +683,7 @@ class DiagnosticoGrupalViewSet(viewsets.ModelViewSet):
         'id_curso', 'id_docente',
     ).all()
     serializer_class = DiagnosticoGrupalSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -562,7 +693,88 @@ class DiagnosticoGrupalViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_curso=curso)
         if docente:
             qs = qs.filter(id_docente=docente)
+
+        # Permission filtering based on user role
+        from escuela.auth_backend import get_roles_for_usuario
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            return qs.none()
+
+        roles = get_roles_for_usuario(username)
+        usuario_obj = Usuario.objects.filter(usuario=username).first()
+
+        if 'admin' in roles or 'director' in roles:
+            # Administrators and directors can see all diagnostics
+            return qs
+
+        if 'alumno' in roles and usuario_obj:
+            # Students can see diagnostics for their course
+            alumno = Alumno.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if alumno:
+                mi_curso_id = alumno.id_curso
+                qs = qs.filter(id_curso=mi_curso_id)
+            else:
+                qs = qs.none()
+
+        elif 'familia' in roles and usuario_obj:
+            # Families can see diagnostics from their linked students' courses
+            tutor = PadreTutor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if tutor:
+                hijos = Alumno.objects.filter(id_tutor=tutor.id_tutor)
+                cursos_hijos_ids = list(hijos.values_list('id_curso', flat=True))
+                qs = qs.filter(id_curso__in=cursos_hijos_ids)
+            else:
+                qs = qs.none()
+
+        elif 'docente' in roles and usuario_obj:
+            # Teachers can only see diagnostics for courses where they have assignments
+            docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if docente:
+                # Get all courses where this docente has assignments (via CursoMateria)
+                cursos_asignados = CursoMateria.objects.filter(id_docente=docente.id_docente).values_list('id_curso', flat=True)
+                qs = qs.filter(id_curso__in=cursos_asignados)
+            else:
+                qs = qs.none()
+
         return qs
+
+    def perform_create(self, serializer):
+        # Validate that the docente can only create diagnostics for courses they have assignments in
+        from escuela.auth_backend import get_roles_for_usuario
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            raise PermissionError("Usuario no autenticado")
+
+        roles = get_roles_for_usuario(username)
+        usuario_obj = Usuario.objects.filter(usuario=username).first()
+
+        if 'admin' not in roles and 'director' not in roles and 'docente' not in roles:
+            raise PermissionError("Solo docentes, administradores y directores pueden crear diagnósticos")
+
+        if 'docente' in roles and usuario_obj:
+            docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+            if not docente:
+                raise PermissionError("No se encontró el perfil de docente")
+
+            # Get the course from the request data
+            id_curso = self.request.data.get('id_curso')
+            if not id_curso:
+                raise PermissionError("Se debe especificar un curso")
+
+            # Check if docente has assignments in this course
+            has_assignment = CursoMateria.objects.filter(
+                id_docente=docente.id_docente,
+                id_curso=id_curso
+            ).exists()
+
+            if not has_assignment:
+                raise PermissionError("No tenés asignaciones en este curso. No podés crear diagnósticos para él.")
+
+            # Set the docente to the current user
+            serializer.save(id_docente=docente)
+        else:
+            # Admin can create for any course
+            serializer.save()
 
 
 class NotificacionViewSet(viewsets.ModelViewSet):

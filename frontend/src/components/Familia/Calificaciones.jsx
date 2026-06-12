@@ -1,15 +1,20 @@
 import { useData } from '../../context/DataContext';
+import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
+import { useMemo } from 'react';
 
 function Calificaciones({ hijo }) {
-  const { calificacionesFamilia, materiasPorCurso, cursoMateria, periodos } = useData();
-  
+  const { calificacionesFamilia, materiasPorCurso, cursoMateria, periodos, asistenciasAdmin, alumnos } = useData();
+
+  // Get the actual student object
+  const alumno = alumnos.find((a) => a.id === hijo.alumnoId);
+
   // Get all subjects for the child's course
   const cursoNombre = hijo.curso;
   const materiasDelCurso = materiasPorCurso[cursoNombre] || [];
-  
+
   // Filter grades for this child by alumnoId (not hijoId)
   const calificacionesHijo = calificacionesFamilia.filter((c) => c.alumnoId === hijo.alumnoId);
-  
+
   // Build a map of existing grades by curso_materia ID
   const gradesMap = {};
   calificacionesHijo.forEach((c) => {
@@ -28,14 +33,14 @@ function Calificaciones({ hijo }) {
     gradesMap[key].nota2 = c.nota2 ?? '';
     gradesMap[key].diagnostico = c.diagnostico || '';
   });
-  
+
   // Build the final list from all course subjects
   const calificacionesDisplay = materiasDelCurso.map((materiaNombre) => {
     // Find if there's a grade for this subject
     const cursoMateriaEntry = cursoMateria.find(
       (cm) => cm.curso_nombre === cursoNombre && cm.materia_nombre === materiaNombre
     );
-    
+
     if (cursoMateriaEntry && gradesMap[cursoMateriaEntry.id]) {
       // Has grades
       return gradesMap[cursoMateriaEntry.id];
@@ -53,11 +58,52 @@ function Calificaciones({ hijo }) {
     }
   });
 
+  // Calculate absences per subject for the selected child
+  const inasistenciasPorMateria = useMemo(() => {
+    if (!alumno) return {};
+    const misAsistencias = asistenciasAdmin.filter((a) => a.alumnoId === alumno.id);
+    const porMateria = {};
+    misAsistencias.forEach((a) => {
+      const cm = cursoMateria.find((c) => c.id === a.id_curso_materia);
+      if (!cm) return;
+      const mat = cm.materia_nombre;
+      if (!porMateria[mat]) porMateria[mat] = { ausencias: 0, tardanzas: 0 };
+      if (a.estado === 'Ausente') porMateria[mat].ausencias += 1;
+      else if (a.estado === 'Tarde') porMateria[mat].tardanzas += 1;
+    });
+    return porMateria;
+  }, [asistenciasAdmin, alumno, cursoMateria]);
+
+  // Filter out subjects without actual grades for the PDF
+  const calsConNotas = calificacionesDisplay.filter(
+    (c) => c.prenota1 !== 'Sin calificaciones' || c.nota1 !== '' || c.prenota2 !== 'Sin calificaciones' || c.nota2 !== ''
+  );
+
+  const handleDescargarBoletin = () => {
+    if (!alumno) return;
+    const html = boletinHTML({
+      alumnoNombre: `${alumno.apellido}, ${alumno.nombre}`,
+      dni: alumno.dni,
+      cursoNombre: alumno.curso_nombre_api || cursoNombre,
+      anioLectivo: new Date().getFullYear(),
+      materias: calsConNotas,
+      inasistenciasPorMateria,
+    });
+    exportarBoletinPDF(html, `Boletín — ${alumno.apellido}, ${alumno.nombre}`);
+  };
+
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3>Calificaciones — {hijo.nombre}</h3>
-        <span className="badge role-badge-display">Solo lectura</span>
+        <button
+          type="button"
+          className="btn btn-sm btn-secondary"
+          onClick={handleDescargarBoletin}
+          disabled={calsConNotas.length === 0}
+        >
+          <i className="fas fa-file-pdf" aria-hidden="true" /> Descargar boletín PDF
+        </button>
       </div>
 
       <div className="table-responsive">

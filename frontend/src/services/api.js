@@ -243,6 +243,25 @@ export async function getRoles() {
   return data;
 }
 
+export async function getUsuarios() {
+  const { data } = await api.get('/usuarios/');
+  return data;
+}
+
+export async function createUsuario(payload) {
+  const { data } = await api.post('/usuarios/', payload);
+  return data;
+}
+
+export async function updateUsuario(id, payload) {
+  const { data } = await api.patch(`/usuarios/${id}/`, payload);
+  return data;
+}
+
+export async function deleteUsuario(id) {
+  await api.delete(`/usuarios/${id}/`);
+}
+
 export async function createAlumno(payload) {
   const { data } = await api.post('/alumnos/', payload);
   return data;

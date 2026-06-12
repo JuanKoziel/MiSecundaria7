@@ -1,6 +1,16 @@
 import { menuItems } from '../sidebarMenu';
+import { useAuth } from '../../../context/AuthContext';
 
 function Sidebar({ setView, onLogout, view }) {
+  const { user } = useAuth();
+
+  const filteredMenuItems = menuItems.filter((item) => {
+    if (item.directorOnly) {
+      return user?.role === 'director';
+    }
+    return true;
+  });
+
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -9,7 +19,7 @@ function Sidebar({ setView, onLogout, view }) {
       </div>
 
       <ul className="sidebar-menu">
-        {menuItems.map((item) => (
+        {filteredMenuItems.map((item) => (
           <li key={item.id} className={view === item.id ? 'active' : ''}>
             <button
               type="button"

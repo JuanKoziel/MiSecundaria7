@@ -10,10 +10,16 @@ import { DataProvider } from './context/DataContext';
 function Dashboard({ user, logout }) {
   const role = user.role || user.roles?.[0] || '';
 
+  console.log('Usuario logueado:', user);
+  console.log('role:', user.role);
+  console.log('roles:', user.roles);
+  console.log('computed role:', role);
+
   switch (role) {
     case 'preceptor':
       return <PreceptorDashboard user={user} onLogout={logout} />;
     case 'admin':
+    case 'director':
       return <AdminDashboard user={user} onLogout={logout} />;
     case 'docente':
       return <PanelProfesores user={user} onLogout={logout} />;

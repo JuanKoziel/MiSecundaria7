@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
+import DiagnosticosView from '../Shared/DiagnosticosView';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 
@@ -207,6 +208,12 @@ function AlumnoDashboard({ user, onLogout }) {
               <span>Comunicados</span>
             </button>
           </li>
+          <li className={view === 'info' ? 'active' : ''}>
+            <button type="button" className="sidebar-menu-btn" onClick={() => setView('info')}>
+              <i className="fas fa-info-circle" aria-hidden="true" />
+              <span>Información General</span>
+            </button>
+          </li>
           <li className={view === 'notificaciones' ? 'active' : ''}>
             <button type="button" className="sidebar-menu-btn" onClick={() => setView('notificaciones')}>
               <i className="fas fa-bell" aria-hidden="true" />
@@ -241,6 +248,10 @@ function AlumnoDashboard({ user, onLogout }) {
         ) : view === 'comunicados' ? (
           <div className="view-section active">
             <ComunicadosView userRole="alumno" />
+          </div>
+        ) : view === 'info' ? (
+          <div className="view-section active">
+            <DiagnosticosView userRole="alumno" />
           </div>
         ) : !miAlumno ? (
           <div className="card">

@@ -8,6 +8,7 @@ import PanelPlanif from './PanelPlanif';
 import PanelAsistencia from './PanelAsistencia';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
+import DiagnosticosView from '../Shared/DiagnosticosView';
 import { useData } from '../../context/DataContext';
 
 function PanelProfesores({ user, onLogout }) {
@@ -15,6 +16,8 @@ function PanelProfesores({ user, onLogout }) {
   const [cursoId, setCursoId] = useState('');
   const [materiaSeleccionada, setMateriaSeleccionada] = useState('');
   const [seccionActiva, setSeccionActiva] = useState('alumnos');
+  const [cursoComunicados, setCursoComunicados] = useState('');
+  const [cursoDiagnosticos, setCursoDiagnosticos] = useState('');
 
   const miDocente = useMemo(
     () => docentes.find((d) => d.id_usuario === user?.id) || null,
@@ -79,7 +82,7 @@ function PanelProfesores({ user, onLogout }) {
           materiaSeleccionada={materiaSeleccionada}
         />
 
-        {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && (
+        {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && seccionActiva !== 'comunicados' && seccionActiva !== 'info' && (
           <div className="card">
             <div className="filter-row">
               <div className="form-group-filter">
@@ -127,7 +130,49 @@ function PanelProfesores({ user, onLogout }) {
           </div>
         ) : seccionActiva === 'comunicados' ? (
           <div className="view-section active">
-            <ComunicadosView userRole="docente" />
+            <div className="card">
+              <div className="filter-row">
+                <div className="form-group-filter">
+                  <label htmlFor="comunicados-curso">Filtrar por curso</label>
+                  <select
+                    id="comunicados-curso"
+                    value={cursoComunicados}
+                    onChange={(e) => setCursoComunicados(e.target.value)}
+                  >
+                    <option value="">Todos los cursos</option>
+                    {misCursos.map((c) => (
+                      <option key={c.id_curso} value={String(c.id_curso)}>
+                        {c.nombre} ({c.anio})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <ComunicadosView userRole="docente" cursoSeleccionado={cursoComunicados} />
+          </div>
+        ) : seccionActiva === 'info' ? (
+          <div className="view-section active">
+            <div className="card">
+              <div className="filter-row">
+                <div className="form-group-filter">
+                  <label htmlFor="diagnosticos-curso">Filtrar por curso</label>
+                  <select
+                    id="diagnosticos-curso"
+                    value={cursoDiagnosticos}
+                    onChange={(e) => setCursoDiagnosticos(e.target.value)}
+                  >
+                    <option value="">Todos los cursos</option>
+                    {misCursos.map((c) => (
+                      <option key={c.id_curso} value={String(c.id_curso)}>
+                        {c.nombre} ({c.anio})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <DiagnosticosView userRole="docente" cursoSeleccionado={cursoDiagnosticos} />
           </div>
         ) : seccionActiva === 'docente' ? (
           <div className="view-section active">
