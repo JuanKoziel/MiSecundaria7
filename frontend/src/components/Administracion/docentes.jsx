@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { cursoConOrientacion, parseCurso } from '../../utils/orientacion';
+import { cursoConOrientacion } from '../../utils/orientacion';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -79,17 +79,11 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
           asig.items.map((cm, index) => {
             const planificacion = planificaciones.find((p) => p.id_curso_materia === cm.id);
             const nombreCurso = cursoConOrientacion(asig.curso);
-            const { anio, division } = parseCurso(asig.curso);
             return (
               <tr key={cm.id}>
                 {index === 0 && (
                   <td rowSpan={asig.items.length} className="table-cell-strong">
                     {nombreCurso}
-                    {anio && division ? (
-                      <span className="empty-state-message" style={{ display: 'block', marginTop: '4px' }}>
-                        {anio}°{division}
-                      </span>
-                    ) : null}
                   </td>
                 )}
                 <td>
