@@ -21,6 +21,7 @@ import {
   getPeriodos,
   getComunicados,
   getDiagnosticosGrupales,
+  getPlanificaciones,
 } from '../services/api';
 
 const DataContext = createContext(null);
@@ -64,6 +65,7 @@ export function DataProvider({ children }) {
         periodosRaw,
         comunicadosRaw,
         diagnosticosRaw,
+        planificacionesRaw,
       ] = await Promise.all([
         getAlumnos().catch(() => []),
         getDocentes().catch(() => []),
@@ -89,6 +91,7 @@ export function DataProvider({ children }) {
         getPeriodos().catch(() => []),
         getComunicados().catch(() => []),
         getDiagnosticosGrupales().catch(() => []),
+        getPlanificaciones().catch(() => []),
       ]);
 
       const alumnosPreCurso = (Array.isArray(alumnosRaw) ? alumnosRaw : []).map((a) => ({
@@ -123,6 +126,7 @@ export function DataProvider({ children }) {
           docenteMap[id] = {
             id,
             id_usuario: d.id_usuario || null,
+            ruta_ddjj: d.ruta_ddjj || null,
             dni: d.dni,
             nombre: d.nombre,
             apellido: d.apellido,
@@ -141,10 +145,14 @@ export function DataProvider({ children }) {
             if (!existing.materias.includes(cm.materia_nombre)) {
               existing.materias.push(cm.materia_nombre);
             }
+            if (!existing.cursoMateriaIds.includes(cm.id)) {
+              existing.cursoMateriaIds.push(cm.id);
+            }
           } else {
             d.asignaciones.push({
               curso: cm.curso_nombre || '',
               materias: [cm.materia_nombre || ''],
+              cursoMateriaIds: [cm.id],
             });
           }
         }
@@ -429,6 +437,16 @@ export function DataProvider({ children }) {
         };
       });
 
+      const planificaciones = (Array.isArray(planificacionesRaw) ? planificacionesRaw : []).map((p) => ({
+        id: p.id_planificacion,
+        id_docente: p.id_docente,
+        id_curso_materia: p.id_curso_materia,
+        titulo: p.titulo || '',
+        descripcion: p.descripcion || '',
+        ruta_archivo: p.ruta_archivo || null,
+        fecha_subida: p.fecha_subida || null,
+      }));
+
 
 
       setData({
@@ -461,6 +479,7 @@ export function DataProvider({ children }) {
         comunicadosFamilia,
         comunicados,
         diagnosticos,
+        planificaciones,
         padresTutores,
         nombreCompleto,
         nombreCorto,
@@ -535,6 +554,7 @@ export function useData() {
       comunicadosFamilia: [],
       comunicados: [],
       diagnosticos: [],
+      planificaciones: [],
       calificacionesCompletas: [],
       periodos: [],
       padresTutores: [],

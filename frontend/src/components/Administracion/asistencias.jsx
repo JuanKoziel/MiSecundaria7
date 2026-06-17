@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
-import { cursoConOrientacion } from '../../utils/orientacion';
+import FiltrosAnioCurso from './FiltrosAnioCurso';
 
 function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
@@ -12,7 +12,7 @@ function Asistencias() {
   const {
     alumnos,
     asistenciasAdmin,
-    cursos,
+    cursosObj,
     getMateriasByCurso,
     nombreCorto,
   } = useData();
@@ -110,21 +110,12 @@ function Asistencias() {
         </button>
       </div>
 
+      <FiltrosAnioCurso
+        cursosObj={cursosObj}
+        defaultToFirst
+        onCursoChange={(nuevoCurso) => handleCursoChange(nuevoCurso)}
+      />
       <div className="filter-row">
-        <div className="form-group-filter">
-          <label htmlFor="curso-asistencias">Curso</label>
-          <select
-            id="curso-asistencias"
-            value={curso}
-            onChange={(e) => handleCursoChange(e.target.value)}
-          >
-            {cursos.map((c) => (
-              <option key={c} value={c}>
-                {cursoConOrientacion(c)}
-              </option>
-            ))}
-          </select>
-        </div>
         {tipo === 'materia' && (
           <div className="form-group-filter">
             <label htmlFor="materia-asistencias">Materia</label>

@@ -164,6 +164,11 @@ function Preceptores() {
         </button>
       </div>
 
+      <div className="empty-state-message" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+        <span><i className="fas fa-edit" aria-hidden="true" /> Editar</span>
+        <span><i className="fas fa-trash" aria-hidden="true" /> Eliminar</span>
+      </div>
+
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
@@ -200,20 +205,24 @@ function Preceptores() {
                       ? p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
                       : '---'}
                   </td>
-                  <td className="acciones-cell">
+                  <td className="acciones-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                     <button
                       type="button"
                       className="btn btn-sm btn-secondary"
                       onClick={() => abrirEditar(p)}
+                      aria-label="Editar preceptor"
+                      title="Editar"
                     >
-                      <i className="fas fa-edit" aria-hidden="true" /> Editar
+                      <i className="fas fa-edit" aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       className="btn btn-sm btn-danger"
                       onClick={() => handleDelete(p)}
+                      aria-label="Eliminar preceptor"
+                      title="Eliminar"
                     >
-                      <i className="fas fa-trash" aria-hidden="true" /> Eliminar
+                      <i className="fas fa-trash" aria-hidden="true" />
                     </button>
                   </td>
                 </tr>

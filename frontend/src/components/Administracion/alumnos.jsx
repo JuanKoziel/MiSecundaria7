@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import FiltrosAnioCurso from './FiltrosAnioCurso';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -54,7 +55,7 @@ function ActasDesplegable({ actas, colSpan }) {
 
 function Alumnos() {
   const {
-    cursos,
+    cursosObj,
     actas: actasCurso,
     getActasByAlumnoId,
     getAlumnosByCurso,
@@ -62,12 +63,6 @@ function Alumnos() {
 
   const [curso, setCurso] = useState('');
   const [expandido, setExpandido] = useState(null);
-
-  useEffect(() => {
-    if (!curso && cursos.length > 0) {
-      setCurso(cursos[0]);
-    }
-  }, [cursos, curso]);
 
   const alumnosCurso = useMemo(() => getAlumnosByCurso(curso), [curso, getAlumnosByCurso]);
 
@@ -78,25 +73,14 @@ function Alumnos() {
           <h3>Listado de Alumnos</h3>
         </div>
 
-        <div className="filter-row">
-          <div className="form-group-filter">
-            <label htmlFor="curso-alumnos">Curso</label>
-            <select
-              id="curso-alumnos"
-              value={curso}
-              onChange={(e) => {
-                setCurso(e.target.value);
-                setExpandido(null);
-              }}
-            >
-              {cursos.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <FiltrosAnioCurso
+          cursosObj={cursosObj}
+          defaultToFirst
+          onCursoChange={(nuevoCurso) => {
+            setCurso(nuevoCurso);
+            setExpandido(null);
+          }}
+        />
 
         <div className="table-responsive">
           <table>

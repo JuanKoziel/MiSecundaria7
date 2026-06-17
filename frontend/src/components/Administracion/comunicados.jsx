@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import FiltrosAnioCurso from './FiltrosAnioCurso';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import {
   createComunicado,
@@ -14,11 +15,9 @@ const API_BASE = 'http://localhost:8000';
 function Comunicados() {
   const {
     comunicados,
-    cursos,
     cursosObj,
     materiasObj,
     materiasPorCurso,
-    cursoMateria,
     refreshData,
   } = useData();
   const { user } = useAuth();
@@ -144,21 +143,15 @@ function Comunicados() {
                 onChange={(e) => setForm((p) => ({ ...p, cuerpo: e.target.value }))}
               />
             </div>
-            <div className="form-group-filter">
+            <div className="form-group-filter preceptor-form-full">
               <label htmlFor="com-curso">Curso destino *</label>
-              <select
-                id="com-curso"
-                value={form.cursoId}
-                onChange={(e) => setForm((p) => ({ ...p, cursoId: e.target.value }))}
-              >
-                <option value="">Seleccionar curso</option>
-                {cursosObj.map((c) => (
-                  <option key={c.id_curso} value={c.id_curso}>
-                    {cursoConOrientacion(c.nombre_curso)}
-                    {c.ciclo_anio ? ` (${c.ciclo_anio})` : ''}
-                  </option>
-                ))}
-              </select>
+              <FiltrosAnioCurso
+                cursosObj={cursosObj}
+                defaultToFirst={false}
+                onCursoObjChange={(cursoObj) =>
+                  setForm((p) => ({ ...p, cursoId: cursoObj?.id_curso ? String(cursoObj.id_curso) : '' }))
+                }
+              />
             </div>
             <div className="form-group-filter">
               <label htmlFor="com-materia">Materia (opcional)</label>
@@ -201,21 +194,11 @@ function Comunicados() {
           <h3>Comunicados enviados</h3>
         </div>
 
-        <div className="filter-row">
-          <div className="form-group-filter">
-            <label htmlFor="com-filtro">Filtrar por curso</label>
-            <select
-              id="com-filtro"
-              value={cursoFiltro}
-              onChange={(e) => setCursoFiltro(e.target.value)}
-            >
-              <option value="">Todos</option>
-              {cursos.map((c) => (
-                <option key={c} value={c}>{cursoConOrientacion(c)}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <FiltrosAnioCurso
+          cursosObj={cursosObj}
+          defaultToFirst={false}
+          onCursoChange={setCursoFiltro}
+        />
 
         {listaFiltrada.length === 0 ? (
           <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>

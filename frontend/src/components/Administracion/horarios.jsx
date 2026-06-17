@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import { createHorario, updateHorario, deleteHorario } from '../../services/api';
 import { MODULOS, DIAS_SEMANA, moduloPorNumero } from '../../utils/modulos';
 import { cursoConOrientacion } from '../../utils/orientacion';
+import FiltrosAnioCurso from './FiltrosAnioCurso';
 
 const FORM_VACIO = {
   id: null,
@@ -18,14 +19,6 @@ function Horarios() {
   const [filtroCurso, setFiltroCurso] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
-
-  const cursosFiltro = useMemo(
-    () =>
-      [...new Set((cursosObj || []).map((c) => c.nombre_curso))].sort((a, b) =>
-        a.localeCompare(b),
-      ),
-    [cursosObj],
-  );
 
   const horariosFiltrados = useMemo(() => {
     const lista = filtroCurso
@@ -191,23 +184,12 @@ function Horarios() {
         </div>
       </form>
 
-      <div className="filter-row" style={{ marginTop: 16 }}>
-        <div className="form-group-filter">
-          <label htmlFor="horario-filtro">Filtrar por curso</label>
-          <select
-            id="horario-filtro"
-            value={filtroCurso}
-            onChange={(e) => setFiltroCurso(e.target.value)}
-          >
-            <option value="">Todos los cursos</option>
-            {cursosFiltro.map((c) => (
-              <option key={c} value={c}>
-                {cursoConOrientacion(c)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <FiltrosAnioCurso
+        cursosObj={cursosObj}
+        defaultToFirst={false}
+        onCursoChange={setFiltroCurso}
+        className="filter-row"
+      />
 
       {horariosFiltrados.length === 0 ? (
         <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>

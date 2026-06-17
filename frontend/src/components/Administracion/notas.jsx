@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import FiltrosAnioCurso from './FiltrosAnioCurso';
 
 function Notas() {
   const {
     alumnos,
-    cursos,
+    cursosObj,
     getMateriasByCurso,
     nombreCorto,
     notasDocenteAdmin,
@@ -45,21 +46,12 @@ function Notas() {
         <span className="badge role-badge-display">Solo lectura</span>
       </div>
 
+      <FiltrosAnioCurso
+        cursosObj={cursosObj}
+        defaultToFirst
+        onCursoChange={(nuevoCurso) => handleCursoChange(nuevoCurso)}
+      />
       <div className="filter-row">
-        <div className="form-group-filter">
-          <label htmlFor="curso-notas">Curso</label>
-          <select
-            id="curso-notas"
-            value={curso}
-            onChange={(e) => handleCursoChange(e.target.value)}
-          >
-            {cursos.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
         <div className="form-group-filter">
           <label htmlFor="materia-notas">Materia</label>
           <select
