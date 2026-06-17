@@ -91,6 +91,13 @@ def login_view(request):
     username = serializer.validated_data['usuario']
     password = serializer.validated_data['contrasena']
 
+    usuario_obj = Usuario.objects.filter(usuario=username).first()
+    if usuario_obj and not usuario_obj.estado:
+        return Response(
+            {'error': 'Su usuario se encuentra deshabilitado. Comuníquese con la administración.'},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
     user = authenticate(request, username=username, password=password)
     if user is None:
         return Response(
@@ -101,7 +108,6 @@ def login_view(request):
     roles = get_roles_for_usuario(username)
 
     refresh = RefreshToken.for_user(user)
-    usuario_obj = Usuario.objects.filter(usuario=username).first()
     return Response({
         'access': str(refresh.access_token),
         'refresh': str(refresh),
@@ -160,18 +166,18 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         from escuela.auth_backend import get_roles_for_usuario
         username = self.request.user.username if self.request.user.is_authenticated else None
         if not username:
-            raise PermissionError("Usuario no autenticado")
+            raise PermissionDenied("Usuario no autenticado")
 
         roles = get_roles_for_usuario(username)
 
         # Only directors can create admin users
         if 'director' not in roles:
-            raise PermissionError("Solo directores pueden crear administradores")
+            raise PermissionDenied("Solo directores pueden crear administradores")
 
         # Check if trying to create an admin user
         requested_roles = self.request.data.get('roles', [])
         if 'admin' in requested_roles and 'director' not in roles:
-            raise PermissionError("Solo directores pueden crear usuarios con rol administrador")
+            raise PermissionDenied("Solo directores pueden crear usuarios con rol administrador")
 
         serializer.save()
 
@@ -179,18 +185,18 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         from escuela.auth_backend import get_roles_for_usuario
         username = self.request.user.username if self.request.user.is_authenticated else None
         if not username:
-            raise PermissionError("Usuario no autenticado")
+            raise PermissionDenied("Usuario no autenticado")
 
         roles = get_roles_for_usuario(username)
 
         # Only directors can update admin users
         if 'director' not in roles:
-            raise PermissionError("Solo directores pueden modificar administradores")
+            raise PermissionDenied("Solo directores pueden modificar administradores")
 
         # Check if trying to assign admin role
         requested_roles = self.request.data.get('roles', [])
         if 'admin' in requested_roles and 'director' not in roles:
-            raise PermissionError("Solo directores pueden asignar rol administrador")
+            raise PermissionDenied("Solo directores pueden asignar rol administrador")
 
         serializer.save()
 
@@ -198,20 +204,20 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         from escuela.auth_backend import get_roles_for_usuario
         username = self.request.user.username if self.request.user.is_authenticated else None
         if not username:
-            raise PermissionError("Usuario no autenticado")
+            raise PermissionDenied("Usuario no autenticado")
 
         roles = get_roles_for_usuario(username)
 
         # Only directors can delete admin users
         if 'director' not in roles:
-            raise PermissionError("Solo directores pueden eliminar administradores")
+            raise PermissionDenied("Solo directores pueden eliminar administradores")
 
         # Check if the user being deleted has admin role
         user_roles = UsuarioRol.objects.filter(id_usuario=instance).select_related('id_rol')
         has_admin_role = any(ur.id_rol.nombre_rol == 'admin' for ur in user_roles)
 
         if has_admin_role and 'director' not in roles:
-            raise PermissionError("Solo directores pueden eliminar administradores")
+            raise PermissionDenied("Solo directores pueden eliminar administradores")
 
         instance.delete()
 

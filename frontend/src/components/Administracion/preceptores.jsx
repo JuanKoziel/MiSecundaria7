@@ -10,12 +10,52 @@ import {
 const formVacio = {
   usuario_nombre: '',
   contrasena: '',
+  estado: true,
+  fecha_deshabilitacion_programada: '',
+  fecha_habilitacion_programada: '',
   nombre: '',
   apellido: '',
   dni: '',
   telefono: '',
   cursos_ids: [],
 };
+
+function toInputDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+}
+
+function estadoLabel(estado) {
+  if (estado === null || estado === undefined) return 'Sin usuario';
+  return estado ? 'Habilitado' : 'Deshabilitado';
+}
+
+function proximaAccion(preceptor) {
+  if (preceptor.usuario_estado === null || preceptor.usuario_estado === undefined) return 'Sin usuario';
+  if (preceptor.usuario_estado && preceptor.usuario_fecha_deshabilitacion_programada) {
+    return `Deshabilitar el ${formatDateTime(preceptor.usuario_fecha_deshabilitacion_programada)}`;
+  }
+  if (!preceptor.usuario_estado && preceptor.usuario_fecha_habilitacion_programada) {
+    return `Habilitar el ${formatDateTime(preceptor.usuario_fecha_habilitacion_programada)}`;
+  }
+  if (preceptor.usuario_fecha_deshabilitacion_programada) {
+    return `Deshabilitar el ${formatDateTime(preceptor.usuario_fecha_deshabilitacion_programada)}`;
+  }
+  if (preceptor.usuario_fecha_habilitacion_programada) {
+    return `Habilitar el ${formatDateTime(preceptor.usuario_fecha_habilitacion_programada)}`;
+  }
+  return '—';
+}
 
 function mensajeError(err) {
   const data = err.response?.data;
@@ -78,6 +118,9 @@ function Preceptores() {
     setFormData({
       usuario_nombre: preceptor.usuario || '',
       contrasena: '',
+      estado: preceptor.usuario_estado !== false,
+      fecha_deshabilitacion_programada: toInputDateTime(preceptor.usuario_fecha_deshabilitacion_programada),
+      fecha_habilitacion_programada: toInputDateTime(preceptor.usuario_fecha_habilitacion_programada),
       nombre: preceptor.nombre || '',
       apellido: preceptor.apellido || '',
       dni: preceptor.dni || '',
@@ -95,6 +138,21 @@ function Preceptores() {
     setFormData(formVacio);
   };
 
+  const toggleEstado = async (preceptor) => {
+    setError('');
+    setSuccess('');
+    try {
+      await updatePreceptor(preceptor.id_preceptor, {
+        estado: !(preceptor.usuario_estado !== false),
+      });
+      setSuccess(preceptor.usuario_estado !== false ? 'Preceptor deshabilitado correctamente' : 'Preceptor habilitado correctamente');
+      await fetchPreceptores();
+      await refreshData();
+    } catch (err) {
+      setError(`Error al actualizar estado: ${mensajeError(err)}`);
+    }
+  };
+
   const handleCursosChange = (event) => {
     const selected = Array.from(event.target.selectedOptions).map((option) => Number(option.value));
     setFormData((prev) => ({ ...prev, cursos_ids: selected }));
@@ -107,9 +165,16 @@ function Preceptores() {
     setSaving(true);
 
     try {
-      const payload = { ...formData };
+      const payload = {
+        ...formData,
+        fecha_deshabilitacion_programada: formData.fecha_deshabilitacion_programada || null,
+        fecha_habilitacion_programada: formData.fecha_habilitacion_programada || null,
+      };
       if (editingPreceptor && !payload.contrasena) {
         delete payload.contrasena;
+      }
+      if (editingPreceptor && payload.estado === undefined) {
+        delete payload.estado;
       }
 
       if (!editingPreceptor && !payload.contrasena) {
@@ -166,6 +231,7 @@ function Preceptores() {
 
       <div className="empty-state-message" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
         <span><i className="fas fa-edit" aria-hidden="true" /> Editar</span>
+        <span><i className="fas fa-toggle-on" aria-hidden="true" /> Habilitar / Deshabilitar</span>
         <span><i className="fas fa-trash" aria-hidden="true" /> Eliminar</span>
       </div>
 
@@ -181,6 +247,8 @@ function Preceptores() {
               <th>DNI</th>
               <th>Telefono</th>
               <th>Usuario</th>
+              <th>Estado</th>
+              <th>Próxima acción</th>
               <th>Cursos asignados</th>
               <th>Acciones</th>
             </tr>
@@ -188,7 +256,7 @@ function Preceptores() {
           <tbody>
             {preceptores.length === 0 ? (
               <tr>
-                <td colSpan={7} className="empty-state-message">
+                <td colSpan={9} className="empty-state-message">
                   No hay preceptores registrados.
                 </td>
               </tr>
@@ -200,6 +268,12 @@ function Preceptores() {
                   <td><strong>{p.dni}</strong></td>
                   <td>{p.telefono || '---'}</td>
                   <td className="table-cell-strong">{p.usuario || '---'}</td>
+                  <td>
+                    <span className={`badge ${p.usuario_estado === false ? 'badge-danger' : 'badge-success'}`}>
+                      {estadoLabel(p.usuario_estado)}
+                    </span>
+                  </td>
+                  <td>{proximaAccion(p)}</td>
                   <td>
                     {(p.cursos_asignados || []).length > 0
                       ? p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
@@ -214,6 +288,16 @@ function Preceptores() {
                       title="Editar"
                     >
                       <i className="fas fa-edit" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${p.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
+                      onClick={() => toggleEstado(p)}
+                      aria-label={p.usuario_estado === false ? 'Habilitar preceptor' : 'Deshabilitar preceptor'}
+                      title={p.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
+                      disabled={p.usuario_estado === null || p.usuario_estado === undefined}
+                    >
+                      <i className={`fas ${p.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />
                     </button>
                     <button
                       type="button"
@@ -277,6 +361,49 @@ function Preceptores() {
                     value={formData.contrasena}
                     onChange={(e) => setFormData((prev) => ({ ...prev, contrasena: e.target.value }))}
                     required={!editingPreceptor}
+                  />
+                </div>
+
+                <div className="form-group-filter">
+                  <label htmlFor="preceptor-estado">
+                    <input
+                      id="preceptor-estado"
+                      type="checkbox"
+                      checked={formData.estado}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, estado: e.target.checked }))}
+                    />
+                    {' '}
+                    Estado actual: {estadoLabel(formData.estado)}
+                  </label>
+                </div>
+
+                <div className="form-group-filter">
+                  <label htmlFor="preceptor-fecha-deshabilitacion">Fecha deshabilitación programada</label>
+                  <input
+                    id="preceptor-fecha-deshabilitacion"
+                    type="datetime-local"
+                    value={formData.fecha_deshabilitacion_programada}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        fecha_deshabilitacion_programada: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="form-group-filter">
+                  <label htmlFor="preceptor-fecha-habilitacion">Fecha habilitación programada</label>
+                  <input
+                    id="preceptor-fecha-habilitacion"
+                    type="datetime-local"
+                    value={formData.fecha_habilitacion_programada}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        fecha_habilitacion_programada: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
