@@ -13,6 +13,13 @@
     --shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
     --radius: 12px;
     --transition: all 0.3s ease;
+    --table-header-bg: #17324d;
+    --table-header-text: #ffffff;
+    --table-border: #d7dee8;
+    --table-row-bg: #ffffff;
+    --table-row-alt: #f4f7fb;
+    --table-row-hover: #fff3e6;
+    --table-text: #27313f;
 }
 
 * {
@@ -382,10 +389,19 @@ tr:hover td {
 
 /* Badges de Asistencia */
 .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
     padding: 5px 10px;
+    border: 1px solid transparent;
     border-radius: 20px;
     font-size: 0.8rem;
-    font-weight: 600;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: #374151;
+    background: #eef2f7;
 }
 .orientacion-badge { background: #ede9fe; color: #5b21b6; }
 .horario-form { margin-bottom: 8px; }
@@ -399,10 +415,35 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 .preceptor-boletin-actions { display: flex; align-items: center; gap: 12px; }
 .filtro-orientacion { justify-content: flex-end; }
 .filtro-orientacion .orientacion-badge { display: inline-block; width: fit-content; }
-.badge-presente { background: #d4edda; color: #155724; }
-.badge-ausente { background: #f8d7da; color: #721c24; }
-.badge-tarde { background: #fff3cd; color: #856404; }
-.badge-cualitativa { background: #e8f4fd; color: #0c5460; }
+.badge-success,
+.badge-presente {
+    background: #dff6e6;
+    border-color: #9bd6ad;
+    color: #166534;
+}
+
+.badge-danger,
+.badge-ausente {
+    background: #fde2e2;
+    border-color: #f3a4a4;
+    color: #991b1b;
+}
+
+.badge-warning,
+.badge-pending,
+.badge-pendiente,
+.badge-tarde {
+    background: #fff4cf;
+    border-color: #f3d27a;
+    color: #854d0e;
+}
+
+.badge-neutral,
+.badge-cualitativa {
+    background: #e6f2fb;
+    border-color: #a9d2ed;
+    color: #075985;
+}
 
 .badge-interactive {
     cursor: pointer;
@@ -1420,32 +1461,64 @@ body {
 .table-responsive {
     width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--table-border);
+    border-radius: 10px;
+    background: var(--white);
+    box-shadow: 0 10px 24px rgba(13, 35, 58, 0.06);
 }
 
 table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     text-align: left;
+    color: var(--table-text);
 }
 
 th {
-    background-color: #f8f9fa;
-    color: var(--text-light);
+    background-color: var(--table-header-bg);
+    color: var(--table-header-text);
     padding: 14px 16px;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.85rem;
     text-transform: uppercase;
-    border-bottom: 2px solid #edf2f7;
+    letter-spacing: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.16);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+th:last-child,
+td:last-child {
+    border-right: 0;
 }
 
 td {
     padding: 16px;
-    border-bottom: 1px solid #edf2f7;
+    border-right: 1px solid var(--table-border);
+    border-bottom: 1px solid var(--table-border);
     font-size: 0.95rem;
+    color: var(--table-text);
+    background-color: var(--table-row-bg);
+    vertical-align: middle;
 }
 
-tr:hover td {
-    background-color: #fcfcfc;
+tbody tr:nth-child(even) td {
+    background-color: var(--table-row-alt);
+}
+
+tbody tr:hover td {
+    background-color: var(--table-row-hover);
+}
+
+tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.acta-desplegable-table {
+    border: 1px solid var(--table-border);
+    border-radius: 10px;
+    overflow: hidden;
 }
 
 /* ==========================================================================
