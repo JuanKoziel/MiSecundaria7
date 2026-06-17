@@ -338,7 +338,7 @@ function Preceptores() {
 
       {showModal && (
         <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="modal-content" style={{ width: '100%', maxWidth: '720px', margin: '0 auto' }}>
+          <div className="modal-content preceptor-modal-content" style={{ width: '100%', maxWidth: '920px', margin: '0 auto' }}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0 }}>{editingPreceptor ? 'Editar Preceptor' : 'Nuevo Preceptor'}</h3>
               <button
@@ -358,8 +358,10 @@ function Preceptores() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="preceptor-form-grid">
+            <form onSubmit={handleSubmit} className="preceptor-form">
+              <section className="preceptor-form-section">
+                <h4>Datos de acceso</h4>
+                <div className="preceptor-form-row preceptor-form-row--two">
                 <div className="form-group-filter">
                   <label htmlFor="preceptor-usuario">Usuario</label>
                   <input
@@ -383,17 +385,22 @@ function Preceptores() {
                     required={!editingPreceptor}
                   />
                 </div>
+                </div>
+              </section>
 
+              <section className="preceptor-form-section">
+                <h4>Estado de la cuenta</h4>
+                <div className="preceptor-form-row preceptor-form-row--status">
                 <div className="form-group-filter">
-                  <label htmlFor="preceptor-estado">
+                  <label>Estado</label>
+                  <label htmlFor="preceptor-estado" className="preceptor-status-toggle">
                     <input
                       id="preceptor-estado"
                       type="checkbox"
                       checked={formData.estado}
                       onChange={(e) => setFormData((prev) => ({ ...prev, estado: e.target.checked }))}
                     />
-                    {' '}
-                    Estado actual: {estadoLabel(formData.estado)}
+                    <span>{estadoLabel(formData.estado)}</span>
                   </label>
                 </div>
 
@@ -427,6 +434,12 @@ function Preceptores() {
                   />
                 </div>
 
+                </div>
+              </section>
+
+              <section className="preceptor-form-section">
+                <h4>Datos personales</h4>
+                <div className="preceptor-form-row preceptor-form-row--two">
                 <div className="form-group-filter">
                   <label htmlFor="preceptor-nombre">Nombre</label>
                   <input
@@ -448,7 +461,9 @@ function Preceptores() {
                     required
                   />
                 </div>
+                </div>
 
+                <div className="preceptor-form-row preceptor-form-row--two">
                 <div className="form-group-filter">
                   <label htmlFor="preceptor-dni">DNI</label>
                   <input
@@ -469,10 +484,13 @@ function Preceptores() {
                     onChange={(e) => setFormData((prev) => ({ ...prev, telefono: e.target.value }))}
                   />
                 </div>
+                </div>
+              </section>
 
+              <section className="preceptor-form-section">
                 <div className="form-group-filter preceptor-form-full">
                   <div className="preceptor-cursos-header">
-                    <label id="preceptor-cursos-label">Cursos asignados</label>
+                    <h4 id="preceptor-cursos-label">Cursos asignados</h4>
                     <span className="badge badge-neutral">
                       {formData.cursos_ids.length} seleccionados
                     </span>
@@ -504,7 +522,7 @@ function Preceptores() {
                     })}
                   </div>
                 </div>
-              </div>
+              </section>
 
               <div className="modal-footer">
                 <button type="submit" className="btn btn-primary" disabled={saving}>

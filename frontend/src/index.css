@@ -809,6 +809,94 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     flex-wrap: wrap;
 }
 
+.preceptor-modal-content {
+    max-height: min(92vh, 860px);
+    overflow-y: auto;
+}
+
+.preceptor-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.preceptor-form-section {
+    padding-top: 14px;
+    border-top: 1px solid #e6ebf2;
+}
+
+.preceptor-form-section:first-child {
+    padding-top: 0;
+    border-top: 0;
+}
+
+.preceptor-form-section h4 {
+    margin: 0 0 12px;
+    color: var(--sidebar-color);
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.preceptor-form-row {
+    display: grid;
+    gap: 14px;
+    align-items: end;
+}
+
+.preceptor-form-row + .preceptor-form-row {
+    margin-top: 14px;
+}
+
+.preceptor-form-row--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preceptor-form-row--status {
+    grid-template-columns: minmax(170px, 0.8fr) repeat(2, minmax(0, 1fr));
+}
+
+.preceptor-form .form-group-filter {
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+.preceptor-form .form-group-filter label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.preceptor-form .form-group-filter input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.preceptor-status-toggle {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid #d7dee8;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: var(--text-dark) !important;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.preceptor-status-toggle input {
+    width: auto !important;
+    padding: 0 !important;
+    accent-color: var(--primary-color);
+}
+
 .preceptor-form-grid {
     display: grid;
     grid-template-columns: 1fr minmax(160px, 220px);
@@ -850,6 +938,10 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 8px;
+}
+
+.preceptor-cursos-header h4 {
+    margin: 0;
 }
 
 .preceptor-form-grid .form-group-filter .preceptor-cursos-header label {
@@ -1062,6 +1154,16 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     }
 
     .preceptor-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .preceptor-modal-content {
+        max-width: calc(100vw - 24px) !important;
+    }
+
+    .preceptor-form-row,
+    .preceptor-form-row--two,
+    .preceptor-form-row--status {
         grid-template-columns: 1fr;
     }
 
