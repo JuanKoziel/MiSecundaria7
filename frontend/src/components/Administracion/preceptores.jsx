@@ -67,6 +67,19 @@ function mensajeError(err) {
   return data?.detail || err.message || 'Error inesperado';
 }
 
+function normalizarCursosIds(cursosAsignados) {
+  if (!Array.isArray(cursosAsignados)) return [];
+  const ids = cursosAsignados
+    .map((curso) => {
+      if (typeof curso === 'number' || typeof curso === 'string') {
+        return Number(curso);
+      }
+      return Number(curso.id_curso ?? curso.id ?? curso.cursoId);
+    })
+    .filter((id) => Number.isInteger(id) && id > 0);
+  return [...new Set(ids)];
+}
+
 function Preceptores() {
   const { cursosObj, refreshData } = useData();
   const [preceptores, setPreceptores] = useState([]);
@@ -125,7 +138,7 @@ function Preceptores() {
       apellido: preceptor.apellido || '',
       dni: preceptor.dni || '',
       telefono: preceptor.telefono || '',
-      cursos_ids: (preceptor.cursos_asignados || []).map((c) => c.id_curso),
+      cursos_ids: normalizarCursosIds(preceptor.cursos_asignados),
     });
     setError('');
     setSuccess('');
@@ -153,9 +166,15 @@ function Preceptores() {
     }
   };
 
-  const handleCursosChange = (event) => {
-    const selected = Array.from(event.target.selectedOptions).map((option) => Number(option.value));
-    setFormData((prev) => ({ ...prev, cursos_ids: selected }));
+  const toggleCurso = (cursoId) => {
+    setFormData((prev) => {
+      const cursosActuales = normalizarCursosIds(prev.cursos_ids);
+      const yaSeleccionado = cursosActuales.includes(cursoId);
+      const cursos_ids = yaSeleccionado
+        ? cursosActuales.filter((id) => id !== cursoId)
+        : [...cursosActuales, cursoId];
+      return { ...prev, cursos_ids };
+    });
   };
 
   const handleSubmit = async (event) => {
@@ -167,6 +186,7 @@ function Preceptores() {
     try {
       const payload = {
         ...formData,
+        cursos_ids: normalizarCursosIds(formData.cursos_ids),
         fecha_deshabilitacion_programada: formData.fecha_deshabilitacion_programada || null,
         fecha_habilitacion_programada: formData.fecha_habilitacion_programada || null,
       };
@@ -451,21 +471,38 @@ function Preceptores() {
                 </div>
 
                 <div className="form-group-filter preceptor-form-full">
-                  <label htmlFor="preceptor-cursos">Cursos asignados</label>
-                  <select
-                    id="preceptor-cursos"
-                    multiple
-                    value={formData.cursos_ids.map(String)}
-                    onChange={handleCursosChange}
-                    style={{ minHeight: '180px' }}
+                  <div className="preceptor-cursos-header">
+                    <label id="preceptor-cursos-label">Cursos asignados</label>
+                    <span className="badge badge-neutral">
+                      {formData.cursos_ids.length} seleccionados
+                    </span>
+                  </div>
+                  <div
+                    className="preceptor-cursos-multiselect"
+                    role="group"
+                    aria-labelledby="preceptor-cursos-label"
                   >
-                    {cursosOrdenados.map((curso) => (
-                      <option key={curso.id_curso} value={curso.id_curso}>
-                        {curso.nombre_curso}
-                        {curso.ciclo_anio ? ` (${curso.ciclo_anio})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    {cursosOrdenados.map((curso) => {
+                      const cursoId = Number(curso.id_curso);
+                      const checked = formData.cursos_ids.includes(cursoId);
+                      return (
+                        <label
+                          key={curso.id_curso}
+                          className={`preceptor-curso-option${checked ? ' preceptor-curso-option--selected' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleCurso(cursoId)}
+                          />
+                          <span>
+                            {curso.nombre_curso}
+                            {curso.ciclo_anio ? ` (${curso.ciclo_anio})` : ''}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
