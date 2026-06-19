@@ -10,9 +10,9 @@ function toInputDateTime(value) {
 }
 
 function formatDateTime(value) {
-  if (!value) return '—';
+  if (!value) return '---';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '---';
   return new Intl.DateTimeFormat('es-AR', {
     dateStyle: 'short',
     timeStyle: 'short',
@@ -36,7 +36,7 @@ function getNextAction(usuario) {
   if (usuario.fecha_habilitacion_programada) {
     return `Habilitar el ${formatDateTime(usuario.fecha_habilitacion_programada)}`;
   }
-  return '—';
+  return '---';
 }
 
 function Administradores() {
@@ -59,22 +59,6 @@ function Administradores() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    fetchUsuarios();
-  }, []);
-
-  const fetchUsuarios = async () => {
-    try {
-      const data = await getUsuarios();
-      const adminUsers = (Array.isArray(data) ? data : []).filter((u) => u.roles && u.roles.includes('admin'));
-      setUsuarios(adminUsers);
-    } catch (err) {
-      setError('Error al cargar administradores');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const resetForm = () => ({
     usuario: '',
     contrasena: '',
@@ -87,6 +71,30 @@ function Administradores() {
     fecha_deshabilitacion_programada: '',
     fecha_habilitacion_programada: '',
   });
+
+  const fetchUsuarios = async () => {
+    try {
+      const data = await getUsuarios();
+      const adminUsers = (Array.isArray(data) ? data : []).filter(
+        (u) => u.roles && u.roles.includes('admin'),
+      );
+      setUsuarios(adminUsers);
+    } catch (err) {
+      setError('Error al cargar administradores');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsuarios();
+  }, []);
+
+  const cerrarModal = () => {
+    setShowModal(false);
+    setEditingUsuario(null);
+    setFormData(resetForm());
+  };
 
   const handleCreate = () => {
     setEditingUsuario(null);
@@ -116,7 +124,7 @@ function Administradores() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Estás seguro de eliminar este administrador?')) return;
+    if (!window.confirm('Eliminar este administrador?')) return;
 
     try {
       await deleteUsuario(id);
@@ -163,14 +171,14 @@ function Administradores() {
         setSuccess('Administrador actualizado correctamente');
       } else {
         if (!formData.contrasena) {
-          setError('La contraseña es obligatoria para crear un administrador');
+          setError('La contrasena es obligatoria para crear un administrador');
           return;
         }
         await createUsuario(payload);
         setSuccess('Administrador creado correctamente');
       }
 
-      setShowModal(false);
+      cerrarModal();
       fetchUsuarios();
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al guardar administrador');
@@ -190,6 +198,12 @@ function Administradores() {
         </button>
       </div>
 
+      <div className="empty-state-message" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+        <span><i className="fas fa-edit" aria-hidden="true" /> Editar</span>
+        <span><i className="fas fa-toggle-on" aria-hidden="true" /> Habilitar / Deshabilitar</span>
+        <span><i className="fas fa-trash" aria-hidden="true" /> Eliminar</span>
+      </div>
+
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
@@ -201,61 +215,63 @@ function Administradores() {
               <th>Nombre</th>
               <th>Apellido</th>
               <th>DNI</th>
-              <th>Teléfono</th>
+              <th>Telefono</th>
               <th>Cargo</th>
               <th>Estado</th>
-              <th>Próxima acción</th>
+              <th>Proxima accion</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {usuarios.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '24px' }}>
-                  No hay administradores registrados
+                <td colSpan="9" className="empty-state-message">
+                  No hay administradores registrados.
                 </td>
               </tr>
             ) : (
               usuarios.map((u) => (
                 <tr key={u.id_usuario}>
                   <td className="table-cell-strong">{u.usuario}</td>
-                  <td>{u.directivo_nombre || '—'}</td>
-                  <td>{u.directivo_apellido || '—'}</td>
-                  <td>{u.directivo_dni || '—'}</td>
-                  <td>{u.directivo_telefono || '—'}</td>
-                  <td>{u.directivo_cargo || '—'}</td>
+                  <td>{u.directivo_nombre || '---'}</td>
+                  <td>{u.directivo_apellido || '---'}</td>
+                  <td>{u.directivo_dni || '---'}</td>
+                  <td>{u.directivo_telefono || '---'}</td>
+                  <td>{u.directivo_cargo || '---'}</td>
                   <td>
                     <span className={`badge ${u.estado ? 'badge-success' : 'badge-danger'}`}>
                       {estadoLabel(u.estado)}
                     </span>
                   </td>
                   <td>{getNextAction(u)}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => handleEdit(u)}
-                      >
-                        <i className="fas fa-edit" aria-hidden="true" /> Editar
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${u.estado ? 'btn-warning' : 'btn-success'}`}
-                        onClick={() => handleToggleEstado(u)}
-                      >
-                        <i className={`fas ${u.estado ? 'fa-ban' : 'fa-check'}`} aria-hidden="true" />
-                        {' '}
-                        {u.estado ? 'Deshabilitar' : 'Habilitar'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(u.id_usuario)}
-                      >
-                        <i className="fas fa-trash" aria-hidden="true" /> Eliminar
-                      </button>
-                    </div>
+                  <td className="acciones-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => handleEdit(u)}
+                      aria-label="Editar administrador"
+                      title="Editar"
+                    >
+                      <i className="fas fa-edit" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${u.estado ? 'btn-warning' : 'btn-success'}`}
+                      onClick={() => handleToggleEstado(u)}
+                      aria-label={u.estado ? 'Deshabilitar administrador' : 'Habilitar administrador'}
+                      title={u.estado ? 'Deshabilitar' : 'Habilitar'}
+                    >
+                      <i className={`fas ${u.estado ? 'fa-ban' : 'fa-check'}`} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger"
+                      onClick={() => handleDelete(u.id_usuario)}
+                      aria-label="Eliminar administrador"
+                      title="Eliminar"
+                    >
+                      <i className="fas fa-trash" aria-hidden="true" />
+                    </button>
                   </td>
                 </tr>
               ))
@@ -266,13 +282,13 @@ function Administradores() {
 
       {showModal && (
         <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="modal-content" style={{ width: '100%', maxWidth: '700px', margin: '0 auto' }}>
+          <div className="modal-content preceptor-modal-content" style={{ width: '100%', maxWidth: '920px', margin: '0 auto' }}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0 }}>{editingUsuario ? 'Editar Administrador' : 'Nuevo Administrador'}</h3>
               <button
                 type="button"
                 className="btn-close"
-                onClick={() => setShowModal(false)}
+                onClick={cerrarModal}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -280,138 +296,152 @@ function Administradores() {
                   fontSize: '20px',
                   padding: '8px',
                   color: 'var(--text-secondary)',
-                  transition: 'color 0.2s',
                 }}
-                onMouseEnter={(e) => { e.target.style.color = 'var(--text-primary)'; }}
-                onMouseLeave={(e) => { e.target.style.color = 'var(--text-secondary)'; }}
               >
                 <i className="fas fa-times" aria-hidden="true" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px' }}>
-                <div className="form-group">
-                  <label htmlFor="usuario">Usuario</label>
-                  <input
-                    type="text"
-                    id="usuario"
-                    value={formData.usuario}
-                    onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
-                    required
-                    disabled={!!editingUsuario}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="contrasena">
-                    Contraseña {editingUsuario ? '(dejar en blanco para mantener)' : ''}
-                  </label>
-                  <input
-                    type="password"
-                    id="contrasena"
-                    value={formData.contrasena}
-                    onChange={(e) => setFormData({ ...formData, contrasena: e.target.value })}
-                    required={!editingUsuario}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="nombre">Nombre</label>
-                  <input
-                    type="text"
-                    id="nombre"
-                    value={formData.nombre}
-                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="apellido">Apellido</label>
-                  <input
-                    type="text"
-                    id="apellido"
-                    value={formData.apellido}
-                    onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="dni">DNI</label>
-                  <input
-                    type="text"
-                    id="dni"
-                    value={formData.dni}
-                    onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="telefono">Teléfono</label>
-                  <input
-                    type="text"
-                    id="telefono"
-                    value={formData.telefono}
-                    onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="cargo">Cargo</label>
-                  <input
-                    type="text"
-                    id="cargo"
-                    value={formData.cargo}
-                    onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="estado">
+            <form onSubmit={handleSubmit} className="preceptor-form">
+              <section className="preceptor-form-section">
+                <h4>Datos de acceso</h4>
+                <div className="preceptor-form-row preceptor-form-row--two">
+                  <div className="form-group-filter">
+                    <label htmlFor="usuario">Usuario</label>
                     <input
-                      type="checkbox"
-                      id="estado"
-                      checked={formData.estado}
-                      onChange={(e) => setFormData({ ...formData, estado: e.target.checked })}
+                      type="text"
+                      id="usuario"
+                      value={formData.usuario}
+                      onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
+                      required
+                      disabled={!!editingUsuario}
                     />
-                    {' '}
-                    Estado actual: {estadoLabel(formData.estado)}
-                  </label>
+                  </div>
+
+                  <div className="form-group-filter">
+                    <label htmlFor="contrasena">
+                      Contrasena {editingUsuario ? '(dejar en blanco para mantener)' : ''}
+                    </label>
+                    <input
+                      type="password"
+                      id="contrasena"
+                      value={formData.contrasena}
+                      onChange={(e) => setFormData({ ...formData, contrasena: e.target.value })}
+                      required={!editingUsuario}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="preceptor-form-section">
+                <h4>Estado de la cuenta</h4>
+                <div className="preceptor-form-row preceptor-form-row--status">
+                  <div className="form-group-filter">
+                    <label>Estado</label>
+                    <label htmlFor="estado" className="preceptor-status-toggle">
+                      <input
+                        type="checkbox"
+                        id="estado"
+                        checked={formData.estado}
+                        onChange={(e) => setFormData({ ...formData, estado: e.target.checked })}
+                      />
+                      <span>{estadoLabel(formData.estado)}</span>
+                    </label>
+                  </div>
+
+                  <div className="form-group-filter">
+                    <label htmlFor="fecha_deshabilitacion_programada">Fecha deshabilitacion programada</label>
+                    <input
+                      type="datetime-local"
+                      id="fecha_deshabilitacion_programada"
+                      value={formData.fecha_deshabilitacion_programada}
+                      onChange={(e) => setFormData({ ...formData, fecha_deshabilitacion_programada: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group-filter">
+                    <label htmlFor="fecha_habilitacion_programada">Fecha habilitacion programada</label>
+                    <input
+                      type="datetime-local"
+                      id="fecha_habilitacion_programada"
+                      value={formData.fecha_habilitacion_programada}
+                      onChange={(e) => setFormData({ ...formData, fecha_habilitacion_programada: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="preceptor-form-section">
+                <h4>Datos personales</h4>
+                <div className="preceptor-form-row preceptor-form-row--two">
+                  <div className="form-group-filter">
+                    <label htmlFor="nombre">Nombre</label>
+                    <input
+                      type="text"
+                      id="nombre"
+                      value={formData.nombre}
+                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group-filter">
+                    <label htmlFor="apellido">Apellido</label>
+                    <input
+                      type="text"
+                      id="apellido"
+                      value={formData.apellido}
+                      onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="fecha_deshabilitacion_programada">Fecha de deshabilitación programada</label>
-                  <input
-                    type="datetime-local"
-                    id="fecha_deshabilitacion_programada"
-                    value={formData.fecha_deshabilitacion_programada}
-                    onChange={(e) => setFormData({ ...formData, fecha_deshabilitacion_programada: e.target.value })}
-                  />
-                </div>
+                <div className="preceptor-form-row preceptor-form-row--two">
+                  <div className="form-group-filter">
+                    <label htmlFor="dni">DNI</label>
+                    <input
+                      type="text"
+                      id="dni"
+                      value={formData.dni}
+                      onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
+                      required
+                    />
+                  </div>
 
-                <div className="form-group">
-                  <label htmlFor="fecha_habilitacion_programada">Fecha de habilitación programada</label>
-                  <input
-                    type="datetime-local"
-                    id="fecha_habilitacion_programada"
-                    value={formData.fecha_habilitacion_programada}
-                    onChange={(e) => setFormData({ ...formData, fecha_habilitacion_programada: e.target.value })}
-                  />
+                  <div className="form-group-filter">
+                    <label htmlFor="telefono">Telefono</label>
+                    <input
+                      type="text"
+                      id="telefono"
+                      value={formData.telefono}
+                      onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                    />
+                  </div>
                 </div>
-              </div>
+              </section>
+
+              <section className="preceptor-form-section">
+                <h4>Datos administrativos</h4>
+                <div className="preceptor-form-row preceptor-form-row--two">
+                  <div className="form-group-filter">
+                    <label htmlFor="cargo">Cargo</label>
+                    <input
+                      type="text"
+                      id="cargo"
+                      value={formData.cargo}
+                      onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </section>
 
               <div className="modal-footer">
                 <button type="submit" className="btn btn-primary">
+                  <i className="fas fa-save" aria-hidden="true" />{' '}
                   {editingUsuario ? 'Actualizar' : 'Crear'}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowModal(false)}
-                >
+                <button type="button" className="btn btn-secondary" onClick={cerrarModal}>
                   Cancelar
                 </button>
               </div>
