@@ -897,6 +897,25 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     accent-color: var(--primary-color);
 }
 
+.administradores-inline-form {
+    margin: 0 0 18px;
+    padding: 18px;
+    border: 1px solid #d7dee8;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 10px 24px rgba(13, 35, 58, 0.06);
+}
+
+.acta-desplegable-row .administradores-inline-form {
+    margin: 0;
+    box-shadow: none;
+}
+
+.administradores-inline-form-header {
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e6ebf2;
+}
+
 .preceptor-form-grid {
     display: grid;
     grid-template-columns: 1fr minmax(160px, 220px);
