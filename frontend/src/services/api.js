@@ -89,6 +89,12 @@ export async function getDdjjDocenteArchivo(idDdjj) {
   return data;
 }
 
+export async function deleteMiDdjjDocente(idDocente) {
+  await api.delete('/ddjj-docente/mi-ddjj/', {
+    params: { id_docente: idDocente },
+  });
+}
+
 export async function getPreceptores() {
   const { data } = await api.get('/preceptores/');
   return data;

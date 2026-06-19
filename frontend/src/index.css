@@ -814,6 +814,89 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     overflow-y: auto;
 }
 
+.ddjj-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.62);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 1400;
+}
+
+.ddjj-modal {
+    width: min(1100px, 100%);
+    max-height: min(92vh, 900px);
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.ddjj-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    border-bottom: 1px solid #e6ebf2;
+}
+
+.ddjj-modal-body {
+    padding: 20px;
+    overflow: auto;
+    flex: 1;
+}
+
+.ddjj-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid #e6ebf2;
+    background: #f8fafc;
+    flex-wrap: wrap;
+}
+
+.ddjj-preview-frame {
+    width: 100%;
+    min-height: 70vh;
+    border: 1px solid #d7dee8;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.ddjj-image-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    background: #0f172a;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.ddjj-preview-image {
+    display: block;
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    background: #0f172a;
+}
+
+.ddjj-no-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 18px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
 .preceptor-form {
     display: flex;
     flex-direction: column;

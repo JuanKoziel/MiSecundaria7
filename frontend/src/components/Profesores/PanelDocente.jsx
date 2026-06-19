@@ -62,7 +62,7 @@ function PanelDocente({ miDocente }) {
       };
     });
 
-  const ddjjPresentada = Boolean(miDocente.ddjj_presentada || miDocente.ruta_ddjj);
+  const ddjjPresentada = Boolean(miDocente.ddjj_presentada || miDocente.ddjj_id || miDocente.ruta_ddjj);
   const archivoUrl = miDocente.ddjj_url || miDocente.ruta_ddjj || null;
   const archivoHref = archivoUrl
     ? (archivoUrl.startsWith('http') ? archivoUrl : `${MEDIA_BASE}${archivoUrl}`)

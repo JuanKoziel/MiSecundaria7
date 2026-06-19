@@ -1,8 +1,132 @@
 import { Fragment, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { cursoConOrientacion } from '../../utils/orientacion';
+import { deleteMiDdjjDocente } from '../../services/api';
 
 const API_BASE = 'http://localhost:8000';
+const PREVIEWABLE_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp']);
+
+function getFileExtension(nombre = '') {
+  const clean = String(nombre).split('?')[0].split('#')[0];
+  const idx = clean.lastIndexOf('.');
+  return idx >= 0 ? clean.slice(idx + 1).toLowerCase() : '';
+}
+
+function isPreviewable(nombre = '') {
+  return PREVIEWABLE_EXTENSIONS.has(getFileExtension(nombre));
+}
+
+function getAbsoluteFileUrl(path) {
+  if (!path) return null;
+  return path.startsWith('http') ? path : `${API_BASE}${path}`;
+}
+
+function buildDownloadUrl(path) {
+  const absolute = getAbsoluteFileUrl(path);
+  if (!absolute) return null;
+  return absolute.includes('?') ? `${absolute}&download=1` : `${absolute}?download=1`;
+}
+
+function DdjjPreviewModal({ docente, onClose, onDelete }) {
+  if (!docente) return null;
+
+  const archivoUrl = docente.ddjj_url || docente.ruta_ddjj || null;
+  const absoluteUrl = getAbsoluteFileUrl(archivoUrl);
+  const downloadUrl = buildDownloadUrl(archivoUrl);
+  const archivoNombre = docente.ddjj_nombre_archivo || (archivoUrl ? archivoUrl.split('/').pop() : 'Archivo');
+  const previewOk = isPreviewable(archivoNombre);
+  const extension = getFileExtension(archivoNombre);
+  const fechaCarga = docente.ddjj_fecha_carga
+    ? new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(docente.ddjj_fecha_carga))
+    : null;
+
+  return (
+    <div className="ddjj-modal-overlay" role="presentation" onClick={onClose}>
+      <div
+        className="ddjj-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Vista previa de ${archivoNombre}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="ddjj-modal-header">
+          <div>
+            <h4 style={{ margin: 0 }}>D.D.J.J. del docente</h4>
+            <p style={{ margin: '4px 0 0', color: 'var(--text-light)', fontSize: '0.9rem' }}>
+              {docente.apellido}, {docente.nombre}
+            </p>
+          </div>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <i className="fas fa-times" aria-hidden="true" /> Cerrar
+          </button>
+        </div>
+
+        <div className="ddjj-modal-body">
+          <p style={{ margin: '0 0 10px', fontWeight: 600 }}>
+            Archivo: {archivoNombre}
+          </p>
+          {fechaCarga && (
+            <p style={{ margin: '0 0 10px' }}>
+              Fecha de carga: {fechaCarga}
+            </p>
+          )}
+
+          {previewOk && absoluteUrl ? (
+            extension === 'pdf' ? (
+              <iframe
+                title={`Vista previa ${archivoNombre}`}
+                className="ddjj-preview-frame"
+                src={absoluteUrl}
+              />
+            ) : (
+              <div className="ddjj-image-wrap">
+                <img
+                  src={absoluteUrl}
+                  alt={`Vista previa ${archivoNombre}`}
+                  className="ddjj-preview-image"
+                />
+              </div>
+            )
+          ) : (
+            <div className="ddjj-no-preview">
+              <p style={{ margin: 0 }}>Este archivo no admite vista previa.</p>
+              {downloadUrl && (
+                <a
+                  className="btn btn-primary"
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <i className="fas fa-download" aria-hidden="true" /> Descargar archivo
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="ddjj-modal-footer">
+          {downloadUrl && (
+            <a
+              className="btn btn-secondary"
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <i className="fas fa-download" aria-hidden="true" /> Descargar archivo
+            </a>
+          )}
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={() => onDelete(docente)}
+          >
+            <i className="fas fa-trash-alt" aria-hidden="true" /> Eliminar DDJJ
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ActasDocenteDesplegable({ actas }) {
   if (actas.length === 0) {
@@ -117,9 +241,23 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
 }
 
 function Docentes() {
-  const { docentes, actasDocente, cursoMateria, planificaciones } = useData();
+  const { docentes, actasDocente, cursoMateria, planificaciones, refreshData } = useData();
   const [actasAbierto, setActasAbierto] = useState(null);
   const [cursosAbierto, setCursosAbierto] = useState(null);
+  const [previewDocente, setPreviewDocente] = useState(null);
+
+  const handleEliminarDdjj = async (docente) => {
+    if (!window.confirm('¿Está seguro de eliminar esta D.D.J.J.?')) return;
+    try {
+      await deleteMiDdjjDocente(docente.id);
+      if (previewDocente?.id === docente.id) {
+        setPreviewDocente(null);
+      }
+      await refreshData();
+    } catch (error) {
+      alert(error.response?.data?.error || error.response?.data?.detail || 'No se pudo eliminar la DDJJ.');
+    }
+  };
 
   return (
     <div className="card">
@@ -151,7 +289,9 @@ function Docentes() {
                 const verActas = actasAbierto === d.id;
                 const verCursos = cursosAbierto === d.id;
                 const actas = actasDocente.filter((a) => a.docenteId === d.id);
-                const tieneDdjj = Boolean(d.ruta_ddjj);
+                const tieneDdjj = Boolean(d.ddjj_presentada || d.ddjj_id);
+                const archivoUrl = d.ddjj_url || d.ruta_ddjj || null;
+                const archivoNombre = d.ddjj_nombre_archivo || (archivoUrl ? archivoUrl.split('/').pop() : 'Archivo');
 
                 return (
                   <Fragment key={d.id}>
@@ -185,25 +325,15 @@ function Docentes() {
                             Ver Actas
                           </button>
 
-                          {tieneDdjj ? (
-                            <a
-                              href={`${API_BASE}${d.ruta_ddjj}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="btn btn-success table-download-btn"
-                              style={{ textAlign: 'center' }}
-                            >
-                              <i className="fas fa-file-alt" aria-hidden="true" /> Ver D.D.J.J
-                            </a>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn btn-danger table-download-btn"
-                              disabled
-                            >
-                              <i className="fas fa-file-alt" aria-hidden="true" /> Ver D.D.J.J
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${tieneDdjj ? 'btn-success' : 'btn-danger'}`}
+                            onClick={() => setPreviewDocente(d)}
+                            disabled={!tieneDdjj}
+                            title={tieneDdjj ? `Ver ${archivoNombre}` : 'No hay DDJJ cargada'}
+                          >
+                            <i className="fas fa-file-alt" aria-hidden="true" /> DDJJ
+                          </button>
 
                           <button
                             type="button"
@@ -248,6 +378,14 @@ function Docentes() {
           </tbody>
         </table>
       </div>
+
+      {previewDocente && (
+        <DdjjPreviewModal
+          docente={previewDocente}
+          onClose={() => setPreviewDocente(null)}
+          onDelete={handleEliminarDdjj}
+        />
+      )}
     </div>
   );
 }

@@ -495,6 +495,7 @@ class DdjjDocenteSerializer(serializers.ModelSerializer):
 
 
 class DocenteSerializer(serializers.ModelSerializer):
+    ddjj_id = serializers.SerializerMethodField()
     ruta_ddjj = serializers.SerializerMethodField()
     ddjj_presentada = serializers.SerializerMethodField()
     ddjj_fecha_carga = serializers.SerializerMethodField()
@@ -511,6 +512,7 @@ class DocenteSerializer(serializers.ModelSerializer):
             'dni',
             'correo',
             'telefono',
+            'ddjj_id',
             'ruta_ddjj',
             'ddjj_presentada',
             'ddjj_fecha_carga',
@@ -520,6 +522,10 @@ class DocenteSerializer(serializers.ModelSerializer):
 
     def _get_ddjj(self, obj):
         return DdjjDocente.objects.filter(id_docente=obj).first()
+
+    def get_ddjj_id(self, obj):
+        ddjj = self._get_ddjj(obj)
+        return ddjj.id_ddjj if ddjj else None
 
     def get_ruta_ddjj(self, obj):
         ddjj = self._get_ddjj(obj)

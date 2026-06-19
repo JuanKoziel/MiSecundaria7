@@ -126,6 +126,7 @@ export function DataProvider({ children }) {
           docenteMap[id] = {
             id,
             id_usuario: d.id_usuario || null,
+            ddjj_id: d.ddjj_id || null,
             ruta_ddjj: d.ruta_ddjj || null,
             ddjj_presentada: Boolean(d.ddjj_presentada),
             ddjj_fecha_carga: d.ddjj_fecha_carga || null,

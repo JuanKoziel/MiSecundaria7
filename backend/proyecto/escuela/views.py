@@ -308,7 +308,7 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
                 return Docente.objects.filter(id_docente=docente_id).first()
         return self._docente_actual()
 
-    @action(detail=False, methods=['get', 'post'], url_path='mi-ddjj')
+    @action(detail=False, methods=['get', 'post', 'delete'], url_path='mi-ddjj')
     def mi_ddjj(self, request):
         docente = self._get_docente_from_request()
         if not docente:
@@ -329,6 +329,16 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
                     'presentada': False,
                 })
             return Response(self.get_serializer(ddjj).data)
+
+        if request.method == 'DELETE':
+            if not self._can_view_all():
+                raise PermissionDenied('No tienes permiso para eliminar esta DDJJ.')
+            if not ddjj:
+                return Response({'error': 'No existe una D.D.J.J. para eliminar.'}, status=status.HTTP_404_NOT_FOUND)
+            if ddjj.ruta_archivo and ddjj.ruta_archivo.storage.exists(ddjj.ruta_archivo.name):
+                ddjj.ruta_archivo.storage.delete(ddjj.ruta_archivo.name)
+            ddjj.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
         if ddjj:
             return Response(
@@ -375,7 +385,12 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
         ddjj = self.get_object()
         if not ddjj.ruta_archivo:
             return Response({'error': 'La DDJJ no tiene archivo cargado.'}, status=status.HTTP_404_NOT_FOUND)
-        return FileResponse(ddjj.ruta_archivo.open('rb'), as_attachment=False, filename=ddjj.ruta_archivo.name.split('/')[-1])
+        download = str(request.query_params.get('download', '')).lower() in {'1', 'true', 'yes'}
+        return FileResponse(
+            ddjj.ruta_archivo.open('rb'),
+            as_attachment=download,
+            filename=ddjj.ruta_archivo.name.split('/')[-1],
+        )
 
     def perform_create(self, serializer):
         docente = serializer.validated_data.get('id_docente')
@@ -390,7 +405,7 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
-        if not self._can_manage(instance.id_docente):
+        if not self._can_view_all():
             raise PermissionDenied('No tienes permiso para eliminar esta DDJJ.')
         if instance.ruta_archivo and instance.ruta_archivo.storage.exists(instance.ruta_archivo.name):
             instance.ruta_archivo.storage.delete(instance.ruta_archivo.name)
