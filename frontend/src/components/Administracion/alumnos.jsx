@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 
@@ -65,6 +65,14 @@ function Alumnos() {
   const [expandido, setExpandido] = useState(null);
 
   const alumnosCurso = useMemo(() => getAlumnosByCurso(curso), [curso, getAlumnosByCurso]);
+  const handleCursoChange = useCallback((nuevoCurso) => {
+    setCurso((prevCurso) => {
+      if (prevCurso !== nuevoCurso) {
+        setExpandido(null);
+      }
+      return nuevoCurso;
+    });
+  }, []);
 
   return (
     <>
@@ -76,10 +84,7 @@ function Alumnos() {
         <FiltrosAnioCurso
           cursosObj={cursosObj}
           defaultToFirst
-          onCursoChange={(nuevoCurso) => {
-            setCurso(nuevoCurso);
-            setExpandido(null);
-          }}
+          onCursoChange={handleCursoChange}
         />
 
         <div className="table-responsive">
