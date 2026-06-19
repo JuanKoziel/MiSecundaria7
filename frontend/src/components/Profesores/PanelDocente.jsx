@@ -164,10 +164,14 @@ function PanelDocente({ miDocente }) {
             <button
               type="button"
               className={`btn btn-sm ${ddjjPresentada ? 'btn-success' : 'btn-danger'}`}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={subiendo}
+              onClick={() => {
+                if (!ddjjPresentada) {
+                  fileInputRef.current?.click();
+                }
+              }}
+              disabled={subiendo || ddjjPresentada}
             >
-              <i className="fas fa-file-upload" aria-hidden="true" /> D.D.J.J.
+              <i className="fas fa-file-upload" aria-hidden="true" /> {ddjjPresentada ? 'D.D.J.J. presentada' : 'D.D.J.J. pendiente'}
             </button>
             <button
               type="button"

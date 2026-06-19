@@ -1,4 +1,3 @@
-from django.utils import timezone
 from rest_framework import serializers
 
 from escuela.models import (
@@ -492,19 +491,7 @@ class DdjjDocenteSerializer(serializers.ModelSerializer):
         return instance
 
     def update(self, instance, validated_data):
-        archivo = validated_data.pop('archivo', None)
-        old_name = instance.ruta_archivo.name if instance.ruta_archivo else None
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        if archivo:
-            instance.ruta_archivo = archivo
-            instance.fecha_carga = timezone.now()
-        instance.save()
-        if archivo and old_name and old_name != instance.ruta_archivo.name:
-            storage = instance.ruta_archivo.storage
-            if storage.exists(old_name):
-                storage.delete(old_name)
-        return instance
+        raise serializers.ValidationError({'archivo': 'Ya posee una D.D.J.J. presentada.'})
 
 
 class DocenteSerializer(serializers.ModelSerializer):

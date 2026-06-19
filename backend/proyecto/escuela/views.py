@@ -330,6 +330,12 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
                 })
             return Response(self.get_serializer(ddjj).data)
 
+        if ddjj:
+            return Response(
+                {'archivo': ['Ya posee una D.D.J.J. presentada.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         archivo = request.FILES.get('archivo')
         if archivo is None:
             return Response(
@@ -350,7 +356,19 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         instance = serializer.save(id_docente=docente)
-        return Response(self.get_serializer(instance).data, status=status.HTTP_200_OK if ddjj else status.HTTP_201_CREATED)
+        return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        return Response(
+            {'error': 'No se permite reemplazar una D.D.J.J. presentada.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        return Response(
+            {'error': 'No se permite reemplazar una D.D.J.J. presentada.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
     @action(detail=True, methods=['get'], url_path='archivo')
     def archivo(self, request, pk=None):
