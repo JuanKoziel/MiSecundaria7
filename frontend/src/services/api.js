@@ -12,6 +12,10 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+    delete config.headers['content-type'];
+  }
   return config;
 });
 
@@ -65,6 +69,23 @@ export async function getAlumnos(params) {
 
 export async function getDocentes() {
   const { data } = await api.get('/docentes/');
+  return data;
+}
+
+export async function getMiDdjjDocente() {
+  const { data } = await api.get('/ddjj-docente/mi-ddjj/');
+  return data;
+}
+
+export async function uploadMiDdjjDocente(file) {
+  const formData = new FormData();
+  formData.append('archivo', file);
+  const { data } = await api.post('/ddjj-docente/mi-ddjj/', formData);
+  return data;
+}
+
+export async function getDdjjDocenteArchivo(idDdjj) {
+  const { data } = await api.get(`/ddjj-docente/${idDdjj}/archivo/`);
   return data;
 }
 

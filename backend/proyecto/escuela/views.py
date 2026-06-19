@@ -1,9 +1,11 @@
 from django.contrib.auth import authenticate
 from django.db import models
+from django.http import FileResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -21,6 +23,7 @@ from escuela.models import (
     ComunicadoArchivo,
     Curso,
     CursoMateria,
+    DdjjDocente,
     DiagnosticoGrupal,
     Directivo,
     Docente,
@@ -66,6 +69,7 @@ from escuela.serializers import (
     PadreTutorSerializer,
     PeriodoEvaluacionSerializer,
     PlanificacionSerializer,
+    DdjjDocenteSerializer,
     PreceptorSerializer,
     RolSerializer,
     TipoAccionSerializer,
@@ -258,6 +262,121 @@ class AlumnoViewSet(viewsets.ModelViewSet):
 class DocenteViewSet(viewsets.ModelViewSet):
     queryset = Docente.objects.select_related('id_usuario').all()
     serializer_class = DocenteSerializer
+
+
+class DdjjDocenteViewSet(viewsets.ModelViewSet):
+    queryset = DdjjDocente.objects.select_related('id_docente', 'id_docente__id_usuario').all()
+    serializer_class = DdjjDocenteSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+    def _roles(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        return get_roles_for_usuario(username) if username else []
+
+    def _docente_actual(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            return None
+        usuario_obj = Usuario.objects.filter(usuario=username).first()
+        if not usuario_obj:
+            return None
+        return Docente.objects.filter(id_usuario=usuario_obj).first()
+
+    def _can_view_all(self):
+        roles = self._roles()
+        return 'admin' in roles or 'director' in roles
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self._can_view_all():
+            return qs
+        docente = self._docente_actual()
+        if docente:
+            return qs.filter(id_docente=docente)
+        return qs.none()
+
+    def _can_manage(self, docente=None):
+        if self._can_view_all():
+            return True
+        docente_actual = self._docente_actual()
+        return bool(docente_actual and docente and docente_actual.id_docente == docente.id_docente)
+
+    def _get_docente_from_request(self):
+        if self._can_view_all():
+            docente_id = self.request.data.get('id_docente') or self.request.query_params.get('id_docente')
+            if docente_id:
+                return Docente.objects.filter(id_docente=docente_id).first()
+        return self._docente_actual()
+
+    @action(detail=False, methods=['get', 'post'], url_path='mi-ddjj')
+    def mi_ddjj(self, request):
+        docente = self._get_docente_from_request()
+        if not docente:
+            raise PermissionDenied('No se encontró un perfil de docente asociado al usuario.')
+
+        ddjj = DdjjDocente.objects.filter(id_docente=docente).first()
+
+        if request.method == 'GET':
+            if not ddjj:
+                return Response({
+                    'id_ddjj': None,
+                    'id_docente': docente.id_docente,
+                    'docente_nombre': docente.nombre,
+                    'docente_apellido': docente.apellido,
+                    'archivo_url': None,
+                    'nombre_archivo': None,
+                    'fecha_carga': None,
+                    'presentada': False,
+                })
+            return Response(self.get_serializer(ddjj).data)
+
+        archivo = request.FILES.get('archivo')
+        if archivo is None:
+            return Response(
+                {
+                    'archivo': [
+                        'No se recibió un archivo en request.FILES. '
+                        'Envíalo como FormData con el campo "archivo".'
+                    ]
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        incoming_data = {
+            'id_docente': docente.id_docente,
+            'archivo': archivo,
+        }
+        serializer = self.get_serializer(ddjj, data=incoming_data, partial=bool(ddjj))
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        instance = serializer.save(id_docente=docente)
+        return Response(self.get_serializer(instance).data, status=status.HTTP_200_OK if ddjj else status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'], url_path='archivo')
+    def archivo(self, request, pk=None):
+        ddjj = self.get_object()
+        if not ddjj.ruta_archivo:
+            return Response({'error': 'La DDJJ no tiene archivo cargado.'}, status=status.HTTP_404_NOT_FOUND)
+        return FileResponse(ddjj.ruta_archivo.open('rb'), as_attachment=False, filename=ddjj.ruta_archivo.name.split('/')[-1])
+
+    def perform_create(self, serializer):
+        docente = serializer.validated_data.get('id_docente')
+        if not self._can_manage(docente):
+            raise PermissionDenied('No tienes permiso para cargar esta DDJJ.')
+        serializer.save()
+
+    def perform_update(self, serializer):
+        docente = serializer.validated_data.get('id_docente') or serializer.instance.id_docente
+        if not self._can_manage(docente):
+            raise PermissionDenied('No tienes permiso para modificar esta DDJJ.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not self._can_manage(instance.id_docente):
+            raise PermissionDenied('No tienes permiso para eliminar esta DDJJ.')
+        if instance.ruta_archivo and instance.ruta_archivo.storage.exists(instance.ruta_archivo.name):
+            instance.ruta_archivo.storage.delete(instance.ruta_archivo.name)
+        instance.delete()
 
 
 class PreceptorViewSet(viewsets.ModelViewSet):

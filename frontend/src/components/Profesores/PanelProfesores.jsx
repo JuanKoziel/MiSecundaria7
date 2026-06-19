@@ -19,9 +19,10 @@ function PanelProfesores({ user, onLogout }) {
   const [cursoComunicados, setCursoComunicados] = useState('');
   const [cursoDiagnosticos, setCursoDiagnosticos] = useState('');
 
+  const userId = user?.id_usuario ?? user?.id ?? null;
   const miDocente = useMemo(
-    () => docentes.find((d) => d.id_usuario === user?.id) || null,
-    [docentes, user],
+    () => docentes.find((d) => d.id_usuario === userId) || null,
+    [docentes, userId],
   );
 
   const misAsignaciones = useMemo(

@@ -176,6 +176,23 @@ class Docente(models.Model):
         return f'{self.apellido}, {self.nombre}'
 
 
+class DdjjDocente(models.Model):
+    id_ddjj = models.AutoField(primary_key=True)
+    id_docente = models.OneToOneField(
+        Docente, on_delete=models.CASCADE, db_column='id_docente',
+        related_name='ddjj_docente',
+    )
+    ruta_archivo = models.FileField(upload_to='ddjj_docentes/', max_length=255)
+    fecha_carga = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'ddjj_docente'
+
+    def __str__(self):
+        return f'DDJJ {self.id_docente}'
+
+
 class Directivo(models.Model):
     id_directivo = models.AutoField(primary_key=True)
     id_usuario = models.OneToOneField(

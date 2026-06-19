@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from escuela.models import (
@@ -13,6 +14,7 @@ from escuela.models import (
     ComunicadoArchivo,
     Curso,
     CursoMateria,
+    DdjjDocente,
     DiagnosticoGrupal,
     Directivo,
     Docente,
@@ -441,10 +443,129 @@ class PreceptorSerializer(serializers.ModelSerializer):
         return instance
 
 
+class DdjjDocenteSerializer(serializers.ModelSerializer):
+    archivo = serializers.FileField(write_only=True, required=False)
+    docente_nombre = serializers.CharField(source='id_docente.nombre', read_only=True)
+    docente_apellido = serializers.CharField(source='id_docente.apellido', read_only=True)
+    nombre_archivo = serializers.SerializerMethodField()
+    archivo_url = serializers.SerializerMethodField()
+    presentada = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DdjjDocente
+        fields = [
+            'id_ddjj',
+            'id_docente',
+            'docente_nombre',
+            'docente_apellido',
+            'archivo',
+            'archivo_url',
+            'nombre_archivo',
+            'fecha_carga',
+            'presentada',
+        ]
+
+    def get_nombre_archivo(self, obj):
+        if not obj.ruta_archivo:
+            return None
+        return obj.ruta_archivo.name.split('/')[-1]
+
+    def get_archivo_url(self, obj):
+        if not obj.ruta_archivo:
+            return None
+        try:
+            return obj.ruta_archivo.url
+        except Exception:
+            return f'/media/{obj.ruta_archivo.name}'
+
+    def get_presentada(self, obj):
+        return bool(obj.ruta_archivo)
+
+    def create(self, validated_data):
+        archivo = validated_data.pop('archivo', None)
+        if not archivo:
+            raise serializers.ValidationError({'archivo': 'Debes adjuntar un archivo para la DDJJ.'})
+
+        instance = DdjjDocente(**validated_data)
+        instance.ruta_archivo = archivo
+        instance.save()
+        return instance
+
+    def update(self, instance, validated_data):
+        archivo = validated_data.pop('archivo', None)
+        old_name = instance.ruta_archivo.name if instance.ruta_archivo else None
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if archivo:
+            instance.ruta_archivo = archivo
+            instance.fecha_carga = timezone.now()
+        instance.save()
+        if archivo and old_name and old_name != instance.ruta_archivo.name:
+            storage = instance.ruta_archivo.storage
+            if storage.exists(old_name):
+                storage.delete(old_name)
+        return instance
+
+
 class DocenteSerializer(serializers.ModelSerializer):
+    ruta_ddjj = serializers.SerializerMethodField()
+    ddjj_presentada = serializers.SerializerMethodField()
+    ddjj_fecha_carga = serializers.SerializerMethodField()
+    ddjj_nombre_archivo = serializers.SerializerMethodField()
+    ddjj_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Docente
-        fields = '__all__'
+        fields = [
+            'id_docente',
+            'id_usuario',
+            'nombre',
+            'apellido',
+            'dni',
+            'correo',
+            'telefono',
+            'ruta_ddjj',
+            'ddjj_presentada',
+            'ddjj_fecha_carga',
+            'ddjj_nombre_archivo',
+            'ddjj_url',
+        ]
+
+    def _get_ddjj(self, obj):
+        return DdjjDocente.objects.filter(id_docente=obj).first()
+
+    def get_ruta_ddjj(self, obj):
+        ddjj = self._get_ddjj(obj)
+        if not ddjj or not ddjj.ruta_archivo:
+            return None
+        try:
+            return ddjj.ruta_archivo.url
+        except Exception:
+            return f'/media/{ddjj.ruta_archivo.name}'
+
+    def get_ddjj_presentada(self, obj):
+        return self._get_ddjj(obj) is not None
+
+    def get_ddjj_fecha_carga(self, obj):
+        ddjj = self._get_ddjj(obj)
+        if not ddjj:
+            return None
+        return ddjj.fecha_carga
+
+    def get_ddjj_nombre_archivo(self, obj):
+        ddjj = self._get_ddjj(obj)
+        if not ddjj or not ddjj.ruta_archivo:
+            return None
+        return ddjj.ruta_archivo.name.split('/')[-1]
+
+    def get_ddjj_url(self, obj):
+        ddjj = self._get_ddjj(obj)
+        if not ddjj or not ddjj.ruta_archivo:
+            return None
+        try:
+            return ddjj.ruta_archivo.url
+        except Exception:
+            return f'/media/{ddjj.ruta_archivo.name}'
 
 
 class DirectivoSerializer(serializers.ModelSerializer):

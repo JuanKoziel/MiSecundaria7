@@ -254,6 +254,18 @@ constraint `cursos_ibfk_1` foreign key (`id_preceptor`) references `preceptores`
 constraint `cursos_ibfk_2` foreign key (`id_ciclo`) references `ciclos_lectivos` (`id_ciclo`)
 ) engine = InnoDB auto_increment = 20 default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
 
+create table `ddjj_docente` (
+  `id_ddjj` int not null auto_increment,
+`id_docente` int not null,
+`ruta_archivo` varchar(255) not null,
+`fecha_carga` datetime not null default current_timestamp,
+primary key (`id_ddjj`),
+unique key `uq_ddjj_docente` (`id_docente`),
+constraint `fk_ddjj_docente` foreign key (`id_docente`) references `docentes` (`id_docente`) on
+delete
+    cascade
+) engine = InnoDB default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
+
 create table `diagnosticos_grupales` (
   `id_diagnostico_grupal` int not null auto_increment,
 `id_curso` int not null,
@@ -313,7 +325,7 @@ create table `django_migrations` (
 `name` varchar(255) not null,
 `applied` datetime(6) not null,
 primary key (`id`)
-) engine = InnoDB auto_increment = 21 default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
+) engine = InnoDB auto_increment = 22 default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
 
 create table `django_session` (
   `session_key` varchar(40) not null,
@@ -453,7 +465,7 @@ primary key (`id_preceptor`),
 unique key `dni` (`dni`),
 unique key `id_usuario` (`id_usuario`),
 constraint `preceptores_ibfk_1` foreign key (`id_usuario`) references `usuarios` (`id_usuario`)
-) engine = InnoDB auto_increment = 7 default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
+) engine = InnoDB auto_increment = 8 default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
 
 create table `roles` (
   `id_rol` int not null auto_increment,
@@ -496,7 +508,7 @@ create table `usuarios` (
 `fecha_habilitacion_programada` datetime default null,
 primary key (`id_usuario`),
 unique key `usuario` (`usuario`)
-) engine = InnoDB auto_increment = 22 default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
+) engine = InnoDB auto_increment = 23 default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
 
 create database `sistema_escolar` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */
 /*!80016 DEFAULT ENCRYPTION='N' */;
