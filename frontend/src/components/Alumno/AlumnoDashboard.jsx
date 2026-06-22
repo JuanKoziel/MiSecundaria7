@@ -208,12 +208,6 @@ function AlumnoDashboard({ user, onLogout }) {
               <span>Comunicados</span>
             </button>
           </li>
-          <li className={view === 'info' ? 'active' : ''}>
-            <button type="button" className="sidebar-menu-btn" onClick={() => setView('info')}>
-              <i className="fas fa-info-circle" aria-hidden="true" />
-              <span>Información General</span>
-            </button>
-          </li>
           <li className={view === 'notificaciones' ? 'active' : ''}>
             <button type="button" className="sidebar-menu-btn" onClick={() => setView('notificaciones')}>
               <i className="fas fa-bell" aria-hidden="true" />

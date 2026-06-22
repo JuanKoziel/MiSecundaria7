@@ -4,7 +4,6 @@ const menuItems = [
   { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },
   { id: 'actas', label: 'Actas', icon: 'fa-file-pdf' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
-  { id: 'info', label: 'Información General', icon: 'fa-info-circle' },
   { id: 'notificaciones', label: 'Notificaciones', icon: 'fa-bell' },
 ];
 
