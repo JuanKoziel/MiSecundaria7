@@ -545,7 +545,7 @@ function Alumnos() {
                 <input
                   id="alumno-obs-mod"
                   type="text"
-                  value={observaciones[alumnoSel.id] ? ''}
+                  value={observaciones[alumnoSel.id] || ''}
                   onChange={(e) =>
                     setObservaciones((prev) => ({
                       ...prev,
