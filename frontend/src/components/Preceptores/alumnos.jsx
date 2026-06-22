@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { createAlumno, updateAlumno, deleteAlumno } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
@@ -6,7 +6,67 @@ import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
 import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
 
-const formVacio = { dni: '', nombre: '', apellido: '', fechaNacimiento: '', anioLectivo: '', curso: '' };
+const formVacio = {
+  usuario_nombre: '',
+  contrasena: '',
+  estado: true,
+  fecha_deshabilitacion_programada: '',
+  fecha_habilitacion_programada: '',
+  dni: '',
+  nombre: '',
+  apellido: '',
+  telefono: '',
+  fechaNacimiento: '',
+  anioLectivo: '',
+  curso: '',
+};
+
+function toInputDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function formatDateTime(value) {
+  if (!value) return '---';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '---';
+  return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+}
+
+function estadoLabel(estado) {
+  if (estado === null || estado === undefined) return 'Sin usuario';
+  return estado ? 'Habilitado' : 'Deshabilitado';
+}
+
+function proximaAccion(usuario) {
+  if (usuario.usuario_estado === null || usuario.usuario_estado === undefined) return 'Sin usuario';
+  if (usuario.usuario_estado && usuario.usuario_fecha_deshabilitacion_programada) {
+    return `Deshabilitar el ${formatDateTime(usuario.usuario_fecha_deshabilitacion_programada)}`;
+  }
+  if (!usuario.usuario_estado && usuario.usuario_fecha_habilitacion_programada) {
+    return `Habilitar el ${formatDateTime(usuario.usuario_fecha_habilitacion_programada)}`;
+  }
+  if (usuario.usuario_fecha_deshabilitacion_programada) {
+    return `Deshabilitar el ${formatDateTime(usuario.usuario_fecha_deshabilitacion_programada)}`;
+  }
+  if (usuario.usuario_fecha_habilitacion_programada) {
+    return `Habilitar el ${formatDateTime(usuario.usuario_fecha_habilitacion_programada)}`;
+  }
+  return '---';
+}
+
+function mensajeError(err) {
+  const data = err.response?.data;
+  if (data && typeof data === 'object' && !data.detail) {
+    return Object.entries(data)
+      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
+      .join(' | ');
+  }
+  return data?.detail || err.message || 'Error inesperado';
+}
 
 function Alumnos() {
   const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto, cursosObj, refreshData } = useData();
@@ -46,40 +106,53 @@ function Alumnos() {
     setMensaje('');
     try {
       if (modo === 'crear') {
-        if (!form.dni || !form.nombre || !form.apellido) {
-          setMensaje('Completá DNI, nombre y apellido.');
+        if (!form.usuario_nombre || !form.contrasena || !form.dni || !form.nombre || !form.apellido) {
+          setMensaje('CompletÃ¡ usuario, contraseÃ±a, DNI, nombre y apellido.');
           setGuardando(false);
           return;
         }
         const cursoObj = cursosObj.find((c) => c.nombre_curso === form.curso);
         await createAlumno({
+          usuario_nombre: form.usuario_nombre,
+          contrasena: form.contrasena,
+          estado: form.estado,
+          fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
+          fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
           fecha_nacimiento: form.fechaNacimiento || null,
+          telefono: form.telefono || null,
           id_curso: cursoObj?.id_curso || null,
         });
         setMensaje('Alumno creado exitosamente.');
         setForm(formVacio);
       } else if (modo === 'modificar') {
         if (!seleccionado) {
-          setMensaje('Seleccioná un alumno para modificar.');
+          setMensaje('SeleccionÃ¡ un alumno para modificar.');
           setGuardando(false);
           return;
         }
         await updateAlumno(seleccionado, {
+          usuario_nombre: form.usuario_nombre || undefined,
+          contrasena: form.contrasena || undefined,
+          estado: form.estado,
+          fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
+          fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
+          fecha_nacimiento: form.fechaNacimiento || null,
+          telefono: form.telefono || null,
         });
         setMensaje('Alumno modificado exitosamente.');
       } else if (modo === 'borrar') {
         if (!seleccionado) {
-          setMensaje('Seleccioná un alumno para eliminar.');
+          setMensaje('SeleccionÃ¡ un alumno para eliminar.');
           setGuardando(false);
           return;
         }
-        if (!confirm('¿Estás seguro de que querés eliminar este alumno?')) {
+        if (!confirm('Â¿EstÃ¡s seguro de que querÃ©s eliminar este alumno?')) {
           setGuardando(false);
           return;
         }
@@ -89,19 +162,27 @@ function Alumnos() {
       }
       await refreshData();
     } catch (err) {
-      const data = err.response?.data;
-      let msg = '';
-      if (data && typeof data === 'object' && !data.detail) {
-        msg = Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
-      } else {
-        msg = data?.detail || err.message;
-      }
-      setMensaje(`Error: ${msg}`);
+      setMensaje(`Error: ${mensajeError(err)}`);
     } finally {
       setGuardando(false);
     }
   };
 
+  const toggleEstado = async (alumno) => {
+    setGuardando(true);
+    setMensaje('');
+    try {
+      await updateAlumno(alumno.id, {
+        estado: !(alumno.usuario_estado !== false),
+      });
+      setMensaje(alumno.usuario_estado !== false ? 'Alumno deshabilitado correctamente.' : 'Alumno habilitado correctamente.');
+      await refreshData();
+    } catch (err) {
+      setMensaje(`Error: ${mensajeError(err)}`);
+    } finally {
+      setGuardando(false);
+    }
+  };
   const renderContenido = () => {
     if (modo === 'vista') {
       return (
@@ -111,24 +192,45 @@ function Alumnos() {
               <tr>
                 <th>DNI</th>
                 <th>Nombre Completo</th>
+                <th>Usuario</th>
+                <th>Estado</th>
+                <th>Próxima acción</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
               {lista.length === 0 ? (
                 <tr>
-                  <td colSpan={2} className="empty-state-message">
+                  <td colSpan={6} className="empty-state-message">
                     No hay alumnos inscriptos en este curso.
                   </td>
                 </tr>
               ) : (
-                lista.map((a) => (
-                  <tr key={a.id}>
-                    <td>
-                      <strong>{a.dni}</strong>
-                    </td>
-                    <td>{nombreCompleto(a)}</td>
-                  </tr>
-                ))
+                lista.map((a) => {
+                  const puedeCambiarEstado = a.usuario_estado !== null && a.usuario_estado !== undefined;
+                  return (
+                    <tr key={a.id}>
+                      <td>
+                        <strong>{a.dni}</strong>
+                      </td>
+                      <td>{nombreCompleto(a)}</td>
+                      <td>{a.usuario || '—'}</td>
+                      <td>{estadoLabel(a.usuario_estado)}</td>
+                      <td>{proximaAccion(a)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${a.usuario_estado === false ? 'btn-success' : 'btn-danger'}`}
+                          onClick={() => toggleEstado(a)}
+                          disabled={guardando || !puedeCambiarEstado}
+                        >
+                          <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
+                          {puedeCambiarEstado ? (a.usuario_estado === false ? 'Habilitar' : 'Deshabilitar') : 'Sin usuario'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -138,7 +240,62 @@ function Alumnos() {
 
     if (esCrear) {
       return (
-        <div className="preceptor-form-grid" style={{ maxWidth: 560 }}>
+        <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
+          <div className="form-group-filter preceptor-form-full">
+            <label htmlFor="alumno-usuario">Usuario</label>
+            <input
+              id="alumno-usuario"
+              type="text"
+              value={form.usuario_nombre}
+              onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="form-group-filter">
+            <label htmlFor="alumno-contrasena">Contraseña</label>
+            <input
+              id="alumno-contrasena"
+              type="password"
+              value={form.contrasena}
+              onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="form-group-filter">
+            <label>Estado</label>
+            <label htmlFor="alumno-estado" className="preceptor-status-toggle">
+              <input
+                id="alumno-estado"
+                type="checkbox"
+                checked={form.estado}
+                onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
+              />
+              <span>{estadoLabel(form.estado)}</span>
+            </label>
+          </div>
+          <div className="form-group-filter">
+            <label htmlFor="alumno-fecha-deshabilitacion">Fecha deshabilitación programada</label>
+            <input
+              id="alumno-fecha-deshabilitacion"
+              type="datetime-local"
+              value={form.fecha_deshabilitacion_programada}
+              onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
+            />
+          </div>
+          <div className="form-group-filter">
+            <label htmlFor="alumno-fecha-habilitacion">Fecha habilitación programada</label>
+            <input
+              id="alumno-fecha-habilitacion"
+              type="datetime-local"
+              value={form.fecha_habilitacion_programada}
+              onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
+            />
+          </div>
+          <div className="form-group-filter preceptor-form-full">
+            <p className="preceptor-section-title" style={{ margin: '8px 0 0' }}>
+              Datos personales
+            </p>
+          </div>
           <div className="form-group-filter preceptor-form-full">
             <label htmlFor="alumno-dni">DNI</label>
             <input
@@ -164,6 +321,15 @@ function Alumnos() {
               type="text"
               value={form.apellido}
               onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+            />
+          </div>
+          <div className="form-group-filter">
+            <label htmlFor="alumno-telefono">Teléfono</label>
+            <input
+              id="alumno-telefono"
+              type="text"
+              value={form.telefono}
+              onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
             />
           </div>
           <div className="form-group-filter">
@@ -231,9 +397,16 @@ function Alumnos() {
                   const a = lista.find((al) => String(al.id) === e.target.value);
                   if (a) {
                     setForm({
+                      usuario_nombre: a.usuario || '',
+                      contrasena: '',
+                      estado: a.usuario_estado !== false,
+                      fecha_deshabilitacion_programada: toInputDateTime(a.usuario_fecha_deshabilitacion_programada),
+                      fecha_habilitacion_programada: toInputDateTime(a.usuario_fecha_habilitacion_programada),
                       dni: a.dni,
                       nombre: a.nombre,
                       apellido: a.apellido,
+                      telefono: a.telefono || '',
+                      fechaNacimiento: a.fecha_nacimiento || '',
                       anioLectivo: '',
                       curso: '',
                     });
@@ -250,7 +423,56 @@ function Alumnos() {
             </div>
           </div>
           {alumnoSel && (
-            <div className="preceptor-form-grid" style={{ maxWidth: 520 }}>
+            <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
+              <div className="form-group-filter preceptor-form-full">
+                <label htmlFor="alumno-usuario-mod">Usuario</label>
+                <input
+                  id="alumno-usuario-mod"
+                  type="text"
+                  value={form.usuario_nombre}
+                  onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-group-filter">
+                <label htmlFor="alumno-contrasena-mod">Contraseña {alumnoSel.usuario ? '(dejar en blanco para mantener)' : ''}</label>
+                <input
+                  id="alumno-contrasena-mod"
+                  type="password"
+                  value={form.contrasena}
+                  onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
+                />
+              </div>
+              <div className="form-group-filter">
+                <label>Estado</label>
+                <label htmlFor="alumno-estado-mod" className="preceptor-status-toggle">
+                  <input
+                    id="alumno-estado-mod"
+                    type="checkbox"
+                    checked={form.estado}
+                    onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
+                  />
+                  <span>{estadoLabel(form.estado)}</span>
+                </label>
+              </div>
+              <div className="form-group-filter">
+                <label htmlFor="alumno-fecha-deshabilitacion-mod">Fecha deshabilitación programada</label>
+                <input
+                  id="alumno-fecha-deshabilitacion-mod"
+                  type="datetime-local"
+                  value={form.fecha_deshabilitacion_programada}
+                  onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
+                />
+              </div>
+              <div className="form-group-filter">
+                <label htmlFor="alumno-fecha-habilitacion-mod">Fecha habilitación programada</label>
+                <input
+                  id="alumno-fecha-habilitacion-mod"
+                  type="datetime-local"
+                  value={form.fecha_habilitacion_programada}
+                  onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
+                />
+              </div>
               <div className="form-group-filter preceptor-form-full">
                 <label htmlFor="alumno-dni-mod">DNI</label>
                 <input
@@ -276,6 +498,24 @@ function Alumnos() {
                   type="text"
                   value={form.apellido}
                   onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+                />
+              </div>
+              <div className="form-group-filter">
+                <label htmlFor="alumno-telefono-mod">Teléfono</label>
+                <input
+                  id="alumno-telefono-mod"
+                  type="text"
+                  value={form.telefono}
+                  onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+                />
+              </div>
+              <div className="form-group-filter">
+                <label htmlFor="alumno-fecha-nac-mod">Fecha de Nacimiento</label>
+                <input
+                  id="alumno-fecha-nac-mod"
+                  type="date"
+                  value={form.fechaNacimiento}
+                  onChange={(e) => setForm((p) => ({ ...p, fechaNacimiento: e.target.value }))}
                 />
               </div>
               <div className="form-group-filter preceptor-form-full">
@@ -311,7 +551,7 @@ function Alumnos() {
               <option value="">Seleccionar...</option>
               {lista.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {nombreCompleto(a)} — {a.dni}
+                  {nombreCompleto(a)} â€” {a.dni}
                 </option>
               ))}
             </select>
@@ -322,7 +562,6 @@ function Alumnos() {
 
     return null;
   };
-
   const tituloModo = {
     vista: 'Vista general',
     crear: 'Crear alumno',
@@ -332,7 +571,7 @@ function Alumnos() {
 
   return (
     <div className="card">
-      <SelectorModo modo={modo} onModoChange={resetModo} titulo="Alumnos — ¿Qué deseás hacer?" />
+      <SelectorModo modo={modo} onModoChange={resetModo} titulo="Alumnos â€” Â¿QuÃ© deseÃ¡s hacer?" />
 
       {modo && (
         <>
@@ -352,7 +591,7 @@ function Alumnos() {
               <div className="card-header-flex">
                 <h3>
                   {tituloModo[modo]}
-                  {filtrosOk && ` — ${curso} (${anioLectivo})`}
+                  {filtrosOk && ` â€” ${curso} (${anioLectivo})`}
                 </h3>
                 {modo !== 'vista' && (
                   <button

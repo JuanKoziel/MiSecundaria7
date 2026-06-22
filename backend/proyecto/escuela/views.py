@@ -107,6 +107,43 @@ def _usuario_context(request):
     }
 
 
+def _preceptor_actual(request):
+    username = request.user.username if request.user.is_authenticated else None
+    if not username:
+        return None
+    usuario_obj = Usuario.objects.filter(usuario=username).first()
+    if not usuario_obj:
+        return None
+    return Preceptor.objects.filter(id_usuario=usuario_obj).first()
+
+
+def _preceptor_cursos_ids(request):
+    preceptor = _preceptor_actual(request)
+    if not preceptor:
+        return set()
+    return set(
+        Curso.objects.filter(id_preceptor=preceptor).values_list('id_curso', flat=True),
+    )
+
+
+def _docente_ids_en_cursos(cursos_ids):
+    if not cursos_ids:
+        return set()
+    return set(
+        CursoMateria.objects.filter(id_curso__in=cursos_ids).values_list('id_docente', flat=True).distinct(),
+    )
+
+
+def _resolve_course_id(value):
+    if value is None:
+        return None
+    if hasattr(value, 'id_curso'):
+        return value.id_curso
+    if hasattr(value, 'pk'):
+        return value.pk
+    return value
+
+
 def _parse_curso_nombre(nombre_curso):
     if not nombre_curso:
         return {'anio': None, 'division': None}
@@ -398,12 +435,9 @@ class AlumnoViewSet(viewsets.ModelViewSet):
         usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
 
         if 'preceptor' in roles and usuario_obj:
-            preceptor = Preceptor.objects.filter(id_usuario=usuario_obj).first()
-            if not preceptor:
+            cursos_ids = _preceptor_cursos_ids(self.request)
+            if not cursos_ids:
                 return qs.none()
-            cursos_ids = Curso.objects.filter(
-                id_preceptor=preceptor,
-            ).values_list('id_curso', flat=True)
             qs = qs.filter(id_curso__in=cursos_ids)
 
         curso_id = self.request.query_params.get('curso')
@@ -411,10 +445,78 @@ class AlumnoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_curso=curso_id)
         return qs
 
+    def _require_preceptor_course_access(self, curso_id):
+        cursos_ids = _preceptor_cursos_ids(self.request)
+        if not cursos_ids:
+            raise PermissionDenied('No tienes cursos asignados para gestionar alumnos.')
+        resolved_curso_id = _resolve_course_id(curso_id)
+        if resolved_curso_id is None:
+            raise PermissionDenied('Debes asignar un curso dentro de tus cursos habilitados.')
+        if int(resolved_curso_id) not in {int(c) for c in cursos_ids}:
+            raise PermissionDenied('No tienes permiso para gestionar alumnos de ese curso.')
+
+    def perform_create(self, serializer):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' in roles:
+            self._require_preceptor_course_access(serializer.validated_data.get('id_curso'))
+        serializer.save()
+
+    def perform_update(self, serializer):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' in roles:
+            instance = serializer.instance
+            self._require_preceptor_course_access(
+                serializer.validated_data.get('id_curso', instance.id_curso_id if instance else None),
+            )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' in roles:
+            self._require_preceptor_course_access(instance.id_curso_id)
+        instance.delete()
+
 
 class DocenteViewSet(viewsets.ModelViewSet):
     queryset = Docente.objects.select_related('id_usuario').all()
     serializer_class = DocenteSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' in roles:
+            cursos_ids = _preceptor_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            docente_ids = _docente_ids_en_cursos(cursos_ids)
+            if not docente_ids:
+                return qs.none()
+            qs = qs.filter(id_docente__in=docente_ids)
+        return qs
+
+    def _require_preceptor_access(self, docente):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' not in roles:
+            return
+        cursos_ids = _preceptor_cursos_ids(self.request)
+        if not cursos_ids:
+            raise PermissionDenied('No tienes cursos asignados para gestionar docentes.')
+        docente_ids = _docente_ids_en_cursos(cursos_ids)
+        if docente.id_docente not in docente_ids:
+            raise PermissionDenied('No tienes permiso para gestionar este docente.')
+
+    def perform_update(self, serializer):
+        self._require_preceptor_access(serializer.instance)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._require_preceptor_access(instance)
+        instance.delete()
 
 
 class DdjjDocenteViewSet(viewsets.ModelViewSet):
@@ -653,6 +755,13 @@ class CursoMateriaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' in roles:
+            cursos_ids = _preceptor_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            qs = qs.filter(id_curso__in=cursos_ids)
         curso = self.request.query_params.get('curso')
         docente = self.request.query_params.get('docente')
         
@@ -662,6 +771,31 @@ class CursoMateriaViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_docente=docente)
         
         return qs
+
+    def _require_preceptor_course_access(self, curso_id):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' not in roles:
+            return
+        cursos_ids = _preceptor_cursos_ids(self.request)
+        if not cursos_ids:
+            raise PermissionDenied('No tienes cursos asignados para gestionar asignaciones.')
+        resolved_curso_id = _resolve_course_id(curso_id)
+        if resolved_curso_id is None or int(resolved_curso_id) not in {int(c) for c in cursos_ids}:
+            raise PermissionDenied('No tienes permiso para gestionar asignaciones de ese curso.')
+
+    def perform_create(self, serializer):
+        self._require_preceptor_course_access(serializer.validated_data.get('id_curso'))
+        serializer.save()
+
+    def perform_update(self, serializer):
+        curso_obj = serializer.validated_data.get('id_curso') or serializer.instance.id_curso
+        self._require_preceptor_course_access(curso_obj.id_curso if curso_obj else None)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._require_preceptor_course_access(instance.id_curso_id)
+        instance.delete()
 
 
 class HorarioViewSet(viewsets.ModelViewSet):

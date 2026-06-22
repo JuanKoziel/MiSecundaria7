@@ -36,6 +36,69 @@ from escuela.models import (
 )
 
 
+def _assign_role(usuario, nombre_rol):
+    if not usuario or not nombre_rol:
+        return
+    rol, _ = Rol.objects.get_or_create(nombre_rol=nombre_rol)
+    UsuarioRol.objects.get_or_create(id_usuario=usuario, id_rol=rol)
+
+
+def _build_usuario_account(
+    *,
+    instance,
+    validated_data,
+    username_key='usuario_nombre',
+    role_name=None,
+    require_password_on_create=True,
+):
+    username = validated_data.pop(username_key, None)
+    if username is None and username_key != 'usuario':
+        username = validated_data.pop('usuario', None)
+    contrasena = validated_data.pop('contrasena', None)
+    estado = validated_data.pop('estado', None)
+    fecha_deshabilitacion_programada = validated_data.pop('fecha_deshabilitacion_programada', None)
+    fecha_habilitacion_programada = validated_data.pop('fecha_habilitacion_programada', None)
+
+    usuario = instance.id_usuario if getattr(instance, 'id_usuario_id', None) else None
+    creating_usuario = usuario is None
+
+    if creating_usuario and not username:
+        raise serializers.ValidationError({username_key: 'El usuario es obligatorio.'})
+    if creating_usuario and require_password_on_create and not contrasena:
+        raise serializers.ValidationError({'contrasena': 'La contrasena es obligatoria para crear el usuario.'})
+
+    if usuario is None:
+        usuario = Usuario(
+            usuario=username,
+            estado=estado if estado is not None else True,
+            fecha_deshabilitacion_programada=fecha_deshabilitacion_programada,
+            fecha_habilitacion_programada=fecha_habilitacion_programada,
+        )
+    else:
+        if username is not None:
+            usuario.usuario = username
+        if estado is not None:
+            usuario.estado = estado
+        if fecha_deshabilitacion_programada is not None:
+            usuario.fecha_deshabilitacion_programada = fecha_deshabilitacion_programada
+        if fecha_habilitacion_programada is not None:
+            usuario.fecha_habilitacion_programada = fecha_habilitacion_programada
+
+    if contrasena:
+        usuario.set_password(contrasena)
+    elif creating_usuario and require_password_on_create:
+        raise serializers.ValidationError({'contrasena': 'La contrasena es obligatoria para crear el usuario.'})
+
+    usuario.save()
+    if getattr(instance, 'id_usuario_id', None) != usuario.id_usuario:
+        instance.id_usuario = usuario
+
+    if role_name:
+        _assign_role(usuario, role_name)
+
+    return usuario, validated_data
+
+
 # ---------- CatÃ¡logos / tablas auxiliares ----------
 
 class RolSerializer(serializers.ModelSerializer):
@@ -369,68 +432,26 @@ class PreceptorSerializer(serializers.ModelSerializer):
         return value.isoformat() if value else None
 
     def create(self, validated_data):
-        usuario_nombre = validated_data.pop('usuario_nombre', None)
-        contrasena = validated_data.pop('contrasena', None)
-        estado = validated_data.pop('estado', True)
-        fecha_deshabilitacion_programada = validated_data.pop('fecha_deshabilitacion_programada', None)
-        fecha_habilitacion_programada = validated_data.pop('fecha_habilitacion_programada', None)
         cursos_ids = validated_data.pop('cursos_ids', [])
-
-        usuario = None
-        if usuario_nombre:
-            usuario = Usuario(
-                usuario=usuario_nombre,
-                estado=estado,
-                fecha_deshabilitacion_programada=fecha_deshabilitacion_programada,
-                fecha_habilitacion_programada=fecha_habilitacion_programada,
-            )
-            if contrasena:
-                usuario.set_password(contrasena)
-            usuario.save()
-
-            rol, _ = Rol.objects.get_or_create(nombre_rol='preceptor')
-            UsuarioRol.objects.get_or_create(id_usuario=usuario, id_rol=rol)
+        usuario, validated_data = _build_usuario_account(
+            instance=self.instance or Preceptor(),
+            validated_data=validated_data,
+            username_key='usuario_nombre',
+            role_name='preceptor',
+        )
 
         preceptor = Preceptor.objects.create(id_usuario=usuario, **validated_data)
         Curso.objects.filter(id_curso__in=cursos_ids).update(id_preceptor=preceptor)
         return preceptor
 
     def update(self, instance, validated_data):
-        usuario_nombre = validated_data.pop('usuario_nombre', None)
-        contrasena = validated_data.pop('contrasena', None)
-        estado = validated_data.pop('estado', None)
-        fecha_deshabilitacion_programada = validated_data.pop('fecha_deshabilitacion_programada', None)
-        fecha_habilitacion_programada = validated_data.pop('fecha_habilitacion_programada', None)
         cursos_ids = validated_data.pop('cursos_ids', None)
-
-        usuario = instance.id_usuario
-        if usuario:
-            if usuario_nombre is not None:
-                usuario.usuario = usuario_nombre
-            if estado is not None:
-                usuario.estado = estado
-            if fecha_deshabilitacion_programada is not None:
-                usuario.fecha_deshabilitacion_programada = fecha_deshabilitacion_programada
-            if fecha_habilitacion_programada is not None:
-                usuario.fecha_habilitacion_programada = fecha_habilitacion_programada
-            if contrasena:
-                usuario.set_password(contrasena)
-            usuario.save()
-        elif usuario_nombre:
-            usuario = Usuario(
-                usuario=usuario_nombre,
-                estado=estado if estado is not None else True,
-                fecha_deshabilitacion_programada=fecha_deshabilitacion_programada,
-                fecha_habilitacion_programada=fecha_habilitacion_programada,
-            )
-            if contrasena:
-                usuario.set_password(contrasena)
-            usuario.save()
-            instance.id_usuario = usuario
-
-        if usuario:
-            rol, _ = Rol.objects.get_or_create(nombre_rol='preceptor')
-            UsuarioRol.objects.get_or_create(id_usuario=usuario, id_rol=rol)
+        usuario, validated_data = _build_usuario_account(
+            instance=instance,
+            validated_data=validated_data,
+            username_key='usuario_nombre',
+            role_name='preceptor',
+        )
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -496,18 +517,35 @@ class DdjjDocenteSerializer(serializers.ModelSerializer):
 
 
 class DocenteSerializer(serializers.ModelSerializer):
+    usuario = serializers.CharField(source='id_usuario.usuario', read_only=True)
+    usuario_nombre = serializers.CharField(write_only=True, required=False)
+    contrasena = serializers.CharField(write_only=True, required=False)
+    estado = serializers.BooleanField(write_only=True, required=False)
+    fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     ddjj_id = serializers.SerializerMethodField()
     ruta_ddjj = serializers.SerializerMethodField()
     ddjj_presentada = serializers.SerializerMethodField()
     ddjj_fecha_carga = serializers.SerializerMethodField()
     ddjj_nombre_archivo = serializers.SerializerMethodField()
     ddjj_url = serializers.SerializerMethodField()
+    usuario_estado = serializers.SerializerMethodField()
+    usuario_fecha_deshabilitacion_programada = serializers.SerializerMethodField()
+    usuario_fecha_habilitacion_programada = serializers.SerializerMethodField()
+    estado_label = serializers.SerializerMethodField()
+    proxima_accion_programada = serializers.SerializerMethodField()
 
     class Meta:
         model = Docente
         fields = [
             'id_docente',
             'id_usuario',
+            'usuario',
+            'usuario_nombre',
+            'contrasena',
+            'estado',
+            'fecha_deshabilitacion_programada',
+            'fecha_habilitacion_programada',
             'nombre',
             'apellido',
             'dni',
@@ -519,7 +557,17 @@ class DocenteSerializer(serializers.ModelSerializer):
             'ddjj_fecha_carga',
             'ddjj_nombre_archivo',
             'ddjj_url',
+            'usuario_estado',
+            'usuario_fecha_deshabilitacion_programada',
+            'usuario_fecha_habilitacion_programada',
+            'estado_label',
+            'proxima_accion_programada',
         ]
+        extra_kwargs = {
+            'id_usuario': {'read_only': True},
+            'correo': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'telefono': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
 
     def _get_ddjj(self, obj):
         return DdjjDocente.objects.filter(id_docente=obj).first()
@@ -561,6 +609,75 @@ class DocenteSerializer(serializers.ModelSerializer):
         except Exception:
             return f'/media/{ddjj.ruta_archivo.name}'
 
+    def get_usuario_estado(self, obj):
+        return obj.id_usuario.estado if obj.id_usuario else None
+
+    def get_usuario_fecha_deshabilitacion_programada(self, obj):
+        if not obj.id_usuario:
+            return None
+        value = obj.id_usuario.fecha_deshabilitacion_programada
+        return value.isoformat() if value else None
+
+    def get_usuario_fecha_habilitacion_programada(self, obj):
+        if not obj.id_usuario:
+            return None
+        value = obj.id_usuario.fecha_habilitacion_programada
+        return value.isoformat() if value else None
+
+    def get_estado_label(self, obj):
+        if not obj.id_usuario:
+            return 'Sin usuario'
+        return 'Habilitado' if obj.id_usuario.estado else 'Deshabilitado'
+
+    def get_proxima_accion_programada(self, obj):
+        usuario = obj.id_usuario
+        if not usuario:
+            return None
+        if usuario.estado and usuario.fecha_deshabilitacion_programada:
+            return {
+                'tipo': 'deshabilitar',
+                'fecha': usuario.fecha_deshabilitacion_programada.isoformat(),
+            }
+        if not usuario.estado and usuario.fecha_habilitacion_programada:
+            return {
+                'tipo': 'habilitar',
+                'fecha': usuario.fecha_habilitacion_programada.isoformat(),
+            }
+        if usuario.fecha_deshabilitacion_programada:
+            return {
+                'tipo': 'deshabilitar',
+                'fecha': usuario.fecha_deshabilitacion_programada.isoformat(),
+            }
+        if usuario.fecha_habilitacion_programada:
+            return {
+                'tipo': 'habilitar',
+                'fecha': usuario.fecha_habilitacion_programada.isoformat(),
+            }
+        return None
+
+    def create(self, validated_data):
+        usuario, validated_data = _build_usuario_account(
+            instance=self.instance or Docente(),
+            validated_data=validated_data,
+            username_key='usuario_nombre',
+            role_name='docente',
+        )
+        docente = Docente.objects.create(id_usuario=usuario, **validated_data)
+        return docente
+
+    def update(self, instance, validated_data):
+        usuario, validated_data = _build_usuario_account(
+            instance=instance,
+            validated_data=validated_data,
+            username_key='usuario_nombre',
+            role_name='docente',
+        )
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.id_usuario = usuario
+        instance.save()
+        return instance
+
 
 class DirectivoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -569,19 +686,132 @@ class DirectivoSerializer(serializers.ModelSerializer):
 
 
 class AlumnoSerializer(serializers.ModelSerializer):
+    usuario = serializers.CharField(source='id_usuario.usuario', read_only=True)
+    usuario_nombre = serializers.CharField(write_only=True, required=False)
+    contrasena = serializers.CharField(write_only=True, required=False)
+    estado = serializers.BooleanField(write_only=True, required=False)
+    fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     curso_nombre = serializers.CharField(
         source='id_curso.nombre_curso', read_only=True, default=None,
     )
     tutor_nombre = serializers.SerializerMethodField()
+    usuario_estado = serializers.SerializerMethodField()
+    usuario_fecha_deshabilitacion_programada = serializers.SerializerMethodField()
+    usuario_fecha_habilitacion_programada = serializers.SerializerMethodField()
+    estado_label = serializers.SerializerMethodField()
+    proxima_accion_programada = serializers.SerializerMethodField()
 
     class Meta:
         model = Alumno
-        fields = '__all__'
+        fields = [
+            'id_alumno',
+            'id_usuario',
+            'usuario',
+            'usuario_nombre',
+            'contrasena',
+            'estado',
+            'fecha_deshabilitacion_programada',
+            'fecha_habilitacion_programada',
+            'id_tutor',
+            'id_curso',
+            'nombre',
+            'apellido',
+            'dni',
+            'fecha_nacimiento',
+            'direccion',
+            'telefono',
+            'procedencia',
+            'curso_nombre',
+            'tutor_nombre',
+            'usuario_estado',
+            'usuario_fecha_deshabilitacion_programada',
+            'usuario_fecha_habilitacion_programada',
+            'estado_label',
+            'proxima_accion_programada',
+        ]
+        extra_kwargs = {
+            'id_usuario': {'read_only': True},
+            'id_tutor': {'required': False, 'allow_null': True},
+            'id_curso': {'required': False, 'allow_null': True},
+            'direccion': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'telefono': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'procedencia': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
 
     def get_tutor_nombre(self, obj):
         if obj.id_tutor:
             return f'{obj.id_tutor.apellido}, {obj.id_tutor.nombre}'
         return None
+
+    def get_usuario_estado(self, obj):
+        return obj.id_usuario.estado if obj.id_usuario else None
+
+    def get_usuario_fecha_deshabilitacion_programada(self, obj):
+        if not obj.id_usuario:
+            return None
+        value = obj.id_usuario.fecha_deshabilitacion_programada
+        return value.isoformat() if value else None
+
+    def get_usuario_fecha_habilitacion_programada(self, obj):
+        if not obj.id_usuario:
+            return None
+        value = obj.id_usuario.fecha_habilitacion_programada
+        return value.isoformat() if value else None
+
+    def get_estado_label(self, obj):
+        if not obj.id_usuario:
+            return 'Sin usuario'
+        return 'Habilitado' if obj.id_usuario.estado else 'Deshabilitado'
+
+    def get_proxima_accion_programada(self, obj):
+        usuario = obj.id_usuario
+        if not usuario:
+            return None
+        if usuario.estado and usuario.fecha_deshabilitacion_programada:
+            return {
+                'tipo': 'deshabilitar',
+                'fecha': usuario.fecha_deshabilitacion_programada.isoformat(),
+            }
+        if not usuario.estado and usuario.fecha_habilitacion_programada:
+            return {
+                'tipo': 'habilitar',
+                'fecha': usuario.fecha_habilitacion_programada.isoformat(),
+            }
+        if usuario.fecha_deshabilitacion_programada:
+            return {
+                'tipo': 'deshabilitar',
+                'fecha': usuario.fecha_deshabilitacion_programada.isoformat(),
+            }
+        if usuario.fecha_habilitacion_programada:
+            return {
+                'tipo': 'habilitar',
+                'fecha': usuario.fecha_habilitacion_programada.isoformat(),
+            }
+        return None
+
+    def create(self, validated_data):
+        usuario, validated_data = _build_usuario_account(
+            instance=self.instance or Alumno(),
+            validated_data=validated_data,
+            username_key='usuario_nombre',
+            role_name='alumno',
+        )
+        alumno = Alumno.objects.create(id_usuario=usuario, **validated_data)
+        return alumno
+
+    def update(self, instance, validated_data):
+        usuario, validated_data = _build_usuario_account(
+            instance=instance,
+            validated_data=validated_data,
+            username_key='usuario_nombre',
+            role_name='alumno',
+        )
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.id_usuario = usuario
+        instance.save()
+        return instance
 
 
 # ---------- Estructura acadÃ©mica ----------
