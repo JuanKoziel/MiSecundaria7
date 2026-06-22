@@ -1,4 +1,4 @@
-from rest_framework import serializers
+﻿from rest_framework import serializers
 
 from escuela.models import (
     Acta,
@@ -10,6 +10,7 @@ from escuela.models import (
     Calificacion,
     CicloLectivo,
     Comunicado,
+    ComunicadoAlcance,
     ComunicadoArchivo,
     Curso,
     CursoMateria,
@@ -35,7 +36,7 @@ from escuela.models import (
 )
 
 
-# ---------- Catálogos / tablas auxiliares ----------
+# ---------- CatÃ¡logos / tablas auxiliares ----------
 
 class RolSerializer(serializers.ModelSerializer):
     class Meta:
@@ -583,7 +584,7 @@ class AlumnoSerializer(serializers.ModelSerializer):
         return None
 
 
-# ---------- Estructura académica ----------
+# ---------- Estructura acadÃ©mica ----------
 
 class CursoSerializer(serializers.ModelSerializer):
     preceptor_nombre = serializers.SerializerMethodField()
@@ -770,18 +771,82 @@ class ComunicadoArchivoSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class ComunicadoAlcanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComunicadoAlcance
+        fields = '__all__'
+
+
 class ComunicadoSerializer(serializers.ModelSerializer):
-    curso_nombre = serializers.CharField(
-        source='id_curso.nombre_curso', read_only=True, default=None,
-    )
-    materia_nombre = serializers.CharField(
-        source='id_materia.nombre_materia', read_only=True, default=None,
-    )
+    curso_nombre = serializers.CharField(source='id_curso.nombre_curso', read_only=True, default=None)
+    creador_nombre = serializers.SerializerMethodField()
+    materia_nombre = serializers.CharField(source='id_materia.nombre_materia', read_only=True, default=None)
     archivos = ComunicadoArchivoSerializer(many=True, read_only=True)
+    alcances = ComunicadoAlcanceSerializer(many=True, read_only=True)
+    alcance = serializers.DictField(write_only=True, required=False)
 
     class Meta:
         model = Comunicado
         fields = '__all__'
+
+    def validate(self, attrs):
+        alcance = self.initial_data.get('alcance') or {}
+        if not isinstance(alcance, dict):
+            raise serializers.ValidationError({'alcance': 'Debe ser un objeto válido.'})
+
+        id_ciclo = alcance.get('id_ciclo')
+        curso = alcance.get('curso')
+        division = alcance.get('division')
+
+        if (curso is not None or division is not None) and not id_ciclo:
+            raise serializers.ValidationError({'alcance': 'Si se envía curso o división, id_ciclo es obligatorio.'})
+        if division is not None and curso is None:
+            raise serializers.ValidationError({'alcance': 'La división requiere un curso.'})
+        if attrs.get('id_materia') and (id_ciclo is None or curso is None or division is None):
+            raise serializers.ValidationError({'alcance': 'La materia específica requiere ciclo, curso y división.'})
+
+        return attrs
+
+    def _build_alcance_kwargs(self, comunicado, alcance_data):
+        alcance_data = alcance_data or {}
+        return {
+            'id_comunicado': comunicado,
+            'id_ciclo_id': alcance_data.get('id_ciclo') or None,
+            'curso': alcance_data.get('curso') if alcance_data.get('curso') is not None else None,
+            'division': alcance_data.get('division') if alcance_data.get('division') is not None else None,
+            'id_materia_id': comunicado.id_materia_id or None,
+        }
+
+    def create(self, validated_data):
+        alcance_data = validated_data.pop('alcance', {}) or {}
+        comunicado = Comunicado.objects.create(**validated_data)
+        ComunicadoAlcance.objects.create(**self._build_alcance_kwargs(comunicado, alcance_data))
+        return comunicado
+
+    def update(self, instance, validated_data):
+        alcance_data = validated_data.pop('alcance', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if alcance_data is not None:
+            kwargs = self._build_alcance_kwargs(instance, alcance_data)
+            alcance = instance.alcances.first()
+            if alcance:
+                alcance.id_ciclo_id = kwargs['id_ciclo_id']
+                alcance.curso = kwargs['curso']
+                alcance.division = kwargs['division']
+                alcance.id_materia_id = kwargs['id_materia_id']
+                alcance.save()
+            else:
+                ComunicadoAlcance.objects.create(**kwargs)
+
+        return instance
+
+    def get_creador_nombre(self, obj):
+        if obj.id_usuario_creador:
+            return obj.id_usuario_creador.usuario
+        return None
 
 
 # ---------- Planificaciones ----------
@@ -792,7 +857,7 @@ class PlanificacionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-# ---------- Diagnósticos grupales ----------
+# ---------- DiagnÃ³sticos grupales ----------
 
 class DiagnosticoGrupalSerializer(serializers.ModelSerializer):
     class Meta:
@@ -821,3 +886,5 @@ class HistorialCambioSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     usuario = serializers.CharField()
     contrasena = serializers.CharField(write_only=True)
+
+

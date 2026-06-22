@@ -1,6 +1,7 @@
-from django.contrib.auth import authenticate
+﻿from django.contrib.auth import authenticate
 from django.db import models
 from django.http import FileResponse
+import re
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied
@@ -20,6 +21,7 @@ from escuela.models import (
     Calificacion,
     CicloLectivo,
     Comunicado,
+    ComunicadoAlcance,
     ComunicadoArchivo,
     Curso,
     CursoMateria,
@@ -49,6 +51,7 @@ from escuela.serializers import (
     ActaDocenteSerializer,
     ActaSerializer,
     ComunicadoArchivoSerializer,
+    ComunicadoAlcanceSerializer,
     ComunicadoSerializer,
     AlumnoSerializer,
     AsistenciaSerializer,
@@ -78,6 +81,141 @@ from escuela.serializers import (
 )
 
 
+def _usuario_context(request):
+    username = request.user.username if request.user.is_authenticated else None
+    if not username:
+        return {
+            'username': None,
+            'roles': [],
+            'usuario_obj': None,
+            'alumno': None,
+            'padre': None,
+            'docente': None,
+            'preceptor': None,
+        }
+
+    roles = get_roles_for_usuario(username)
+    usuario_obj = Usuario.objects.filter(usuario=username).first()
+    return {
+        'username': username,
+        'roles': roles,
+        'usuario_obj': usuario_obj,
+        'alumno': Alumno.objects.filter(id_usuario=usuario_obj).first() if usuario_obj else None,
+        'padre': PadreTutor.objects.filter(id_usuario=usuario_obj).first() if usuario_obj else None,
+        'docente': Docente.objects.filter(id_usuario=usuario_obj).first() if usuario_obj else None,
+        'preceptor': Preceptor.objects.filter(id_usuario=usuario_obj).first() if usuario_obj else None,
+    }
+
+
+def _parse_curso_nombre(nombre_curso):
+    if not nombre_curso:
+        return {'anio': None, 'division': None}
+    texto = str(nombre_curso).strip()
+    match = re.match(r'^(\d+)\s*[°º]?\s*(\d*)', texto)
+    if match:
+        return {
+            'anio': int(match.group(1)),
+            'division': int(match.group(2)) if match.group(2) else None,
+        }
+    nums = re.findall(r'\d+', texto)
+    if not nums:
+        return {'anio': None, 'division': None}
+    if len(nums) >= 2:
+        return {'anio': int(nums[0]), 'division': int(nums[1])}
+    digits = nums[0]
+    if len(digits) >= 2:
+        return {'anio': int(digits[0]), 'division': int(digits[1:])}
+    return {'anio': int(digits), 'division': None}
+
+
+def _get_comunicado_alcance(comunicado):
+    alcance = getattr(comunicado, 'alcances', None)
+    if alcance is None:
+        return None
+    return alcance.first()
+
+
+def _curso_matches_alcance(curso_obj, alcance):
+    if not alcance or not curso_obj:
+        return False
+    if (
+        alcance.id_ciclo_id is None
+        and alcance.curso is None
+        and alcance.division is None
+        and alcance.id_materia_id is None
+    ):
+        return True
+
+    if alcance.id_ciclo_id and curso_obj.id_ciclo_id != alcance.id_ciclo_id:
+        return False
+
+    parts = _parse_curso_nombre(curso_obj.nombre_curso)
+    if alcance.curso is not None and parts['anio'] != int(alcance.curso):
+        return False
+    if alcance.division is not None and parts['division'] != int(alcance.division):
+        return False
+    return True
+
+
+def _docente_tiene_materia_en_curso(docente_id, curso_obj, materia_id):
+    if not curso_obj or not materia_id:
+        return False
+    return CursoMateria.objects.filter(
+        id_docente=docente_id,
+        id_curso=curso_obj.id_curso,
+        id_materia=materia_id,
+    ).exists()
+
+
+def _comunicado_visible_para_ctx(comunicado, ctx):
+    if 'admin' in ctx['roles'] or 'director' in ctx['roles']:
+        return True
+
+    alcance = _get_comunicado_alcance(comunicado)
+    if alcance is None:
+        return True
+
+    if 'alumno' in ctx['roles'] and ctx['alumno']:
+        return _curso_matches_alcance(ctx['alumno'].id_curso, alcance)
+
+    if 'familia' in ctx['roles'] and ctx['padre']:
+        hijos = Alumno.objects.filter(id_tutor=ctx['padre'].id_tutor).select_related('id_curso')
+        return any(_curso_matches_alcance(hijo.id_curso, alcance) for hijo in hijos if hijo.id_curso)
+
+    if 'preceptor' in ctx['roles'] and ctx['preceptor']:
+        cursos = Curso.objects.filter(id_preceptor=ctx['preceptor'].id_preceptor).select_related('id_ciclo')
+        return any(_curso_matches_alcance(curso, alcance) for curso in cursos)
+
+    if 'docente' in ctx['roles'] and ctx['docente']:
+        asignaciones = CursoMateria.objects.filter(
+            id_docente=ctx['docente'].id_docente,
+        ).select_related('id_curso')
+        for asignacion in asignaciones:
+            curso_obj = asignacion.id_curso
+            if not curso_obj or not _curso_matches_alcance(curso_obj, alcance):
+                continue
+            if alcance.id_materia_id and int(alcance.id_materia_id) != int(asignacion.id_materia_id):
+                continue
+            return True
+        return False
+
+    return False
+
+
+def _filter_visible_comunicados(request, qs):
+    ctx = _usuario_context(request)
+    if not ctx['username']:
+        return qs.none()
+    if 'admin' in ctx['roles'] or 'director' in ctx['roles']:
+        return qs
+
+    visible_ids = [
+        comunicado.id_comunicado
+        for comunicado in qs
+        if _comunicado_visible_para_ctx(comunicado, ctx)
+    ]
+    return qs.filter(id_comunicado__in=visible_ids).distinct()
+
 # ============================================================
 # Login / Autenticación
 # ============================================================
@@ -98,14 +236,14 @@ def login_view(request):
     usuario_obj = Usuario.objects.filter(usuario=username).first()
     if usuario_obj and not usuario_obj.estado:
         return Response(
-            {'error': 'Su usuario se encuentra deshabilitado. Comuníquese con la administración.'},
+            {'error': 'Su usuario se encuentra deshabilitado. ComunÃ­quese con la administraciÃ³n.'},
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
     user = authenticate(request, username=username, password=password)
     if user is None:
         return Response(
-            {'error': 'Credenciales inválidas'},
+            {'error': 'Credenciales invÃ¡lidas'},
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
@@ -312,7 +450,7 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
     def mi_ddjj(self, request):
         docente = self._get_docente_from_request()
         if not docente:
-            raise PermissionDenied('No se encontró un perfil de docente asociado al usuario.')
+            raise PermissionDenied('No se encontrÃ³ un perfil de docente asociado al usuario.')
 
         ddjj = DdjjDocente.objects.filter(id_docente=docente).first()
 
@@ -351,8 +489,8 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
             return Response(
                 {
                     'archivo': [
-                        'No se recibió un archivo en request.FILES. '
-                        'Envíalo como FormData con el campo "archivo".'
+                        'No se recibiÃ³ un archivo en request.FILES. '
+                        'EnvÃ­alo como FormData con el campo "archivo".'
                     ]
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -605,7 +743,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Upsert: evita duplicados por (alumno, curso_materia, fecha, modulo).
 
-        Si ya existe una asistencia para esa combinación, la actualiza en lugar
+        Si ya existe una asistencia para esa combinaciÃ³n, la actualiza en lugar
         de crear una nueva. numero_modulo NULL = general; con valor = por materia.
         """
         data = request.data
@@ -669,87 +807,14 @@ class ActaDocenteViewSet(viewsets.ModelViewSet):
 
 class ComunicadoViewSet(viewsets.ModelViewSet):
     queryset = Comunicado.objects.select_related(
-        'id_curso', 'id_materia',
-    ).prefetch_related('archivos').all()
+        'id_usuario_creador', 'id_curso__id_ciclo', 'id_materia',
+    ).prefetch_related('archivos', 'alcances').all()
     serializer_class = ComunicadoSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = super().get_queryset()
-        curso = self.request.query_params.get('curso')
-        if curso:
-            qs = qs.filter(id_curso=curso)
-
-        # Permission filtering based on user role
-        from escuela.auth_backend import get_roles_for_usuario
-        username = self.request.user.username if self.request.user.is_authenticated else None
-        if not username:
-            return qs.none()
-
-        roles = get_roles_for_usuario(username)
-        usuario_obj = Usuario.objects.filter(usuario=username).first()
-
-        if 'admin' in roles or 'director' in roles:
-            # Administrators and directors can see all communications
-            return qs
-
-        if 'alumno' in roles and usuario_obj:
-            # Students can see communications for their course (general or subject-specific)
-            alumno = Alumno.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if alumno:
-                mi_curso_id = alumno.id_curso
-                # All communications for their course (general + subject-specific)
-                qs = qs.filter(id_curso=mi_curso_id)
-            else:
-                qs = qs.none()
-
-        elif 'familia' in roles and usuario_obj:
-            # Families can see communications from their linked students' courses (general or subject-specific)
-            tutor = PadreTutor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if tutor:
-                hijos = Alumno.objects.filter(id_tutor=tutor.id_tutor)
-                cursos_hijos_ids = list(hijos.values_list('id_curso', flat=True))
-                # All communications for their children's courses (general + subject-specific)
-                qs = qs.filter(id_curso__in=cursos_hijos_ids)
-            else:
-                qs = qs.none()
-
-        elif 'docente' in roles and usuario_obj:
-            # Teachers can see:
-            # - General communications (no specific subject) for courses where they teach
-            # - Subject-specific communications only for subjects they have assigned in that specific course
-            docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if docente:
-                asignaciones = CursoMateria.objects.filter(id_docente=docente.id_docente)
-                cursos_ids = list(asignaciones.values_list('id_curso', flat=True))
-                materias_ids = list(asignaciones.values_list('id_materia', flat=True))
-                
-                # Build Q objects for each specific (curso, materia) assignment
-                curso_materia_q = models.Q()
-                for cm in asignaciones:
-                    curso_materia_q |= models.Q(id_curso=cm.id_curso, id_materia=cm.id_materia)
-                
-                # Filter by courses where they teach, then by general OR their specific (curso, materia) assignments
-                qs = qs.filter(id_curso__in=cursos_ids).filter(
-                    models.Q(id_materia__isnull=True) | curso_materia_q
-                )
-            else:
-                qs = qs.none()
-
-        elif 'preceptor' in roles and usuario_obj:
-            # Preceptors can see communications from the courses they manage and general communications
-            preceptor = Preceptor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if preceptor:
-                cursos_ids = list(Curso.objects.filter(id_preceptor=preceptor.id_preceptor).values_list('id_curso', flat=True))
-                # Communications for their courses OR general communications (no course/materia specified)
-                qs = qs.filter(
-                    models.Q(id_curso__in=cursos_ids) | models.Q(id_curso__isnull=True, id_materia__isnull=True)
-                )
-            else:
-                qs = qs.none()
-
-        return qs
-
+        return _filter_visible_comunicados(self.request, qs)
 
 class ComunicadoArchivoViewSet(viewsets.ModelViewSet):
     queryset = ComunicadoArchivo.objects.select_related('id_comunicado').all()
@@ -758,65 +823,9 @@ class ComunicadoArchivoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        
-        # Security: Users can only access files from communications they're allowed to see
-        from escuela.auth_backend import get_roles_for_usuario
-        username = self.request.user.username if self.request.user.is_authenticated else None
-        if not username:
-            return qs.none()
-
-        roles = get_roles_for_usuario(username)
-        usuario_obj = Usuario.objects.filter(usuario=username).first()
-
-        if 'admin' in roles or 'director' in roles:
-            # Administrators and directors can access all files
-            return qs
-
-        # Get the IDs of communications the user is allowed to see
-        comunicado_ids = []
-        
-        if 'alumno' in roles and usuario_obj:
-            alumno = Alumno.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if alumno:
-                mi_curso_id = alumno.id_curso
-                mis_materias_ids = list(CursoMateria.objects.filter(
-                    id_curso=mi_curso_id
-                ).values_list('id_materia', flat=True))
-                comunicado_ids = list(Comunicado.objects.filter(
-                    models.Q(id_curso=mi_curso_id) | models.Q(id_materia__in=mis_materias_ids)
-                ).values_list('id_comunicado', flat=True))
-
-        elif 'familia' in roles and usuario_obj:
-            tutor = PadreTutor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if tutor:
-                hijos = Alumno.objects.filter(id_tutor=tutor.id_tutor)
-                cursos_hijos_ids = list(hijos.values_list('id_curso', flat=True))
-                materias_hijos_ids = list(CursoMateria.objects.filter(
-                    id_curso__in=cursos_hijos_ids
-                ).values_list('id_materia', flat=True))
-                comunicado_ids = list(Comunicado.objects.filter(
-                    models.Q(id_curso__in=cursos_hijos_ids) | models.Q(id_materia__in=materias_hijos_ids)
-                ).values_list('id_comunicado', flat=True))
-
-        elif 'docente' in roles and usuario_obj:
-            docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if docente:
-                asignaciones = CursoMateria.objects.filter(id_docente=docente.id_docente)
-                cursos_ids = list(asignaciones.values_list('id_curso', flat=True))
-                materias_ids = list(asignaciones.values_list('id_materia', flat=True))
-                comunicado_ids = list(Comunicado.objects.filter(
-                    models.Q(id_curso__in=cursos_ids) | models.Q(id_materia__in=materias_ids)
-                ).values_list('id_comunicado', flat=True))
-
-        elif 'preceptor' in roles and usuario_obj:
-            preceptor = Preceptor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if preceptor:
-                cursos_ids = list(Curso.objects.filter(id_preceptor=preceptor.id_preceptor).values_list('id_curso', flat=True))
-                comunicado_ids = list(Comunicado.objects.filter(
-                    models.Q(id_curso__in=cursos_ids) | models.Q(id_curso__isnull=True, id_materia__isnull=True)
-                ).values_list('id_comunicado', flat=True))
-
-        return qs.filter(id_comunicado__in=comunicado_ids)
+        comunicados_visibles = _filter_visible_comunicados(self.request, Comunicado.objects.prefetch_related('alcances').all())
+        ids_visibles = list(comunicados_visibles.values_list('id_comunicado', flat=True))
+        return qs.filter(id_comunicado__in=ids_visibles)
 
 
 class PlanificacionViewSet(viewsets.ModelViewSet):
@@ -907,12 +916,12 @@ class DiagnosticoGrupalViewSet(viewsets.ModelViewSet):
         usuario_obj = Usuario.objects.filter(usuario=username).first()
 
         if 'admin' not in roles and 'director' not in roles and 'docente' not in roles:
-            raise PermissionError("Solo docentes, administradores y directores pueden crear diagnósticos")
+            raise PermissionError("Solo docentes, administradores y directores pueden crear diagnÃ³sticos")
 
         if 'docente' in roles and usuario_obj:
             docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
             if not docente:
-                raise PermissionError("No se encontró el perfil de docente")
+                raise PermissionError("No se encontrÃ³ el perfil de docente")
 
             # Get the course from the request data
             id_curso = self.request.data.get('id_curso')
@@ -926,7 +935,7 @@ class DiagnosticoGrupalViewSet(viewsets.ModelViewSet):
             ).exists()
 
             if not has_assignment:
-                raise PermissionError("No tenés asignaciones en este curso. No podés crear diagnósticos para él.")
+                raise PermissionError("No tenÃ©s asignaciones en este curso. No podÃ©s crear diagnÃ³sticos para Ã©l.")
 
             # Set the docente to the current user
             serializer.save(id_docente=docente)
@@ -974,7 +983,7 @@ def upload_file(request):
 
     archivo = request.FILES.get('archivo')
     if not archivo:
-        return Response({'error': 'No se envió ningún archivo.'}, status=400)
+        return Response({'error': 'No se enviÃ³ ningÃºn archivo.'}, status=400)
 
     carpeta = request.data.get('carpeta', 'general')
     dest_dir = os.path.join(settings.MEDIA_ROOT, carpeta)
@@ -995,3 +1004,5 @@ def upload_file(request):
 
     url = f'{settings.MEDIA_URL}{carpeta}/{nombre}'
     return Response({'url': url, 'nombre': nombre})
+
+

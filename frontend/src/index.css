@@ -568,9 +568,129 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 }
 .form-group-filter select, .form-group-filter input {
     width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    padding: 12px 14px;
+    border: 1px solid var(--table-border);
+    border-radius: 10px;
+    background: var(--table-row-bg);
+    color: var(--text-dark);
+    transition: var(--transition);
+}
+
+.form-group-filter textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--table-border);
+    border-radius: 10px;
+    background: var(--table-row-bg);
+    color: var(--text-dark);
+    resize: vertical;
+    min-height: 170px;
+    outline: none;
+    transition: var(--transition);
+}
+
+.form-group-filter select:focus,
+.form-group-filter input:focus,
+.form-group-filter textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.10);
+    outline: none;
+}
+
+.form-group-filter input::placeholder,
+.form-group-filter textarea::placeholder {
+    color: #6b7785;
+}
+
+.upload-dashed-box .form-group-filter select,
+.upload-dashed-box .form-group-filter input,
+.upload-dashed-box .form-group-filter textarea {
+    background: var(--table-row-bg);
+    border-color: var(--table-border);
+}
+
+.comunicados-form {
+    background: var(--white);
+    border: 1px solid var(--table-border);
+    border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(13, 35, 58, 0.06);
+    padding: 0;
+    overflow: hidden;
+}
+
+.comunicados-form .preceptor-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+}
+
+.comunicados-form .form-group-filter {
+    margin: 0;
+    padding: 16px;
+    border-right: 1px solid var(--table-border);
+    border-bottom: 1px solid var(--table-border);
+    background: var(--table-row-bg);
+}
+
+.comunicados-form .form-group-filter.preceptor-form-full {
+    grid-column: 1 / -1;
+}
+
+.comunicados-form .form-group-filter:nth-child(2n) {
+    border-right: 0;
+}
+
+.comunicados-form .form-group-filter:nth-last-child(-n + 2) {
+    border-bottom: 0;
+}
+
+.comunicados-form .form-group-filter label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.comunicados-form .form-group-filter select,
+.comunicados-form .form-group-filter input,
+.comunicados-form .form-group-filter textarea {
+    width: 100%;
+    border: 1px solid var(--table-border);
+    border-radius: 8px;
+    background: var(--table-row-bg);
+    color: var(--table-text);
+    box-shadow: none;
+}
+
+.comunicados-form .form-group-filter textarea {
+    min-height: 220px;
+    resize: vertical;
+}
+
+.comunicados-form .form-group-filter select:focus,
+.comunicados-form .form-group-filter input:focus,
+.comunicados-form .form-group-filter textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.12);
+}
+
+.comunicados-form .form-group-filter input::placeholder,
+.comunicados-form .form-group-filter textarea::placeholder {
+    color: #7a8794;
+}
+
+.comunicados-form .btn {
+    margin: 16px;
+    border-radius: 8px;
+}
+
+.comunicados-destino-preview {
+    padding: 12px 14px;
+    border: 1px solid var(--table-border);
+    border-radius: 8px;
+    background: var(--table-row-alt);
+    color: var(--table-text);
+    line-height: 1.5;
 }
 
 .action-footer-btn {

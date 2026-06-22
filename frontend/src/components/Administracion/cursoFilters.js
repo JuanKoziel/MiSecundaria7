@@ -37,12 +37,24 @@ export function findCursoObj(cursosObj, anioLectivo = '', anioCurso = '', divisi
   const lectivo = anioLectivo ? Number(anioLectivo) : null;
   const curso = anioCurso ? Number(anioCurso) : null;
   const div = division ? Number(division) : null;
+  if (!lectivo || !curso || !div) return null;
   return (cursosObj || []).find((c) => {
-    if (lectivo && Number(c.ciclo_anio) !== lectivo) return false;
+    if (Number(c.ciclo_anio) !== lectivo) return false;
     const parts = parseCurso(c.nombre_curso);
-    if (curso && parts.anio !== curso) return false;
-    if (div && parts.division !== div) return false;
+    if (parts.anio !== curso) return false;
+    if (parts.division !== div) return false;
     return true;
+  }) || null;
+}
+
+export function findCursoPorAnio(cursosObj, anioLectivo = '', anioCurso = '') {
+  const lectivo = anioLectivo ? Number(anioLectivo) : null;
+  const curso = anioCurso ? Number(anioCurso) : null;
+  if (!lectivo || !curso) return null;
+  return (cursosObj || []).find((c) => {
+    if (Number(c.ciclo_anio) !== lectivo) return false;
+    const parts = parseCurso(c.nombre_curso);
+    return parts.anio === curso;
   }) || null;
 }
 

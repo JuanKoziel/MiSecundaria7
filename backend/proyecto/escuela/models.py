@@ -520,6 +520,7 @@ class Comunicado(models.Model):
     )
     id_curso = models.ForeignKey(
         Curso, on_delete=models.CASCADE, db_column='id_curso',
+        blank=True, null=True,
     )
     id_materia = models.ForeignKey(
         Materia, on_delete=models.SET_NULL, db_column='id_materia',
@@ -532,6 +533,28 @@ class Comunicado(models.Model):
     class Meta:
         managed = False
         db_table = 'comunicados'
+
+
+class ComunicadoAlcance(models.Model):
+    id_alcance = models.AutoField(primary_key=True)
+    id_comunicado = models.ForeignKey(
+        Comunicado, on_delete=models.CASCADE, db_column='id_comunicado',
+        related_name='alcances',
+    )
+    id_ciclo = models.ForeignKey(
+        CicloLectivo, on_delete=models.SET_NULL, db_column='id_ciclo',
+        blank=True, null=True,
+    )
+    curso = models.IntegerField(blank=True, null=True)
+    division = models.IntegerField(blank=True, null=True)
+    id_materia = models.ForeignKey(
+        Materia, on_delete=models.SET_NULL, db_column='id_materia',
+        blank=True, null=True,
+    )
+
+    class Meta:
+        managed = False
+        db_table = 'comunicado_alcance'
 
 
 class ComunicadoArchivo(models.Model):

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { parseCurso } from '../../utils/orientacion';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -8,6 +9,31 @@ function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
   if (estado === 'Ausente') return 'badge-ausente';
   return 'badge-tarde';
+}
+
+function getAlcance(comunicado) {
+  return comunicado?.alcance || comunicado?.alcances?.[0] || null;
+}
+
+function comunicadoMatchesCurso(comunicado, cursoObj) {
+  if (!comunicado || !cursoObj) return false;
+  const alcance = getAlcance(comunicado);
+  if (!alcance) return true;
+
+  const hasCiclo = alcance.id_ciclo !== null && alcance.id_ciclo !== undefined;
+  const hasCurso = alcance.curso !== null && alcance.curso !== undefined;
+  const hasDivision = alcance.division !== null && alcance.division !== undefined;
+  const hasMateria = alcance.id_materia !== null && alcance.id_materia !== undefined;
+
+  if (!hasCiclo && !hasCurso && !hasDivision && !hasMateria) return true;
+
+  if (hasCiclo && Number(cursoObj.id_ciclo) !== Number(alcance.id_ciclo)) return false;
+
+  const parts = parseCurso(cursoObj.nombre_curso || '');
+  if (hasCurso && parts.anio !== Number(alcance.curso)) return false;
+  if (hasDivision && parts.division !== Number(alcance.division)) return false;
+
+  return true;
 }
 
 function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
@@ -32,49 +58,26 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
     switch (userRole) {
       case 'alumno': {
         const miAlumno = alumnos.find((a) => a.id_usuario === userId);
-        if (!miAlumno) return [];
-        const miCursoId = miAlumno.id_curso;
-        const misMaterias = cursoMateria
-          .filter((cm) => cm.id_curso === miCursoId)
-          .map((cm) => cm.id_materia);
-
-        const filtered = comunicados.filter((c) => {
-          if (c.id_curso === miCursoId) return true;
-          if (c.id_materia && misMaterias.includes(c.id_materia)) return true;
-          return false;
-        });
-        return filtered;
+        const miCurso = miAlumno ? cursosObj.find((c) => c.id_curso === miAlumno.id_curso) : null;
+        if (!miCurso) return [];
+        return comunicados.filter((c) => comunicadoMatchesCurso(c, miCurso));
       }
 
       case 'familia': {
-        // If a specific child is selected, filter only for that child
         if (selectedChild && selectedChild.alumnoId) {
           const alumno = alumnos.find((a) => a.id === selectedChild.alumnoId);
-          if (alumno) {
-            const cursoId = alumno.id_curso;
-            const filtered = comunicados.filter((c) => c.id_curso === cursoId);
-            return filtered;
-          }
-          return [];
+          const cursoObj = alumno ? cursosObj.find((c) => c.id_curso === alumno.id_curso) : null;
+          if (!cursoObj) return [];
+          return comunicados.filter((c) => comunicadoMatchesCurso(c, cursoObj));
         }
 
-        // Fallback: show all children's communications (original behavior)
         const miTutor = padresTutores.find((pt) => pt.id_usuario === userId);
         if (!miTutor) return [];
         const misHijos = alumnos.filter((a) => a.id_tutor === miTutor.id_tutor);
-        const cursosHijos = new Set(misHijos.map((h) => h.id_curso).filter(Boolean));
-        const materiasHijos = new Set(
-          misHijos
-            .flatMap((h) => cursoMateria.filter((cm) => cm.id_curso === h.id_curso))
-            .map((cm) => cm.id_materia)
-        );
-
-        const filtered = comunicados.filter((c) => {
-          if (c.id_curso && cursosHijos.has(c.id_curso)) return true;
-          if (c.id_materia && materiasHijos.has(c.id_materia)) return true;
-          return false;
-        });
-        return filtered;
+        const cursosHijos = misHijos
+          .map((h) => cursosObj.find((c) => c.id_curso === h.id_curso))
+          .filter(Boolean);
+        return comunicados.filter((c) => cursosHijos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
       }
 
       case 'docente': {
@@ -82,25 +85,22 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
         if (!miDocente) return [];
         const misAsignaciones = cursoMateria.filter((cm) => cm.id_docente === miDocente.id);
 
-        // Filter by permission rules
         const filteredByPermission = comunicados.filter((c) => {
-          // Comunicado general (sin materia): ver si tiene asignación en ese curso
-          if (!c.id_materia) {
-            return misAsignaciones.some((cm) => cm.id_curso === c.id_curso);
-          }
-
-          // Comunicado específico de materia: ver si tiene asignación exacta
-          return misAsignaciones.some(
-            (cm) =>
-              cm.id_curso === c.id_curso &&
-              cm.id_materia === c.id_materia &&
-              cm.id_docente === miDocente.id
-          );
+          if (!misAsignaciones.length) return false;
+          const alcance = getAlcance(c);
+          return misAsignaciones.some((cm) => {
+            const cursoObj = cursosObj.find((curso) => curso.id_curso === cm.id_curso);
+            if (!comunicadoMatchesCurso(c, cursoObj)) return false;
+            if (alcance?.id_materia !== null && alcance?.id_materia !== undefined) {
+              return Number(alcance.id_materia) === Number(cm.id_materia);
+            }
+            return true;
+          });
         });
 
-        // Apply course filter if selected
         if (cursoSeleccionado) {
-          return filteredByPermission.filter((c) => c.id_curso === Number(cursoSeleccionado));
+          const cursoSeleccionadoObj = cursosObj.find((c) => c.id_curso === Number(cursoSeleccionado));
+          return filteredByPermission.filter((c) => comunicadoMatchesCurso(c, cursoSeleccionadoObj));
         }
 
         return filteredByPermission;
@@ -110,14 +110,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
         const miPreceptor = preceptores.find((p) => p.id_usuario === userId);
         if (!miPreceptor) return [];
         const misCursos = cursosObj.filter((c) => c.id_preceptor === miPreceptor.id_preceptor);
-        const misCursosIds = new Set(misCursos.map((c) => c.id_curso));
-
-        const filtered = comunicados.filter((c) => {
-          if (c.id_curso && misCursosIds.has(c.id_curso)) return true;
-          if (!c.id_curso && !c.id_materia) return true;
-          return false;
-        });
-        return filtered;
+        return comunicados.filter((c) => misCursos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
       }
 
       case 'admin':
