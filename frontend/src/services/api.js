@@ -84,6 +84,25 @@ export async function uploadMiDdjjDocente(file) {
   return data;
 }
 
+export async function getActividades(params) {
+  const { data } = await api.get('/actividades-docente/', { params });
+  return data;
+}
+
+export async function createActividad(payload) {
+  const { data } = await api.post('/actividades-docente/', payload);
+  return data;
+}
+
+export async function updateActividad(id, payload) {
+  const { data } = await api.patch(`/actividades-docente/${id}/`, payload);
+  return data;
+}
+
+export async function deleteActividad(id) {
+  await api.delete(`/actividades-docente/${id}/`);
+}
+
 export async function getDdjjDocenteArchivo(idDdjj) {
   const { data } = await api.get(`/ddjj-docente/${idDdjj}/archivo/`);
   return data;

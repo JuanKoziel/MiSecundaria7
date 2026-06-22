@@ -18,6 +18,7 @@ from escuela.models import (
     ActaDocente,
     Alumno,
     Asistencia,
+    ActividadDocente,
     Calificacion,
     CicloLectivo,
     Comunicado,
@@ -50,6 +51,7 @@ from escuela.serializers import (
     ActaCursoSerializer,
     ActaDocenteSerializer,
     ActaSerializer,
+    ActividadDocenteSerializer,
     ComunicadoArchivoSerializer,
     ComunicadoAlcanceSerializer,
     ComunicadoSerializer,
@@ -662,6 +664,57 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         if not self._can_view_all():
             raise PermissionDenied('No tienes permiso para eliminar esta DDJJ.')
+        if instance.ruta_archivo and instance.ruta_archivo.storage.exists(instance.ruta_archivo.name):
+            instance.ruta_archivo.storage.delete(instance.ruta_archivo.name)
+        instance.delete()
+
+
+class ActividadDocenteViewSet(viewsets.ModelViewSet):
+    queryset = ActividadDocente.objects.select_related(
+        'id_docente',
+        'id_curso_materia__id_curso',
+        'id_curso_materia__id_materia',
+    ).all()
+    serializer_class = ActividadDocenteSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def _docente_actual(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            return None
+        usuario_obj = Usuario.objects.filter(usuario=username).first()
+        if not usuario_obj:
+            return None
+        return Docente.objects.filter(id_usuario=usuario_obj).first()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        docente = self._docente_actual()
+        if not docente:
+            return qs.none()
+        qs = qs.filter(id_docente=docente)
+        curso_materia = self.request.query_params.get('curso_materia')
+        if curso_materia:
+            qs = qs.filter(id_curso_materia=curso_materia)
+        return qs
+
+    def perform_create(self, serializer):
+        docente = self._docente_actual()
+        if not docente:
+            raise PermissionDenied('No se pudo identificar el docente autenticado.')
+        serializer.save(id_docente=docente)
+
+    def perform_update(self, serializer):
+        docente = self._docente_actual()
+        if not docente or serializer.instance.id_docente_id != docente.id_docente:
+            raise PermissionDenied('No tienes permiso para modificar esta actividad.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        docente = self._docente_actual()
+        if not docente or instance.id_docente_id != docente.id_docente:
+            raise PermissionDenied('No tienes permiso para eliminar esta actividad.')
         if instance.ruta_archivo and instance.ruta_archivo.storage.exists(instance.ruta_archivo.name):
             instance.ruta_archivo.storage.delete(instance.ruta_archivo.name)
         instance.delete()

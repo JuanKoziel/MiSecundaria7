@@ -9,6 +9,7 @@ from escuela.models import (
     Asistencia,
     Calificacion,
     CicloLectivo,
+    ActividadDocente,
     Comunicado,
     ComunicadoAlcance,
     ComunicadoArchivo,
@@ -514,6 +515,112 @@ class DdjjDocenteSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         raise serializers.ValidationError({'archivo': 'Ya posee una D.D.J.J. presentada.'})
+
+
+class ActividadDocenteSerializer(serializers.ModelSerializer):
+    archivo = serializers.FileField(write_only=True, required=False)
+    curso_nombre = serializers.CharField(source='id_curso_materia.id_curso.nombre_curso', read_only=True)
+    materia_nombre = serializers.CharField(source='id_curso_materia.id_materia.nombre_materia', read_only=True)
+    docente_nombre = serializers.CharField(source='id_docente.nombre', read_only=True)
+    docente_apellido = serializers.CharField(source='id_docente.apellido', read_only=True)
+    nombre_archivo = serializers.SerializerMethodField()
+    archivo_url = serializers.SerializerMethodField()
+    fecha_subida = serializers.DateTimeField(source='fecha_creacion', read_only=True)
+    hora_subida = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ActividadDocente
+        fields = [
+            'id_actividad',
+            'id_docente',
+            'id_curso_materia',
+            'curso_nombre',
+            'materia_nombre',
+            'docente_nombre',
+            'docente_apellido',
+            'titulo',
+            'descripcion',
+            'archivo',
+            'archivo_url',
+            'nombre_archivo',
+            'fecha_creacion',
+            'fecha_subida',
+            'hora_subida',
+        ]
+
+    def get_nombre_archivo(self, obj):
+        if not obj.ruta_archivo:
+            return None
+        return obj.ruta_archivo.name.split('/')[-1]
+
+    def get_archivo_url(self, obj):
+        if not obj.ruta_archivo:
+            return None
+        try:
+            return obj.ruta_archivo.url
+        except Exception:
+            return f'/media/{obj.ruta_archivo.name}'
+
+    def get_hora_subida(self, obj):
+        if not obj.fecha_creacion:
+            return None
+        return obj.fecha_creacion.strftime('%H:%M')
+
+    def _get_docente_actual(self, request):
+        if not request or not request.user or not request.user.is_authenticated:
+            return None
+        username = request.user.username
+        usuario_obj = Usuario.objects.filter(usuario=username).first()
+        if not usuario_obj:
+            return None
+        return Docente.objects.filter(id_usuario=usuario_obj).first()
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        docente_actual = self._get_docente_actual(request)
+        if not docente_actual:
+            raise serializers.ValidationError({'detail': 'No se pudo identificar el docente autenticado.'})
+
+        curso_materia = attrs.get('id_curso_materia') or getattr(self.instance, 'id_curso_materia', None)
+        if not curso_materia:
+            raise serializers.ValidationError({'id_curso_materia': 'Debes seleccionar un curso y una materia válidos.'})
+
+        if curso_materia.id_docente_id != docente_actual.id_docente:
+            raise serializers.ValidationError({'id_curso_materia': 'No tienes permiso para usar esa asignación.'})
+
+        archivo = self.initial_data.get('archivo')
+        if self.instance is None and not archivo:
+            raise serializers.ValidationError({'archivo': 'Debes adjuntar un archivo para la actividad.'})
+
+        return attrs
+
+    def create(self, validated_data):
+        archivo = validated_data.pop('archivo', None)
+        validated_data.pop('id_docente', None)
+        request = self.context.get('request')
+        docente_actual = self._get_docente_actual(request)
+        if not docente_actual:
+            raise serializers.ValidationError({'detail': 'No se pudo identificar el docente autenticado.'})
+
+        instance = ActividadDocente(**validated_data)
+        instance.id_docente = docente_actual
+        if archivo is not None:
+            instance.ruta_archivo = archivo
+        instance.save()
+        return instance
+
+    def update(self, instance, validated_data):
+        archivo = validated_data.pop('archivo', None)
+        validated_data.pop('id_docente', None)
+        validated_data.pop('id_curso_materia', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if archivo is not None:
+            if instance.ruta_archivo and instance.ruta_archivo.name and instance.ruta_archivo.storage.exists(instance.ruta_archivo.name):
+                instance.ruta_archivo.storage.delete(instance.ruta_archivo.name)
+            instance.ruta_archivo = archivo
+        instance.save()
+        return instance
 
 
 class DocenteSerializer(serializers.ModelSerializer):

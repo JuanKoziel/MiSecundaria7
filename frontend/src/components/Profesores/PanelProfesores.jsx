@@ -6,6 +6,7 @@ import PanelAlumnos from './PanelAlumnos';
 import PanelInfo from './PanelInfo';
 import PanelPlanif from './PanelPlanif';
 import PanelAsistencia from './PanelAsistencia';
+import PanelActividades from './PanelActividades';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
@@ -200,6 +201,16 @@ function PanelProfesores({ user, onLogout }) {
             <div className={`view-section ${seccionActiva === 'planif' ? 'active' : ''}`}>
               {seccionActiva === 'planif' && (
                 <PanelPlanif
+                  cursoMateriaId={cursoMateriaActivo.id}
+                  docenteId={miDocente?.id}
+                  materiaNombre={materiaSeleccionada}
+                  cursoNombre={cursoNombre}
+                />
+              )}
+            </div>
+            <div className={`view-section ${seccionActiva === 'actividades' ? 'active' : ''}`}>
+              {seccionActiva === 'actividades' && (
+                <PanelActividades
                   cursoMateriaId={cursoMateriaActivo.id}
                   docenteId={miDocente?.id}
                   materiaNombre={materiaSeleccionada}

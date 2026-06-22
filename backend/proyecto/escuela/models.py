@@ -193,6 +193,29 @@ class DdjjDocente(models.Model):
         return f'DDJJ {self.id_docente}'
 
 
+class ActividadDocente(models.Model):
+    id_actividad = models.AutoField(primary_key=True)
+    id_docente = models.ForeignKey(
+        Docente, on_delete=models.CASCADE, db_column='id_docente',
+        related_name='actividades_docentes',
+    )
+    id_curso_materia = models.ForeignKey(
+        'CursoMateria', on_delete=models.CASCADE, db_column='id_curso_materia',
+        related_name='actividades_docentes',
+    )
+    titulo = models.CharField(max_length=150)
+    descripcion = models.TextField(blank=True, null=True)
+    ruta_archivo = models.FileField(upload_to='actividades_docentes/', max_length=255)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'actividades_docentes'
+
+    def __str__(self):
+        return self.titulo
+
+
 class Directivo(models.Model):
     id_directivo = models.AutoField(primary_key=True)
     id_usuario = models.OneToOneField(
