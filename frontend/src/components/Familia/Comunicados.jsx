@@ -1,9 +1,26 @@
 import { useData } from '../../context/DataContext';
+import { parseCurso } from '../../utils/orientacion';
+
+function comunicadoAplicaAcurso(comunicado, hijoCurso) {
+  const alcances = Array.isArray(comunicado?.alcances) ? comunicado.alcances : [];
+  if (!alcances.length) return true;
+  const parts = parseCurso(hijoCurso || '');
+  return alcances.some((alcance) => {
+    const hasCurso = alcance.curso !== null && alcance.curso !== undefined;
+    const hasDivision = alcance.division !== null && alcance.division !== undefined;
+    if (!hasCurso && !hasDivision && alcance.id_ciclo === null && alcance.id_ciclo === undefined && alcance.id_materia === null && alcance.id_materia === undefined) {
+      return true;
+    }
+    if (hasCurso && parts.anio !== Number(alcance.curso)) return false;
+    if (hasDivision && parts.division !== Number(alcance.division)) return false;
+    return true;
+  });
+}
 
 function Comunicados({ hijo }) {
   const { comunicadosFamilia } = useData();
   const comunicados = comunicadosFamilia
-    .filter((c) => c.curso === hijo.curso)
+    .filter((c) => comunicadoAplicaAcurso(c, hijo.curso))
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   return (

@@ -128,11 +128,15 @@ def _parse_curso_nombre(nombre_curso):
     return {'anio': int(digits), 'division': None}
 
 
-def _get_comunicado_alcance(comunicado):
-    alcance = getattr(comunicado, 'alcances', None)
-    if alcance is None:
-        return None
-    return alcance.first()
+def _get_comunicado_alcances(comunicado):
+    alcances = getattr(comunicado, 'alcances', None)
+    if alcances is None:
+        return []
+    if hasattr(alcances, 'all'):
+        return list(alcances.all())
+    if isinstance(alcances, (list, tuple)):
+        return list(alcances)
+    return []
 
 
 def _curso_matches_alcance(curso_obj, alcance):
@@ -171,20 +175,28 @@ def _comunicado_visible_para_ctx(comunicado, ctx):
     if 'admin' in ctx['roles'] or 'director' in ctx['roles']:
         return True
 
-    alcance = _get_comunicado_alcance(comunicado)
-    if alcance is None:
+    alcances = _get_comunicado_alcances(comunicado)
+    if not alcances:
         return True
 
     if 'alumno' in ctx['roles'] and ctx['alumno']:
-        return _curso_matches_alcance(ctx['alumno'].id_curso, alcance)
+        return any(_curso_matches_alcance(ctx['alumno'].id_curso, alcance) for alcance in alcances)
 
     if 'familia' in ctx['roles'] and ctx['padre']:
         hijos = Alumno.objects.filter(id_tutor=ctx['padre'].id_tutor).select_related('id_curso')
-        return any(_curso_matches_alcance(hijo.id_curso, alcance) for hijo in hijos if hijo.id_curso)
+        return any(
+            _curso_matches_alcance(hijo.id_curso, alcance)
+            for hijo in hijos if hijo.id_curso
+            for alcance in alcances
+        )
 
     if 'preceptor' in ctx['roles'] and ctx['preceptor']:
         cursos = Curso.objects.filter(id_preceptor=ctx['preceptor'].id_preceptor).select_related('id_ciclo')
-        return any(_curso_matches_alcance(curso, alcance) for curso in cursos)
+        return any(
+            _curso_matches_alcance(curso, alcance)
+            for curso in cursos
+            for alcance in alcances
+        )
 
     if 'docente' in ctx['roles'] and ctx['docente']:
         asignaciones = CursoMateria.objects.filter(
@@ -192,11 +204,14 @@ def _comunicado_visible_para_ctx(comunicado, ctx):
         ).select_related('id_curso')
         for asignacion in asignaciones:
             curso_obj = asignacion.id_curso
-            if not curso_obj or not _curso_matches_alcance(curso_obj, alcance):
+            if not curso_obj:
                 continue
-            if alcance.id_materia_id and int(alcance.id_materia_id) != int(asignacion.id_materia_id):
-                continue
-            return True
+            for alcance in alcances:
+                if not _curso_matches_alcance(curso_obj, alcance):
+                    continue
+                if alcance.id_materia_id and int(alcance.id_materia_id) != int(asignacion.id_materia_id):
+                    continue
+                return True
         return False
 
     return False

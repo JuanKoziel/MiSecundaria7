@@ -48,7 +48,7 @@ function scopeFromAlcance(alcance) {
   return 'general';
 }
 
-function buildAlcanceLabel(alcance, cicloObj, materiaNombre = '') {
+function buildAlcanceLabel(alcance) {
   if (!alcance) return 'General';
   const scope = scopeFromAlcance(alcance);
   const curso = alcance.curso !== null && alcance.curso !== undefined ? `${alcance.curso}°` : '';
@@ -56,9 +56,15 @@ function buildAlcanceLabel(alcance, cicloObj, materiaNombre = '') {
 
   if (scope === 'general' || scope === 'year') return 'General';
   if (scope === 'course') return curso;
-  if (scope === 'division') return `${curso}${division}`;
-  if (scope === 'subject') return `${curso}${division}`;
+  if (scope === 'division' || scope === 'subject') return `${curso}${division}`;
   return 'General';
+}
+
+function buildAlcanceLabels(alcances) {
+  const labels = (Array.isArray(alcances) ? alcances : [])
+    .map((alcance) => buildAlcanceLabel(alcance))
+    .filter(Boolean);
+  return [...new Set(labels)];
 }
 
 export function DataProvider({ children }) {
@@ -437,34 +443,32 @@ export function DataProvider({ children }) {
 
       const comunicados = (Array.isArray(comunicadosRaw) ? comunicadosRaw : []).map((c) => {
         const cursoObj = cursosObjArr.find((x) => x.id_curso === c.id_curso) || null;
-        const alcance = Array.isArray(c.alcances) ? c.alcances[0] || null : null;
-        const cicloObj = alcance?.id_ciclo
-          ? ciclosRaw.find((cy) => Number(cy.id_ciclo) === Number(alcance.id_ciclo))
+        const alcances = Array.isArray(c.alcances) ? c.alcances : [];
+        const alcance = alcances[0] || null;
+        const alcanceLabels = buildAlcanceLabels(alcances);
+        const alcanceLabel = alcanceLabels.length > 0 ? alcanceLabels.join(', ') : 'General';
+        const cicloId = alcances.find((a) => a.id_ciclo)?.id_ciclo || null;
+        const cicloObj = cicloId
+          ? ciclosRaw.find((cy) => Number(cy.id_ciclo) === Number(cicloId))
           : null;
-        const scope = scopeFromAlcance(alcance);
-        const alcanceLabel = buildAlcanceLabel(alcance, cicloObj, c.materia_nombre || '');
-        const cursoDisplay = (() => {
-          if (!alcance) return c.curso_nombre || cursoObj?.nombre_curso || '';
-          if (scope === 'general') return '';
-          if (scope === 'year') return '';
-          if (scope === 'course') return `${alcance.curso}°`;
-          if (scope === 'division' || scope === 'subject') return `${alcance.curso}°${alcance.division}`;
-          return '';
-        })();
+        const materiaId = alcances.find((a) => a.id_materia)?.id_materia || c.id_materia || null;
+        const materiaObj = materiaId
+          ? materiasObjArr.find((m) => Number(m.id_materia) === Number(materiaId))
+          : null;
         return {
           id: c.id_comunicado,
           id_curso: c.id_curso,
-          id_materia: c.id_materia || null,
+          id_materia: materiaId ? Number(materiaId) : null,
           cursoId: c.id_curso,
-          materiaId: c.id_materia || null,
+          materiaId: materiaId ? Number(materiaId) : null,
           curso: c.curso_nombre || cursoObj?.nombre_curso || '',
           anio_lectivo: cicloObj?.anio || null,
           alcance_label: alcanceLabel,
-          scope,
           alcance,
-          alcances: Array.isArray(c.alcances) ? c.alcances : [],
+          alcances,
+          alcance_labels: alcanceLabels,
           creador_nombre: c.creador_nombre || c.id_usuario_creador_nombre || '',
-          materia: c.materia_nombre || '',
+          materia: c.materia_nombre || materiaObj?.nombre_materia || '',
           fecha: c.fecha || '',
           titulo: c.titulo || '',
           cuerpo: c.cuerpo || '',

@@ -12,6 +12,20 @@ import { findCursoObj, getAniosCurso, getDivisiones } from './cursoFilters';
 
 const API_BASE = 'http://localhost:8000';
 
+function getDestinoKey(destino) {
+  if (!destino) return '';
+  if (destino.key) return destino.key;
+  return `${destino.tipo || 'destino'}-${destino.id_ciclo ?? ''}-${destino.curso ?? ''}-${destino.division ?? ''}`;
+}
+
+function getDestinoLabel(destino) {
+  if (!destino) return 'General';
+  if (destino.tipo === 'general') return 'General';
+  if (destino.tipo === 'year') return `${destino.curso}°`;
+  if (destino.tipo === 'division') return `${destino.curso}°${destino.division}`;
+  return 'General';
+}
+
 function Comunicados() {
   const {
     comunicados,
@@ -27,8 +41,7 @@ function Comunicados() {
     titulo: '',
     cuerpo: '',
     cicloId: '',
-    anioCurso: '',
-    division: '',
+    destinos: [],
     materiaId: '',
   });
   const [filtro, setFiltro] = useState({
@@ -56,47 +69,89 @@ function Comunicados() {
   const anioLectivoSeleccionado = form.cicloId ? String(ciclosMap.get(String(form.cicloId))?.anio || '') : '';
   const anioLectivoFiltro = filtro.cicloId ? String(ciclosMap.get(String(filtro.cicloId))?.anio || '') : '';
 
-  const aniosCurso = useMemo(
-    () => getAniosCurso(cursosObj, anioLectivoSeleccionado),
+  const cursosDelCiclo = useMemo(
+    () => (cursosObj || []).filter((curso) => String(curso.ciclo_anio || '') === String(anioLectivoSeleccionado || '')),
     [cursosObj, anioLectivoSeleccionado],
   );
-  const divisiones = useMemo(
-    () => getDivisiones(cursosObj, anioLectivoSeleccionado, form.anioCurso),
-    [cursosObj, anioLectivoSeleccionado, form.anioCurso],
-  );
 
-  const cursoExacto = useMemo(
-    () => findCursoObj(cursosObj, anioLectivoSeleccionado, form.anioCurso, form.division),
-    [cursosObj, anioLectivoSeleccionado, form.anioCurso, form.division],
-  );
+  const cursoExacto = useMemo(() => {
+    if (!form.destinos.length) return null;
+    if (form.destinos.length !== 1) return null;
+    const destino = form.destinos[0];
+    if (destino.tipo !== 'division') return null;
+    return findCursoObj(cursosObj, anioLectivoSeleccionado, String(destino.curso), String(destino.division));
+  }, [cursosObj, anioLectivoSeleccionado, form.destinos]);
 
   const materiasDelCurso = useMemo(() => {
     if (!cursoExacto?.nombre_curso) return [];
     return materiasPorCurso[cursoExacto.nombre_curso] || [];
   }, [cursoExacto, materiasPorCurso]);
 
-  const alcancePreview = useMemo(() => {
-    if (!form.cicloId && !form.anioCurso && !form.division && !form.materiaId) return 'Comunicado general';
-    if (form.cicloId && !form.anioCurso) return `Ciclo lectivo ${anioLectivoSeleccionado}`;
-    if (!form.anioCurso) return `Ciclo lectivo ${anioLectivoSeleccionado}`;
-    if (!form.division) return `Ciclo lectivo ${anioLectivoSeleccionado} · ${form.anioCurso}°`;
-    const base = `Ciclo lectivo ${anioLectivoSeleccionado} · ${form.anioCurso}°${form.division}`;
-    if (!form.materiaId) return base;
-    const materia = materiasObj.find((m) => String(m.id_materia) === String(form.materiaId));
-    return `${base} · ${materia?.nombre_materia || 'Materia'}`;
-  }, [form.cicloId, form.anioCurso, form.division, form.materiaId, anioLectivoSeleccionado, materiasObj]);
+  const destinosSeleccionados = useMemo(
+    () => (Array.isArray(form.destinos) ? form.destinos : []),
+    [form.destinos],
+  );
+
+  const destinosDisponibles = useMemo(() => {
+    if (!anioLectivoSeleccionado) return [];
+    const disponibles = [];
+    const years = new Set();
+    (cursosDelCiclo || []).forEach((curso) => {
+      const parts = parseCurso(curso.nombre_curso || '');
+      if (!parts.anio) return;
+      if (!years.has(parts.anio)) {
+        years.add(parts.anio);
+        disponibles.push({
+          tipo: 'year',
+          id_ciclo: Number(form.cicloId),
+          curso: parts.anio,
+          division: null,
+          label: `${parts.anio}°`,
+          key: `year-${form.cicloId}-${parts.anio}`,
+        });
+      }
+      if (parts.division) {
+        disponibles.push({
+          tipo: 'division',
+          id_ciclo: Number(form.cicloId),
+          curso: parts.anio,
+          division: parts.division,
+          label: `${parts.anio}°${parts.division}`,
+          key: `division-${form.cicloId}-${parts.anio}-${parts.division}`,
+        });
+      }
+    });
+    return disponibles;
+  }, [cursosDelCiclo, anioLectivoSeleccionado, form.cicloId]);
+
+  const selectedDestinoLabels = useMemo(
+    () => destinosSeleccionados.map((destino) => getDestinoLabel(destino)).join(', ') || 'General',
+    [destinosSeleccionados],
+  );
+
+  const toggleDestino = (destino) => {
+    setForm((prev) => {
+      const actual = Array.isArray(prev.destinos) ? prev.destinos : [];
+      const key = getDestinoKey(destino);
+      const exists = actual.some((item) => getDestinoKey(item) === key);
+      const destinos = exists
+        ? actual.filter((item) => getDestinoKey(item) !== key)
+        : [...actual, destino];
+      return { ...prev, destinos };
+    });
+  };
 
   const listaFiltrada = useMemo(() => {
     const arr = (Array.isArray(comunicados) ? comunicados : []).filter((c) => {
-      if (filtro.cicloId && String(c.anio_lectivo || '') !== String(ciclosMap.get(String(filtro.cicloId))?.anio || '')) {
-        return false;
-      }
-      if (filtro.anioCurso || filtro.division) {
-        const { anio, division } = parseCurso(c.curso || '');
-        if (filtro.anioCurso && String(anio || '') !== String(filtro.anioCurso)) return false;
-        if (filtro.division && !['general', 'year', 'course'].includes(c.scope || '')) {
-          if (String(division || '') !== String(filtro.division)) return false;
-        }
+      const alcances = Array.isArray(c.alcances) ? c.alcances : [];
+      const matchAlcance = (a) => {
+        if (filtro.cicloId && String(a.id_ciclo || '') !== String(filtro.cicloId)) return false;
+        if (filtro.anioCurso && a.curso !== null && a.curso !== undefined && String(a.curso) !== String(filtro.anioCurso)) return false;
+        if (filtro.division && a.division !== null && a.division !== undefined && String(a.division) !== String(filtro.division)) return false;
+        return true;
+      };
+      if (filtro.cicloId || filtro.anioCurso || filtro.division) {
+        return alcances.some((a) => matchAlcance(a));
       }
       return true;
     });
@@ -109,8 +164,13 @@ function Comunicados() {
       return;
     }
 
-    if (form.materiaId && (!form.cicloId || !form.anioCurso || !form.division)) {
-      setMensaje('La materia solo puede seleccionarse con año y división completos.');
+    if (form.materiaId && (destinosSeleccionados.length !== 1 || destinosSeleccionados[0]?.tipo !== 'division')) {
+      setMensaje('La materia solo puede seleccionarse para un destino con división específica.');
+      return;
+    }
+
+    if (!form.cicloId) {
+      setMensaje('Selecciona un año lectivo.');
       return;
     }
 
@@ -123,13 +183,14 @@ function Comunicados() {
         cuerpo: form.cuerpo,
         fecha: new Date().toISOString(),
         id_usuario_creador: user?.id_usuario || user?.id || null,
-        id_curso: cursoExacto?.id_curso ? Number(cursoExacto.id_curso) : null,
-        id_materia: form.materiaId ? Number(form.materiaId) : null,
-        alcance: {
-          id_ciclo: form.cicloId ? Number(form.cicloId) : null,
-          curso: form.anioCurso ? Number(form.anioCurso) : null,
-          division: form.division ? Number(form.division) : null,
-        },
+        id_curso: null,
+        id_materia: null,
+        alcances: destinosSeleccionados.map((destino) => ({
+          id_ciclo: destino.id_ciclo,
+          curso: destino.curso,
+          division: destino.division,
+          id_materia: form.materiaId ? Number(form.materiaId) : null,
+        })),
       });
 
       const files = filesRef.current?.files ? Array.from(filesRef.current.files) : [];
@@ -148,8 +209,7 @@ function Comunicados() {
         titulo: '',
         cuerpo: '',
         cicloId: '',
-        anioCurso: '',
-        division: '',
+        destinos: [],
         materiaId: '',
       });
       if (filesRef.current) filesRef.current.value = '';
@@ -224,8 +284,7 @@ function Comunicados() {
                 onChange={(e) => setForm((p) => ({
                   ...p,
                   cicloId: e.target.value,
-                  anioCurso: '',
-                  division: '',
+                  destinos: [],
                   materiaId: '',
                 }))}
               >
@@ -238,47 +297,32 @@ function Comunicados() {
               </select>
             </div>
 
-            <div className="form-group-filter">
-              <label htmlFor="com-anio-curso">Año</label>
-              <select
-                id="com-anio-curso"
-                value={form.anioCurso}
-                onChange={(e) => setForm((p) => ({
-                  ...p,
-                  anioCurso: e.target.value,
-                  division: '',
-                  materiaId: '',
-                }))}
-                disabled={!form.cicloId}
-              >
-                <option value="">Todo el año</option>
-                {aniosCurso.map((anio) => (
-                  <option key={anio} value={anio}>
-                    {anio}°
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group-filter">
-              <label htmlFor="com-division">División</label>
-              <select
-                id="com-division"
-                value={form.division}
-                onChange={(e) => setForm((p) => ({
-                  ...p,
-                  division: e.target.value,
-                  materiaId: '',
-                }))}
-                disabled={!form.anioCurso}
-              >
-                <option value="">Toda la división</option>
-                {divisiones.map((div) => (
-                  <option key={div} value={div}>
-                    {div}
-                  </option>
-                ))}
-              </select>
+            <div className="form-group-filter preceptor-form-full">
+              <div className="preceptor-cursos-header">
+                <h4 id="com-destinos-label">Destinos acad?micos</h4>
+                <span className="badge badge-neutral">
+                  {destinosSeleccionados.length} seleccionados
+                </span>
+              </div>
+              <div className="preceptor-cursos-multiselect" role="group" aria-labelledby="com-destinos-label">
+                {destinosDisponibles.map((destino) => {
+                  const checked = destinosSeleccionados.some((item) => getDestinoKey(item) === destino.key);
+                  return (
+                    <label
+                      key={destino.key}
+                      className={`preceptor-curso-option${checked ? ' preceptor-curso-option--selected' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleDestino(destino)}
+                      />
+                      <span>{destino.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="form-group-filter">
@@ -287,7 +331,7 @@ function Comunicados() {
                 id="com-materia"
                 value={form.materiaId}
                 onChange={(e) => setForm((p) => ({ ...p, materiaId: e.target.value }))}
-                disabled={!form.division}
+                disabled={!cursoExacto}
               >
                 <option value="">Sin materia</option>
                 {materiasDelCurso.map((materiaNombre) => {
@@ -314,7 +358,7 @@ function Comunicados() {
 
             <div className="form-group-filter preceptor-form-full">
               <label>Destino previsto</label>
-              <div className="comunicados-destino-preview">{alcancePreview}</div>
+              <div className="comunicados-destino-preview">{selectedDestinoLabels}</div>
             </div>
           </div>
 

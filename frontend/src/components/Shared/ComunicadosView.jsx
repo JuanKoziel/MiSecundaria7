@@ -11,14 +11,14 @@ function badgeClass(estado) {
   return 'badge-tarde';
 }
 
-function getAlcance(comunicado) {
-  return comunicado?.alcance || comunicado?.alcances?.[0] || null;
+function getAlcances(comunicado) {
+  if (Array.isArray(comunicado?.alcances)) return comunicado.alcances;
+  if (comunicado?.alcance) return [comunicado.alcance];
+  return [];
 }
 
-function comunicadoMatchesCurso(comunicado, cursoObj) {
-  if (!comunicado || !cursoObj) return false;
-  const alcance = getAlcance(comunicado);
-  if (!alcance) return true;
+function comunicadoMatchesAlcance(cursoObj, alcance) {
+  if (!cursoObj || !alcance) return false;
 
   const hasCiclo = alcance.id_ciclo !== null && alcance.id_ciclo !== undefined;
   const hasCurso = alcance.curso !== null && alcance.curso !== undefined;
@@ -26,7 +26,6 @@ function comunicadoMatchesCurso(comunicado, cursoObj) {
   const hasMateria = alcance.id_materia !== null && alcance.id_materia !== undefined;
 
   if (!hasCiclo && !hasCurso && !hasDivision && !hasMateria) return true;
-
   if (hasCiclo && Number(cursoObj.id_ciclo) !== Number(alcance.id_ciclo)) return false;
 
   const parts = parseCurso(cursoObj.nombre_curso || '');
@@ -34,6 +33,13 @@ function comunicadoMatchesCurso(comunicado, cursoObj) {
   if (hasDivision && parts.division !== Number(alcance.division)) return false;
 
   return true;
+}
+
+function comunicadoMatchesCurso(comunicado, cursoObj) {
+  if (!comunicado || !cursoObj) return false;
+  const alcances = getAlcances(comunicado);
+  if (!alcances.length) return true;
+  return alcances.some((alcance) => comunicadoMatchesAlcance(cursoObj, alcance));
 }
 
 function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
@@ -87,14 +93,16 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
 
         const filteredByPermission = comunicados.filter((c) => {
           if (!misAsignaciones.length) return false;
-          const alcance = getAlcance(c);
+          const alcances = getAlcances(c);
           return misAsignaciones.some((cm) => {
             const cursoObj = cursosObj.find((curso) => curso.id_curso === cm.id_curso);
-            if (!comunicadoMatchesCurso(c, cursoObj)) return false;
-            if (alcance?.id_materia !== null && alcance?.id_materia !== undefined) {
-              return Number(alcance.id_materia) === Number(cm.id_materia);
-            }
-            return true;
+            return alcances.some((alcance) => {
+              if (!comunicadoMatchesAlcance(cursoObj, alcance)) return false;
+              if (alcance?.id_materia !== null && alcance?.id_materia !== undefined) {
+                return Number(alcance.id_materia) === Number(cm.id_materia);
+              }
+              return true;
+            });
           });
         });
 
@@ -166,7 +174,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
           <div style={{ marginTop: '12px', color: '#666', fontSize: '14px' }}>
             <p><strong>Autor:</strong> {getNombreAutor(selectedComunicado.id_usuario_creador)}</p>
             <p><strong>Fecha y hora:</strong> {selectedComunicado.fecha}</p>
-            <p><strong>Curso destinatario:</strong> {getNombreCurso(selectedComunicado.id_curso)}</p>
+            <p><strong>Curso destinatario:</strong> {selectedComunicado.alcance_label || getNombreCurso(selectedComunicado.id_curso) || 'General'}</p>
             {selectedComunicado.id_materia && (
               <p><strong>Materia destinataria:</strong> {getNombreMateria(selectedComunicado.id_materia)}</p>
             )}
@@ -259,7 +267,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
                   <td className="table-cell-strong">{c.titulo}</td>
                   <td>{c.fecha ? c.fecha.split('T')[0] : '—'}</td>
                   <td>{getNombreAutor(c.id_usuario_creador)}</td>
-                  <td>{c.alcance_label || getNombreCurso(c.id_curso) || 'General'}</td>
+                  <td>{c.alcance_label || 'General'}</td>
                   <td>{c.id_materia ? getNombreMateria(c.id_materia) : '—'}</td>
                   <td>
                     {c.archivos && c.archivos.length > 0 ? (

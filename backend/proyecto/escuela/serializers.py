@@ -777,12 +777,37 @@ class ComunicadoAlcanceSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class ComunicadoAlcancesField(serializers.Field):
+    def to_representation(self, value):
+        if value is None:
+            return []
+        if hasattr(value, 'all'):
+            queryset = value.all().order_by('id_alcance')
+        else:
+            queryset = value
+        return ComunicadoAlcanceSerializer(queryset, many=True).data
+
+    def to_internal_value(self, data):
+        if data in (None, ''):
+            return []
+        if isinstance(data, dict):
+            data = [data]
+        if not isinstance(data, list):
+            raise serializers.ValidationError('Los alcances deben enviarse como una lista.')
+        normalizados = []
+        for item in data:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError('Cada alcance debe ser un objeto válido.')
+            normalizados.append(item)
+        return normalizados
+
+
 class ComunicadoSerializer(serializers.ModelSerializer):
     curso_nombre = serializers.CharField(source='id_curso.nombre_curso', read_only=True, default=None)
     creador_nombre = serializers.SerializerMethodField()
     materia_nombre = serializers.CharField(source='id_materia.nombre_materia', read_only=True, default=None)
     archivos = ComunicadoArchivoSerializer(many=True, read_only=True)
-    alcances = ComunicadoAlcanceSerializer(many=True, read_only=True)
+    alcances = ComunicadoAlcancesField(required=False)
     alcance = serializers.DictField(write_only=True, required=False)
 
     class Meta:
@@ -790,20 +815,38 @@ class ComunicadoSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate(self, attrs):
-        alcance = self.initial_data.get('alcance') or {}
-        if not isinstance(alcance, dict):
-            raise serializers.ValidationError({'alcance': 'Debe ser un objeto válido.'})
+        alcances = attrs.get('alcances')
+        if alcances is None:
+            alcance = self.initial_data.get('alcance') or {}
+            if alcance:
+                if not isinstance(alcance, dict):
+                    raise serializers.ValidationError({'alcance': 'Debe ser un objeto válido.'})
+                alcances = [alcance]
+            else:
+                alcances = []
 
-        id_ciclo = alcance.get('id_ciclo')
-        curso = alcance.get('curso')
-        division = alcance.get('division')
+        if not isinstance(alcances, list):
+            raise serializers.ValidationError({'alcances': 'Debe ser una lista válida.'})
 
-        if (curso is not None or division is not None) and not id_ciclo:
-            raise serializers.ValidationError({'alcance': 'Si se envía curso o división, id_ciclo es obligatorio.'})
-        if division is not None and curso is None:
-            raise serializers.ValidationError({'alcance': 'La división requiere un curso.'})
-        if attrs.get('id_materia') and (id_ciclo is None or curso is None or division is None):
-            raise serializers.ValidationError({'alcance': 'La materia específica requiere ciclo, curso y división.'})
+        def _validate_alcance_item(item):
+            if not isinstance(item, dict):
+                raise serializers.ValidationError({'alcances': 'Cada alcance debe ser un objeto válido.'})
+            id_ciclo = item.get('id_ciclo')
+            curso = item.get('curso')
+            division = item.get('division')
+            id_materia = item.get('id_materia') or attrs.get('id_materia')
+
+            if (curso is not None or division is not None) and not id_ciclo:
+                raise serializers.ValidationError({'alcances': 'Si se envía curso o división, id_ciclo es obligatorio.'})
+            if division is not None and curso is None:
+                raise serializers.ValidationError({'alcances': 'La división requiere un curso.'})
+            if id_materia and (id_ciclo is None or curso is None or division is None):
+                raise serializers.ValidationError({'alcances': 'La materia específica requiere ciclo, curso y división.'})
+
+        for item in alcances:
+            _validate_alcance_item(item)
+
+        attrs['alcances'] = alcances
 
         return attrs
 
@@ -814,32 +857,46 @@ class ComunicadoSerializer(serializers.ModelSerializer):
             'id_ciclo_id': alcance_data.get('id_ciclo') or None,
             'curso': alcance_data.get('curso') if alcance_data.get('curso') is not None else None,
             'division': alcance_data.get('division') if alcance_data.get('division') is not None else None,
-            'id_materia_id': comunicado.id_materia_id or None,
+            'id_materia_id': alcance_data.get('id_materia') if alcance_data.get('id_materia') is not None else None,
         }
 
     def create(self, validated_data):
-        alcance_data = validated_data.pop('alcance', {}) or {}
+        alcances_data = validated_data.pop('alcances', None)
+        alcance_data = validated_data.pop('alcance', None)
+        if alcances_data is None:
+            alcances_data = [alcance_data] if alcance_data else []
+        elif alcance_data:
+            alcances_data = [*alcances_data, alcance_data]
+        validated_data['id_curso'] = None
+        validated_data['id_materia'] = None
         comunicado = Comunicado.objects.create(**validated_data)
-        ComunicadoAlcance.objects.create(**self._build_alcance_kwargs(comunicado, alcance_data))
+        if not alcances_data:
+            alcances_data = [{}]
+        ComunicadoAlcance.objects.bulk_create(
+            [ComunicadoAlcance(**self._build_alcance_kwargs(comunicado, alcance)) for alcance in alcances_data]
+        )
         return comunicado
 
     def update(self, instance, validated_data):
+        alcances_data = validated_data.pop('alcances', None)
         alcance_data = validated_data.pop('alcance', None)
+        if alcances_data is None:
+            alcances_data = [alcance_data] if alcance_data else None
+        elif alcance_data:
+            alcances_data = [*alcances_data, alcance_data]
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+        instance.id_curso = None
+        instance.id_materia = None
         instance.save()
 
-        if alcance_data is not None:
-            kwargs = self._build_alcance_kwargs(instance, alcance_data)
-            alcance = instance.alcances.first()
-            if alcance:
-                alcance.id_ciclo_id = kwargs['id_ciclo_id']
-                alcance.curso = kwargs['curso']
-                alcance.division = kwargs['division']
-                alcance.id_materia_id = kwargs['id_materia_id']
-                alcance.save()
-            else:
-                ComunicadoAlcance.objects.create(**kwargs)
+        if alcances_data is not None:
+            instance.alcances.all().delete()
+            if not alcances_data:
+                alcances_data = [{}]
+            ComunicadoAlcance.objects.bulk_create(
+                [ComunicadoAlcance(**self._build_alcance_kwargs(instance, alcance)) for alcance in alcances_data]
+            )
 
         return instance
 
