@@ -77,13 +77,13 @@ function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, on
   return (
     <div className="filter-row">
       <div className="form-group-filter">
-        <label htmlFor="doc-anio">AÃ±o lectivo</label>
+        <label htmlFor="doc-anio">Año lectivo</label>
         <select
           id="doc-anio"
           value={anioLectivo}
           onChange={(e) => onAnio(e.target.value)}
         >
-          <option value="">Todos los aÃ±os</option>
+          <option value="">Todos los años</option>
           {aniosLectivos.map((anio) => (
             <option key={anio} value={anio}>
               {anio}
@@ -142,7 +142,7 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
 
   const agregarAsignacion = () => {
     if (!borrador.materia || !borrador.anioLectivo || !borrador.curso) {
-      alert('CompletÃ¡ aÃ±o, curso y materia antes de agregar.');
+      alert('Completá año, curso y materia antes de agregar.');
       return;
     }
     const duplicada = asignaciones.some(
@@ -152,7 +152,7 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
         a.curso === borrador.curso,
     );
     if (duplicada) {
-      alert('Esa combinaciÃ³n de materia, aÃ±o y curso ya fue agregada.');
+      alert('Esa combinación de materia, año y curso ya fue agregada.');
       return;
     }
     setAsignaciones((prev) => [...prev, { ...borrador, id: Date.now(), isNew: true }]);
@@ -169,13 +169,13 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
     <>
       <h4 className="preceptor-section-title">Materias y asignaciones</h4>
       <p className="preceptor-modo-hint">
-        SeleccionÃ¡ el aÃ±o lectivo y curso, luego elegÃ­ la materia asignada a ese curso. PodÃ©s agregar varias.
+        Seleccioná el año lectivo y curso, luego elegí la materia asignada a ese curso. Podés agregar varias.
       </p>
 
       <div className="upload-dashed-box">
         <div className="filter-row">
           <div className="form-group-filter">
-            <label htmlFor={`${prefix}-anio`}>AÃ±o lectivo</label>
+            <label htmlFor={`${prefix}-anio`}>Año lectivo</label>
             <select
               id={`${prefix}-anio`}
               value={borrador.anioLectivo}
@@ -183,7 +183,7 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
                 setBorrador((p) => ({ ...p, anioLectivo: e.target.value, curso: '', materia: '' }))
               }
             >
-              <option value="">AÃ±o...</option>
+              <option value="">Año...</option>
               {aniosLectivos.map((anio) => (
                 <option key={anio} value={anio}>
                   {anio}
@@ -235,7 +235,7 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
             <thead>
               <tr>
                 <th>Materia</th>
-                <th>AÃ±o</th>
+                <th>Año</th>
                 <th>Curso</th>
                 <th />
               </tr>
@@ -320,7 +320,7 @@ function Docentes() {
     try {
       if (esCrear) {
         if (!form.usuario_nombre || !form.contrasena || !form.dni || !form.nombre || !form.apellido) {
-          setMensaje('CompletÃ¡ usuario, contraseÃ±a, DNI, nombre y apellido.');
+          setMensaje('Completá usuario, contraseña, DNI, nombre y apellido.');
           setGuardando(false);
           return;
         }
@@ -342,7 +342,7 @@ function Docentes() {
         for (const asig of asignaciones) {
           const { id_curso, id_materia } = resolveIds(asig);
           if (!id_curso || !id_materia) {
-            errores.push(`No se encontrÃ³ curso/materia para ${asig.materia} - ${asig.curso} (${asig.anioLectivo})`);
+            errores.push(`No se encontró curso/materia para ${asig.materia} - ${asig.curso} (${asig.anioLectivo})`);
             continue;
           }
           try {
@@ -364,15 +364,15 @@ function Docentes() {
           }
         }
         if (errores.length > 0) {
-          setMensaje(`Docente creado. ${asigOk} asignaciÃ³n(es) guardadas. Errores: ${errores.join('; ')}`);
+          setMensaje(`Docente creado. ${asigOk} asignación(es) guardadas. Errores: ${errores.join('; ')}`);
         } else {
-          setMensaje(`Docente creado exitosamente con ${asigOk} asignaciÃ³n(es).`);
+          setMensaje(`Docente creado exitosamente con ${asigOk} asignación(es).`);
         }
         setForm(formVacio);
         setAsignaciones([]);
       } else if (modo === 'modificar') {
         if (!seleccionado) {
-          setMensaje('SeleccionÃ¡ un docente para modificar.');
+          setMensaje('Seleccioná un docente para modificar.');
           setGuardando(false);
           return;
         }
@@ -411,11 +411,11 @@ function Docentes() {
         setMensaje('Docente modificado exitosamente.');
       } else if (modo === 'borrar') {
         if (!seleccionado) {
-          setMensaje('SeleccionÃ¡ un docente para eliminar.');
+          setMensaje('Seleccioná un docente para eliminar.');
           setGuardando(false);
           return;
         }
-        if (!confirm('Â¿EstÃ¡s seguro de que querÃ©s eliminar este docente y todas sus asignaciones?')) {
+        if (!confirm('¿Estás seguro de que querés eliminar este docente y todas sus asignaciones?')) {
           setGuardando(false);
           return;
         }
@@ -812,7 +812,7 @@ function Docentes() {
 
   return (
     <div className="card">
-      <SelectorModo modo={modo} onModoChange={resetModo} titulo="Docentes â€” Â¿QuÃ© deseÃ¡s hacer?" />
+      <SelectorModo modo={modo} onModoChange={resetModo} titulo="Docentes — ¿Qué deseás hacer?" />
 
       {modo && (
         <>

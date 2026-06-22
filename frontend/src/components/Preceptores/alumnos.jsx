@@ -108,7 +108,7 @@ function Alumnos() {
     try {
       if (modo === 'crear') {
         if (!form.usuario_nombre || !form.contrasena || !form.dni || !form.nombre || !form.apellido) {
-          setMensaje('CompletÃ¡ usuario, contraseÃ±a, DNI, nombre y apellido.');
+          setMensaje('Completá usuario, contraseña, DNI, nombre y apellido.');
           setGuardando(false);
           return;
         }
@@ -131,7 +131,7 @@ function Alumnos() {
         setForm(formVacio);
       } else if (modo === 'modificar') {
         if (!seleccionado) {
-          setMensaje('SeleccionÃ¡ un alumno para modificar.');
+          setMensaje('Seleccioná un alumno para modificar.');
           setGuardando(false);
           return;
         }
@@ -151,11 +151,11 @@ function Alumnos() {
         setMensaje('Alumno modificado exitosamente.');
       } else if (modo === 'borrar') {
         if (!seleccionado) {
-          setMensaje('SeleccionÃ¡ un alumno para eliminar.');
+          setMensaje('Seleccioná un alumno para eliminar.');
           setGuardando(false);
           return;
         }
-        if (!confirm('Â¿EstÃ¡s seguro de que querÃ©s eliminar este alumno?')) {
+        if (!confirm('¿Estás seguro de que querés eliminar este alumno?')) {
           setGuardando(false);
           return;
         }
@@ -545,7 +545,7 @@ function Alumnos() {
                 <input
                   id="alumno-obs-mod"
                   type="text"
-                  value={observaciones[alumnoSel.id] ?? ''}
+                  value={observaciones[alumnoSel.id] ? ''}
                   onChange={(e) =>
                     setObservaciones((prev) => ({
                       ...prev,
@@ -573,7 +573,7 @@ function Alumnos() {
               <option value="">Seleccionar...</option>
               {lista.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {nombreCompleto(a)} â€” {a.dni}
+                  {nombreCompleto(a)} — {a.dni}
                 </option>
               ))}
             </select>
@@ -593,7 +593,7 @@ function Alumnos() {
 
   return (
     <div className="card">
-      <SelectorModo modo={modo} onModoChange={resetModo} titulo="Alumnos â€” Â¿QuÃ© deseÃ¡s hacer?" />
+      <SelectorModo modo={modo} onModoChange={resetModo} titulo="Alumnos — ¿Qué deseás hacer?" />
 
       {modo && (
         <>
@@ -613,7 +613,7 @@ function Alumnos() {
               <div className="card-header-flex">
                 <h3>
                   {tituloModo[modo]}
-                  {filtrosOk && ` â€” ${curso} (${anioLectivo})`}
+                  {filtrosOk && ` — ${curso} (${anioLectivo})`}
                 </h3>
                 {modo !== 'vista' && (
                   <button
