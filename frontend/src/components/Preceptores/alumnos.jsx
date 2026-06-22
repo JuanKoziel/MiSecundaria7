@@ -15,6 +15,7 @@ const formVacio = {
   dni: '',
   nombre: '',
   apellido: '',
+  direccion: '',
   telefono: '',
   fechaNacimiento: '',
   anioLectivo: '',
@@ -121,6 +122,7 @@ function Alumnos() {
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
+          direccion: form.direccion || null,
           fecha_nacimiento: form.fechaNacimiento || null,
           telefono: form.telefono || null,
           id_curso: cursoObj?.id_curso || null,
@@ -142,6 +144,7 @@ function Alumnos() {
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
+          direccion: form.direccion || null,
           fecha_nacimiento: form.fechaNacimiento || null,
           telefono: form.telefono || null,
         });
@@ -323,6 +326,15 @@ function Alumnos() {
               onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
             />
           </div>
+          <div className="form-group-filter preceptor-form-full">
+            <label htmlFor="alumno-direccion">Dirección</label>
+            <input
+              id="alumno-direccion"
+              type="text"
+              value={form.direccion}
+              onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
+            />
+          </div>
           <div className="form-group-filter">
             <label htmlFor="alumno-telefono">Teléfono</label>
             <input
@@ -405,6 +417,7 @@ function Alumnos() {
                       dni: a.dni,
                       nombre: a.nombre,
                       apellido: a.apellido,
+                      direccion: a.direccion || '',
                       telefono: a.telefono || '',
                       fechaNacimiento: a.fecha_nacimiento || '',
                       anioLectivo: '',
@@ -498,6 +511,15 @@ function Alumnos() {
                   type="text"
                   value={form.apellido}
                   onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+                />
+              </div>
+              <div className="form-group-filter preceptor-form-full">
+                <label htmlFor="alumno-direccion-mod">Dirección</label>
+                <input
+                  id="alumno-direccion-mod"
+                  type="text"
+                  value={form.direccion}
+                  onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
                 />
               </div>
               <div className="form-group-filter">

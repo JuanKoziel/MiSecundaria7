@@ -15,6 +15,8 @@ const formVacio = {
   dni: '',
   nombre: '',
   apellido: '',
+  correo: '',
+  telefono: '',
 };
 
 function toInputDateTime(value) {
@@ -331,6 +333,8 @@ function Docentes() {
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
+          correo: form.correo || null,
+          telefono: form.telefono || null,
         });
         const docenteId = docente.id_docente;
         let asigOk = 0;
@@ -381,6 +385,8 @@ function Docentes() {
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
+          correo: form.correo || null,
+          telefono: form.telefono || null,
         });
         const originalesIds = asignacionesOriginales.map((a) => a.cmId);
         const actualesIds = asignaciones.filter((a) => a.cmId).map((a) => a.cmId);
@@ -597,6 +603,24 @@ function Docentes() {
                 onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
               />
             </div>
+            <div className="form-group-filter">
+              <label htmlFor="doc-correo">Correo</label>
+              <input
+                id="doc-correo"
+                type="email"
+                value={form.correo}
+                onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
+              />
+            </div>
+            <div className="form-group-filter">
+              <label htmlFor="doc-telefono">Teléfono</label>
+              <input
+                id="doc-telefono"
+                type="text"
+                value={form.telefono}
+                onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+              />
+            </div>
           </div>
           <AsignacionesEditor
             asignaciones={asignaciones}
@@ -630,6 +654,8 @@ function Docentes() {
                       dni: d.dni,
                       nombre: d.nombre,
                       apellido: d.apellido,
+                      correo: d.correo || '',
+                      telefono: d.telefono || '',
                     });
                     cargarAsignacionesDocente(d.id);
                   }
@@ -721,6 +747,24 @@ function Docentes() {
                     type="text"
                     value={form.apellido}
                     onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group-filter">
+                  <label htmlFor="doc-correo-mod">Correo</label>
+                  <input
+                    id="doc-correo-mod"
+                    type="email"
+                    value={form.correo}
+                    onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group-filter">
+                  <label htmlFor="doc-telefono-mod">Teléfono</label>
+                  <input
+                    id="doc-telefono-mod"
+                    type="text"
+                    value={form.telefono}
+                    onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
                   />
                 </div>
               </div>

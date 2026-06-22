@@ -523,6 +523,7 @@ class DocenteSerializer(serializers.ModelSerializer):
     estado = serializers.BooleanField(write_only=True, required=False)
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    correo = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
     ddjj_id = serializers.SerializerMethodField()
     ruta_ddjj = serializers.SerializerMethodField()
     ddjj_presentada = serializers.SerializerMethodField()
