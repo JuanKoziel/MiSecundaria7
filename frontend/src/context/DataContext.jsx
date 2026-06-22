@@ -49,21 +49,16 @@ function scopeFromAlcance(alcance) {
 }
 
 function buildAlcanceLabel(alcance, cicloObj, materiaNombre = '') {
-  if (!alcance) return 'Comunicado general';
+  if (!alcance) return 'General';
   const scope = scopeFromAlcance(alcance);
-  const cicloAnio = cicloObj?.anio || '';
   const curso = alcance.curso !== null && alcance.curso !== undefined ? `${alcance.curso}°` : '';
   const division = alcance.division !== null && alcance.division !== undefined ? `${alcance.division}` : '';
 
-  if (scope === 'general') return 'Comunicado general';
-  if (scope === 'year') return cicloAnio ? `Ciclo lectivo ${cicloAnio}` : 'Ciclo lectivo';
-  if (scope === 'course') return cicloAnio ? `Ciclo lectivo ${cicloAnio} · ${curso}` : curso;
-  if (scope === 'division') return cicloAnio ? `Ciclo lectivo ${cicloAnio} · ${curso}${division}` : `${curso}${division}`;
-  if (scope === 'subject') {
-    const base = cicloAnio ? `Ciclo lectivo ${cicloAnio} · ${curso}${division}` : `${curso}${division}`;
-    return materiaNombre ? `${base} · ${materiaNombre}` : base;
-  }
-  return 'Comunicado general';
+  if (scope === 'general' || scope === 'year') return 'General';
+  if (scope === 'course') return curso;
+  if (scope === 'division') return `${curso}${division}`;
+  if (scope === 'subject') return `${curso}${division}`;
+  return 'General';
 }
 
 export function DataProvider({ children }) {
@@ -462,7 +457,7 @@ export function DataProvider({ children }) {
           id_materia: c.id_materia || null,
           cursoId: c.id_curso,
           materiaId: c.id_materia || null,
-          curso: cursoDisplay,
+          curso: c.curso_nombre || cursoObj?.nombre_curso || '',
           anio_lectivo: cicloObj?.anio || null,
           alcance_label: alcanceLabel,
           scope,

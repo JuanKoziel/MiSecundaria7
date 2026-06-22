@@ -259,7 +259,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
                   <td className="table-cell-strong">{c.titulo}</td>
                   <td>{c.fecha ? c.fecha.split('T')[0] : '—'}</td>
                   <td>{getNombreAutor(c.id_usuario_creador)}</td>
-                  <td>{getNombreCurso(c.id_curso)}</td>
+                  <td>{c.alcance_label || getNombreCurso(c.id_curso) || 'General'}</td>
                   <td>{c.id_materia ? getNombreMateria(c.id_materia) : '—'}</td>
                   <td>
                     {c.archivos && c.archivos.length > 0 ? (
