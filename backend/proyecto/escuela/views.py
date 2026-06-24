@@ -36,6 +36,7 @@ from escuela.models import (
     Horario,
     InscripcionMateria,
     Materia,
+    Modulos,
     Notificacion,
     PadreTutor,
     PeriodoEvaluacion,
@@ -70,6 +71,7 @@ from escuela.serializers import (
     HistorialCambioSerializer,
     HorarioSerializer,
     InscripcionMateriaSerializer,
+    ModuloSerializer,
     LoginSerializer,
     MateriaSerializer,
     NotificacionSerializer,
@@ -945,8 +947,13 @@ class CursoMateriaViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
+class ModuloViewSet(viewsets.ModelViewSet):
+    queryset = Modulos.objects.all()
+    serializer_class = ModuloSerializer
+
+
 class HorarioViewSet(viewsets.ModelViewSet):
-    queryset = Horario.objects.select_related('id_curso_materia').all()
+    queryset = Horario.objects.select_related('id_curso_materia', 'id_modulo').all()
     serializer_class = HorarioSerializer
 
     def get_queryset(self):

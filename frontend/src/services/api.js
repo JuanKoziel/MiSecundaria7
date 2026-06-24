@@ -234,6 +234,11 @@ export async function deleteActaDocente(id) {
   await api.delete(`/acta-docente/${id}/`);
 }
 
+export async function getModulos() {
+  const { data } = await api.get('/modulos/');
+  return data;
+}
+
 export async function getHorarios(params) {
   const { data } = await api.get('/horarios/', { params });
   return data;

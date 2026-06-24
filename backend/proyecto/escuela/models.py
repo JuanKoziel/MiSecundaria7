@@ -437,16 +437,31 @@ class ActaDocente(models.Model):
         db_table = 'acta_docente'
 
 
+class Modulos(models.Model):
+    id_modulo = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=50)
+    hora_inicio = models.TimeField()
+    hora_fin = models.TimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'modulos'
+
+    def __str__(self):
+        return f'{self.hora_inicio} - {self.hora_fin}'
+
+
 class Horario(models.Model):
     id_horario = models.AutoField(primary_key=True)
     id_curso_materia = models.ForeignKey(
         CursoMateria, on_delete=models.CASCADE, db_column='id_curso_materia',
     )
     dia_semana = models.CharField(max_length=20, blank=True, null=True)
-    numero_modulo = models.IntegerField(blank=True, null=True)
-    hora_inicio = models.TimeField(blank=True, null=True)
-    hora_fin = models.TimeField(blank=True, null=True)
     aula = models.CharField(max_length=50, blank=True, null=True)
+    id_modulo = models.ForeignKey(
+        Modulos, on_delete=models.CASCADE, db_column='id_modulo',
+        blank=True, null=True,
+    )
 
     class Meta:
         managed = False

@@ -186,13 +186,25 @@ class CursoMateria(models.Model):
         return f"{self.id_materia} en {self.id_curso}"
 
 
+class Modulo(models.Model):
+    id_modulo = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=50)
+    hora_inicio = models.TimeField()
+    hora_fin = models.TimeField()
+
+    class Meta:
+        db_table = 'modulos'
+
+    def __str__(self):
+        return f'{self.hora_inicio} - {self.hora_fin}'
+
+
 class Horario(models.Model):
     id_horario = models.AutoField(primary_key=True)
     id_curso_materia = models.ForeignKey(CursoMateria, on_delete=models.CASCADE, db_column='id_curso_materia')
     dia_semana = models.CharField(max_length=20, null=True, blank=True)
-    hora_inicio = models.TimeField(null=True, blank=True)
-    hora_fin = models.TimeField(null=True, blank=True)
     aula = models.CharField(max_length=50, null=True, blank=True)
+    id_modulo = models.ForeignKey(Modulo, on_delete=models.CASCADE, db_column='id_modulo', null=True, blank=True)
 
     class Meta:
         db_table = 'horarios'

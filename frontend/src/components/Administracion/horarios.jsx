@@ -1,106 +1,164 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useData } from '../../context/DataContext';
-import { createHorario, updateHorario, deleteHorario } from '../../services/api';
-import { MODULOS, DIAS_SEMANA, moduloPorNumero } from '../../utils/modulos';
-import { cursoConOrientacion } from '../../utils/orientacion';
-import FiltrosAnioCurso from './FiltrosAnioCurso';
+import { getCursoMateria, getHorarios, createHorario, updateHorario, deleteHorario } from '../../services/api';
 
-const FORM_VACIO = {
-  id: null,
-  id_curso_materia: '',
-  dia_semana: '',
-  numero_modulo: '',
-  aula: '',
-};
+const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+function timeStr(value) {
+  if (!value) return '';
+  const s = typeof value === 'string' ? value : String(value);
+  return s.slice(0, 5);
+}
 
 function Horarios() {
-  const { cursoMateria, horarios, cursosObj, refreshData } = useData();
-  const [form, setForm] = useState(FORM_VACIO);
-  const [filtroCurso, setFiltroCurso] = useState('');
+  const { cursosObj, refreshData, modulos } = useData();
+  const [cursoSeleccionado, setCursoSeleccionado] = useState('');
+  const [materiasCurso, setMateriasCurso] = useState([]);
+  const [celdas, setCeldas] = useState({});
+  const [originalCeldas, setOriginalCeldas] = useState({});
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [cargandoGrilla, setCargandoGrilla] = useState(false);
+  const cursoCargado = useRef(null);
 
-  const horariosFiltrados = useMemo(() => {
-    const lista = filtroCurso
-      ? horarios.filter((h) => h.curso_nombre === filtroCurso)
-      : horarios;
-    return [...lista].sort((a, b) => {
-      const dia = DIAS_SEMANA.indexOf(a.dia_semana) - DIAS_SEMANA.indexOf(b.dia_semana);
-      if (dia !== 0) return dia;
-      return (a.numero_modulo || 0) - (b.numero_modulo || 0);
+  const modulosSorted = useMemo(() => {
+    if (!Array.isArray(modulos)) return [];
+    return [...modulos].sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''));
+  }, [modulos]);
+
+  const cursosOptions = useMemo(() => {
+    if (!Array.isArray(cursosObj)) return [];
+    return [...cursosObj].sort((a, b) => (a.nombre_curso || '').localeCompare(b.nombre_curso || ''));
+  }, [cursosObj]);
+
+  useEffect(() => {
+    if (!cursoSeleccionado) {
+      setMateriasCurso([]);
+      setCeldas({});
+      setOriginalCeldas({});
+      return;
+    }
+    setCargandoGrilla(true);
+    setMensaje('');
+    Promise.all([
+      getCursoMateria({ curso: cursoSeleccionado }),
+      getHorarios({ curso: cursoSeleccionado }),
+    ])
+      .then(([cmData, horData]) => {
+        const cmList = Array.isArray(cmData) ? cmData : cmData.results || [];
+        const horList = Array.isArray(horData) ? horData : horData.results || [];
+
+        const materias = cmList
+          .filter((cm) => cm.materia_nombre)
+          .map((cm) => ({ id: cm.id_curso_materia, nombre: cm.materia_nombre }));
+
+        const unicas = [];
+        const vistos = new Set();
+        materias.forEach((m) => {
+          if (!vistos.has(m.nombre)) {
+            vistos.add(m.nombre);
+            unicas.push(m);
+          }
+        });
+        unicas.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        setMateriasCurso(unicas);
+
+        const celdasInit = {};
+        horList.forEach((h) => {
+          const key = `${h.dia_semana}_${h.id_modulo}`;
+          celdasInit[key] = {
+            id_horario: h.id_horario,
+            id_curso_materia: h.id_curso_materia,
+          };
+        });
+        setCeldas(celdasInit);
+        setOriginalCeldas(JSON.parse(JSON.stringify(celdasInit)));
+        cursoCargado.current = cursoSeleccionado;
+      })
+      .catch(() => setMensaje('Error al cargar datos del curso.'))
+      .finally(() => setCargandoGrilla(false));
+  }, [cursoSeleccionado]);
+
+  const getCellValue = (dia, idModulo) => {
+    const key = `${dia}_${idModulo}`;
+    const cell = celdas[key];
+    if (!cell) return '';
+    const cm = materiasCurso.find((m) => m.id === cell.id_curso_materia);
+    return cm ? cm.nombre : '';
+  };
+
+  const handleCellChange = (dia, idModulo, materiaNombre) => {
+    setCeldas((prev) => {
+      const next = { ...prev };
+      const key = `${dia}_${idModulo}`;
+      if (!materiaNombre) {
+        delete next[key];
+      } else {
+        const cm = materiasCurso.find((m) => m.nombre === materiaNombre);
+        if (cm) {
+          next[key] = {
+            id_horario: prev[key]?.id_horario || null,
+            id_curso_materia: cm.id,
+          };
+        }
+      }
+      return next;
     });
-  }, [horarios, filtroCurso]);
-
-  const handleChange = (campo, valor) => {
-    setForm((prev) => ({ ...prev, [campo]: valor }));
   };
 
-  const resetForm = () => {
-    setForm(FORM_VACIO);
+  const handleGuardar = async () => {
     setMensaje('');
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMensaje('');
-    if (!form.id_curso_materia || !form.dia_semana || !form.numero_modulo) {
-      setMensaje('Completá curso/materia, día y módulo.');
-      return;
-    }
-    const modulo = moduloPorNumero(form.numero_modulo);
-    if (!modulo) {
-      setMensaje('Módulo inválido.');
-      return;
-    }
-    const payload = {
-      id_curso_materia: Number(form.id_curso_materia),
-      dia_semana: form.dia_semana,
-      numero_modulo: Number(form.numero_modulo),
-      hora_inicio: `${modulo.hora_inicio}:00`,
-      hora_fin: `${modulo.hora_fin}:00`,
-      aula: form.aula || null,
-    };
     setGuardando(true);
     try {
-      if (form.id) {
-        await updateHorario(form.id, payload);
-      } else {
-        await createHorario(payload);
+      for (const dia of DIAS) {
+        for (const mod of modulosSorted) {
+          const key = `${dia}_${mod.id_modulo}`;
+          const current = celdas[key];
+          const original = originalCeldas[key];
+
+          if (current && current.id_curso_materia) {
+            if (original) {
+              if (original.id_curso_materia !== current.id_curso_materia) {
+                await updateHorario(original.id_horario, { id_curso_materia: current.id_curso_materia });
+              }
+            } else {
+              await createHorario({
+                id_curso_materia: current.id_curso_materia,
+                dia_semana: dia,
+                id_modulo: mod.id_modulo,
+                aula: null,
+              });
+            }
+          } else if (!current && original && original.id_horario) {
+            await deleteHorario(original.id_horario);
+          }
+        }
       }
+
+      setMensaje('Horarios guardados correctamente.');
       await refreshData();
-      resetForm();
+
+      const [horData] = await Promise.all([
+        getHorarios({ curso: cursoSeleccionado }),
+      ]);
+      const horList = Array.isArray(horData) ? horData : horData.results || [];
+      const newCeldas = {};
+      horList.forEach((h) => {
+        const key = `${h.dia_semana}_${h.id_modulo}`;
+        newCeldas[key] = {
+          id_horario: h.id_horario,
+          id_curso_materia: h.id_curso_materia,
+        };
+      });
+      setCeldas(newCeldas);
+      setOriginalCeldas(JSON.parse(JSON.stringify(newCeldas)));
     } catch {
-      setMensaje('Error al guardar el horario.');
+      setMensaje('Error al guardar horarios.');
     } finally {
       setGuardando(false);
     }
   };
-
-  const handleEditar = (h) => {
-    setForm({
-      id: h.id,
-      id_curso_materia: String(h.id_curso_materia),
-      dia_semana: h.dia_semana,
-      numero_modulo: String(h.numero_modulo || ''),
-      aula: h.aula || '',
-    });
-    setMensaje('');
-  };
-
-  const handleEliminar = async (h) => {
-    if (!window.confirm('¿Eliminar este horario?')) return;
-    try {
-      await deleteHorario(h.id);
-      await refreshData();
-    } catch {
-      setMensaje('Error al eliminar el horario.');
-    }
-  };
-
-  const etiquetaCursoMateria = (cm) =>
-    `${cursoConOrientacion(cm.curso_nombre)} · ${cm.materia_nombre || '—'}${
-      cm.docente_nombre ? ` · ${cm.docente_nombre}` : ''
-    }`;
 
   return (
     <div className="card">
@@ -108,143 +166,94 @@ function Horarios() {
         <h3>Horarios</h3>
       </div>
 
-      <form onSubmit={handleSubmit} className="horario-form">
-        <div className="filter-row">
-          <div className="form-group-filter">
-            <label htmlFor="horario-cm">Curso / Materia / Docente</label>
-            <select
-              id="horario-cm"
-              value={form.id_curso_materia}
-              onChange={(e) => handleChange('id_curso_materia', e.target.value)}
-            >
-              <option value="">Seleccione...</option>
-              {cursoMateria.map((cm) => (
-                <option key={cm.id} value={cm.id}>
-                  {etiquetaCursoMateria(cm)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group-filter">
-            <label htmlFor="horario-dia">Día</label>
-            <select
-              id="horario-dia"
-              value={form.dia_semana}
-              onChange={(e) => handleChange('dia_semana', e.target.value)}
-            >
-              <option value="">Día...</option>
-              {DIAS_SEMANA.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group-filter">
-            <label htmlFor="horario-modulo">Módulo</label>
-            <select
-              id="horario-modulo"
-              value={form.numero_modulo}
-              onChange={(e) => handleChange('numero_modulo', e.target.value)}
-            >
-              <option value="">Módulo...</option>
-              {MODULOS.map((m) => (
-                <option key={m.numero} value={m.numero}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group-filter">
-            <label htmlFor="horario-aula">Aula (opcional)</label>
-            <input
-              id="horario-aula"
-              type="text"
-              value={form.aula}
-              onChange={(e) => handleChange('aula', e.target.value)}
-              placeholder="Ej: Aula 5"
-            />
-          </div>
+      <div className="filter-row">
+        <div className="form-group-filter" style={{ maxWidth: '320px' }}>
+          <label htmlFor="curso-select">Curso</label>
+          <select
+            id="curso-select"
+            value={cursoSeleccionado}
+            onChange={(e) => setCursoSeleccionado(e.target.value)}
+          >
+            <option value="">— Seleccionar curso —</option>
+            {cursosOptions.map((c) => (
+              <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
+            ))}
+          </select>
         </div>
+      </div>
 
-        {mensaje && <p className="form-error-message">{mensaje}</p>}
-
-        <div className="form-actions">
-          <button type="submit" className="btn btn-primary" disabled={guardando}>
-            {form.id ? 'Actualizar horario' : 'Agregar horario'}
-          </button>
-          {form.id && (
-            <button type="button" className="btn btn-secondary" onClick={resetForm}>
-              Cancelar
-            </button>
-          )}
-        </div>
-      </form>
-
-      <FiltrosAnioCurso
-        cursosObj={cursosObj}
-        defaultToFirst={false}
-        onCursoChange={setFiltroCurso}
-        className="filter-row"
-      />
-
-      {horariosFiltrados.length === 0 ? (
-        <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
-          No hay horarios cargados.
+      {mensaje && (
+        <p className="form-error-message" style={{ color: mensaje.includes('correctamente') ? '#155724' : undefined }}>
+          {mensaje}
         </p>
-      ) : (
-        <div className="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Curso</th>
-                <th>Materia</th>
-                <th>Docente</th>
-                <th>Día</th>
-                <th>Módulo</th>
-                <th>Horario</th>
-                <th>Aula</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {horariosFiltrados.map((h) => (
-                <tr key={h.id}>
-                  <td>{cursoConOrientacion(h.curso_nombre)}</td>
-                  <td>{h.materia_nombre || '—'}</td>
-                  <td>{h.docente_nombre || '—'}</td>
-                  <td>{h.dia_semana || '—'}</td>
-                  <td>{h.numero_modulo ? `Módulo ${h.numero_modulo}` : '—'}</td>
-                  <td>
-                    {h.hora_inicio
-                      ? `${String(h.hora_inicio).slice(0, 5)} - ${String(h.hora_fin).slice(0, 5)}`
-                      : '—'}
-                  </td>
-                  <td>{h.aula || '—'}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => handleEditar(h)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleEliminar(h)}
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      )}
+
+      {cursoSeleccionado && (
+        <>
+          {cargandoGrilla ? (
+            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+              Cargando horarios...
+            </p>
+          ) : modulosSorted.length === 0 ? (
+            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+              No hay módulos horarios definidos en el sistema.
+            </p>
+          ) : materiasCurso.length === 0 ? (
+            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+              El curso no tiene materias asignadas.
+            </p>
+          ) : (
+            <>
+              <div className="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: '110px' }}>Horario</th>
+                      {DIAS.map((d) => (
+                        <th key={d} style={{ minWidth: '140px' }}>{d}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {modulosSorted.map((mod) => (
+                      <tr key={mod.id_modulo}>
+                        <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {timeStr(mod.hora_inicio)} - {timeStr(mod.hora_fin)}
+                        </td>
+                        {DIAS.map((dia) => (
+                          <td key={`${dia}_${mod.id_modulo}`} style={{ padding: '4px 6px' }}>
+                            <select
+                              className="form-control"
+                              style={{ width: '100%', padding: '6px 8px', fontSize: '0.8rem' }}
+                              value={getCellValue(dia, mod.id_modulo)}
+                              onChange={(e) => handleCellChange(dia, mod.id_modulo, e.target.value)}
+                            >
+                              <option value="" />
+                              {materiasCurso.map((m) => (
+                                <option key={m.id} value={m.nombre}>{m.nombre}</option>
+                              ))}
+                            </select>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="form-actions" style={{ marginTop: '16px' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={guardando}
+                  onClick={handleGuardar}
+                >
+                  {guardando ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );

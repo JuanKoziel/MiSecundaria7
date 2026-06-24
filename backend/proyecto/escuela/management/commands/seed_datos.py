@@ -215,31 +215,44 @@ class Command(BaseCommand):
             cms.append(cm)
         self.stdout.write(self.style.SUCCESS(f'  Curso-Materia: {len(cms)} asignaciones'))
 
-        # --- Horarios (módulos de 1h, 07:30-19:30) ---
-        # Módulo N: inicio 07:30 + (N-1) horas.
-        def modulo_horas(numero):
-            inicio_min = 7 * 60 + 30 + (numero - 1) * 60
-            fin_min = inicio_min + 60
-            return (
-                time(inicio_min // 60, inicio_min % 60),
-                time(fin_min // 60, fin_min % 60),
-            )
+        # --- Módulos horarios ---
+        modulos_data = [
+            {'nombre': 'Módulo 1', 'hora_inicio': time(7, 30), 'hora_fin': time(8, 10)},
+            {'nombre': 'Módulo 2', 'hora_inicio': time(8, 10), 'hora_fin': time(8, 50)},
+            {'nombre': 'Módulo 3', 'hora_inicio': time(9, 0), 'hora_fin': time(9, 40)},
+            {'nombre': 'Módulo 4', 'hora_inicio': time(9, 40), 'hora_fin': time(10, 20)},
+            {'nombre': 'Módulo 5', 'hora_inicio': time(10, 30), 'hora_fin': time(11, 10)},
+            {'nombre': 'Módulo 6', 'hora_inicio': time(11, 10), 'hora_fin': time(11, 50)},
+            {'nombre': 'Módulo 7', 'hora_inicio': time(13, 0), 'hora_fin': time(13, 40)},
+            {'nombre': 'Módulo 8', 'hora_inicio': time(13, 40), 'hora_fin': time(14, 20)},
+            {'nombre': 'Módulo 9', 'hora_inicio': time(14, 30), 'hora_fin': time(15, 10)},
+            {'nombre': 'Módulo 10', 'hora_inicio': time(15, 10), 'hora_fin': time(15, 50)},
+            {'nombre': 'Módulo 11', 'hora_inicio': time(16, 0), 'hora_fin': time(16, 40)},
+            {'nombre': 'Módulo 12', 'hora_inicio': time(16, 40), 'hora_fin': time(17, 20)},
+            {'nombre': 'Módulo 13', 'hora_inicio': time(17, 30), 'hora_fin': time(18, 10)},
+            {'nombre': 'Módulo 14', 'hora_inicio': time(18, 10), 'hora_fin': time(18, 50)},
+        ]
 
+        from escuela.models import Modulos
+        modulos_creados = []
+        for md in modulos_data:
+            mod, created = Modulos.objects.get_or_create(
+                nombre=md['nombre'],
+                defaults={'hora_inicio': md['hora_inicio'], 'hora_fin': md['hora_fin']},
+            )
+            modulos_creados.append(mod)
+
+        # --- Horarios ---
         dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
         horarios_count = 0
         for i, cm in enumerate(cms):
             dia = dias[i % len(dias)]
-            numero_modulo = (i % 6) + 1
-            h_inicio, h_fin = modulo_horas(numero_modulo)
+            mod = modulos_creados[i % len(modulos_creados)]
             _, created = Horario.objects.get_or_create(
                 id_curso_materia=cm,
                 dia_semana=dia,
-                numero_modulo=numero_modulo,
-                defaults={
-                    'hora_inicio': h_inicio,
-                    'hora_fin': h_fin,
-                    'aula': f'Aula {(i % 6) + 1}',
-                },
+                id_modulo=mod,
+                defaults={'aula': f'Aula {(i % 6) + 1}'},
             )
             if created:
                 horarios_count += 1

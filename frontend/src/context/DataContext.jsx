@@ -13,6 +13,7 @@ import {
   getActaCurso,
   getActaDocente,
   getHorarios,
+  getModulos,
   getCiclosLectivos,
   getEstadosAsistencia,
   getNotificaciones,
@@ -90,6 +91,7 @@ export function DataProvider({ children }) {
         actaCursoRaw,
         actaDocenteRaw,
         horariosRaw,
+        modulosRaw,
         ciclosRaw,
         estadosRaw,
         notificacionesRaw,
@@ -116,6 +118,7 @@ export function DataProvider({ children }) {
         getActaCurso().catch(() => []),
         getActaDocente().catch(() => []),
         getHorarios().catch(() => []),
+        getModulos().catch(() => []),
         getCiclosLectivos().catch(() => []),
         getEstadosAsistencia().catch(() => []),
         getNotificaciones().catch(() => []),
@@ -253,11 +256,19 @@ export function DataProvider({ children }) {
         }
       });
 
+      const modulosArr = (Array.isArray(modulosRaw) ? modulosRaw : [])
+        .sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''));
+      const modulosPorId = {};
+      modulosArr.forEach((m) => { modulosPorId[m.id_modulo] = m; });
+
       const horariosClase = {};
       (Array.isArray(horariosRaw) ? horariosRaw : []).forEach((h) => {
         const cm = cursoMateria.find((c) => c.id === h.id_curso_materia);
         if (cm) {
-          horariosClase[cm.materia_nombre] = `${h.hora_inicio || ''} - ${h.hora_fin || ''}`;
+          const mod = modulosPorId[h.id_modulo];
+          if (mod) {
+            horariosClase[cm.materia_nombre] = `${String(mod.hora_inicio).slice(0, 5)} - ${String(mod.hora_fin).slice(0, 5)}`;
+          }
         }
       });
 
@@ -266,18 +277,20 @@ export function DataProvider({ children }) {
         const cursoObj = cm
           ? cursosObjArr.find((c) => c.id_curso === cm.id_curso)
           : null;
+        const mod = modulosPorId[h.id_modulo];
         return {
           id: h.id_horario,
           id_curso_materia: h.id_curso_materia,
+          id_modulo: h.id_modulo ?? null,
           id_curso: cm?.id_curso || h.id_curso || null,
           curso_nombre: h.curso_nombre || cm?.curso_nombre || '',
           materia_nombre: h.materia_nombre || cm?.materia_nombre || '',
           docente_nombre: h.docente_nombre || cm?.docente_nombre || '',
           ciclo_anio: cursoObj?.ciclo_anio || null,
           dia_semana: h.dia_semana || '',
-          numero_modulo: h.numero_modulo ?? null,
-          hora_inicio: h.hora_inicio || '',
-          hora_fin: h.hora_fin || '',
+          numero_modulo: modulosArr.findIndex((m) => m.id_modulo === h.id_modulo) + 1 || null,
+          hora_inicio: mod ? String(mod.hora_inicio).slice(0, 5) : '',
+          hora_fin: mod ? String(mod.hora_fin).slice(0, 5) : '',
           aula: h.aula || '',
         };
       });
@@ -532,6 +545,7 @@ export function DataProvider({ children }) {
         materiasPorCurso,
         horariosClase,
         horarios,
+        modulos: modulosArr,
         aniosLectivos,
         ciclosLectivos,
         estadosAsistencia,
@@ -610,6 +624,7 @@ export function useData() {
       materiasPorCurso: {},
       horariosClase: {},
       horarios: [],
+      modulos: [],
       aniosLectivos: [],
       estadosAsistencia: [],
       inscripciones: [],
