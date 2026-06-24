@@ -692,10 +692,46 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        docente = self._docente_actual()
-        if not docente:
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
+
+        if 'docente' in roles:
+            docente = self._docente_actual()
+            if docente:
+                qs = qs.filter(id_docente=docente)
+            else:
+                return qs.none()
+        elif 'alumno' in roles and usuario_obj:
+            alumno = Alumno.objects.filter(id_usuario=usuario_obj).first()
+            if alumno and alumno.id_curso_id:
+                curso_materias = CursoMateria.objects.filter(
+                    id_curso=alumno.id_curso_id,
+                ).values_list('id_curso_materia', flat=True)
+                qs = qs.filter(id_curso_materia__in=curso_materias)
+            else:
+                return qs.none()
+        elif 'familia' in roles and usuario_obj:
+            tutor = PadreTutor.objects.filter(id_usuario=usuario_obj).first()
+            if tutor:
+                hijos = Alumno.objects.filter(id_tutor=tutor).values_list('id_curso', flat=True)
+                curso_ids = [h for h in hijos if h is not None]
+                if curso_ids:
+                    curso_materias = CursoMateria.objects.filter(
+                        id_curso__in=curso_ids,
+                    ).values_list('id_curso_materia', flat=True)
+                    qs = qs.filter(id_curso_materia__in=curso_materias)
+                else:
+                    return qs.none()
+            else:
+                return qs.none()
+        elif not roles:
             return qs.none()
-        qs = qs.filter(id_docente=docente)
+
+        curso = self.request.query_params.get('curso')
+        if curso:
+            qs = qs.filter(id_curso_materia__id_curso=curso)
+
         curso_materia = self.request.query_params.get('curso_materia')
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)
@@ -915,6 +951,10 @@ class HorarioViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        curso = self.request.query_params.get('curso')
+        if curso:
+            qs = qs.filter(id_curso_materia__id_curso=curso)
+
         curso_materia = self.request.query_params.get('curso_materia')
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)

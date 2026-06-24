@@ -11,6 +11,7 @@ import Actas from './Actas';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
+import ActividadesView from '../Shared/ActividadesView';
 import { useData } from '../../context/DataContext';
 
 function FamiliaDashboard({ user, onLogout }) {
@@ -70,6 +71,13 @@ function FamiliaDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Actas hijo={hijoSeleccionado} />
+          </div>
+        );
+
+      case 'actividades':
+        return (
+          <div className="view-section active">
+            <ActividadesView userRole="familia" selectedChild={hijoSeleccionado} />
           </div>
         );
 

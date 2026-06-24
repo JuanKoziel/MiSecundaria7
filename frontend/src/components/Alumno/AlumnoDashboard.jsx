@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
+import ActividadesView from '../Shared/ActividadesView';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 
@@ -202,6 +203,12 @@ function AlumnoDashboard({ user, onLogout }) {
               <span>Asistencias</span>
             </button>
           </li>
+          <li className={view === 'actividades' ? 'active' : ''}>
+            <button type="button" className="sidebar-menu-btn" onClick={() => setView('actividades')}>
+              <i className="fas fa-tasks" aria-hidden="true" />
+              <span>Actividades</span>
+            </button>
+          </li>
           <li className={view === 'comunicados' ? 'active' : ''}>
             <button type="button" className="sidebar-menu-btn" onClick={() => setView('comunicados')}>
               <i className="fas fa-bullhorn" aria-hidden="true" />
@@ -238,6 +245,10 @@ function AlumnoDashboard({ user, onLogout }) {
         {view === 'notificaciones' ? (
           <div className="view-section active">
             <Notificaciones />
+          </div>
+        ) : view === 'actividades' ? (
+          <div className="view-section active">
+            <ActividadesView userRole="alumno" />
           </div>
         ) : view === 'comunicados' ? (
           <div className="view-section active">
