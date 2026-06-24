@@ -40,6 +40,7 @@ function ActividadesView({ userRole, selectedChild }) {
   const { user } = useAuth();
   const [actividades, setActividades] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMateria, setSelectedMateria] = useState('');
   const [selectedActividad, setSelectedActividad] = useState(null);
   const [previewArchivo, setPreviewArchivo] = useState(null);
 
@@ -87,6 +88,16 @@ function ActividadesView({ userRole, selectedChild }) {
       .catch(() => setActividades([]))
       .finally(() => setLoading(false));
   }, [cursoId]);
+
+  useEffect(() => {
+    if (materiasDelCurso.length > 0) {
+      if (!selectedMateria || !materiasDelCurso.includes(selectedMateria)) {
+        setSelectedMateria(materiasDelCurso[0]);
+      }
+    } else {
+      setSelectedMateria('');
+    }
+  }, [materiasDelCurso]);
 
   const actividadesPorMateria = useMemo(() => {
     const grupos = {};
@@ -232,68 +243,79 @@ function ActividadesView({ userRole, selectedChild }) {
         <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
           Cargando actividades...
         </p>
+      ) : materiasDelCurso.length === 0 ? (
+        <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+          No hay materias disponibles.
+        </p>
       ) : (
-        <div style={{ display: 'grid', gap: '24px' }}>
-          {materiasDelCurso.length === 0 && actividades.length === 0 ? (
-            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
-              No hay actividades disponibles para tu curso.
-            </p>
-          ) : (
-            materiasDelCurso.map((materia) => {
-              const acts = actividadesPorMateria[materia] || [];
-              return (
-                <div key={materia}>
-                  <h4 style={{ margin: '0 0 8px', borderBottom: '2px solid var(--primary-color)', paddingBottom: '4px' }}>
-                    {materia}
-                  </h4>
-                  {acts.length === 0 ? (
-                    <p className="empty-state-message" style={{ margin: '8px 0', fontStyle: 'italic' }}>
-                      Sin actividades
-                    </p>
-                  ) : (
-                    <div style={{ display: 'grid', gap: '8px' }}>
-                      {acts.map((act) => {
-                        const cantArchivos = Array.isArray(act.archivos) ? act.archivos.length : 0;
-                        return (
-                          <div
-                            key={act.id_actividad}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '12px',
-                              padding: '12px',
-                              border: '1px solid var(--border-color)',
-                              borderRadius: '8px',
-                              background: 'var(--card-bg)',
-                            }}
-                          >
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                              <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{act.titulo}</div>
-                              <div className="upload-hint" style={{ marginTop: '4px', fontSize: '13px' }}>
-                                {formatFecha(act.fecha_creacion)} {formatHora(act.fecha_creacion)}
-                                {act.docente_apellido ? ` — ${act.docente_apellido}, ${act.docente_nombre}` : ''}
-                                {cantArchivos > 0 ? ` — ${cantArchivos} archivo(s)` : ''}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-primary"
-                              style={{ whiteSpace: 'nowrap' }}
-                              onClick={() => setSelectedActividad(act)}
-                            >
-                              <i className="fas fa-eye" aria-hidden="true" /> Ver
-                            </button>
+        <>
+          <div className="filter-row">
+            <div className="form-group-filter" style={{ maxWidth: '360px' }}>
+              <label htmlFor="materia-select">Materia</label>
+              <select
+                id="materia-select"
+                value={selectedMateria}
+                onChange={(e) => setSelectedMateria(e.target.value)}
+              >
+                {materiasDelCurso.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <h4 style={{ margin: '0 0 12px', borderBottom: '2px solid var(--primary-color)', paddingBottom: '4px' }}>
+              {selectedMateria}
+            </h4>
+            {(() => {
+              const acts = actividadesPorMateria[selectedMateria] || [];
+              return acts.length === 0 ? (
+                <p className="empty-state-message" style={{ margin: '8px 0', fontStyle: 'italic' }}>
+                  Sin actividades para esta materia.
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {acts.map((act) => {
+                    const cantArchivos = Array.isArray(act.archivos) ? act.archivos.length : 0;
+                    return (
+                      <div
+                        key={act.id_actividad}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          padding: '12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          background: 'var(--card-bg)',
+                        }}
+                      >
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{act.titulo}</div>
+                          <div className="upload-hint" style={{ marginTop: '4px', fontSize: '13px' }}>
+                            {formatFecha(act.fecha_creacion)} {formatHora(act.fecha_creacion)}
+                            {act.docente_apellido ? ` — ${act.docente_apellido}, ${act.docente_nombre}` : ''}
+                            {cantArchivos > 0 ? ` — ${cantArchivos} archivo(s)` : ''}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          style={{ whiteSpace: 'nowrap' }}
+                          onClick={() => setSelectedActividad(act)}
+                        >
+                          <i className="fas fa-eye" aria-hidden="true" /> Ver
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               );
-            })
-          )}
-        </div>
+            })()}
+          </div>
+        </>
       )}
     </div>
   );
