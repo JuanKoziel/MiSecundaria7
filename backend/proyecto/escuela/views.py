@@ -19,6 +19,7 @@ from escuela.models import (
     Alumno,
     Asistencia,
     ActividadDocente,
+    ActividadDocenteArchivo,
     Calificacion,
     CicloLectivo,
     Comunicado,
@@ -52,6 +53,7 @@ from escuela.serializers import (
     ActaDocenteSerializer,
     ActaSerializer,
     ActividadDocenteSerializer,
+    ActividadDocenteArchivoSerializer,
     ComunicadoArchivoSerializer,
     ComunicadoAlcanceSerializer,
     ComunicadoSerializer,
@@ -674,7 +676,7 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         'id_docente',
         'id_curso_materia__id_curso',
         'id_curso_materia__id_materia',
-    ).all()
+    ).prefetch_related('archivos_adjuntos').all()
     serializer_class = ActividadDocenteSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -699,6 +701,38 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_curso_materia=curso_materia)
         return qs
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        uploaded_files = []
+        if hasattr(self.request, 'FILES'):
+            uploaded_files.extend(self.request.FILES.getlist('archivos'))
+            uploaded_files.extend(self.request.FILES.getlist('archivo'))
+            if not uploaded_files and self.request.FILES.get('archivo'):
+                uploaded_files.append(self.request.FILES.get('archivo'))
+        context['uploaded_files'] = uploaded_files
+        return context
+
+    def _delete_file_object(self, archivo_obj):
+        if archivo_obj and archivo_obj.ruta_archivo and archivo_obj.ruta_archivo.name:
+            storage = archivo_obj.ruta_archivo.storage
+            if storage.exists(archivo_obj.ruta_archivo.name):
+                storage.delete(archivo_obj.ruta_archivo.name)
+
+    def _promote_primary_if_needed(self, actividad, archivo_eliminado):
+        current_name = getattr(actividad.ruta_archivo, 'name', None)
+        if not current_name:
+            return
+        if not archivo_eliminado or not archivo_eliminado.ruta_archivo:
+            return
+        if current_name != archivo_eliminado.ruta_archivo.name:
+            return
+        siguiente = actividad.archivos_adjuntos.exclude(id_archivo=archivo_eliminado.id_archivo).order_by('id_archivo').first()
+        if siguiente:
+            actividad.ruta_archivo = siguiente.ruta_archivo.name
+        else:
+            actividad.ruta_archivo = ''
+        actividad.save(update_fields=['ruta_archivo'])
+
     def perform_create(self, serializer):
         docente = self._docente_actual()
         if not docente:
@@ -715,9 +749,33 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         docente = self._docente_actual()
         if not docente or instance.id_docente_id != docente.id_docente:
             raise PermissionDenied('No tienes permiso para eliminar esta actividad.')
-        if instance.ruta_archivo and instance.ruta_archivo.storage.exists(instance.ruta_archivo.name):
-            instance.ruta_archivo.storage.delete(instance.ruta_archivo.name)
+        archivos = list(instance.archivos_adjuntos.all().order_by('id_archivo'))
+        if archivos:
+            for archivo in archivos:
+                self._delete_file_object(archivo)
+        elif instance.ruta_archivo and instance.ruta_archivo.name:
+            if instance.ruta_archivo.storage.exists(instance.ruta_archivo.name):
+                instance.ruta_archivo.storage.delete(instance.ruta_archivo.name)
         instance.delete()
+
+    @action(detail=True, methods=['delete'], url_path=r'archivos/(?P<archivo_id>[^/.]+)')
+    def borrar_archivo(self, request, pk=None, archivo_id=None):
+        actividad = self.get_object()
+        docente = self._docente_actual()
+        if not docente or actividad.id_docente_id != docente.id_docente:
+            raise PermissionDenied('No tienes permiso para modificar esta actividad.')
+
+        archivo = actividad.archivos_adjuntos.filter(id_archivo=archivo_id).first()
+        if not archivo:
+            return Response({'error': 'El archivo no existe.'}, status=status.HTTP_404_NOT_FOUND)
+
+        self._promote_primary_if_needed(actividad, archivo)
+        self._delete_file_object(archivo)
+        archivo.delete()
+
+        actividad.refresh_from_db()
+        serializer = self.get_serializer(actividad)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PreceptorViewSet(viewsets.ModelViewSet):

@@ -1,4 +1,4 @@
-﻿from rest_framework import serializers
+from rest_framework import serializers
 
 from escuela.models import (
     Acta,
@@ -10,6 +10,7 @@ from escuela.models import (
     Calificacion,
     CicloLectivo,
     ActividadDocente,
+    ActividadDocenteArchivo,
     Comunicado,
     ComunicadoAlcance,
     ComunicadoArchivo,
@@ -517,8 +518,59 @@ class DdjjDocenteSerializer(serializers.ModelSerializer):
         raise serializers.ValidationError({'archivo': 'Ya posee una D.D.J.J. presentada.'})
 
 
-class ActividadDocenteSerializer(serializers.ModelSerializer):
+class ActividadDocenteArchivoSerializer(serializers.ModelSerializer):
     archivo = serializers.FileField(write_only=True, required=False)
+    archivo_url = serializers.SerializerMethodField()
+    nombre_archivo = serializers.SerializerMethodField()
+    es_principal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ActividadDocenteArchivo
+        fields = [
+            'id_archivo',
+            'id_actividad',
+            'archivo',
+            'archivo_url',
+            'nombre_archivo',
+            'fecha_carga',
+            'es_principal',
+        ]
+        extra_kwargs = {
+            'id_actividad': {'read_only': True},
+        }
+
+    def get_nombre_archivo(self, obj):
+        if not obj.ruta_archivo:
+            return None
+        return obj.ruta_archivo.name.split('/')[-1]
+
+    def get_archivo_url(self, obj):
+        if not obj.ruta_archivo:
+            return None
+        try:
+            return obj.ruta_archivo.url
+        except Exception:
+            return f'/media/{obj.ruta_archivo.name}'
+
+    def get_es_principal(self, obj):
+        actividad = getattr(obj, '_actividad', None) or getattr(obj, 'id_actividad', None)
+        if not actividad or not getattr(actividad, 'ruta_archivo', None) or not obj.ruta_archivo:
+            return False
+        return actividad.ruta_archivo.name == obj.ruta_archivo.name
+
+    def create(self, validated_data):
+        archivo = validated_data.pop('archivo', None)
+        if not archivo:
+            raise serializers.ValidationError({'archivo': 'Debes adjuntar un archivo.'})
+        instance = ActividadDocenteArchivo(**validated_data)
+        instance.ruta_archivo = archivo
+        instance.save()
+        return instance
+
+
+class ActividadDocenteSerializer(serializers.ModelSerializer):
+    archivo = serializers.FileField(write_only=True, required=False, allow_null=True)
+    archivos = serializers.SerializerMethodField()
     curso_nombre = serializers.CharField(source='id_curso_materia.id_curso.nombre_curso', read_only=True)
     materia_nombre = serializers.CharField(source='id_curso_materia.id_materia.nombre_materia', read_only=True)
     docente_nombre = serializers.CharField(source='id_docente.nombre', read_only=True)
@@ -541,19 +593,50 @@ class ActividadDocenteSerializer(serializers.ModelSerializer):
             'titulo',
             'descripcion',
             'archivo',
+            'archivos',
             'archivo_url',
             'nombre_archivo',
             'fecha_creacion',
             'fecha_subida',
             'hora_subida',
         ]
+        extra_kwargs = {
+            'id_docente': {'read_only': True},
+            'ruta_archivo': {'read_only': True},
+        }
+
+    def _archivos_queryset(self, obj):
+        archivos = list(obj.archivos_adjuntos.all().order_by('id_archivo'))
+        for archivo in archivos:
+            archivo._actividad = obj
+        return archivos
+
+    def get_archivos(self, obj):
+        archivos = self._archivos_queryset(obj)
+        if archivos:
+            return ActividadDocenteArchivoSerializer(archivos, many=True).data
+        if not obj.ruta_archivo:
+            return []
+        fake = ActividadDocenteArchivo(id_archivo=None, id_actividad=obj, fecha_carga=obj.fecha_creacion)
+        fake.ruta_archivo.name = obj.ruta_archivo.name
+        fake._actividad = obj
+        return [ActividadDocenteArchivoSerializer(fake).data]
 
     def get_nombre_archivo(self, obj):
+        archivos = self._archivos_queryset(obj)
+        if archivos:
+            return archivos[0].ruta_archivo.name.split('/')[-1]
         if not obj.ruta_archivo:
             return None
         return obj.ruta_archivo.name.split('/')[-1]
 
     def get_archivo_url(self, obj):
+        archivos = self._archivos_queryset(obj)
+        if archivos:
+            try:
+                return archivos[0].ruta_archivo.url
+            except Exception:
+                return f'/media/{archivos[0].ruta_archivo.name}'
         if not obj.ruta_archivo:
             return None
         try:
@@ -583,19 +666,22 @@ class ActividadDocenteSerializer(serializers.ModelSerializer):
 
         curso_materia = attrs.get('id_curso_materia') or getattr(self.instance, 'id_curso_materia', None)
         if not curso_materia:
-            raise serializers.ValidationError({'id_curso_materia': 'Debes seleccionar un curso y una materia válidos.'})
+            raise serializers.ValidationError({'id_curso_materia': 'Debes seleccionar un curso y una materia v?lidos.'})
 
         if curso_materia.id_docente_id != docente_actual.id_docente:
-            raise serializers.ValidationError({'id_curso_materia': 'No tienes permiso para usar esa asignación.'})
+            raise serializers.ValidationError({'id_curso_materia': 'No tienes permiso para usar esa asignaci?n.'})
 
-        archivo = self.initial_data.get('archivo')
-        if self.instance is None and not archivo:
+        archivos = list(self.context.get('uploaded_files') or [])
+        archivo_legacy = attrs.get('archivo')
+        if archivo_legacy:
+            archivos = [archivo_legacy, *archivos]
+        if self.instance is None and not archivos:
             raise serializers.ValidationError({'archivo': 'Debes adjuntar un archivo para la actividad.'})
 
         return attrs
 
     def create(self, validated_data):
-        archivo = validated_data.pop('archivo', None)
+        archivo_legacy = validated_data.pop('archivo', None)
         validated_data.pop('id_docente', None)
         request = self.context.get('request')
         docente_actual = self._get_docente_actual(request)
@@ -604,22 +690,42 @@ class ActividadDocenteSerializer(serializers.ModelSerializer):
 
         instance = ActividadDocente(**validated_data)
         instance.id_docente = docente_actual
-        if archivo is not None:
-            instance.ruta_archivo = archivo
+        instance.ruta_archivo = ''
         instance.save()
+
+        archivos = list(self.context.get('uploaded_files') or [])
+        if archivo_legacy is not None:
+            archivos = [archivo_legacy, *archivos]
+
+        for archivo in archivos:
+            ActividadDocenteArchivo.objects.create(id_actividad=instance, ruta_archivo=archivo)
+
+        primer_archivo = instance.archivos_adjuntos.order_by('id_archivo').first()
+        if primer_archivo:
+            instance.ruta_archivo = primer_archivo.ruta_archivo.name
+            instance.save(update_fields=['ruta_archivo'])
         return instance
 
     def update(self, instance, validated_data):
-        archivo = validated_data.pop('archivo', None)
+        archivo_legacy = validated_data.pop('archivo', None)
         validated_data.pop('id_docente', None)
         validated_data.pop('id_curso_materia', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        if archivo is not None:
-            if instance.ruta_archivo and instance.ruta_archivo.name and instance.ruta_archivo.storage.exists(instance.ruta_archivo.name):
-                instance.ruta_archivo.storage.delete(instance.ruta_archivo.name)
-            instance.ruta_archivo = archivo
         instance.save()
+
+        archivos = list(self.context.get('uploaded_files') or [])
+        if archivo_legacy is not None:
+            archivos = [archivo_legacy, *archivos]
+
+        for archivo in archivos:
+            ActividadDocenteArchivo.objects.create(id_actividad=instance, ruta_archivo=archivo)
+
+        if not instance.ruta_archivo:
+            primer_archivo = instance.archivos_adjuntos.order_by('id_archivo').first()
+            if primer_archivo:
+                instance.ruta_archivo = primer_archivo.ruta_archivo.name
+                instance.save(update_fields=['ruta_archivo'])
         return instance
 
 

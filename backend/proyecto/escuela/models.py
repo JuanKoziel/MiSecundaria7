@@ -205,7 +205,7 @@ class ActividadDocente(models.Model):
     )
     titulo = models.CharField(max_length=150)
     descripcion = models.TextField(blank=True, null=True)
-    ruta_archivo = models.FileField(upload_to='actividades_docentes/', max_length=255)
+    ruta_archivo = models.FileField(upload_to='actividades_docentes/', max_length=255, blank=True, null=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -214,6 +214,23 @@ class ActividadDocente(models.Model):
 
     def __str__(self):
         return self.titulo
+
+
+class ActividadDocenteArchivo(models.Model):
+    id_archivo = models.AutoField(primary_key=True)
+    id_actividad = models.ForeignKey(
+        ActividadDocente, on_delete=models.CASCADE, db_column='id_actividad',
+        related_name='archivos_adjuntos',
+    )
+    ruta_archivo = models.FileField(upload_to='actividades_docentes/', max_length=255)
+    fecha_carga = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'actividad_docente_archivos'
+
+    def __str__(self):
+        return self.ruta_archivo.name if self.ruta_archivo else f'Archivo {self.id_archivo}'
 
 
 class Directivo(models.Model):

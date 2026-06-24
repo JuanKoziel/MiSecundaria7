@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createActividad, deleteActividad, getActividades, updateActividad } from '../../services/api';
+import {
+  createActividad,
+  deleteActividad,
+  deleteActividadArchivo,
+  getActividades,
+  updateActividad,
+} from '../../services/api';
 
 const API_BASE = 'http://localhost:8000';
-const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'webp'];
+const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif'];
 
 function getExtension(nombre = '') {
   const limpio = String(nombre).split('?')[0].split('#')[0];
-  const partes = limpio.split('.');
-  return partes.length > 1 ? partes.pop().toLowerCase() : '';
+  const parts = limpio.split('.');
+  return parts.length > 1 ? parts.pop().toLowerCase() : '';
 }
 
 function isPreviewable(nombre = '') {
@@ -21,17 +27,17 @@ function resolveUrl(url) {
 
 function formatDateTime(value) {
   if (!value) return { fecha: '—', hora: '—' };
-  const fechaObj = new Date(value);
-  if (Number.isNaN(fechaObj.getTime())) return { fecha: '—', hora: '—' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { fecha: '—', hora: '—' };
   return {
-    fecha: new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' }).format(fechaObj),
-    hora: new Intl.DateTimeFormat('es-AR', { timeStyle: 'short' }).format(fechaObj),
+    fecha: new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' }).format(date),
+    hora: new Intl.DateTimeFormat('es-AR', { timeStyle: 'short' }).format(date),
   };
 }
 
 function getErrorMessage(err) {
   const data = err?.response?.data;
-  if (!data) return err?.message || 'No se pudo cargar la actividad.';
+  if (!data) return err?.message || 'No se pudo completar la operación.';
   if (typeof data === 'string') return data;
   if (data.error) return data.error;
   if (data.detail) return data.detail;
@@ -44,14 +50,97 @@ function getErrorMessage(err) {
       })
       .join(' | ');
   }
-  return 'No se pudo cargar la actividad.';
+  return 'No se pudo completar la operación.';
+}
+
+function ArchivoRow({ archivo, onVer, onDescargar, onEliminar, editable = false }) {
+  const nombre = archivo?.nombre_archivo || 'Archivo';
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '10px',
+        border: '1px solid var(--border-color)',
+        borderRadius: '8px',
+        padding: '10px 12px',
+        background: 'var(--card-bg)',
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>
+          {nombre}
+          {archivo?.es_principal ? ' · principal' : ''}
+        </div>
+        <div className="upload-hint" style={{ marginTop: '4px' }}>
+          {archivo?.fecha_carga ? formatDateTime(archivo.fecha_carga).fecha : ''}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        {archivo?.archivo_url && (
+          <button type="button" className="btn btn-success btn-sm" onClick={onVer}>
+            <i className="fas fa-eye" aria-hidden="true" /> Ver
+          </button>
+        )}
+        {onDescargar && archivo?.archivo_url && (
+          <a
+            href={resolveUrl(archivo.archivo_url)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary btn-sm"
+          >
+            <i className="fas fa-download" aria-hidden="true" /> Descargar
+          </a>
+        )}
+        {editable && (
+          <button type="button" className="btn btn-danger btn-sm" onClick={onEliminar}>
+            <i className="fas fa-trash-alt" aria-hidden="true" /> Eliminar
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function ModalActividad({ actividad, onClose }) {
-  const archivoUrl = resolveUrl(actividad?.archivo_url);
-  const nombreArchivo = actividad?.nombre_archivo || (archivoUrl ? archivoUrl.split('/').pop() : null);
-  const previewable = isPreviewable(nombreArchivo || '');
+  const archivos = Array.isArray(actividad?.archivos) ? actividad.archivos : [];
+  const [previewArchivo, setPreviewArchivo] = useState(null);
   const fechaInfo = formatDateTime(actividad?.fecha_creacion);
+
+  const handleVerArchivo = (archivo) => {
+    setPreviewArchivo((prev) => (prev === archivo ? null : archivo));
+  };
+
+  const renderPreview = (archivo) => {
+    const url = resolveUrl(archivo.archivo_url);
+    const ext = getExtension(archivo.nombre_archivo || '');
+    const previewable = isPreviewable(archivo.nombre_archivo || '');
+    if (!url) return null;
+    return (
+      <div className="ddjj-no-preview" style={{ marginTop: '8px' }}>
+        {previewable ? (
+          ext === 'pdf' ? (
+            <iframe
+              title={`Vista previa ${archivo.nombre_archivo || 'archivo'}`}
+              className="ddjj-preview-frame"
+              src={url}
+            />
+          ) : (
+            <div className="ddjj-image-wrap">
+              <img
+                src={url}
+                alt={`Vista previa ${archivo.nombre_archivo || 'archivo'}`}
+                className="ddjj-preview-image"
+              />
+            </div>
+          )
+        ) : (
+          <p style={{ margin: 0 }}>Este archivo no admite vista previa.</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="ddjj-modal-overlay" role="presentation" onClick={onClose}>
@@ -64,12 +153,9 @@ function ModalActividad({ actividad, onClose }) {
       >
         <div className="ddjj-modal-header">
           <h3>{actividad?.titulo || 'Actividad'}</h3>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
-            Cerrar
-          </button>
         </div>
 
-        <div className="ddjj-modal-body">
+        <div className="ddjj-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <p style={{ marginTop: 0 }}>
             <strong>Descripción:</strong> {actividad?.descripcion || 'Sin descripción.'}
           </p>
@@ -79,50 +165,28 @@ function ModalActividad({ actividad, onClose }) {
           <p>
             <strong>Hora de subida:</strong> {fechaInfo.hora}
           </p>
-          <p>
-            <strong>Archivo:</strong> {nombreArchivo || 'Sin archivo'}
-          </p>
 
-          {archivoUrl ? (
-            previewable ? (
-              getExtension(nombreArchivo || '') === 'pdf' ? (
-                <iframe
-                  title={`Vista previa ${nombreArchivo}`}
-                  className="ddjj-preview-frame"
-                  src={archivoUrl}
+          {archivos.length > 0 ? (
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <p style={{ margin: 0, fontWeight: 600 }}>Archivos adjuntos</p>
+              {archivos.map((archivo) => (
+                <ArchivoRow
+                  key={archivo.id_archivo || archivo.nombre_archivo}
+                  archivo={archivo}
+                  onVer={() => handleVerArchivo(archivo)}
+                  onDescargar
                 />
-              ) : (
-                <div className="ddjj-image-wrap">
-                  <img
-                    src={archivoUrl}
-                    alt={`Vista previa ${nombreArchivo}`}
-                    className="ddjj-preview-image"
-                  />
-                </div>
-              )
-            ) : (
-              <div className="ddjj-no-preview">
-                <p style={{ margin: 0 }}>Este archivo no admite vista previa.</p>
-              </div>
-            )
+              ))}
+              {previewArchivo && renderPreview(previewArchivo)}
+            </div>
           ) : (
             <div className="ddjj-no-preview">
-              <p style={{ margin: 0 }}>La actividad no tiene archivo adjunto.</p>
+              <p style={{ margin: 0 }}>La actividad no tiene archivos adjuntos.</p>
             </div>
           )}
         </div>
 
         <div className="ddjj-modal-footer">
-          {archivoUrl && (
-            <a
-              href={archivoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-success"
-            >
-              <i className="fas fa-download" aria-hidden="true" /> Descargar archivo
-            </a>
-          )}
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Cerrar
           </button>
@@ -133,17 +197,34 @@ function ModalActividad({ actividad, onClose }) {
 }
 
 function ModalFormularioActividad({
-  cursoMateriaId,
-  docenteId,
+  actividadEditando,
   cursoNombre,
   materiaNombre,
-  actividadEditando,
   form,
   setForm,
   onClose,
   onGuardar,
   guardando,
+  nuevosArchivos,
+  setNuevosArchivos,
+  onEliminarArchivo,
 }) {
+  const archivosExistentes = useMemo(
+    () => (Array.isArray(actividadEditando?.archivos) ? actividadEditando.archivos : []),
+    [actividadEditando],
+  );
+
+  const agregarArchivos = (event) => {
+    const incoming = Array.from(event.target.files || []);
+    if (incoming.length === 0) return;
+    setNuevosArchivos((prev) => [...prev, ...incoming]);
+    event.target.value = '';
+  };
+
+  const quitarNuevoArchivo = (index) => {
+    setNuevosArchivos((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
   return (
     <div className="ddjj-modal-overlay" role="presentation" onClick={onClose}>
       <div
@@ -155,9 +236,6 @@ function ModalFormularioActividad({
       >
         <div className="ddjj-modal-header">
           <h3>{actividadEditando ? 'Editar actividad' : 'Nueva actividad'}</h3>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
-            Cerrar
-          </button>
         </div>
 
         <form onSubmit={onGuardar} className="ddjj-modal-body" style={{ display: 'grid', gap: '14px' }}>
@@ -185,20 +263,45 @@ function ModalFormularioActividad({
           </div>
 
           <div className="form-group-filter preceptor-form-full">
-            <label htmlFor="actividad-archivo">Archivo *</label>
+            <label htmlFor="actividad-archivos">Archivos *</label>
             <input
-              id="actividad-archivo"
+              id="actividad-archivos"
               type="file"
-              onChange={(e) => {
-                const archivo = e.target.files?.[0] || null;
-                setForm((prev) => ({ ...prev, archivo }));
-              }}
+              multiple
+              onChange={agregarArchivos}
             />
-            {actividadEditando?.nombre_archivo && !form.archivo && (
-              <small className="upload-hint">Archivo actual: {actividadEditando.nombre_archivo}</small>
-            )}
-            {form.archivo && <small className="upload-hint">Nuevo archivo: {form.archivo.name}</small>}
+            <small className="upload-hint">Podés agregar uno o más archivos.</small>
           </div>
+
+          {archivosExistentes.length > 0 && (
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <p style={{ margin: 0, fontWeight: 600 }}>Archivos actuales</p>
+              {archivosExistentes.map((archivo) => (
+                <ArchivoRow
+                  key={archivo.id_archivo || archivo.nombre_archivo}
+                  archivo={archivo}
+                  editable
+                  onVer={() => window.open(resolveUrl(archivo.archivo_url), '_blank', 'noopener,noreferrer')}
+                  onEliminar={() => onEliminarArchivo(archivo)}
+                />
+              ))}
+            </div>
+          )}
+
+          {nuevosArchivos.length > 0 && (
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <p style={{ margin: 0, fontWeight: 600 }}>Nuevos archivos a agregar</p>
+              {nuevosArchivos.map((file, index) => (
+                <ArchivoRow
+                  key={`${file.name}-${file.size}-${file.lastModified}`}
+                  archivo={{ nombre_archivo: file.name }}
+                  editable
+                  onVer={() => window.open(URL.createObjectURL(file), '_blank', 'noopener,noreferrer')}
+                  onEliminar={() => quitarNuevoArchivo(index)}
+                />
+              ))}
+            </div>
+          )}
 
           <div className="comunicados-destino-preview">
             {cursoNombre} - {materiaNombre}
@@ -212,9 +315,6 @@ function ModalFormularioActividad({
               <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
-
-          <input type="hidden" value={cursoMateriaId || ''} readOnly />
-          <input type="hidden" value={docenteId || ''} readOnly />
         </form>
       </div>
     </div>
@@ -229,21 +329,21 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [actividadEditando, setActividadEditando] = useState(null);
   const [actividadVista, setActividadVista] = useState(null);
-  const [form, setForm] = useState({
-    titulo: '',
-    descripcion: '',
-    archivo: null,
-  });
+  const [nuevosArchivos, setNuevosArchivos] = useState([]);
+  const [form, setForm] = useState({ titulo: '', descripcion: '' });
 
   const cargaLista = async () => {
-    if (!cursoMateriaId) return;
+    if (!cursoMateriaId) return [];
     setLoading(true);
     try {
       const data = await getActividades({ curso_materia: cursoMateriaId });
-      setActividades(Array.isArray(data) ? data : data.results || []);
+      const lista = Array.isArray(data) ? data : data.results || [];
+      setActividades(lista);
+      return lista;
     } catch (err) {
       setMensaje(getErrorMessage(err));
       setActividades([]);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -254,8 +354,9 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
   }, [cursoMateriaId]);
 
   const resetFormulario = () => {
-    setForm({ titulo: '', descripcion: '', archivo: null });
     setActividadEditando(null);
+    setForm({ titulo: '', descripcion: '' });
+    setNuevosArchivos([]);
   };
 
   const abrirNueva = () => {
@@ -269,8 +370,8 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
     setForm({
       titulo: actividad.titulo || '',
       descripcion: actividad.descripcion || '',
-      archivo: null,
     });
+    setNuevosArchivos([]);
     setMensaje('');
     setMostrarFormulario(true);
   };
@@ -290,8 +391,8 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
       setMensaje('El título es obligatorio.');
       return;
     }
-    if (!actividadEditando && !form.archivo) {
-      setMensaje('Debes adjuntar un archivo para la actividad.');
+    if (!actividadEditando && nuevosArchivos.length === 0) {
+      setMensaje('Debes adjuntar al menos un archivo para la actividad.');
       return;
     }
 
@@ -303,9 +404,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
       payload.append('descripcion', form.descripcion || '');
       payload.append('id_curso_materia', String(cursoMateriaId));
       payload.append('id_docente', String(docenteId));
-      if (form.archivo) {
-        payload.append('archivo', form.archivo);
-      }
+      nuevosArchivos.forEach((file) => payload.append('archivos', file));
 
       if (actividadEditando) {
         await updateActividad(actividadEditando.id_actividad, payload);
@@ -330,14 +429,33 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
       await deleteActividad(actividad.id_actividad);
       setMensaje('Actividad eliminada correctamente.');
       await cargaLista();
+      if (actividadVista?.id_actividad === actividad.id_actividad) {
+        setActividadVista(null);
+      }
     } catch (err) {
       setMensaje(`Error: ${getErrorMessage(err)}`);
     }
   };
 
-  const fechaHoraEtiqueta = (valor) => {
-    const parsed = formatDateTime(valor);
-    return `${parsed.fecha} - ${parsed.hora}`;
+  const handleEliminarArchivo = async (archivo) => {
+    const archivoId = archivo?.id_archivo;
+    if (!actividadEditando || !archivoId) return;
+    if (!window.confirm('¿Estás seguro de que querés eliminar este archivo?')) return;
+
+    try {
+      const actualizada = await deleteActividadArchivo(actividadEditando.id_actividad, archivoId);
+      setMensaje('Archivo eliminado correctamente.');
+      const fresh = await cargaLista();
+      const actividadFresh =
+        fresh.find((item) => item.id_actividad === actividadEditando.id_actividad) ||
+        actualizada ||
+        null;
+      if (actividadFresh) {
+        setActividadEditando(actividadFresh);
+      }
+    } catch (err) {
+      setMensaje(`Error: ${getErrorMessage(err)}`);
+    }
   };
 
   return (
@@ -426,16 +544,17 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
 
       {mostrarFormulario && (
         <ModalFormularioActividad
-          cursoMateriaId={cursoMateriaId}
-          docenteId={docenteId}
+          actividadEditando={actividadEditando}
           cursoNombre={cursoNombre}
           materiaNombre={materiaNombre}
-          actividadEditando={actividadEditando}
           form={form}
           setForm={setForm}
           onClose={cerrarFormulario}
           onGuardar={handleGuardar}
           guardando={guardando}
+          nuevosArchivos={nuevosArchivos}
+          setNuevosArchivos={setNuevosArchivos}
+          onEliminarArchivo={handleEliminarArchivo}
         />
       )}
 

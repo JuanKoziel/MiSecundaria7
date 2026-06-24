@@ -103,6 +103,11 @@ export async function deleteActividad(id) {
   await api.delete(`/actividades-docente/${id}/`);
 }
 
+export async function deleteActividadArchivo(idActividad, idArchivo) {
+  const { data } = await api.delete(`/actividades-docente/${idActividad}/archivos/${idArchivo}/`);
+  return data;
+}
+
 export async function getDdjjDocenteArchivo(idDdjj) {
   const { data } = await api.get(`/ddjj-docente/${idDdjj}/archivo/`);
   return data;
