@@ -37,7 +37,14 @@ function obtenerPreceptorNombre(cursoObj) {
   return null;
 }
 
-function buildTimeSlots(modulosSorted, horariosEspeciales, horarios, materiasLookup) {
+function formatearDocenteNombre(valor) {
+  if (!valor) return null;
+  const parts = valor.split(', ');
+  if (parts.length === 2) return `${parts[1]} ${parts[0]}`;
+  return valor;
+}
+
+function buildTimeSlots(modulosSorted, horariosEspeciales, horarios, materiasLookup, docentesLookup) {
   const horariosLookup = {};
   horarios.forEach((h) => {
     const key = `${h.dia_semana}_${h.id_modulo}`;
@@ -64,6 +71,7 @@ function buildTimeSlots(modulosSorted, horariosEspeciales, horarios, materiasLoo
           dia,
           id_modulo: mod.id_modulo,
           materia_nombre: materiasLookup[horariosLookup[key].id_curso_materia] || null,
+          docente_nombre: formatearDocenteNombre(docentesLookup[horariosLookup[key].id_curso_materia]),
           id_curso_materia: horariosLookup[key].id_curso_materia,
           aula: horariosLookup[key].aula || null,
         });
@@ -80,8 +88,9 @@ function buildTimeSlots(modulosSorted, horariosEspeciales, horarios, materiasLoo
         hora_fin: timeStr(h.hora_fin),
         dia,
         id_modulo: null,
-        materia_nombre: materiasLookup[h.id_curso_materia] || null,
-        id_curso_materia: h.id_curso_materia,
+          materia_nombre: materiasLookup[h.id_curso_materia] || null,
+          docente_nombre: formatearDocenteNombre(docentesLookup[h.id_curso_materia]),
+          id_curso_materia: h.id_curso_materia,
         aula: h.aula || null,
       });
     });
@@ -191,6 +200,7 @@ function buildRowsHtml(daySlots, timeKeys, rowspans, cursoNombre, turno, precept
       rowsHtml += `<td rowspan="${rs}" class="${esEspecial ? 'especial' : ''}">`;
       if (slot.materia_nombre) {
         rowsHtml += `<div class="materia">${slot.materia_nombre}</div>`;
+        rowsHtml += `<div class="docente">${slot.docente_nombre || '-'}</div>`;
         if (slot.aula) {
           rowsHtml += `<div class="aula">${slot.aula}</div>`;
         }
@@ -267,6 +277,7 @@ function ScheduleTable({ timeKeys, daySlots, rowspans, cursoNombre, turno, prece
                       {slot.materia_nombre ? (
                         <>
                           <div className="vista-horarios-materia">{slot.materia_nombre}</div>
+                          <div className="vista-horarios-docente">{slot.docente_nombre || '-'}</div>
                           {slot.aula && (
                             <div className="vista-horarios-aula">{slot.aula}</div>
                           )}
@@ -325,15 +336,19 @@ function VistaHorarios({ cursosOptions }) {
         const heList = Array.isArray(heData) ? heData : heData.results || [];
 
         const materiasLookup = {};
+        const docentesLookup = {};
         cmList.forEach((cm) => {
           if (cm.id_curso_materia && cm.materia_nombre) {
             materiasLookup[cm.id_curso_materia] = cm.materia_nombre;
+          }
+          if (cm.id_curso_materia) {
+            docentesLookup[cm.id_curso_materia] = cm.docente_nombre || null;
           }
         });
 
         setTurno(calcularTurno(horList));
 
-        const { daySlots: ds, allTimes } = buildTimeSlots(modulosSorted, heList, horList, materiasLookup);
+        const { daySlots: ds, allTimes } = buildTimeSlots(modulosSorted, heList, horList, materiasLookup, docentesLookup);
         setDaySlots(ds);
         setTimeKeys(allTimes);
         setRowspans(computeRowspans(ds));
@@ -359,6 +374,7 @@ function VistaHorarios({ cursosOptions }) {
   th { background: #17324d; color: #fff; font-weight: 700; }
   .time-col { font-weight: 600; white-space: nowrap; }
   .materia { font-weight: 600; }
+  .docente { font-size: 10px; color: #666; margin-top: 2px; }
   .aula { font-size: 10px; color: #666; margin-top: 2px; }
   .especial { background: #fff8f0; }
   .info-row th { background: #f5f5f5; color: #333; font-weight: 600; padding: 10px 16px; }
