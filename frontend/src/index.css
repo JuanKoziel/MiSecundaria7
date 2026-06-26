@@ -2170,3 +2170,87 @@ tbody tr:last-child td {
         padding: 30px 20px;
     }
 }
+
+/* ==========================================================================
+   VISTA HORARIOS (read-only grid)
+   ========================================================================== */
+
+.vista-horarios-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.vista-horarios-table th:first-child,
+.vista-horarios-table td:first-child {
+  width: 110px;
+}
+
+.vista-horarios-table th,
+.vista-horarios-table td {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.vista-horarios-table th {
+  background-color: var(--table-header-bg);
+  color: var(--table-header-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 12px 8px;
+  border-right: 1px solid rgba(255,255,255,0.16);
+  border-bottom: 2px solid var(--primary-color);
+}
+
+.vista-horarios-table th:last-child {
+  border-right: 0;
+}
+
+.vista-horarios-table td {
+  padding: 12px 6px;
+  border: 1px solid var(--table-border);
+  color: var(--table-text);
+  background-color: var(--table-row-bg);
+  vertical-align: middle;
+}
+
+.vista-horarios-table tbody tr:nth-child(even) td {
+  background-color: var(--table-row-alt);
+}
+
+.vista-horarios-table tbody tr:hover td {
+  background-color: var(--table-row-hover);
+}
+
+.vista-horarios-time {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-dark);
+  width: 110px;
+}
+
+.vista-horarios-materia {
+  font-weight: 600;
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.vista-horarios-aula {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
+.vista-horarios-especial {
+  background-color: #fff8f0 !important;
+}
+
+.vista-horarios-table tbody tr:nth-child(even) td.vista-horarios-especial {
+  background-color: #fff3e0 !important;
+}
+
+

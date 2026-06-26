@@ -11,6 +11,7 @@ import {
   updateHorarioEspecial,
   deleteHorarioEspecial,
 } from '../../services/api';
+import VistaHorarios from './VistaHorarios';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 const MATERIA_EF = 'Educación Física';
@@ -573,15 +574,20 @@ function Horarios() {
             >
               Educación Física
             </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${modo === 'ver' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setModo('ver')}
+            >
+              Ver horarios
+            </button>
           </div>
         </div>
       </div>
 
-      {modo === 'semanal' ? (
-        <HorarioSemanal cursosOptions={cursosOptions} />
-      ) : (
-        <EducacionFisica cursosOptions={cursosOptions} />
-      )}
+      {modo === 'semanal' && <HorarioSemanal cursosOptions={cursosOptions} />}
+      {modo === 'ef' && <EducacionFisica cursosOptions={cursosOptions} />}
+      {modo === 'ver' && <VistaHorarios cursosOptions={cursosOptions} />}
     </div>
   );
 }
