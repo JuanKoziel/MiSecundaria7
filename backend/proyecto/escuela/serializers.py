@@ -1034,9 +1034,11 @@ class AlumnoSerializer(serializers.ModelSerializer):
 
 class CursoSerializer(serializers.ModelSerializer):
     preceptor_nombre = serializers.SerializerMethodField()
+    preceptor_nombre_completo = serializers.SerializerMethodField()
     ciclo_anio = serializers.IntegerField(
         source='id_ciclo.anio', read_only=True, default=None,
     )
+    turno_calculado = serializers.SerializerMethodField()
 
     class Meta:
         model = Curso
@@ -1046,6 +1048,29 @@ class CursoSerializer(serializers.ModelSerializer):
         if obj.id_preceptor:
             return f'{obj.id_preceptor.apellido}, {obj.id_preceptor.nombre}'
         return None
+
+    def get_preceptor_nombre_completo(self, obj):
+        if obj.id_preceptor:
+            return f'{obj.id_preceptor.nombre} {obj.id_preceptor.apellido}'
+        return None
+
+    def get_turno_calculado(self, obj):
+        horarios = Horario.objects.filter(
+            id_curso_materia__id_curso=obj,
+        ).select_related('id_modulo')
+        manana = 0
+        tarde = 0
+        for h in horarios:
+            if h.id_modulo and h.id_modulo.hora_inicio:
+                if h.id_modulo.hora_inicio.hour < 12:
+                    manana += 1
+                else:
+                    tarde += 1
+        if manana > tarde:
+            return 'Mañana'
+        if tarde > manana:
+            return 'Tarde'
+        return ''
 
 
 class CursoMateriaSerializer(serializers.ModelSerializer):

@@ -10,6 +10,33 @@ function timeStr(value) {
   return s.slice(0, 5);
 }
 
+function calcularTurno(horarios) {
+  let manana = 0;
+  let tarde = 0;
+  horarios.forEach((h) => {
+    const hora = h.modulo_hora_inicio;
+    if (hora) {
+      const hour = parseInt(String(hora).slice(0, 2), 10);
+      if (hour < 12) manana++;
+      else tarde++;
+    }
+  });
+  if (manana > tarde) return 'Mañana';
+  if (tarde > manana) return 'Tarde';
+  return '';
+}
+
+function obtenerPreceptorNombre(cursoObj) {
+  if (!cursoObj) return null;
+  if (cursoObj.preceptor_nombre_completo) return cursoObj.preceptor_nombre_completo;
+  if (cursoObj.preceptor_nombre) {
+    const parts = cursoObj.preceptor_nombre.split(', ');
+    if (parts.length === 2) return `${parts[1]} ${parts[0]}`;
+    return cursoObj.preceptor_nombre;
+  }
+  return null;
+}
+
 function buildTimeSlots(modulosSorted, horariosEspeciales, horarios, materiasLookup) {
   const horariosLookup = {};
   horarios.forEach((h) => {
@@ -117,10 +144,16 @@ function computeRowspans(daySlots) {
   return rowspans;
 }
 
-function buildRowsHtml(daySlots, timeKeys, rowspans) {
+function buildRowsHtml(daySlots, timeKeys, rowspans, cursoNombre, turno, preceptorNombre) {
   const visibleTimes = Object.keys(timeKeys).sort((a, b) => a.localeCompare(b));
   const remaining = {};
   DIAS.forEach((d) => { remaining[d] = 0; });
+  const colspan = DIAS.length + 1;
+  const preceptorTexto = preceptorNombre || '-';
+
+  let theadHtml = `<tr class="info-row"><th colspan="${colspan}"><div class="info-row-inner"><span class="info-left">Curso: ${cursoNombre}</span><span class="info-center">Turno: ${turno}</span><span class="info-right">Preceptor: ${preceptorTexto}</span></div></th></tr>`;
+  theadHtml += `<tr><th>Horario</th>${DIAS.map((d) => `<th>${d}</th>`).join('')}</tr>`;
+
   let rowsHtml = '';
 
   visibleTimes.forEach((timeKey) => {
@@ -168,18 +201,29 @@ function buildRowsHtml(daySlots, timeKeys, rowspans) {
     rowsHtml += '</tr>';
   });
 
-  return rowsHtml;
+  return { theadHtml, tbodyHtml: rowsHtml };
 }
 
-function ScheduleTable({ timeKeys, daySlots, rowspans }) {
+function ScheduleTable({ timeKeys, daySlots, rowspans, cursoNombre, turno, preceptorNombre }) {
   const visibleTimes = Object.keys(timeKeys).sort((a, b) => a.localeCompare(b));
   const remaining = {};
   DIAS.forEach((d) => { remaining[d] = 0; });
+  const colspan = DIAS.length + 1;
+  const preceptorTexto = preceptorNombre || '-';
 
   return (
     <div className="table-responsive">
       <table className="vista-horarios-table">
         <thead>
+          <tr className="info-row">
+            <th colSpan={colspan}>
+              <div className="info-row-inner">
+                <span className="info-left">Curso: {cursoNombre}</span>
+                <span className="info-center">Turno: {turno}</span>
+                <span className="info-right">Preceptor: {preceptorTexto}</span>
+              </div>
+            </th>
+          </tr>
           <tr>
             <th>Horario</th>
             {DIAS.map((d) => (
@@ -248,6 +292,8 @@ function VistaHorarios({ cursosOptions }) {
   const [timeKeys, setTimeKeys] = useState({});
   const [rowspans, setRowspans] = useState({});
   const [cursoNombre, setCursoNombre] = useState('');
+  const [turno, setTurno] = useState('');
+  const [preceptorNombre, setPreceptorNombre] = useState(null);
 
   const modulosSorted = useMemo(() => {
     if (!Array.isArray(modulos)) return [];
@@ -260,11 +306,14 @@ function VistaHorarios({ cursosOptions }) {
       setTimeKeys({});
       setRowspans({});
       setCursoNombre('');
+      setTurno('');
+      setPreceptorNombre(null);
       return;
     }
     setCargando(true);
     const cursoObj = cursosOptions.find((c) => String(c.id_curso) === String(cursoSeleccionado));
     setCursoNombre(cursoObj?.nombre_curso || '');
+    setPreceptorNombre(obtenerPreceptorNombre(cursoObj));
     Promise.all([
       getCursoMateria({ curso: cursoSeleccionado }),
       getHorarios({ curso: cursoSeleccionado }),
@@ -282,6 +331,8 @@ function VistaHorarios({ cursosOptions }) {
           }
         });
 
+        setTurno(calcularTurno(horList));
+
         const { daySlots: ds, allTimes } = buildTimeSlots(modulosSorted, heList, horList, materiasLookup);
         setDaySlots(ds);
         setTimeKeys(allTimes);
@@ -292,8 +343,8 @@ function VistaHorarios({ cursosOptions }) {
   }, [cursoSeleccionado, modulosSorted, cursosOptions]);
 
   const descargarPDF = useCallback(() => {
-    const theadHtml = `<tr><th>Horario</th>${DIAS.map((d) => `<th>${d}</th>`).join('')}</tr>`;
-    const tbodyHtml = buildRowsHtml(daySlots, timeKeys, rowspans);
+    const preceptorTexto = preceptorNombre || '-';
+    const { theadHtml, tbodyHtml } = buildRowsHtml(daySlots, timeKeys, rowspans, cursoNombre, turno, preceptorNombre);
 
     const html = `<!DOCTYPE html>
 <html lang="es">
@@ -313,6 +364,11 @@ function VistaHorarios({ cursosOptions }) {
   .materia { font-weight: 600; }
   .aula { font-size: 10px; color: #666; margin-top: 2px; }
   .especial { background: #fff8f0; }
+  .info-row th { background: #f5f5f5; color: #333; font-weight: 600; padding: 10px 16px; }
+  .info-row-inner { display: flex; justify-content: space-between; width: 100%; }
+  .info-left { text-align: left; }
+  .info-center { text-align: center; }
+  .info-right { text-align: right; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head>
@@ -342,7 +398,7 @@ function VistaHorarios({ cursosOptions }) {
       iframe.contentWindow.print();
       setTimeout(() => document.body.removeChild(iframe), 1000);
     }, 500);
-  }, [daySlots, timeKeys, rowspans, cursoNombre]);
+  }, [daySlots, timeKeys, rowspans, cursoNombre, turno, preceptorNombre]);
 
   const hasData = Object.keys(timeKeys).length > 0;
 
@@ -388,6 +444,9 @@ function VistaHorarios({ cursosOptions }) {
             timeKeys={timeKeys}
             daySlots={daySlots}
             rowspans={rowspans}
+            cursoNombre={cursoNombre}
+            turno={turno}
+            preceptorNombre={preceptorNombre}
           />
         </>
       )}
