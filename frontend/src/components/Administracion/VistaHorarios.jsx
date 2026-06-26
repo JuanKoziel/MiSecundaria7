@@ -343,7 +343,6 @@ function VistaHorarios({ cursosOptions }) {
   }, [cursoSeleccionado, modulosSorted, cursosOptions]);
 
   const descargarPDF = useCallback(() => {
-    const preceptorTexto = preceptorNombre || '-';
     const { theadHtml, tbodyHtml } = buildRowsHtml(daySlots, timeKeys, rowspans, cursoNombre, turno, preceptorNombre);
 
     const html = `<!DOCTYPE html>
@@ -354,8 +353,6 @@ function VistaHorarios({ cursosOptions }) {
 <style>
   @page { size: landscape; margin: 15mm; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; margin: 0; padding: 20px; }
-  h2 { text-align: center; margin-bottom: 4px; font-size: 16px; }
-  h3 { text-align: center; margin-top: 0; margin-bottom: 20px; font-size: 14px; font-weight: normal; color: #555; }
   table { width: 100%; table-layout: fixed; border-collapse: collapse; }
   th, td { border: 1px solid #333; padding: 8px 6px; text-align: center; vertical-align: middle; font-size: 12px; overflow-wrap: break-word; word-wrap: break-word; }
   th:first-child, td:first-child { width: 110px; }
@@ -373,8 +370,6 @@ function VistaHorarios({ cursosOptions }) {
 </style>
 </head>
 <body>
-<h2>Institución</h2>
-<h3>Curso: ${cursoNombre}</h3>
 <table>
 <thead>${theadHtml}</thead>
 <tbody>${tbodyHtml}</tbody>
