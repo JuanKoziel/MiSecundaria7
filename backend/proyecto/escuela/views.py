@@ -960,10 +960,40 @@ class HorarioEspecialViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' in roles:
+            cursos_ids = _preceptor_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            qs = qs.filter(id_curso_materia__id_curso__in=cursos_ids)
+
         curso = self.request.query_params.get('curso')
         if curso:
             qs = qs.filter(id_curso_materia__id_curso=curso)
         return qs
+
+    def _check_preceptor_curso_access(self, instance):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' not in roles:
+            return
+        curso_id = instance.id_curso_materia.id_curso_id
+        cursos_ids = _preceptor_cursos_ids(self.request)
+        if not cursos_ids or int(curso_id) not in {int(c) for c in cursos_ids}:
+            raise PermissionDenied('No tienes permiso para modificar horarios de este curso.')
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        self._check_preceptor_curso_access(instance)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        self._check_preceptor_curso_access(instance)
+
+    def perform_destroy(self, instance):
+        self._check_preceptor_curso_access(instance)
+        instance.delete()
 
 
 class HorarioViewSet(viewsets.ModelViewSet):
@@ -972,6 +1002,14 @@ class HorarioViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' in roles:
+            cursos_ids = _preceptor_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            qs = qs.filter(id_curso_materia__id_curso__in=cursos_ids)
+
         curso = self.request.query_params.get('curso')
         if curso:
             qs = qs.filter(id_curso_materia__id_curso=curso)
@@ -980,6 +1018,28 @@ class HorarioViewSet(viewsets.ModelViewSet):
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)
         return qs
+
+    def _check_preceptor_curso_access(self, instance):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' not in roles:
+            return
+        curso_id = instance.id_curso_materia.id_curso_id
+        cursos_ids = _preceptor_cursos_ids(self.request)
+        if not cursos_ids or int(curso_id) not in {int(c) for c in cursos_ids}:
+            raise PermissionDenied('No tienes permiso para modificar horarios de este curso.')
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        self._check_preceptor_curso_access(instance)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        self._check_preceptor_curso_access(instance)
+
+    def perform_destroy(self, instance):
+        self._check_preceptor_curso_access(instance)
+        instance.delete()
 
 
 class InscripcionMateriaViewSet(viewsets.ModelViewSet):

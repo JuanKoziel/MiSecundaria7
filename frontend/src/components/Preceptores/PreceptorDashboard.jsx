@@ -8,6 +8,7 @@ import Asistencias from './asistencias';
 import Notas from './notas';
 import Actas from './actas';
 import Docentes from './docentes';
+import Horarios from '../Administracion/horarios';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 
@@ -45,6 +46,13 @@ function PreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Docentes />
+          </div>
+        );
+
+      case 'horarios':
+        return (
+          <div className="view-section active">
+            <Horarios />
           </div>
         );
 
