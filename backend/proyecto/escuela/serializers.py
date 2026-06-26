@@ -23,6 +23,7 @@ from escuela.models import (
     EstadoAsistencia,
     HistorialCambio,
     Horario,
+    HorariosEspeciales,
     InscripcionMateria,
     Materia,
     Modulos,
@@ -1123,6 +1124,25 @@ class HorarioSerializer(serializers.ModelSerializer):
         if docente:
             return f'{docente.apellido}, {docente.nombre}'
         return None
+
+
+class HorarioEspecialSerializer(serializers.ModelSerializer):
+    curso_nombre = serializers.CharField(
+        source='id_curso_materia.id_curso.nombre_curso',
+        read_only=True, default=None,
+    )
+    materia_nombre = serializers.CharField(
+        source='id_curso_materia.id_materia.nombre_materia',
+        read_only=True, default=None,
+    )
+    id_curso = serializers.IntegerField(
+        source='id_curso_materia.id_curso.id_curso',
+        read_only=True, default=None,
+    )
+
+    class Meta:
+        model = HorariosEspeciales
+        fields = '__all__'
 
 
 class InscripcionMateriaSerializer(serializers.ModelSerializer):

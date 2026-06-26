@@ -258,6 +258,25 @@ export async function deleteHorario(id) {
   await api.delete(`/horarios/${id}/`);
 }
 
+export async function getHorariosEspeciales(params) {
+  const { data } = await api.get('/horarios-especiales/', { params });
+  return data;
+}
+
+export async function createHorarioEspecial(payload) {
+  const { data } = await api.post('/horarios-especiales/', payload);
+  return data;
+}
+
+export async function updateHorarioEspecial(id, payload) {
+  const { data } = await api.patch(`/horarios-especiales/${id}/`, payload);
+  return data;
+}
+
+export async function deleteHorarioEspecial(id) {
+  await api.delete(`/horarios-especiales/${id}/`);
+}
+
 export async function getCiclosLectivos() {
   const { data } = await api.get('/ciclos-lectivos/');
   return data;

@@ -468,6 +468,21 @@ class Horario(models.Model):
         db_table = 'horarios'
 
 
+class HorariosEspeciales(models.Model):
+    id_horario_especial = models.AutoField(primary_key=True)
+    id_curso_materia = models.ForeignKey(
+        CursoMateria, on_delete=models.CASCADE, db_column='id_curso_materia',
+    )
+    dia_semana = models.CharField(max_length=20)
+    hora_inicio = models.TimeField()
+    hora_fin = models.TimeField()
+    aula = models.CharField(max_length=50, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'horarios_especiales'
+
+
 class InscripcionMateria(models.Model):
     id_inscripcion = models.AutoField(primary_key=True)
     id_alumno = models.ForeignKey(

@@ -1,8 +1,19 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useData } from '../../context/DataContext';
-import { getCursoMateria, getHorarios, createHorario, updateHorario, deleteHorario } from '../../services/api';
+import {
+  getCursoMateria,
+  getHorarios,
+  createHorario,
+  updateHorario,
+  deleteHorario,
+  getHorariosEspeciales,
+  createHorarioEspecial,
+  updateHorarioEspecial,
+  deleteHorarioEspecial,
+} from '../../services/api';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+const MATERIA_EF = 'Educación Física';
 
 function timeStr(value) {
   if (!value) return '';
@@ -10,8 +21,8 @@ function timeStr(value) {
   return s.slice(0, 5);
 }
 
-function Horarios() {
-  const { cursosObj, refreshData, modulos } = useData();
+function HorarioSemanal({ cursosOptions }) {
+  const { modulos } = useData();
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
   const [materiasCurso, setMateriasCurso] = useState([]);
   const [celdas, setCeldas] = useState({});
@@ -19,17 +30,11 @@ function Horarios() {
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [cargandoGrilla, setCargandoGrilla] = useState(false);
-  const cursoCargado = useRef(null);
 
   const modulosSorted = useMemo(() => {
     if (!Array.isArray(modulos)) return [];
     return [...modulos].sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''));
   }, [modulos]);
-
-  const cursosOptions = useMemo(() => {
-    if (!Array.isArray(cursosObj)) return [];
-    return [...cursosObj].sort((a, b) => (a.nombre_curso || '').localeCompare(b.nombre_curso || ''));
-  }, [cursosObj]);
 
   useEffect(() => {
     if (!cursoSeleccionado) {
@@ -49,7 +54,7 @@ function Horarios() {
         const horList = Array.isArray(horData) ? horData : horData.results || [];
 
         const materias = cmList
-          .filter((cm) => cm.materia_nombre)
+          .filter((cm) => cm.materia_nombre && cm.materia_nombre !== MATERIA_EF)
           .map((cm) => ({ id: cm.id_curso_materia, nombre: cm.materia_nombre }));
 
         const unicas = [];
@@ -74,7 +79,6 @@ function Horarios() {
         });
         setCeldas(celdasInit);
         setOriginalCeldas(JSON.parse(JSON.stringify(celdasInit)));
-        cursoCargado.current = cursoSeleccionado;
       })
       .catch(() => setMensaje('Error al cargar datos del curso.'))
       .finally(() => setCargandoGrilla(false));
@@ -137,7 +141,6 @@ function Horarios() {
       }
 
       setMensaje('Horarios guardados correctamente.');
-      await refreshData();
 
       const [horData] = await Promise.all([
         getHorarios({ curso: cursoSeleccionado }),
@@ -161,16 +164,12 @@ function Horarios() {
   };
 
   return (
-    <div className="card">
-      <div className="card-header-flex">
-        <h3>Horarios</h3>
-      </div>
-
+    <>
       <div className="filter-row">
         <div className="form-group-filter" style={{ maxWidth: '320px' }}>
-          <label htmlFor="curso-select">Curso</label>
+          <label htmlFor="hs-curso">Curso</label>
           <select
-            id="curso-select"
+            id="hs-curso"
             value={cursoSeleccionado}
             onChange={(e) => setCursoSeleccionado(e.target.value)}
           >
@@ -254,6 +253,334 @@ function Horarios() {
             </>
           )}
         </>
+      )}
+    </>
+  );
+}
+
+function EducacionFisica({ cursosOptions }) {
+  const [cursoSeleccionado, setCursoSeleccionado] = useState('');
+  const [horarios, setHorarios] = useState([]);
+  const [cmEf, setCmEf] = useState(null);
+  const [form, setForm] = useState(null);
+  const [mensaje, setMensaje] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [cargando, setCargando] = useState(false);
+
+  const FORM_VACIO = { dia_semana: '', hora_inicio: '', hora_fin: '', aula: '' };
+
+  useEffect(() => {
+    if (!cursoSeleccionado) {
+      setHorarios([]);
+      setCmEf(null);
+      return;
+    }
+    setCargando(true);
+    setMensaje('');
+    Promise.all([
+      getCursoMateria({ curso: cursoSeleccionado }),
+      getHorariosEspeciales({ curso: cursoSeleccionado }),
+    ])
+      .then(([cmData, heData]) => {
+        const cmList = Array.isArray(cmData) ? cmData : cmData.results || [];
+        const heList = Array.isArray(heData) ? heData : heData.results || [];
+
+        const ef = cmList.find((cm) => cm.materia_nombre === MATERIA_EF);
+        setCmEf(ef || null);
+
+        heList.sort((a, b) => {
+          const diaA = DIAS.indexOf(a.dia_semana);
+          const diaB = DIAS.indexOf(b.dia_semana);
+          if (diaA !== diaB) return diaA - diaB;
+          return (a.hora_inicio || '').localeCompare(b.hora_inicio || '');
+        });
+        setHorarios(heList);
+      })
+      .catch(() => setMensaje('Error al cargar datos.'))
+      .finally(() => setCargando(false));
+  }, [cursoSeleccionado]);
+
+  const resetForm = () => {
+    setForm(null);
+    setMensaje('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.dia_semana || !form.hora_inicio || !form.hora_fin) {
+      setMensaje('Completá día, hora inicio y hora fin.');
+      return;
+    }
+    if (!cmEf) {
+      setMensaje('El curso no tiene Educación Física asignada.');
+      return;
+    }
+    setGuardando(true);
+    setMensaje('');
+    try {
+      const payload = {
+        id_curso_materia: cmEf.id_curso_materia,
+        dia_semana: form.dia_semana,
+        hora_inicio: form.hora_inicio,
+        hora_fin: form.hora_fin,
+        aula: form.aula || null,
+      };
+      if (form.id) {
+        await updateHorarioEspecial(form.id, payload);
+      } else {
+        await createHorarioEspecial(payload);
+      }
+      resetForm();
+      const [heData] = await Promise.all([
+        getHorariosEspeciales({ curso: cursoSeleccionado }),
+      ]);
+      const heList = Array.isArray(heData) ? heData : heData.results || [];
+      heList.sort((a, b) => {
+        const diaA = DIAS.indexOf(a.dia_semana);
+        const diaB = DIAS.indexOf(b.dia_semana);
+        if (diaA !== diaB) return diaA - diaB;
+        return (a.hora_inicio || '').localeCompare(b.hora_inicio || '');
+      });
+      setHorarios(heList);
+    } catch {
+      setMensaje('Error al guardar.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleEditar = (h) => {
+    setForm({
+      id: h.id_horario_especial,
+      dia_semana: h.dia_semana,
+      hora_inicio: timeStr(h.hora_inicio),
+      hora_fin: timeStr(h.hora_fin),
+      aula: h.aula || '',
+    });
+    setMensaje('');
+  };
+
+  const handleEliminar = async (h) => {
+    if (!window.confirm('¿Eliminar este horario?')) return;
+    try {
+      await deleteHorarioEspecial(h.id_horario_especial);
+      const [heData] = await Promise.all([
+        getHorariosEspeciales({ curso: cursoSeleccionado }),
+      ]);
+      const heList = Array.isArray(heData) ? heData : heData.results || [];
+      heList.sort((a, b) => {
+        const diaA = DIAS.indexOf(a.dia_semana);
+        const diaB = DIAS.indexOf(b.dia_semana);
+        if (diaA !== diaB) return diaA - diaB;
+        return (a.hora_inicio || '').localeCompare(b.hora_inicio || '');
+      });
+      setHorarios(heList);
+    } catch {
+      setMensaje('Error al eliminar.');
+    }
+  };
+
+  const handleChange = (campo, valor) => {
+    setForm((prev) => ({ ...prev, [campo]: valor }));
+  };
+
+  return (
+    <>
+      <div className="filter-row">
+        <div className="form-group-filter" style={{ maxWidth: '320px' }}>
+          <label htmlFor="ef-curso">Curso</label>
+          <select
+            id="ef-curso"
+            value={cursoSeleccionado}
+            onChange={(e) => { setCursoSeleccionado(e.target.value); resetForm(); }}
+          >
+            <option value="">— Seleccionar curso —</option>
+            {cursosOptions.map((c) => (
+              <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {mensaje && (
+        <p className="form-error-message" style={{ color: mensaje.includes('Error') ? undefined : '#155724' }}>
+          {mensaje}
+        </p>
+      )}
+
+      {cursoSeleccionado && (
+        <>
+          {cargando ? (
+            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+              Cargando...
+            </p>
+          ) : !cmEf ? (
+            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+              El curso no tiene Educación Física asignada.
+            </p>
+          ) : (
+            <>
+              {form && (
+                <form onSubmit={handleSubmit} style={{ marginBottom: '20px' }}>
+                  <div className="filter-row">
+                    <div className="form-group-filter">
+                      <label htmlFor="ef-dia">Día</label>
+                      <select
+                        id="ef-dia"
+                        value={form.dia_semana}
+                        onChange={(e) => handleChange('dia_semana', e.target.value)}
+                      >
+                        <option value="">— Día —</option>
+                        {DIAS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group-filter">
+                      <label htmlFor="ef-hora-inicio">Hora inicio</label>
+                      <input
+                        id="ef-hora-inicio"
+                        type="time"
+                        value={form.hora_inicio}
+                        onChange={(e) => handleChange('hora_inicio', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group-filter">
+                      <label htmlFor="ef-hora-fin">Hora fin</label>
+                      <input
+                        id="ef-hora-fin"
+                        type="time"
+                        value={form.hora_fin}
+                        onChange={(e) => handleChange('hora_fin', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group-filter">
+                      <label htmlFor="ef-aula">Aula (opcional)</label>
+                      <input
+                        id="ef-aula"
+                        type="text"
+                        value={form.aula}
+                        onChange={(e) => handleChange('aula', e.target.value)}
+                        placeholder="Ej: Gimnasio"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-actions">
+                    <button type="submit" className="btn btn-primary" disabled={guardando}>
+                      {form.id ? 'Actualizar horario' : 'Agregar horario'}
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={resetForm}>
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {!form && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setForm({ ...FORM_VACIO })}
+                  style={{ marginBottom: '16px' }}
+                >
+                  Agregar horario
+                </button>
+              )}
+
+              {horarios.length === 0 ? (
+                <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+                  No hay horarios de Educación Física cargados.
+                </p>
+              ) : (
+                <div className="table-responsive">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Día</th>
+                        <th>Hora inicio</th>
+                        <th>Hora fin</th>
+                        <th>Aula</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {horarios.map((h) => (
+                        <tr key={h.id_horario_especial}>
+                          <td>{h.dia_semana}</td>
+                          <td>{timeStr(h.hora_inicio)}</td>
+                          <td>{timeStr(h.hora_fin)}</td>
+                          <td>{h.aula || '—'}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => handleEditar(h)}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleEliminar(h)}
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+function Horarios() {
+  const { cursosObj } = useData();
+  const [modo, setModo] = useState('semanal');
+
+  const cursosOptions = useMemo(() => {
+    if (!Array.isArray(cursosObj)) return [];
+    return [...cursosObj].sort((a, b) => (a.nombre_curso || '').localeCompare(b.nombre_curso || ''));
+  }, [cursosObj]);
+
+  return (
+    <div className="card">
+      <div className="card-header-flex">
+        <h3>Horarios</h3>
+      </div>
+
+      <div className="filter-row" style={{ marginBottom: '20px' }}>
+        <div className="form-group-filter" style={{ maxWidth: '320px' }}>
+          <label>Vista</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${modo === 'semanal' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setModo('semanal')}
+            >
+              Horario semanal
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${modo === 'ef' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setModo('ef')}
+            >
+              Educación Física
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {modo === 'semanal' ? (
+        <HorarioSemanal cursosOptions={cursosOptions} />
+      ) : (
+        <EducacionFisica cursosOptions={cursosOptions} />
       )}
     </div>
   );
