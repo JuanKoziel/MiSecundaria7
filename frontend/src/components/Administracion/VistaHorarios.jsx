@@ -153,14 +153,14 @@ function computeRowspans(daySlots) {
   return rowspans;
 }
 
-function buildRowsHtml(daySlots, timeKeys, rowspans, cursoNombre, turno, preceptorNombre) {
+function buildRowsHtml(daySlots, timeKeys, rowspans, nombreCursoDisplay, turno, preceptorNombre) {
   const visibleTimes = Object.keys(timeKeys).sort((a, b) => a.localeCompare(b));
   const remaining = {};
   DIAS.forEach((d) => { remaining[d] = 0; });
   const colspan = DIAS.length + 1;
   const preceptorTexto = preceptorNombre || '-';
 
-  let theadHtml = `<tr class="info-row"><th colspan="${colspan}"><div class="info-row-inner"><span class="info-left">Curso: ${cursoNombre}</span><span class="info-center">Turno: ${turno}</span><span class="info-right">Preceptor: ${preceptorTexto}</span></div></th></tr>`;
+  let theadHtml = `<tr class="info-row"><th colspan="${colspan}"><div class="info-row-inner"><span class="info-left">Curso: ${nombreCursoDisplay}</span><span class="info-center">Turno: ${turno}</span><span class="info-right">Preceptor: ${preceptorTexto}</span></div></th></tr>`;
   theadHtml += `<tr><th>Horario</th>${DIAS.map((d) => `<th>${d}</th>`).join('')}</tr>`;
 
   let rowsHtml = '';
@@ -214,7 +214,7 @@ function buildRowsHtml(daySlots, timeKeys, rowspans, cursoNombre, turno, precept
   return { theadHtml, tbodyHtml: rowsHtml };
 }
 
-function ScheduleTable({ timeKeys, daySlots, rowspans, cursoNombre, turno, preceptorNombre }) {
+function ScheduleTable({ timeKeys, daySlots, rowspans, nombreCursoDisplay, turno, preceptorNombre }) {
   const visibleTimes = Object.keys(timeKeys).sort((a, b) => a.localeCompare(b));
   const remaining = {};
   DIAS.forEach((d) => { remaining[d] = 0; });
@@ -228,7 +228,7 @@ function ScheduleTable({ timeKeys, daySlots, rowspans, cursoNombre, turno, prece
           <tr className="info-row">
             <th colSpan={colspan}>
               <div className="info-row-inner">
-                <span className="info-left">Curso: {cursoNombre}</span>
+                <span className="info-left">Curso: {nombreCursoDisplay}</span>
                 <span className="info-center">Turno: {turno}</span>
                 <span className="info-right">Preceptor: {preceptorTexto}</span>
               </div>
@@ -303,6 +303,7 @@ function VistaHorarios({ cursosOptions }) {
   const [timeKeys, setTimeKeys] = useState({});
   const [rowspans, setRowspans] = useState({});
   const [cursoNombre, setCursoNombre] = useState('');
+  const [nombreCursoDisplay, setNombreCursoDisplay] = useState('');
   const [turno, setTurno] = useState('');
   const [preceptorNombre, setPreceptorNombre] = useState(null);
 
@@ -317,6 +318,7 @@ function VistaHorarios({ cursosOptions }) {
       setTimeKeys({});
       setRowspans({});
       setCursoNombre('');
+      setNombreCursoDisplay('');
       setTurno('');
       setPreceptorNombre(null);
       return;
@@ -324,6 +326,8 @@ function VistaHorarios({ cursosOptions }) {
     setCargando(true);
     const cursoObj = cursosOptions.find((c) => String(c.id_curso) === String(cursoSeleccionado));
     setCursoNombre(cursoObj?.nombre_curso || '');
+    const orientacion = cursoObj?.orientacion;
+    setNombreCursoDisplay(orientacion ? `${cursoObj?.nombre_curso} - ${orientacion}` : (cursoObj?.nombre_curso || ''));
     setPreceptorNombre(obtenerPreceptorNombre(cursoObj));
     Promise.all([
       getCursoMateria({ curso: cursoSeleccionado }),
@@ -358,7 +362,7 @@ function VistaHorarios({ cursosOptions }) {
   }, [cursoSeleccionado, modulosSorted, cursosOptions]);
 
   const descargarPDF = useCallback(() => {
-    const { theadHtml, tbodyHtml } = buildRowsHtml(daySlots, timeKeys, rowspans, cursoNombre, turno, preceptorNombre);
+    const { theadHtml, tbodyHtml } = buildRowsHtml(daySlots, timeKeys, rowspans, nombreCursoDisplay, turno, preceptorNombre);
 
     const html = `<!DOCTYPE html>
 <html lang="es">
@@ -409,7 +413,7 @@ function VistaHorarios({ cursosOptions }) {
       iframe.contentWindow.print();
       setTimeout(() => document.body.removeChild(iframe), 1000);
     }, 500);
-  }, [daySlots, timeKeys, rowspans, cursoNombre, turno, preceptorNombre]);
+  }, [daySlots, timeKeys, rowspans, nombreCursoDisplay, turno, preceptorNombre]);
 
   const hasData = Object.keys(timeKeys).length > 0;
 
@@ -455,7 +459,7 @@ function VistaHorarios({ cursosOptions }) {
             timeKeys={timeKeys}
             daySlots={daySlots}
             rowspans={rowspans}
-            cursoNombre={cursoNombre}
+            nombreCursoDisplay={nombreCursoDisplay}
             turno={turno}
             preceptorNombre={preceptorNombre}
           />

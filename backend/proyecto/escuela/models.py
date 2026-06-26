@@ -116,7 +116,7 @@ class Curso(models.Model):
         blank=True, null=True,
     )
     nombre_curso = models.CharField(max_length=50)
-    turno = models.CharField(max_length=50, blank=True, null=True)
+    orientacion = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
         managed = False
