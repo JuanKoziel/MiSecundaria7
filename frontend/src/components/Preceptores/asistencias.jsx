@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
-import { createAsistencia } from '../../services/api';
-import { MODULOS, diaSemanaNombre } from '../../utils/modulos';
+import { createAsistencia, getAsistenciasPreceptorMateria, patchJustificar } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import {
@@ -34,14 +33,8 @@ function docenteInicial() {
   };
 }
 
-function diaDeFecha(fechaStr) {
-  if (!fechaStr) return '';
-  const [y, m, d] = fechaStr.split('-').map(Number);
-  return diaSemanaNombre(new Date(y, (m || 1) - 1, d || 1));
-}
-
 function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
-  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto, cursosObj, cursoMateria, estadosAsistencia, asistenciasAdmin, horarios, refreshData } = useData();
+  const { inscripciones, alumnos, docentes, asignacionesDocente, nombreCorto, cursosObj, cursoMateria, estadosAsistencia, asistenciasAdmin, refreshData } = useData();
   const { user } = useAuth();
   const [fecha, setFecha] = useState(fechaHoy);
   const [tab, setTab] = useState('alumnos');
@@ -55,10 +48,22 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const [asistDocentes, setAsistDocentes] = useState({});
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [dataMateria, setDataMateria] = useState([]);
+  const [cargandoMateria, setCargandoMateria] = useState(false);
 
   useEffect(() => {
     sessionStorage.setItem('preceptor_asistencia_tipo', tipoAsist);
   }, [tipoAsist]);
+
+  useEffect(() => {
+    if (tipoAsist === 'materia' && materiaCmId && fecha) {
+      setCargandoMateria(true);
+      getAsistenciasPreceptorMateria(materiaCmId, fecha)
+        .then(setDataMateria)
+        .catch(() => setDataMateria([]))
+        .finally(() => setCargandoMateria(false));
+    }
+  }, [tipoAsist, materiaCmId, fecha]);
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const listaDocentes = docentesDelCurso(anioLectivo, curso, docentes, asignacionesDocente);
@@ -71,26 +76,6 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
     () => (cursoObjSel ? cursoMateria.filter((cm) => cm.id_curso === cursoObjSel.id_curso) : []),
     [cursoMateria, cursoObjSel],
   );
-  const diaSel = diaDeFecha(fecha);
-  const horarioMateria = useMemo(() => {
-    if (!materiaCmId || !numModulo) return null;
-    return horarios.find(
-      (h) =>
-        h.id_curso_materia === Number(materiaCmId) &&
-        h.dia_semana === diaSel &&
-        h.numero_modulo === Number(numModulo),
-    ) || null;
-  }, [horarios, materiaCmId, numModulo, diaSel]);
-
-  const asistMateria = useMemo(() => {
-    if (!materiaCmId || !numModulo) return [];
-    return asistenciasAdmin.filter(
-      (a) =>
-        a.fecha === fecha &&
-        a.id_curso_materia === Number(materiaCmId) &&
-        a.numero_modulo === Number(numModulo),
-    );
-  }, [asistenciasAdmin, fecha, materiaCmId, numModulo]);
 
   const registroAlumnos = useMemo(() => {
     const alumnoIds = new Set(listaAlumnos.map((a) => a.id));
@@ -301,55 +286,73 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                 ))}
               </select>
             </div>
-            <div className="form-group-filter">
-              <label htmlFor="modulo-asist-prec">Módulo</label>
-              <select
-                id="modulo-asist-prec"
-                value={numModulo}
-                onChange={(e) => setNumModulo(e.target.value)}
-              >
-                <option value="">Seleccione módulo...</option>
-                {MODULOS.map((m) => (
-                  <option key={m.numero} value={m.numero}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group-filter filtro-orientacion">
-              <span className="badge">Día: {diaSel || '—'}</span>
-            </div>
           </div>
 
-          {materiaCmId && numModulo && !horarioMateria && (
-            <p className="asist-info-banner asist-bloqueado">
-              <i className="fas fa-ban" aria-hidden="true" /> Esta materia no posee clases
-              programadas para este día y horario.
-            </p>
-          )}
-
-          {materiaCmId && numModulo && horarioMateria && (
+          {!materiaCmId ? (
+            <p className="empty-state-message">Seleccione una materia para ver las asistencias.</p>
+          ) : cargandoMateria ? (
+            <p>Cargando asistencias...</p>
+          ) : dataMateria.length === 0 ? (
+            <p className="empty-state-message">No hay asistencias registradas para esta materia en la fecha seleccionada.</p>
+          ) : (
             <div className="table-responsive">
               <table>
                 <thead>
                   <tr>
                     <th>Alumno</th>
+                    <th>Horario</th>
+                    <th>Docente</th>
                     <th>Estado</th>
+                    <th>Hora de carga</th>
+                    <th>Justificado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {listaAlumnos.map((a) => {
-                    const reg = asistMateria.find((r) => r.alumnoId === a.id);
-                    const estado = reg?.estado || 'Sin registro';
+                  {dataMateria.map((r, idx) => {
+                    const puedeJustificar = r.estado_nombre !== 'Presente' && r.estado_nombre !== 'Sin registro' && r.id;
                     return (
-                      <tr key={a.id}>
-                        <td className="table-cell-strong">{nombreCorto(a)}</td>
+                      <tr key={r.id ?? `sin-reg-${idx}`}>
+                        <td className="table-cell-strong">{r.alumno_nombre}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{r.horario}</td>
+                        <td>{r.docente_nombre}</td>
                         <td>
-                          <span
-                            className={`badge ${estado === 'Sin registro' ? '' : getBadgeClass(estado)}`}
-                          >
-                            {estado}
+                          <span className={`badge ${
+                            r.estado_nombre === 'Presente' ? 'badge-presente' :
+                            r.estado_nombre === 'Ausente' ? 'badge-ausente' :
+                            r.estado_nombre === 'Tarde' ? 'badge-tarde' :
+                            r.estado_nombre === 'Retiro' ? 'badge-tarde' : ''
+                          }`}>
+                            {r.estado_nombre}
                           </span>
+                        </td>
+                        <td>{r.hora_carga || '-'}</td>
+                        <td>
+                          {puedeJustificar ? (
+                            <label className="cb-label" style={{ cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={r.justificado}
+                                onChange={async (e) => {
+                                  const nuevoValor = e.target.checked;
+                                  setDataMateria((prev) =>
+                                    prev.map((x) =>
+                                      x.id === r.id ? { ...x, justificado: nuevoValor } : x,
+                                    ),
+                                  );
+                                  try {
+                                    await patchJustificar(r.id, nuevoValor);
+                                  } catch {
+                                    setDataMateria((prev) =>
+                                      prev.map((x) =>
+                                        x.id === r.id ? { ...x, justificado: !nuevoValor } : x,
+                                      ),
+                                    );
+                                  }
+                                }}
+                              />
+                              <span>Sí</span>
+                            </label>
+                          ) : '-'}
                         </td>
                       </tr>
                     );

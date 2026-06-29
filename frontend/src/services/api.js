@@ -182,6 +182,18 @@ export async function getAsistenciasAlumnoDetalle(cursoMateriaId, alumnoId) {
   return data;
 }
 
+export async function getAsistenciasPreceptorMateria(cursoMateriaId, fecha) {
+  const { data } = await api.get('/asistencias/preceptor-materia/', {
+    params: { curso_materia: cursoMateriaId, fecha },
+  });
+  return data;
+}
+
+export async function patchJustificar(asistenciaId, justificado) {
+  const { data } = await api.patch(`/asistencias/${asistenciaId}/justificar/`, { justificado });
+  return data;
+}
+
 export async function getAsistencias(params) {
   const { data } = await api.get('/asistencias/', { params });
   return data;

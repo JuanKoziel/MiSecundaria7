@@ -1321,6 +1321,95 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             })
         return Response(result)
 
+    @action(detail=False, methods=['get'], url_path='preceptor-materia')
+    def preceptor_materia(self, request):
+        roles = get_roles_for_usuario(request.user.username)
+        if 'preceptor' not in roles:
+            return Response({'error': 'Solo preceptores.'}, status=status.HTTP_403_FORBIDDEN)
+        cursos_ids = _preceptor_cursos_ids(request)
+        if not cursos_ids:
+            return Response({'error': 'Preceptor sin cursos asignados.'}, status=status.HTTP_403_FORBIDDEN)
+
+        cm_id = request.query_params.get('curso_materia')
+        fecha_str = request.query_params.get('fecha')
+        if not cm_id or not fecha_str:
+            return Response({'error': 'Se requiere curso_materia y fecha.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            cm = CursoMateria.objects.get(id_curso_materia=cm_id)
+        except CursoMateria.DoesNotExist:
+            return Response({'error': 'Materia no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        if cm.id_curso_id not in cursos_ids:
+            return Response({'error': 'No autorizado para esta materia.'}, status=status.HTTP_403_FORBIDDEN)
+
+        qs = Asistencia.objects.filter(
+            id_curso_materia=cm_id, fecha=fecha_str,
+        ).select_related(
+            'id_alumno', 'id_curso_materia__id_materia',
+            'id_curso_materia__id_docente', 'id_estado_asistencia',
+        ).order_by('id_alumno__apellido', 'id_alumno__nombre')
+
+        dia_semana = DIAS_SEMANA_ES[datetime.strptime(fecha_str, '%Y-%m-%d').weekday()]
+
+        result = []
+        for a in qs:
+            horario = self._resolver_modulo(a, dia_semana)
+            docente = getattr(a.id_curso_materia, 'id_docente', None)
+            result.append({
+                'id': a.id_asistencia,
+                'id_alumno': a.id_alumno_id,
+                'alumno_nombre': f'{a.id_alumno.apellido}, {a.id_alumno.nombre}',
+                'horario': horario.get('horario') if horario else '-',
+                'docente_nombre': f'{docente.nombre} {docente.apellido}' if docente else '-',
+                'estado_nombre': a.id_estado_asistencia.nombre_estado if a.id_estado_asistencia else '-',
+                'hora_carga': a.hora.strftime('%H:%M') if a.hora else '',
+                'justificado': a.justificado,
+            })
+
+        alumnos_del_curso = Alumno.objects.filter(
+            id_curso=cm.id_curso_id,
+        ).select_related('id_usuario').order_by('apellido', 'nombre')
+
+        ids_encontrados = {r['id_alumno'] for r in result}
+        for al in alumnos_del_curso:
+            if al.id_alumno not in ids_encontrados:
+                result.append({
+                    'id': None,
+                    'id_alumno': al.id_alumno,
+                    'alumno_nombre': f'{al.apellido}, {al.nombre}',
+                    'horario': '-',
+                    'docente_nombre': '-',
+                    'estado_nombre': 'Sin registro',
+                    'hora_carga': '',
+                    'justificado': False,
+                })
+
+        result.sort(key=lambda r: r['alumno_nombre'])
+        return Response(result)
+
+    @action(detail=True, methods=['patch'], url_path='justificar')
+    def justificar(self, request, pk=None):
+        roles = get_roles_for_usuario(request.user.username)
+        if 'preceptor' not in roles:
+            return Response({'error': 'Solo preceptores.'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            asistencia = Asistencia.objects.get(pk=pk)
+        except Asistencia.DoesNotExist:
+            return Response({'error': 'Asistencia no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        cursos_ids = _preceptor_cursos_ids(request)
+        cm = asistencia.id_curso_materia
+        if cm.id_curso_id not in cursos_ids:
+            return Response({'error': 'No autorizado para modificar esta asistencia.'}, status=status.HTTP_403_FORBIDDEN)
+
+        justificado = request.data.get('justificado')
+        if justificado is None:
+            return Response({'error': 'Se requiere justificado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        asistencia.justificado = bool(justificado)
+        asistencia.save(update_fields=['justificado'])
+        return Response({'id': asistencia.id_asistencia, 'justificado': asistencia.justificado})
+
     def _resolver_modulo(self, asistencia, dia_semana):
         cm_id = asistencia.id_curso_materia_id
         hora = asistencia.hora

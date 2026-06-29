@@ -354,6 +354,7 @@ class Asistencia(models.Model):
     )
     fecha = models.DateField()
     hora = models.TimeField()
+    justificado = models.BooleanField(default=False)
 
     class Meta:
         managed = False
