@@ -1270,13 +1270,26 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='alumno-detalle')
     def alumno_detalle(self, request):
         roles = get_roles_for_usuario(request.user.username)
-        if 'alumno' not in roles:
-            return Response({'error': 'Solo alumnos.'}, status=status.HTTP_403_FORBIDDEN)
         try:
             usuario = Usuario.objects.get(usuario=request.user.username)
-            alumno = Alumno.objects.get(id_usuario=usuario)
-        except (Usuario.DoesNotExist, Alumno.DoesNotExist):
-            return Response({'error': 'Alumno no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        except Usuario.DoesNotExist:
+            return Response({'error': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        if 'alumno' in roles:
+            try:
+                alumno = Alumno.objects.get(id_usuario=usuario)
+            except Alumno.DoesNotExist:
+                return Response({'error': 'Alumno no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        elif 'familia' in roles:
+            alumno_id = request.query_params.get('id_alumno')
+            if not alumno_id:
+                return Response({'error': 'Se requiere id_alumno.'}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                tutor = PadreTutor.objects.get(id_usuario=usuario)
+                alumno = Alumno.objects.get(id_alumno=alumno_id, id_tutor=tutor)
+            except (PadreTutor.DoesNotExist, Alumno.DoesNotExist):
+                return Response({'error': 'Alumno no encontrado o no autorizado.'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
         qs = Asistencia.objects.filter(id_alumno=alumno).select_related(
             'id_curso_materia__id_materia',
             'id_curso_materia__id_docente',

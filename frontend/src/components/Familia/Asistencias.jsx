@@ -1,14 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-
-function badgeClass(estado) {
-  if (estado === 'Presente') return 'badge-presente';
-  if (estado === 'Ausente') return 'badge-ausente';
-  return 'badge-tarde';
-}
+import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
 
 function Asistencias({ hijo }) {
-  const { asistenciasFamilia } = useData();
+  const { alumnos, asistenciasFamilia, cursoMateria } = useData();
   const [tipo, setTipo] = useState(() => {
     const saved = sessionStorage.getItem('familia_asistencia_tipo');
     return saved || 'general';
@@ -18,16 +13,14 @@ function Asistencias({ hijo }) {
     sessionStorage.setItem('familia_asistencia_tipo', tipo);
   }, [tipo]);
 
+  const alumno = useMemo(
+    () => alumnos.find((a) => a.id === hijo.alumnoId) || null,
+    [alumnos, hijo.alumnoId],
+  );
+
   const asistencias = asistenciasFamilia
     .filter((a) => a.hijoId === hijo.id)
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
-
-  const asistenciasFiltradas = useMemo(() => {
-    if (tipo === 'general') {
-      return asistencias.filter(a => a.tipo === 'general');
-    }
-    return asistencias.filter(a => a.tipo === 'materia');
-  }, [asistencias, tipo]);
 
   const historialPorDia = useMemo(() => {
     const fechasUnicas = [...new Set(asistencias.filter(a => a.tipo === 'general').map(a => a.fecha))];
@@ -44,20 +37,6 @@ function Asistencias({ hijo }) {
         estadoGeneral
       };
     }).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [asistencias, hijo]);
-
-  const historialPorMateria = useMemo(() => {
-    return asistencias
-      .filter(a => a.tipo === 'materia')
-      .map(a => ({
-        fecha: a.fecha,
-        curso: hijo.curso || '—',
-        materia: a.materia || '—',
-        modulo: a.numero_modulo ? `Módulo ${a.numero_modulo}` : '—',
-        docente: a.docente_nombre || '—',
-        estado: a.estado
-      }))
-      .sort((a, b) => b.fecha.localeCompare(a.fecha));
   }, [asistencias, hijo]);
 
   return (
@@ -125,45 +104,14 @@ function Asistencias({ hijo }) {
               </tbody>
             </table>
           </div>
+        ) : !alumno ? (
+          <p className="empty-state-message">No se pudo obtener la información del alumno.</p>
         ) : (
-          <div className="table-responsive">
-            <table>
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Curso</th>
-                  <th>Materia</th>
-                  <th>Módulo</th>
-                  <th>Docente</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historialPorMateria.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="empty-state-message">
-                      No hay registros de historial por materia.
-                    </td>
-                  </tr>
-                ) : (
-                  historialPorMateria.map((h, idx) => (
-                    <tr key={idx}>
-                      <td>{h.fecha}</td>
-                      <td>{h.curso}</td>
-                      <td>{h.materia}</td>
-                      <td>{h.modulo}</td>
-                      <td>{h.docente}</td>
-                      <td>
-                        <span className={`badge ${badgeClass(h.estado)}`}>
-                          {h.estado}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <AsistenciaMateriaDetalle
+            alumnoId={alumno.id}
+            cursoMateria={cursoMateria}
+            idCurso={alumno.id_curso}
+          />
         )}
       </div>
     </div>
