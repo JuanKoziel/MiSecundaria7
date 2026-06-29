@@ -1,4 +1,5 @@
-﻿from django.contrib.auth import authenticate
+﻿from datetime import datetime, date, time
+from django.contrib.auth import authenticate
 from django.db import models
 from django.http import FileResponse
 import re
@@ -1168,6 +1169,13 @@ class EstadoAsistenciaViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = EstadoAsistenciaSerializer
 
 
+DIAS_SEMANA_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+
+def _dia_semana_es(dt=None):
+    dt = dt or datetime.now()
+    return DIAS_SEMANA_ES[dt.weekday()]  # 0=Lunes
+
+
 class AsistenciaViewSet(viewsets.ModelViewSet):
     queryset = Asistencia.objects.select_related(
         'id_alumno', 'id_curso_materia__id_materia',
@@ -1181,7 +1189,6 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         curso = self.request.query_params.get('curso')
         fecha = self.request.query_params.get('fecha')
         curso_materia = self.request.query_params.get('curso_materia')
-        modo = self.request.query_params.get('modo')
         if alumno:
             qs = qs.filter(id_alumno=alumno)
         if curso:
@@ -1190,32 +1197,108 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             qs = qs.filter(fecha=fecha)
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)
-        if modo == 'general':
-            qs = qs.filter(numero_modulo__isnull=True)
-        elif modo == 'materia':
-            qs = qs.filter(numero_modulo__isnull=False)
         return qs
 
-    def create(self, request, *args, **kwargs):
-        """Upsert: evita duplicados por (alumno, curso_materia, fecha, modulo).
+    @action(detail=False, methods=['get'], url_path='server-time')
+    def server_time(self, request):
+        ahora = datetime.now()
+        dia = _dia_semana_es(ahora)
+        data = {
+            'fecha': ahora.strftime('%Y-%m-%d'),
+            'hora': ahora.strftime('%H:%M:%S'),
+            'dia_semana': dia,
+        }
+        cm_id = request.query_params.get('curso_materia')
+        if cm_id:
+            horarios_hoy = self._horarios_hoy(cm_id, dia)
+            data['horarios_hoy'] = horarios_hoy
+            data['estado'] = self._estado_horario(horarios_hoy, ahora)
+        return Response(data)
 
-        Si ya existe una asistencia para esa combinaciÃ³n, la actualiza en lugar
-        de crear una nueva. numero_modulo NULL = general; con valor = por materia.
-        """
-        data = request.data
-        numero_modulo = data.get('numero_modulo')
+    def _horarios_hoy(self, curso_materia_id, dia_semana):
+        """Retorna lista de dicts con hora_inicio y hora_fin para hoy."""
+        horarios = []
+        qs = Horario.objects.filter(
+            id_curso_materia=curso_materia_id,
+            dia_semana=dia_semana,
+        ).select_related('id_modulo')
+        for h in qs:
+            if h.id_modulo:
+                horarios.append({
+                    'hora_inicio': h.id_modulo.hora_inicio.strftime('%H:%M'),
+                    'hora_fin': h.id_modulo.hora_fin.strftime('%H:%M'),
+                })
+        qs_esp = HorariosEspeciales.objects.filter(
+            id_curso_materia=curso_materia_id,
+            dia_semana=dia_semana,
+        )
+        for h in qs_esp:
+            horarios.append({
+                'hora_inicio': h.hora_inicio.strftime('%H:%M'),
+                'hora_fin': h.hora_fin.strftime('%H:%M'),
+            })
+        horarios.sort(key=lambda x: x['hora_inicio'])
+        return horarios
+
+    def _estado_horario(self, horarios_hoy, ahora):
+        """Determina el estado: sin_clases, esperando, en_horario, terminado."""
+        if not horarios_hoy:
+            return {'codigo': 'sin_clases', 'mensaje': 'Esta materia no tiene clases programadas para hoy.'}
+        hora_actual = ahora.strftime('%H:%M')
+        primero = horarios_hoy[0]
+        ultimo = horarios_hoy[-1]
+        if hora_actual < primero['hora_inicio']:
+            return {
+                'codigo': 'esperando',
+                'mensaje': f'Las clases comienzan a las {primero["hora_inicio"]}. Actualmente son las {hora_actual}.',
+                'proximo_inicio': primero['hora_inicio'],
+            }
+        if hora_actual >= ultimo['hora_fin']:
+            return {
+                'codigo': 'terminado',
+                'mensaje': f'El horario de clases finalizó a las {ultimo["hora_fin"]}. Actualmente son las {hora_actual}.',
+            }
+        for h in horarios_hoy:
+            if h['hora_inicio'] <= hora_actual < h['hora_fin']:
+                return {'codigo': 'en_horario', 'mensaje': 'Dentro del horario de clase.'}
+        return {
+            'codigo': 'esperando',
+            'mensaje': f'Próximo módulo comienza a las {primero["hora_inicio"]}.',
+            'proximo_inicio': primero['hora_inicio'],
+        }
+
+    def create(self, request, *args, **kwargs):
+        ahora = datetime.now()
+        dia = _dia_semana_es(ahora)
+        cm_id = request.data.get('id_curso_materia')
+        if not cm_id:
+            return Response({'error': 'id_curso_materia es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        horarios_hoy = self._horarios_hoy(cm_id, dia)
+        estado = self._estado_horario(horarios_hoy, ahora)
+        if estado['codigo'] != 'en_horario':
+            return Response({'error': estado['mensaje']}, status=status.HTTP_403_FORBIDDEN)
+        data = {
+            'id_alumno': request.data.get('id_alumno'),
+            'id_curso_materia': cm_id,
+            'id_estado_asistencia': request.data.get('id_estado_asistencia'),
+            'fecha': ahora.date(),
+            'hora': ahora.time(),
+            'id_usuario': request.user.id_usuario if hasattr(request.user, 'id_usuario') else request.user.id,
+        }
         existing = Asistencia.objects.filter(
-            id_alumno=data.get('id_alumno'),
-            id_curso_materia=data.get('id_curso_materia'),
-            fecha=data.get('fecha'),
-            numero_modulo=numero_modulo if numero_modulo not in ('', None) else None,
+            id_alumno=data['id_alumno'],
+            id_curso_materia=data['id_curso_materia'],
+            fecha=data['fecha'],
         ).first()
         if existing:
             serializer = self.get_serializer(existing, data=data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
-        return super().create(request, *args, **kwargs)
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class TipoActaViewSet(viewsets.ReadOnlyModelViewSet):

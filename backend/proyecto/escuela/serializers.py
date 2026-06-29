@@ -1219,7 +1219,6 @@ class AsistenciaSerializer(serializers.ModelSerializer):
         source='id_curso_materia.id_curso.nombre_curso',
         read_only=True, default=None,
     )
-    tipo = serializers.SerializerMethodField()
 
     class Meta:
         model = Asistencia
@@ -1229,9 +1228,6 @@ class AsistenciaSerializer(serializers.ModelSerializer):
         if obj.id_alumno:
             return f'{obj.id_alumno.apellido}, {obj.id_alumno.nombre}'
         return None
-
-    def get_tipo(self, obj):
-        return 'materia' if obj.numero_modulo else 'general'
 
 
 # ---------- Actas ----------

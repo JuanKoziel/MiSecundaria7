@@ -369,11 +369,10 @@ export function DataProvider({ children }) {
         curso: a.curso_nombre || '',
         materia: a.materia_nombre || '',
         fecha: a.fecha || '',
+        hora: a.hora || '',
         alumnoId: a.id_alumno,
         estado: a.estado_nombre || '',
         id_curso_materia: a.id_curso_materia,
-        numero_modulo: a.numero_modulo ?? null,
-        tipo: a.tipo || (a.numero_modulo ? 'materia' : 'general'),
       }));
 
       const actasArr = (Array.isArray(actasRaw) ? actasRaw : []).map((a) => ({

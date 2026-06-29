@@ -168,6 +168,12 @@ export async function updateCalificacion(id, payload) {
   return data;
 }
 
+export async function getServerTime(cursoMateriaId) {
+  const params = cursoMateriaId ? { curso_materia: cursoMateriaId } : {};
+  const { data } = await api.get('/asistencias/server-time/', { params });
+  return data;
+}
+
 export async function getAsistencias(params) {
   const { data } = await api.get('/asistencias/', { params });
   return data;

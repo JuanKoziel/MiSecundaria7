@@ -1,22 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
-import { createAsistencia } from '../../services/api';
+import { getServerTime, createAsistencia } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { MODULOS, diaSemanaNombre, moduloActual } from '../../utils/modulos';
 
 const ESTADOS = ['Presente', 'Ausente', 'Tarde'];
 
-function diaDeFecha(fechaStr) {
-  if (!fechaStr) return '';
-  const [y, m, d] = fechaStr.split('-').map(Number);
-  return diaSemanaNombre(new Date(y, (m || 1) - 1, d || 1));
-}
-
 function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
-  const { alumnos, estadosAsistencia, horarios, refreshData } = useData();
+  const { alumnos, estadosAsistencia, refreshData } = useData();
   const { user } = useAuth();
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
-  const [numModulo, setNumModulo] = useState(() => String(moduloActual() || ''));
+  const [serverInfo, setServerInfo] = useState(null);
+  const [cargando, setCargando] = useState(true);
   const [filas, setFilas] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -26,33 +19,36 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
     [alumnos, cursoId],
   );
 
-  const diaSel = diaDeFecha(fecha);
-  const horariosMateria = useMemo(
-    () => horarios.filter((h) => h.id_curso_materia === cursoMateriaId),
-    [horarios, cursoMateriaId],
-  );
-  const horarioValido = useMemo(
-    () =>
-      horariosMateria.find(
-        (h) => h.dia_semana === diaSel && h.numero_modulo === Number(numModulo),
-      ) || null,
-    [horariosMateria, diaSel, numModulo],
-  );
-  // Módulos en los que esta materia tiene clase el día seleccionado.
-  const modulosDelDia = useMemo(
-    () => horariosMateria.filter((h) => h.dia_semana === diaSel).map((h) => h.numero_modulo),
-    [horariosMateria, diaSel],
-  );
+  const cargarServerTime = useCallback(async () => {
+    setCargando(true);
+    setMensaje('');
+    try {
+      const info = await getServerTime(cursoMateriaId);
+      setServerInfo(info);
+    } catch (err) {
+      setMensaje(`Error al obtener hora del servidor: ${err.message}`);
+    } finally {
+      setCargando(false);
+    }
+  }, [cursoMateriaId]);
 
   useEffect(() => {
-    setFilas(
-      alumnosCurso.map((a) => ({
-        id: a.id,
-        nombre: `${a.apellido}, ${a.nombre}`,
-        estado: 'Presente',
-      })),
-    );
+    cargarServerTime();
+  }, [cargarServerTime]);
+
+  useEffect(() => {
+    if (alumnosCurso.length > 0) {
+      setFilas(
+        alumnosCurso.map((a) => ({
+          id: a.id,
+          nombre: `${a.apellido}, ${a.nombre}`,
+          estado: 'Presente',
+        })),
+      );
+    }
   }, [alumnosCurso]);
+
+  const enHorario = serverInfo?.estado?.codigo === 'en_horario';
 
   const handleEstadoChange = (id, nuevoEstado) => {
     setFilas((prev) =>
@@ -61,10 +57,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
   };
 
   const handleGuardar = async () => {
-    if (!horarioValido) {
-      setMensaje('Esta materia no posee clases programadas para este día y horario.');
-      return;
-    }
+    if (!enHorario) return;
     setGuardando(true);
     setMensaje('');
     try {
@@ -76,15 +69,13 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
         createAsistencia({
           id_alumno: a.id,
           id_curso_materia: cursoMateriaId,
-          fecha,
-          numero_modulo: Number(numModulo),
           id_estado_asistencia: estadoMap[a.estado] || estadosAsistencia[0]?.id_estado_asistencia || 1,
-          id_usuario: user?.id || 1,
         }),
       );
       await Promise.all(promises);
       setMensaje('Asistencia guardada exitosamente.');
       await refreshData();
+      await cargarServerTime();
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
@@ -94,18 +85,37 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
     }
   };
 
+  if (cargando) {
+    return (
+      <div className="card">
+        <h3>Planilla de Asistencia — {cursoNombre}</h3>
+        <p>Obteniendo información del servidor...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3>Planilla de Asistencia — {cursoNombre}</h3>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleGuardar}
-          disabled={guardando || !horarioValido}
-        >
-          <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Asistencia'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={cargarServerTime}
+            disabled={cargando}
+          >
+            <i className="fas fa-sync" aria-hidden="true" /> Actualizar
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleGuardar}
+            disabled={guardando || !enHorario || filas.length === 0}
+          >
+            <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Asistencia'}
+          </button>
+        </div>
       </div>
 
       {mensaje && (
@@ -116,40 +126,39 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
 
       <div className="filter-row">
         <div className="form-group-filter">
-          <label htmlFor="fecha-asistencia">Fecha</label>
-          <input
-            id="fecha-asistencia"
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-          />
+          <label>Fecha (servidor)</label>
+          <input type="date" value={serverInfo?.fecha || ''} readOnly disabled />
         </div>
         <div className="form-group-filter">
-          <label htmlFor="modulo-asistencia">Módulo</label>
-          <select
-            id="modulo-asistencia"
-            value={numModulo}
-            onChange={(e) => setNumModulo(e.target.value)}
-          >
-            <option value="">Seleccione módulo...</option>
-            {MODULOS.map((m) => (
-              <option key={m.numero} value={m.numero}>
-                {m.label}
-                {modulosDelDia.includes(m.numero) ? ' • clase' : ''}
-              </option>
-            ))}
-          </select>
+          <label>Hora (servidor)</label>
+          <input type="text" value={serverInfo?.hora || ''} readOnly disabled />
         </div>
-        <div className="form-group-filter filtro-orientacion">
-          <span className="badge">Día: {diaSel || '—'}</span>
+        <div className="form-group-filter">
+          <label>Día</label>
+          <input type="text" value={serverInfo?.dia_semana || ''} readOnly disabled />
         </div>
       </div>
 
-      {numModulo && !horarioValido && (
-        <p className="asist-info-banner asist-bloqueado">
-          <i className="fas fa-ban" aria-hidden="true" /> Esta materia no posee clases
-          programadas para este día y horario.
+      {serverInfo?.estado?.mensaje && (
+        <p className={`asist-info-banner ${enHorario ? 'asist-ok' : 'asist-bloqueado'}`}
+           style={{ padding: '8px 12px', borderRadius: '4px', marginBottom: '12px',
+                   backgroundColor: enHorario ? '#d4edda' : '#fff3cd',
+                   color: enHorario ? '#155724' : '#856404' }}>
+          <i className={`fas ${enHorario ? 'fa-check-circle' : 'fa-info-circle'}`} aria-hidden="true" />
+          {' '}{serverInfo.estado.mensaje}
         </p>
+      )}
+
+      {serverInfo?.horarios_hoy?.length > 0 && (
+        <div style={{ marginBottom: '12px', fontSize: '0.9em', color: '#666' }}>
+          <strong>Horarios de hoy:</strong>{' '}
+          {serverInfo.horarios_hoy.map((h, i) => (
+            <span key={i}>
+              {i > 0 && ' — '}
+              {h.hora_inicio} a {h.hora_fin}
+            </span>
+          ))}
+        </div>
       )}
 
       <div className="table-responsive">
@@ -161,7 +170,13 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
             </tr>
           </thead>
           <tbody>
-            {filas.length === 0 ? (
+            {!enHorario ? (
+              <tr>
+                <td colSpan={2} className="empty-state-message">
+                  {serverInfo?.estado?.mensaje || 'No hay horario disponible.'}
+                </td>
+              </tr>
+            ) : filas.length === 0 ? (
               <tr>
                 <td colSpan={2} className="empty-state-message">
                   No hay alumnos en este curso.
