@@ -1267,6 +1267,83 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             'proximo_inicio': primero['hora_inicio'],
         }
 
+    @action(detail=False, methods=['get'], url_path='alumno-detalle')
+    def alumno_detalle(self, request):
+        roles = get_roles_for_usuario(request.user.username)
+        if 'alumno' not in roles:
+            return Response({'error': 'Solo alumnos.'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            usuario = Usuario.objects.get(usuario=request.user.username)
+            alumno = Alumno.objects.get(id_usuario=usuario)
+        except (Usuario.DoesNotExist, Alumno.DoesNotExist):
+            return Response({'error': 'Alumno no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        qs = Asistencia.objects.filter(id_alumno=alumno).select_related(
+            'id_curso_materia__id_materia',
+            'id_curso_materia__id_docente',
+            'id_estado_asistencia',
+        )
+        cm_id = request.query_params.get('curso_materia')
+        if cm_id:
+            qs = qs.filter(id_curso_materia=cm_id)
+        qs = qs.order_by('-fecha', '-hora')
+        result = []
+        for a in qs:
+            dia_semana = DIAS_SEMANA_ES[a.fecha.weekday()]
+            modulo_info = self._resolver_modulo(a, dia_semana)
+            docente = getattr(a.id_curso_materia, 'id_docente', None)
+            if docente:
+                docente_nombre = f'{docente.nombre} {docente.apellido}'
+            else:
+                docente_nombre = '-'
+            result.append({
+                'id': a.id_asistencia,
+                'fecha': a.fecha.strftime('%Y-%m-%d'),
+                'hora': a.hora.strftime('%H:%M') if a.hora else '',
+                'materia_nombre': a.id_curso_materia.id_materia.nombre_materia
+                if a.id_curso_materia.id_materia else '-',
+                'docente_nombre': docente_nombre,
+                'estado_nombre': a.id_estado_asistencia.nombre_estado
+                if a.id_estado_asistencia else '-',
+                'horario': modulo_info.get('horario') if modulo_info else '-',
+            })
+        return Response(result)
+
+    def _resolver_modulo(self, asistencia, dia_semana):
+        cm_id = asistencia.id_curso_materia_id
+        hora = asistencia.hora
+
+        def _expandir(times, idx):
+            s = e = idx
+            while s > 0 and times[s - 1][1] == times[s][0]:
+                s -= 1
+            while e < len(times) - 1 and times[e][1] == times[e + 1][0]:
+                e += 1
+            return s, e
+
+        horarios = list(Horario.objects.filter(
+            id_curso_materia=cm_id, dia_semana=dia_semana,
+            id_modulo__isnull=False,
+        ).select_related('id_modulo').order_by('id_modulo__hora_inicio'))
+
+        for i, h in enumerate(horarios):
+            hi, hf = h.id_modulo.hora_inicio, h.id_modulo.hora_fin
+            if hi is not None and hf is not None and hi <= hora < hf:
+                times = [(x.id_modulo.hora_inicio, x.id_modulo.hora_fin) for x in horarios]
+                s, e = _expandir(times, i)
+                return {'horario': f'{times[s][0].strftime("%H:%M")} - {times[e][1].strftime("%H:%M")}'}
+
+        hor_esp = list(HorariosEspeciales.objects.filter(
+            id_curso_materia=cm_id, dia_semana=dia_semana,
+        ).order_by('hora_inicio'))
+
+        for i, h in enumerate(hor_esp):
+            if h.hora_inicio <= hora < h.hora_fin:
+                times = [(x.hora_inicio, x.hora_fin) for x in hor_esp]
+                s, e = _expandir(times, i)
+                return {'horario': f'{times[s][0].strftime("%H:%M")} - {times[e][1].strftime("%H:%M")}'}
+
+        return None
+
     def create(self, request, *args, **kwargs):
         ahora = datetime.now()
         dia = _dia_semana_es(ahora)

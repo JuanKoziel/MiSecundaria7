@@ -934,7 +934,7 @@ Los módulos existen en la base de datos (tabla `modulos`) y también se generan
 |---------|--------|-----------|
 | `backend/proyecto/escuela/models.py` | 640 | 36 modelos Django, todos `managed=False`, reflejando la DB `sistema_escolar` |
 | `backend/proyecto/escuela/serializers.py` | 1455 | 37 serializers, incluyendo lógica de creación de usuarios con roles, cálculo de campos computados (turno, nombre del docente, etc.) |
-| `backend/proyecto/escuela/views.py` | 1547 | 33 ViewSets + 3 function views. Toda la lógica de permisos, filtrado por rol, CRUD, y endpoints custom (`server-time`, `mi-ddjj`, `borrar-archivo`, `marcar-leida`) |
+| `backend/proyecto/escuela/views.py` | 1613 | 33 ViewSets + 3 function views. Toda la lógica de permisos, filtrado por rol, CRUD, y endpoints custom (`server-time`, `alumno-detalle`, `mi-ddjj`, `borrar-archivo`, `marcar-leida`) |
 | `backend/proyecto/escuela/urls.py` | 46 | Router de DRF con todos los endpoints registrados |
 | `backend/proyecto/escuela/auth_backend.py` | 48 | Backend de autenticación custom contra tabla `usuarios` |
 | `backend/proyecto/urls.py` | 14 | URLs raíz: monta `/api/`, sirve media en desarrollo |
@@ -947,7 +947,7 @@ Los módulos existen en la base de datos (tabla `modulos`) y también se generan
 | `frontend/src/App.jsx` | 64 | Entry point: mapea rol del usuario al Dashboard correspondiente |
 | `frontend/src/context/AuthContext.jsx` | ~80 | Contexto de autenticación: login, logout, refresh de sesión |
 | `frontend/src/context/DataContext.jsx` | 660 | Contexto de datos: 23 llamadas API paralelas, normalización masiva, helpers de búsqueda |
-| `frontend/src/services/api.js` | ~450 | 63 funciones API + interceptor JWT con refresh automático |
+| `frontend/src/services/api.js` | 462 | 64 funciones API + interceptor JWT con refresh automático |
 | `frontend/src/utils/modulos.js` | 76 | Generación de módulos horarios institucionales (07:30-19:30, 60min) |
 | `frontend/src/utils/orientacion.js` | 42 | Cálculo visual de orientación del curso |
 | `frontend/src/components/Administracion/VistaHorarios.jsx` | 480 | Componente principal de grilla horaria (reutilizado en 4 roles) |
@@ -957,7 +957,7 @@ Los módulos existen en la base de datos (tabla `modulos`) y también se generan
 | `frontend/src/components/Shared/ActividadesView.jsx` | ~250 | Vista de actividades (solo lectura) para Alumno y Familia |
 | `frontend/src/components/Preceptores/asistencias.jsx` | 696 | Gestión de asistencias del preceptor (alumnos + docentes) |
 | `frontend/src/components/Preceptores/PreceptorDashboard.jsx` | ~100 | Dashboard del preceptor con import de Horarios |
-| `frontend/src/components/Alumno/AlumnoDashboard.jsx` | 481 | Dashboard del alumno (calificaciones, asistencias, actividades, horarios) |
+| `frontend/src/components/Alumno/AlumnoDashboard.jsx` | 550 | Dashboard del alumno (calificaciones, asistencias, actividades, horarios) |
 | `frontend/src/components/Familia/FamiliaDashboard.jsx` | ~200 | Dashboard de familia con selector de hijos |
 | `frontend/src/components/Administracion/sidebarMenu.js` | ~15 | Config del menú de admin/director |
 | `frontend/src/components/Preceptores/sidebarMenu.js` | ~12 | Config del menú de preceptor |
@@ -993,6 +993,7 @@ Los módulos existen en la base de datos (tabla `modulos`) y también se generan
 - Notificaciones
 - Declaración Jurada del docente (DDJJ)
 - Módulo de Asistencias con server-time (backend y frontend docente completados)
+- Módulo de Asistencias del Alumno — "Asistencia por Materia": endpoint `alumno-detalle` con resolución de módulos, selector de materia y tabla detallada en el dashboard del alumno
 
 ### Funcionalidades en progreso
 
@@ -1000,14 +1001,12 @@ Los módulos existen en la base de datos (tabla `modulos`) y también se generan
 
 - Módulo de Asistencias para Admin: El componente `Administracion/asistencias.jsx` aún usa lógica de "general" vs "materia" basada en `numero_modulo`.
 
-- Módulo de Asistencias para Alumno: El dashboard muestra `historialPorMateria` con `modulo` que ya no aplica.
-
-- Módulo de Asistencias para Familia: Similar a Alumno, muestra datos de `numero_modulo`.
+- Módulo de Asistencias para Familia: Similar a Alumno, muestra datos de `numero_modulo`. Pendiente de refactor similar al de Alumno.
 
 ### Funcionalidades pendientes
 
-- Refactorizar los componentes de Asistencias de Preceptor, Admin, Alumno y Familia para usar la nueva estructura (sin `numero_modulo`, sin distinción general/materia).
-- Verificar y ajustar la visualización del historial de asistencias para que use `hora` en lugar de `numero_modulo`.
+- Refactorizar los componentes de Asistencias de Preceptor, Admin y Familia para usar la nueva estructura (sin `numero_modulo`, sin distinción general/materia).
+- Verificar y ajustar la vista "Asistencia por Día" del alumno (usa filtro `tipo === 'general'` que ya no existe).
 
 ---
 
@@ -1031,15 +1030,19 @@ Todas las modificaciones importantes al sistema deben registrarse aquí con fech
 
 ---
 
-### Fecha — [título del cambio]
+### 2026-06-29 — Asistencia por Materia del Alumno (visor detallado)
 
-**Módulo afectado:** ...
+**Módulo afectado:** Asistencias - Alumno
 
 **Archivos modificados:**
-- ...
+- `backend/proyecto/escuela/views.py` — Agregado endpoint `GET /asistencias/alumno-detalle/` con filtro por alumno autenticado y `curso_materia` opcional, y método `_resolver_modulo()` para determinar módulo/horario comparando `hora` contra `horarios` y `horarios_especiales`. Docente_nombre se devuelve como "Nombre Apellido".
+- `frontend/src/services/api.js` — Agregada función `getAsistenciasAlumnoDetalle(cursoMateriaId)`.
+- `frontend/src/components/Alumno/AlumnoDashboard.jsx` — Reemplazada sección "Asistencia por Materia": ahora tiene selector de materias desplegable (filtradas del curso del alumno) y tabla con columnas Fecha/Horario/Docente/Estado/Hora. Datos obtenidos del nuevo endpoint. Se eliminó `historialPorMateria` del dashboard.
+- `PROJECT_CONTEXT.md` — Actualizado estado y archivos.
 
 **Explicación técnica:**
-...
+El endpoint recibe `curso_materia` como query param opcional. Filtra asistencias por `Alumno` (obtenido via `id_usuario` del JWT), resuelve el módulo iterando sobre `Horario` y `HorariosEspeciales` que coincidan en `id_curso_materia` y `dia_semana`, comparando `hora_inicio <= hora < hora_fin`. Devuelve `modulo_info` con `numero` (si es horario regular) o `tipo: 'especial'`. Orden descendente por fecha y hora.
 
-**Motivo de la decisión:**
-...
+El frontend calcula las materias del alumno filtrando `cursoMateria` por `id_curso === miAlumno.id_curso`, evitando duplicados. Al seleccionar una materia, se dispara la llamada al endpoint.
+
+**Motivo de la decisión:** Eliminar la dependencia de `numero_modulo` (ya eliminado de la BD) y reemplazar la vista obsoleta por una consulta detallada con resolución de horarios server-side, manteniendo la regla de que el alumno solo puede ver sus propias asistencias.

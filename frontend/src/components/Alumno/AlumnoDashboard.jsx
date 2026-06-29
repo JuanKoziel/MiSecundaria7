@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
@@ -7,6 +7,7 @@ import ActividadesView from '../Shared/ActividadesView';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 import VistaHorarios from '../Administracion/VistaHorarios';
+import { getAsistenciasAlumnoDetalle } from '../../services/api';
 
 function AlumnoDashboard({ user, onLogout }) {
   const {
@@ -25,6 +26,9 @@ function AlumnoDashboard({ user, onLogout }) {
     const saved = sessionStorage.getItem('alumno_asistencia_tipo');
     return saved || 'general';
   });
+  const [materiaAsistencia, setMateriaAsistencia] = useState('');
+  const [asistenciasMateria, setAsistenciasMateria] = useState([]);
+  const [cargandoAsistMateria, setCargandoAsistMateria] = useState(false);
 
   useEffect(() => {
     sessionStorage.setItem('alumno_asistencia_tipo', asistenciaTipo);
@@ -182,6 +186,44 @@ function AlumnoDashboard({ user, onLogout }) {
     const presentes = misAsistencias.filter((a) => a.estado === 'Presente').length;
     return { total, ausencias, tardanzas, presentes };
   }, [misAsistencias]);
+
+  const materiasAlumno = useMemo(() => {
+    if (!miAlumno) return [];
+    const map = new Map();
+    cursoMateria
+      .filter((cm) => cm.id_curso === miAlumno.id_curso)
+      .forEach((cm) => {
+        if (!map.has(cm.id)) {
+          map.set(cm.id, { id: cm.id, nombre: cm.materia_nombre || 'Sin nombre' });
+        }
+      });
+    return [...map.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [cursoMateria, miAlumno]);
+
+  const cargarAsistenciasMateria = useCallback(async (cmId) => {
+    if (!cmId) { setAsistenciasMateria([]); return; }
+    setCargandoAsistMateria(true);
+    try {
+      const data = await getAsistenciasAlumnoDetalle(cmId);
+      setAsistenciasMateria(data);
+    } catch {
+      setAsistenciasMateria([]);
+    } finally {
+      setCargandoAsistMateria(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (asistenciaTipo === 'materia' && materiaAsistencia) {
+      cargarAsistenciasMateria(materiaAsistencia);
+    }
+  }, [asistenciaTipo, materiaAsistencia, cargarAsistenciasMateria]);
+
+  function formatearFecha(isoStr) {
+    if (!isoStr) return '';
+    const [y, m, d] = isoStr.split('-').map(Number);
+    return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+  }
 
   return (
     <div className="dashboard-layout">
@@ -426,46 +468,60 @@ function AlumnoDashboard({ user, onLogout }) {
                       </table>
                     </div>
                   ) : (
-                    <div className="table-responsive">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Fecha</th>
-                            <th>Curso</th>
-                            <th>Materia</th>
-                            <th>Módulo</th>
-                            <th>Docente</th>
-                            <th>Estado</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {historialPorMateria.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="empty-state-message">
-                                No hay registros de historial por materia.
-                              </td>
-                            </tr>
-                          ) : (
-                            historialPorMateria.map((h, idx) => (
-                              <tr key={idx}>
-                                <td>{h.fecha}</td>
-                                <td>{h.curso}</td>
-                                <td>{h.materia}</td>
-                                <td>{h.modulo}</td>
-                                <td>{h.docente}</td>
-                                <td>
-                                  <span className={`badge ${
-                                    h.estado === 'Presente' ? 'badge-presente' :
-                                    h.estado === 'Ausente' ? 'badge-ausente' : 'badge-tarde'
-                                  }`}>
-                                    {h.estado}
-                                  </span>
-                                </td>
+                    <div>
+                      <div className="form-group-filter" style={{ marginBottom: '16px' }}>
+                        <label htmlFor="materia-asist-alumno">Materia</label>
+                        <select
+                          id="materia-asist-alumno"
+                          value={materiaAsistencia}
+                          onChange={(e) => setMateriaAsistencia(e.target.value)}
+                        >
+                          <option value="">Seleccione una materia...</option>
+                          {materiasAlumno.map((m) => (
+                            <option key={m.id} value={m.id}>{m.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {!materiaAsistencia ? (
+                        <p className="empty-state-message">Seleccione una materia para ver sus asistencias.</p>
+                      ) : cargandoAsistMateria ? (
+                        <p>Cargando asistencias...</p>
+                      ) : asistenciasMateria.length === 0 ? (
+                        <p className="empty-state-message">No hay asistencias registradas para esta materia.</p>
+                      ) : (
+                        <div className="table-responsive">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Fecha</th>
+                                <th>Horario</th>
+                                <th>Docente</th>
+                                <th>Estado</th>
+                                <th>Hora de carga</th>
                               </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                            </thead>
+                            <tbody>
+                              {asistenciasMateria.map((r) => (
+                                <tr key={r.id}>
+                                  <td>{formatearFecha(r.fecha)}</td>
+                                  <td>{r.horario || '-'}</td>
+                                  <td>{r.docente_nombre}</td>
+                                  <td>
+                                    <span className={`badge ${
+                                      r.estado_nombre === 'Presente' ? 'badge-presente' :
+                                      r.estado_nombre === 'Ausente' ? 'badge-ausente' : 'badge-tarde'
+                                    }`}>
+                                      {r.estado_nombre}
+                                    </span>
+                                  </td>
+                                  <td>{r.hora || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -174,6 +174,12 @@ export async function getServerTime(cursoMateriaId) {
   return data;
 }
 
+export async function getAsistenciasAlumnoDetalle(cursoMateriaId) {
+  const params = cursoMateriaId ? { curso_materia: cursoMateriaId } : {};
+  const { data } = await api.get('/asistencias/alumno-detalle/', { params });
+  return data;
+}
+
 export async function getAsistencias(params) {
   const { data } = await api.get('/asistencias/', { params });
   return data;
