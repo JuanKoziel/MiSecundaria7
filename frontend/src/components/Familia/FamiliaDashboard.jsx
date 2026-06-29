@@ -12,10 +12,11 @@ import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
+import VistaHorarios from '../Administracion/VistaHorarios';
 import { useData } from '../../context/DataContext';
 
 function FamiliaDashboard({ user, onLogout }) {
-  const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto } = useData();
+  const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj } = useData();
   const [view, setView] = useState('resumen');
   const [hijoId, setHijoId] = useState('');
 
@@ -71,6 +72,13 @@ function FamiliaDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Actas hijo={hijoSeleccionado} />
+          </div>
+        );
+
+      case 'horarios':
+        return (
+          <div className="view-section active">
+            <VistaHorarios cursosOptions={cursosObj} cursoForzado={getAlumnoById(hijoSeleccionado.alumnoId)?.id_curso} />
           </div>
         );
 

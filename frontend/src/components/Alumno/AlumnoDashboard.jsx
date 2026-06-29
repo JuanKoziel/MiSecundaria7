@@ -6,6 +6,7 @@ import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
+import VistaHorarios from '../Administracion/VistaHorarios';
 
 function AlumnoDashboard({ user, onLogout }) {
   const {
@@ -209,6 +210,12 @@ function AlumnoDashboard({ user, onLogout }) {
               <span>Actividades</span>
             </button>
           </li>
+          <li className={view === 'horarios' ? 'active' : ''}>
+            <button type="button" className="sidebar-menu-btn" onClick={() => setView('horarios')}>
+              <i className="fas fa-calendar-alt" aria-hidden="true" />
+              <span>Horarios</span>
+            </button>
+          </li>
           <li className={view === 'comunicados' ? 'active' : ''}>
             <button type="button" className="sidebar-menu-btn" onClick={() => setView('comunicados')}>
               <i className="fas fa-bullhorn" aria-hidden="true" />
@@ -245,6 +252,10 @@ function AlumnoDashboard({ user, onLogout }) {
         {view === 'notificaciones' ? (
           <div className="view-section active">
             <Notificaciones />
+          </div>
+        ) : view === 'horarios' ? (
+          <div className="view-section active">
+            <VistaHorarios cursosOptions={cursosObj} cursoForzado={miAlumno?.id_curso} />
           </div>
         ) : view === 'actividades' ? (
           <div className="view-section active">

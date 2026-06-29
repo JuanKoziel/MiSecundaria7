@@ -295,7 +295,7 @@ function ScheduleTable({ timeKeys, daySlots, rowspans, nombreCursoDisplay, turno
   );
 }
 
-function VistaHorarios({ cursosOptions }) {
+function VistaHorarios({ cursosOptions, cursoForzado }) {
   const { modulos } = useData();
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -311,6 +311,12 @@ function VistaHorarios({ cursosOptions }) {
     if (!Array.isArray(modulos)) return [];
     return [...modulos].sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''));
   }, [modulos]);
+
+  useEffect(() => {
+    if (cursoForzado) {
+      setCursoSeleccionado(String(cursoForzado));
+    }
+  }, [cursoForzado]);
 
   useEffect(() => {
     if (!cursoSeleccionado) {
@@ -419,21 +425,23 @@ function VistaHorarios({ cursosOptions }) {
 
   return (
     <>
-      <div className="filter-row">
-        <div className="form-group-filter" style={{ maxWidth: '320px' }}>
-          <label htmlFor="vh-curso">Curso</label>
-          <select
-            id="vh-curso"
-            value={cursoSeleccionado}
-            onChange={(e) => setCursoSeleccionado(e.target.value)}
-          >
-            <option value="">— Seleccionar curso —</option>
-            {cursosOptions.map((c) => (
-              <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
-            ))}
-          </select>
+      {!cursoForzado && (
+        <div className="filter-row">
+          <div className="form-group-filter" style={{ maxWidth: '320px' }}>
+            <label htmlFor="vh-curso">Curso</label>
+            <select
+              id="vh-curso"
+              value={cursoSeleccionado}
+              onChange={(e) => setCursoSeleccionado(e.target.value)}
+            >
+              <option value="">— Seleccionar curso —</option>
+              {cursosOptions.map((c) => (
+                <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      )}
 
       {cargando && (
         <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>

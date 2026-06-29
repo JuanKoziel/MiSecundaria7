@@ -134,6 +134,36 @@ def _preceptor_cursos_ids(request):
     )
 
 
+def _alumno_curso(request):
+    username = request.user.username if request.user.is_authenticated else None
+    if not username:
+        return None
+    usuario = Usuario.objects.filter(usuario=username).first()
+    if not usuario:
+        return None
+    alumno = Alumno.objects.filter(id_usuario=usuario).first()
+    if not alumno or not alumno.id_curso_id:
+        return None
+    return alumno.id_curso_id
+
+
+def _familia_cursos_ids(request):
+    username = request.user.username if request.user.is_authenticated else None
+    if not username:
+        return set()
+    usuario = Usuario.objects.filter(usuario=username).first()
+    if not usuario:
+        return set()
+    tutor = PadreTutor.objects.filter(id_usuario=usuario).first()
+    if not tutor:
+        return set()
+    return set(
+        Alumno.objects.filter(id_tutor=tutor)
+        .values_list('id_curso', flat=True)
+        .distinct()
+    )
+
+
 def _docente_ids_en_cursos(cursos_ids):
     if not cursos_ids:
         return set()
@@ -886,6 +916,18 @@ class CursoViewSet(viewsets.ModelViewSet):
                 return qs.none()
             qs = qs.filter(id_preceptor=preceptor)
 
+        if 'alumno' in roles:
+            curso_id = _alumno_curso(self.request)
+            if not curso_id:
+                return qs.none()
+            qs = qs.filter(id_curso=curso_id)
+
+        if 'familia' in roles:
+            cursos_ids = _familia_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            qs = qs.filter(id_curso__in=cursos_ids)
+
         ciclo = self.request.query_params.get('ciclo')
         if ciclo:
             qs = qs.filter(id_ciclo=ciclo)
@@ -910,6 +952,16 @@ class CursoMateriaViewSet(viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username) if username else []
         if 'preceptor' in roles:
             cursos_ids = _preceptor_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            qs = qs.filter(id_curso__in=cursos_ids)
+        if 'alumno' in roles:
+            curso_id = _alumno_curso(self.request)
+            if not curso_id:
+                return qs.none()
+            qs = qs.filter(id_curso=curso_id)
+        if 'familia' in roles:
+            cursos_ids = _familia_cursos_ids(self.request)
             if not cursos_ids:
                 return qs.none()
             qs = qs.filter(id_curso__in=cursos_ids)
@@ -967,6 +1019,16 @@ class HorarioEspecialViewSet(viewsets.ModelViewSet):
             if not cursos_ids:
                 return qs.none()
             qs = qs.filter(id_curso_materia__id_curso__in=cursos_ids)
+        if 'alumno' in roles:
+            curso_id = _alumno_curso(self.request)
+            if not curso_id:
+                return qs.none()
+            qs = qs.filter(id_curso_materia__id_curso=curso_id)
+        if 'familia' in roles:
+            cursos_ids = _familia_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            qs = qs.filter(id_curso_materia__id_curso__in=cursos_ids)
 
         curso = self.request.query_params.get('curso')
         if curso:
@@ -1004,8 +1066,21 @@ class HorarioViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
+
         if 'preceptor' in roles:
             cursos_ids = _preceptor_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            qs = qs.filter(id_curso_materia__id_curso__in=cursos_ids)
+
+        if 'alumno' in roles:
+            curso_id = _alumno_curso(self.request)
+            if not curso_id:
+                return qs.none()
+            qs = qs.filter(id_curso_materia__id_curso=curso_id)
+
+        if 'familia' in roles:
+            cursos_ids = _familia_cursos_ids(self.request)
             if not cursos_ids:
                 return qs.none()
             qs = qs.filter(id_curso_materia__id_curso__in=cursos_ids)
