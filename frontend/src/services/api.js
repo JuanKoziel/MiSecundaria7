@@ -272,6 +272,16 @@ export async function deleteActaAlumno(id) {
   await api.delete(`/acta-alumno/${id}/`);
 }
 
+export async function updateActaAlumno(id, payload) {
+  const { data } = await api.patch(`/acta-alumno/${id}/`, payload);
+  return data;
+}
+
+export async function updateActaDocente(id, payload) {
+  const { data } = await api.patch(`/acta-docente/${id}/`, payload);
+  return data;
+}
+
 export async function deleteActaCurso(id) {
   await api.delete(`/acta-curso/${id}/`);
 }

@@ -1495,6 +1495,7 @@ class ActaViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         curso = self.request.query_params.get('curso')
         alumno = self.request.query_params.get('alumno')
+        docente = self.request.query_params.get('docente')
         if curso:
             acta_ids = ActaCurso.objects.filter(
                 id_curso=curso,
@@ -1503,6 +1504,11 @@ class ActaViewSet(viewsets.ModelViewSet):
         if alumno:
             acta_ids = ActaAlumno.objects.filter(
                 id_alumno=alumno,
+            ).values_list('id_acta', flat=True)
+            qs = qs.filter(id_acta__in=acta_ids)
+        if docente:
+            acta_ids = ActaDocente.objects.filter(
+                id_docente=docente,
             ).values_list('id_acta', flat=True)
             qs = qs.filter(id_acta__in=acta_ids)
         return qs
