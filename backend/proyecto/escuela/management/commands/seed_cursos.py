@@ -14,6 +14,7 @@ from datetime import date
 from django.core.management.base import BaseCommand
 
 from escuela.models import CicloLectivo, Curso
+from escuela.utils import activar_o_crear
 
 
 class Command(BaseCommand):
@@ -34,17 +35,20 @@ class Command(BaseCommand):
             ciclos = [ciclo]
 
         total = 0
+        reactivados = 0
         for ciclo in ciclos:
             for anio in range(1, 7):
                 for div in range(1, 4):
                     nombre = f'{anio}°{div}'
-                    _, created = Curso.objects.get_or_create(
-                        nombre_curso=nombre,
-                        id_ciclo=ciclo,
-                        defaults={'turno': 'Mañana'},
+                    _, was_reactivated = activar_o_crear(
+                        Curso,
+                        {'nombre_curso': nombre, 'id_ciclo': ciclo},
+                        {'orientacion': 'Mañana'},
                     )
-                    if created:
+                    if not was_reactivated:
                         total += 1
+                    else:
+                        reactivados += 1
             self.stdout.write(
                 self.style.SUCCESS(
                     f'  Ciclo {ciclo.anio}: 18 cursos asegurados'
@@ -52,5 +56,7 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(
-            self.style.SUCCESS(f'Cursos nuevos creados: {total}')
+            self.style.SUCCESS(
+                f'Cursos nuevos creados: {total}, reactivados: {reactivados}'
+            )
         )

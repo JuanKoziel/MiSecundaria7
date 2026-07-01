@@ -1,0 +1,270 @@
+import { Fragment, useEffect, useState } from 'react';
+import { useData } from '../../context/DataContext';
+import { createCurso, updateCurso } from '../../services/api';
+
+const formVacio = {
+  anio: '',
+  division: '',
+  orientacion: '',
+  id_preceptor: '',
+  id_ciclo: '',
+};
+
+function mensajeError(err) {
+  const data = err.response?.data;
+  if (data && typeof data === 'object' && !data.detail) {
+    return Object.values(data).flat().join(' | ');
+  }
+  return data?.detail || err.message || 'Error inesperado';
+}
+
+function FormCurso({ formData, setFormData, editing, saving, onSubmit, onCancel, ciclosLectivos, preceptores }) {
+  return (
+    <form onSubmit={onSubmit} style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
+      <div className="preceptor-form-row preceptor-form-row--two">
+        <div className="form-group-filter">
+          <label htmlFor="curso-anio">Año</label>
+          <input id="curso-anio" type="number" min="1" max="7" value={formData.anio} onChange={(e) => setFormData((p) => ({ ...p, anio: e.target.value }))} required />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="curso-division">División</label>
+          <input id="curso-division" type="number" min="1" max="20" value={formData.division} onChange={(e) => setFormData((p) => ({ ...p, division: e.target.value }))} required />
+        </div>
+      </div>
+      <div className="preceptor-form-row preceptor-form-row--two">
+        <div className="form-group-filter">
+          <label htmlFor="curso-orientacion">Orientación</label>
+          <input id="curso-orientacion" type="text" value={formData.orientacion} onChange={(e) => setFormData((p) => ({ ...p, orientacion: e.target.value }))} />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="curso-preceptor">Preceptor</label>
+          <select id="curso-preceptor" value={formData.id_preceptor} onChange={(e) => setFormData((p) => ({ ...p, id_preceptor: e.target.value }))}>
+            <option value="">— Sin asignar —</option>
+            {(preceptores || []).map((p) => (
+              <option key={p.id_preceptor} value={p.id_preceptor}>{p.apellido}, {p.nombre}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="preceptor-form-row">
+        <div className="form-group-filter">
+          <label htmlFor="curso-ciclo">Ciclo lectivo</label>
+          <select id="curso-ciclo" value={formData.id_ciclo} onChange={(e) => setFormData((p) => ({ ...p, id_ciclo: e.target.value }))} required>
+            <option value="">Seleccionar...</option>
+            {(ciclosLectivos || []).map((c) => (
+              <option key={c.id_ciclo} value={c.id_ciclo}>{c.anio}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          {saving ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
+      </div>
+    </form>
+  );
+}
+
+function Cursos() {
+  const { adminCursos, refreshAdminCursos, ciclosLectivos, preceptores } = useData();
+  const [mostrarInactivos, setMostrarInactivos] = useState(false);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [formData, setFormData] = useState(formVacio);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    refreshAdminCursos(mostrarInactivos);
+  }, [mostrarInactivos, refreshAdminCursos]);
+
+  const parsearNombreCurso = (nombre) => {
+    if (!nombre || !nombre.includes('°')) return { anio: '', division: '' };
+    const parts = nombre.split('°');
+    return { anio: parts[0] || '', division: parts.length > 1 ? parts[1] : '' };
+  };
+
+  const limpiar = () => {
+    setShowNewForm(false);
+    setEditing(null);
+    setFormData(formVacio);
+    setError('');
+    setSuccess('');
+  };
+
+  const abrirNuevo = () => {
+    limpiar();
+    setShowNewForm(true);
+  };
+
+  const abrirEditar = (curso) => {
+    limpiar();
+    const { anio, division } = parsearNombreCurso(curso.nombre_curso);
+    setEditing(curso);
+    setFormData({
+      anio,
+      division,
+      orientacion: curso.orientacion || '',
+      id_preceptor: curso.id_preceptor ?? '',
+      id_ciclo: curso.id_ciclo ?? '',
+    });
+  };
+
+  const construirNombreCurso = (anio, division) => `${anio}°${division}`;
+
+  const handleSubmit = async (e, esEdicion) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setSaving(true);
+    try {
+      const payload = {
+        nombre_curso: construirNombreCurso(formData.anio, formData.division),
+        orientacion: formData.orientacion || null,
+        id_preceptor: formData.id_preceptor ? Number(formData.id_preceptor) : null,
+        id_ciclo: formData.id_ciclo ? Number(formData.id_ciclo) : null,
+      };
+      if (esEdicion) {
+        await updateCurso(editing.id_curso, payload);
+        setSuccess('Curso actualizado correctamente');
+      } else {
+        await createCurso(payload);
+        setSuccess('Curso creado correctamente');
+      }
+      limpiar();
+      await refreshAdminCursos(mostrarInactivos);
+    } catch (err) {
+      setError(mensajeError(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDesactivar = async (curso) => {
+    if (!window.confirm(
+      'Este curso dejará de estar disponible para nuevas operaciones.\n\n' +
+      'No se eliminará ningún dato histórico.\n\n' +
+      'Se conservarán:\n' +
+      '• alumnos\n• horarios\n• actividades\n• asistencias\n' +
+      '• calificaciones\n• planificaciones\n• comunicaciones\n\n' +
+      '¿Desea continuar?'
+    )) return;
+    setError('');
+    setSuccess('');
+    try {
+      await updateCurso(curso.id_curso, { activo: false });
+      setSuccess('Curso desactivado correctamente');
+      await refreshAdminCursos(mostrarInactivos);
+    } catch (err) {
+      setError(mensajeError(err));
+    }
+  };
+
+  const cursoNombre = (curso) => curso.nombre_curso || '';
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <h2>Gestión de Cursos</h2>
+      </div>
+      <div className="card-body">
+        {error && <div className="alert alert-danger">{error}</div>}
+        {success && <div className="alert alert-success">{success}</div>}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <label style={{ cursor: 'pointer', userSelect: 'none' }}>
+            <input type="checkbox" checked={mostrarInactivos} onChange={(e) => setMostrarInactivos(e.target.checked)} style={{ marginRight: '8px' }} />
+            Mostrar registros inactivos
+          </label>
+          <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
+            <i className="fas fa-plus" aria-hidden="true" /> Nuevo Curso
+          </button>
+        </div>
+
+        {showNewForm && (
+          <FormCurso
+            formData={formData}
+            setFormData={setFormData}
+            editing={null}
+            saving={saving}
+            onSubmit={(e) => handleSubmit(e, false)}
+            onCancel={limpiar}
+            ciclosLectivos={ciclosLectivos}
+            preceptores={preceptores}
+          />
+        )}
+
+        <div className="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Curso</th>
+                <th>Orientación</th>
+                <th>Preceptor</th>
+                <th>Ciclo Lectivo</th>
+                <th>Activo</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {adminCursos.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="empty-state-message">No hay cursos registrados.</td>
+                </tr>
+              ) : (
+                adminCursos.map((c) => (
+                  <Fragment key={c.id_curso}>
+                    <tr>
+                      <td>{cursoNombre(c)}</td>
+                      <td>{c.orientacion || '---'}</td>
+                      <td>{c.preceptor_nombre || '---'}</td>
+                      <td>{c.ciclo_anio || '---'}</td>
+                      <td>
+                        <span className={`badge ${c.activo ? 'badge-success' : 'badge-danger'}`}>
+                          {c.activo ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </td>
+                      <td className="acciones-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        {c.activo && (
+                          <>
+                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(c)} aria-label="Editar curso" title="Editar">
+                              <i className="fas fa-edit" aria-hidden="true" />
+                            </button>
+                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDesactivar(c)} aria-label="Desactivar curso" title="Desactivar">
+                              <i className="fas fa-ban" aria-hidden="true" />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                    {editing && editing.id_curso === c.id_curso && (
+                      <tr key={`${c.id_curso}-edit`}>
+                        <td colSpan={6} style={{ padding: 0 }}>
+                          <FormCurso
+                            formData={formData}
+                            setFormData={setFormData}
+                            editing={editing}
+                            saving={saving}
+                            onSubmit={(e) => handleSubmit(e, true)}
+                            onCancel={limpiar}
+                            ciclosLectivos={ciclosLectivos}
+                            preceptores={preceptores}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Cursos;

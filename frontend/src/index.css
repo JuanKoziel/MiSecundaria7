@@ -174,10 +174,23 @@ body {
     letter-spacing: 0.5px;
 }
 
+.sidebar-menu-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+}
+
 .sidebar-menu {
     list-style: none;
-    margin-top: 25px;
-    flex-grow: 1;
     display: flex;
     flex-direction: column;
 }
@@ -219,6 +232,12 @@ body {
 
 .sidebar-logout-btn:hover {
     color: #ffb4b4 !important;
+}
+
+.sidebar-logout {
+    padding: 10px 0 0;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.1);
 }
 
 /* Tabs for Familia Notificaciones */
@@ -829,9 +848,10 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
    ========================================================================== */
 @media (max-width: 992px) {
     .sidebar { width: 70px; padding: 20px 0; }
-    .sidebar-brand span, .sidebar-menu li a span, .sidebar-menu-btn span { display: none; }
+    .sidebar-brand span, .sidebar-menu li a span, .sidebar-menu-btn span, .sidebar-logout .sidebar-menu-btn span { display: none; }
     .sidebar-brand { justify-content: center; padding: 0 0 20px; }
     .sidebar-menu li a, .sidebar-menu-btn { justify-content: center; padding: 15px 0; }
+    .sidebar-logout .sidebar-menu-btn { justify-content: center; padding: 15px 0; }
     .main-content { margin-left: 100px; width: calc(100% - 100px); padding-right: 20px;}
 }
 
@@ -848,14 +868,15 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
         flex-direction: row;
         padding: 0;
         border-radius: 0;
-        justify-content: space-around;
     }
     .sidebar-brand { display: none; }
-    .sidebar-menu { display: flex; width: 100%; margin-top: 0; justify-content: space-around;}
+    .sidebar-menu-wrapper { overflow-y: visible; flex: 1; }
+    .sidebar-menu { display: flex; width: 100%; justify-content: space-around; flex-direction: row; }
     .sidebar-menu li { flex: 1; text-align: center;}
-    .logout-li { margin-top: 0; }
+    .sidebar-logout { padding: 0; margin-top: 0; border-top: none; }
     .sidebar-menu li a, .sidebar-menu-btn { justify-content: center; padding: 18px 0; border-left: none; border-top: 4px solid transparent;}
     .sidebar-menu li a:hover, .sidebar-menu li.active a, .sidebar-menu li.active .sidebar-menu-btn, .sidebar-menu-btn:hover { border-top-color: var(--primary-color); }
+    .sidebar-logout .sidebar-menu-btn { justify-content: center; padding: 18px 0; border-left: none; border-top: 4px solid transparent; }
     .main-content { margin-left: 0; width: 100%; padding: 20px; padding-bottom: 80px;}
     .main-header { flex-direction: column; gap: 15px; text-align: center; }
 }
@@ -1725,10 +1746,23 @@ body {
     font-size: 1.2rem;
 }
 
+.sidebar-menu-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+}
+
 .sidebar-menu {
     list-style: none;
-    margin-top: 25px;
-    flex-grow: 1;
     display: flex;
     flex-direction: column;
 }
@@ -1762,8 +1796,10 @@ body {
     border-left-color: var(--primary-color);
 }
 
-.logout-li {
-    margin-top: auto;
+.sidebar-logout {
+    padding: 10px 0 0;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.1);
 }
 
 /* ==========================================================================
@@ -1996,7 +2032,8 @@ tbody tr:last-child td {
 
     .sidebar-brand span,
     .sidebar-menu li a span,
-    .sidebar-menu-btn span {
+    .sidebar-menu-btn span,
+    .sidebar-logout .sidebar-menu-btn span {
         display: none;
     }
 
@@ -2007,6 +2044,11 @@ tbody tr:last-child td {
 
     .sidebar-menu li a,
     .sidebar-menu-btn {
+        justify-content: center;
+        padding: 15px 0;
+    }
+
+    .sidebar-logout .sidebar-menu-btn {
         justify-content: center;
         padding: 15px 0;
     }
@@ -2051,6 +2093,11 @@ tbody tr:last-child td {
         display: none;
     }
 
+    .sidebar-menu-wrapper {
+        overflow-y: visible;
+        flex: 1;
+    }
+
     .sidebar-menu {
         display: flex;
         width: 100%;
@@ -2064,12 +2111,21 @@ tbody tr:last-child td {
         text-align: center;
     }
 
-    .logout-li {
+    .sidebar-logout {
+        padding: 0;
         margin-top: 0;
+        border-top: none;
     }
 
     .sidebar-menu li a,
     .sidebar-menu-btn {
+        justify-content: center;
+        padding: 18px 0;
+        border-left: none;
+        border-top: 4px solid transparent;
+    }
+
+    .sidebar-logout .sidebar-menu-btn {
         justify-content: center;
         padding: 18px 0;
         border-left: none;

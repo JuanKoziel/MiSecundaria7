@@ -14,6 +14,7 @@ from datetime import date, time, datetime
 from django.core.management.base import BaseCommand
 from django.db import connection
 
+from escuela.utils import activar_o_crear
 from escuela.models import (
     Acta,
     ActaAlumno,
@@ -85,16 +86,17 @@ class Command(BaseCommand):
             for div in range(1, 4):
                 nombre = f'{anio}°{div}'
                 prec = preceptores_rr[(anio + div) % 2]
-                c, _ = Curso.objects.get_or_create(
-                    nombre_curso=nombre,
-                    id_ciclo=ciclo26,
-                    defaults={'turno': 'Mañana', 'id_preceptor': prec},
+                c, _ = activar_o_crear(
+                    Curso,
+                    {'nombre_curso': nombre, 'id_ciclo': ciclo26},
+                    {'orientacion': 'Mañana', 'id_preceptor': prec},
                 )
                 cursos[f'{nombre}-{ciclo26.anio}'] = c
         # Curso histórico 2025 para datos de prueba
-        c25, _ = Curso.objects.get_or_create(
-            nombre_curso='1°1', id_ciclo=ciclo25,
-            defaults={'turno': 'Mañana', 'id_preceptor': preceptor1},
+        c25, _ = activar_o_crear(
+            Curso,
+            {'nombre_curso': '1°1', 'id_ciclo': ciclo25},
+            {'orientacion': 'Mañana', 'id_preceptor': preceptor1},
         )
         cursos['1°1-2025'] = c25
         self.stdout.write(self.style.SUCCESS(f'  Cursos: {len(cursos)} creados'))

@@ -143,13 +143,33 @@ export async function getCursos(params) {
   return data;
 }
 
-export async function getMaterias() {
-  const { data } = await api.get('/materias/');
+export async function getMaterias(params) {
+  const { data } = await api.get('/materias/', { params });
   return data;
 }
 
 export async function getCursoMateria(params) {
   const { data } = await api.get('/curso-materia/', { params });
+  return data;
+}
+
+export async function createCurso(payload) {
+  const { data } = await api.post('/cursos/', payload);
+  return data;
+}
+
+export async function updateCurso(id, payload) {
+  const { data } = await api.patch(`/cursos/${id}/`, payload);
+  return data;
+}
+
+export async function createMateria(payload) {
+  const { data } = await api.post('/materias/', payload);
+  return data;
+}
+
+export async function updateMateria(id, payload) {
+  const { data } = await api.patch(`/materias/${id}/`, payload);
   return data;
 }
 

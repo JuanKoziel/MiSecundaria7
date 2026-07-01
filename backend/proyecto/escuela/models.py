@@ -117,6 +117,7 @@ class Curso(models.Model):
     )
     nombre_curso = models.CharField(max_length=50)
     orientacion = models.CharField(max_length=50, blank=True, null=True)
+    activo = models.BooleanField(default=True)
 
     class Meta:
         managed = False
@@ -197,7 +198,7 @@ class ActividadDocente(models.Model):
     id_actividad = models.AutoField(primary_key=True)
     id_docente = models.ForeignKey(
         Docente, on_delete=models.CASCADE, db_column='id_docente',
-        related_name='actividades_docentes',
+        blank=True, null=True,
     )
     id_curso_materia = models.ForeignKey(
         'CursoMateria', on_delete=models.CASCADE, db_column='id_curso_materia',
@@ -257,6 +258,7 @@ class Materia(models.Model):
     id_materia = models.AutoField(primary_key=True)
     nombre_materia = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, null=True)
+    activo = models.BooleanField(default=True)
 
     class Meta:
         managed = False
@@ -276,7 +278,9 @@ class CursoMateria(models.Model):
     )
     id_docente = models.ForeignKey(
         Docente, on_delete=models.CASCADE, db_column='id_docente',
+        blank=True, null=True,
     )
+    activo = models.BooleanField(default=True)
 
     class Meta:
         managed = False

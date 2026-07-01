@@ -1,3 +1,5 @@
+import unicodedata
+
 from rest_framework import serializers
 
 from escuela.models import (
@@ -141,10 +143,30 @@ class CicloLectivoSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+def _normalizar_texto(texto):
+    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+
 class MateriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Materia
         fields = '__all__'
+
+    def create(self, validated_data):
+        nombre = validated_data.get('nombre_materia')
+        if nombre:
+            normalizado = _normalizar_texto(nombre)
+            for m in Materia.objects.all():
+                if _normalizar_texto(m.nombre_materia) == normalizado:
+                    if m.activo:
+                        raise serializers.ValidationError({
+                            'nombre_materia': 'Ya existe una materia con ese nombre.'
+                        })
+                    for attr, value in validated_data.items():
+                        setattr(m, attr, value)
+                    m.activo = True
+                    m.save()
+                    return m
+        return Materia.objects.create(**validated_data, activo=True)
 
 
 # ---------- Personas ----------
@@ -1072,6 +1094,24 @@ class CursoSerializer(serializers.ModelSerializer):
             return 'Tarde'
         return ''
 
+    def create(self, validated_data):
+        from escuela.utils import activar_o_crear
+        nombre_curso = validated_data.get('nombre_curso')
+        id_ciclo = validated_data.get('id_ciclo')
+        if nombre_curso and id_ciclo and Curso.objects.filter(
+            nombre_curso=nombre_curso, id_ciclo=id_ciclo, activo=True,
+        ).exists():
+            raise serializers.ValidationError({
+                'nombre_curso': 'Ya existe un curso con ese año, división y ciclo lectivo.'
+            })
+        lookup = {
+            'nombre_curso': nombre_curso,
+            'id_ciclo': id_ciclo,
+        }
+        defaults = {k: v for k, v in validated_data.items() if k not in lookup}
+        instance, _ = activar_o_crear(Curso, lookup, defaults)
+        return instance
+
 
 class CursoMateriaSerializer(serializers.ModelSerializer):
     curso_nombre = serializers.CharField(
@@ -1080,7 +1120,11 @@ class CursoMateriaSerializer(serializers.ModelSerializer):
     materia_nombre = serializers.CharField(
         source='id_materia.nombre_materia', read_only=True, default=None,
     )
+    id_docente = serializers.PrimaryKeyRelatedField(
+        queryset=Docente.objects.all(), required=False, allow_null=True,
+    )
     docente_nombre = serializers.SerializerMethodField()
+    horarios_count = serializers.SerializerMethodField()
 
     class Meta:
         model = CursoMateria
@@ -1091,9 +1135,29 @@ class CursoMateriaSerializer(serializers.ModelSerializer):
             return f'{obj.id_docente.apellido}, {obj.id_docente.nombre}'
         return None
 
+    def get_horarios_count(self, obj):
+        from escuela.models import Horario, HorariosEspeciales
+        return (
+            Horario.objects.filter(id_curso_materia=obj).count() +
+            HorariosEspeciales.objects.filter(id_curso_materia=obj).count()
+        )
+
+    def create(self, validated_data):
+        from escuela.utils import activar_o_crear
+        lookup = {
+            'id_curso': validated_data.get('id_curso'),
+            'id_materia': validated_data.get('id_materia'),
+        }
+        if CursoMateria.objects.filter(**lookup, activo=True).exists():
+            raise serializers.ValidationError(
+                'Ya existe una asignación de esa materia para este curso.'
+            )
+        defaults = {k: v for k, v in validated_data.items() if k not in lookup}
+        instance, _ = activar_o_crear(CursoMateria, lookup, defaults)
+        return instance
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Ensure nested fields are included even if they're None
         if 'id_curso' in data and data['id_curso'] is not None:
             try:
                 data['curso_nombre'] = instance.id_curso.nombre_curso

@@ -11,6 +11,8 @@ import Notificaciones from '../Notificaciones';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import Administradores from './administradores';
 import Preceptores from './preceptores';
+import Cursos from './cursos';
+import Materias from './materias';
 
 function AdminDashboard({ user, onLogout }) {
   const [view, setView] = useState('alumnos');
@@ -31,6 +33,10 @@ function AdminDashboard({ user, onLogout }) {
         return <Notas />;
       case 'comunicados':
         return <Comunicados />;
+      case 'cursos':
+        return <Cursos />;
+      case 'materias':
+        return <Materias />;
       case 'info':
         return <DiagnosticosView userRole={user.role === 'director' ? 'director' : 'admin'} />;
       case 'administradores':

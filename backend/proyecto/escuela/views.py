@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from escuela.auth_backend import get_roles_for_usuario
+from escuela.permissions import IsAdminOrDirectorForWrite
 from escuela.models import (
     Acta,
     ActaAlumno,
@@ -904,9 +905,12 @@ class CicloLectivoViewSet(viewsets.ModelViewSet):
 class CursoViewSet(viewsets.ModelViewSet):
     queryset = Curso.objects.select_related('id_preceptor', 'id_ciclo').all()
     serializer_class = CursoSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
+        if self.request.query_params.get('incluir_inactivos') != '1':
+            qs = qs.filter(activo=True)
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
         usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
@@ -934,10 +938,25 @@ class CursoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_ciclo=ciclo)
         return qs
 
+    def perform_destroy(self, instance):
+        instance.activo = False
+        instance.save(update_fields=['activo'])
+
 
 class MateriaViewSet(viewsets.ModelViewSet):
     queryset = Materia.objects.all()
     serializer_class = MateriaSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.query_params.get('incluir_inactivos') != '1':
+            qs = qs.filter(activo=True)
+        return qs
+
+    def perform_destroy(self, instance):
+        instance.activo = False
+        instance.save(update_fields=['activo'])
 
 
 class CursoMateriaViewSet(viewsets.ModelViewSet):
@@ -945,10 +964,12 @@ class CursoMateriaViewSet(viewsets.ModelViewSet):
         'id_curso', 'id_materia',
     ).prefetch_related('id_docente').all()
     serializer_class = CursoMateriaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
+        if self.request.query_params.get('incluir_inactivos') != '1':
+            qs = qs.filter(activo=True)
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
         if 'preceptor' in roles:
@@ -976,30 +997,9 @@ class CursoMateriaViewSet(viewsets.ModelViewSet):
         
         return qs
 
-    def _require_preceptor_course_access(self, curso_id):
-        username = self.request.user.username if self.request.user.is_authenticated else None
-        roles = get_roles_for_usuario(username) if username else []
-        if 'preceptor' not in roles:
-            return
-        cursos_ids = _preceptor_cursos_ids(self.request)
-        if not cursos_ids:
-            raise PermissionDenied('No tienes cursos asignados para gestionar asignaciones.')
-        resolved_curso_id = _resolve_course_id(curso_id)
-        if resolved_curso_id is None or int(resolved_curso_id) not in {int(c) for c in cursos_ids}:
-            raise PermissionDenied('No tienes permiso para gestionar asignaciones de ese curso.')
-
-    def perform_create(self, serializer):
-        self._require_preceptor_course_access(serializer.validated_data.get('id_curso'))
-        serializer.save()
-
-    def perform_update(self, serializer):
-        curso_obj = serializer.validated_data.get('id_curso') or serializer.instance.id_curso
-        self._require_preceptor_course_access(curso_obj.id_curso if curso_obj else None)
-        serializer.save()
-
     def perform_destroy(self, instance):
-        self._require_preceptor_course_access(instance.id_curso_id)
-        instance.delete()
+        instance.activo = False
+        instance.save(update_fields=['activo'])
 
 
 class ModuloViewSet(viewsets.ModelViewSet):

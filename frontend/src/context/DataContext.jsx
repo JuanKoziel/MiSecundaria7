@@ -72,6 +72,9 @@ export function DataProvider({ children }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [adminCursos, setAdminCursos] = useState([]);
+  const [adminMaterias, setAdminMaterias] = useState([]);
+  const [adminCursoMateria, setAdminCursoMateria] = useState([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -591,6 +594,26 @@ export function DataProvider({ children }) {
     }
   }, []);
 
+  const refreshAdminCursos = useCallback(async (incluirInactivos = false) => {
+    const params = incluirInactivos ? { incluir_inactivos: 1 } : {};
+    const raw = await getCursos(params).catch(() => []);
+    setAdminCursos(Array.isArray(raw) ? raw : []);
+  }, []);
+
+  const refreshAdminMaterias = useCallback(async (incluirInactivos = false) => {
+    const params = incluirInactivos ? { incluir_inactivos: 1 } : {};
+    const raw = await getMaterias(params).catch(() => []);
+    setAdminMaterias(Array.isArray(raw) ? raw : []);
+  }, []);
+
+  const refreshAdminCursoMateria = useCallback(async (idCurso, incluirInactivos = false) => {
+    if (!idCurso) { setAdminCursoMateria([]); return; }
+    const params = { curso: idCurso };
+    if (incluirInactivos) params.incluir_inactivos = 1;
+    const raw = await getCursoMateria(params).catch(() => []);
+    setAdminCursoMateria(Array.isArray(raw) ? raw : []);
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -600,7 +623,11 @@ export function DataProvider({ children }) {
   }
 
   return (
-    <DataContext.Provider value={{ data, loading, error, refreshData: fetchData }}>
+    <DataContext.Provider value={{
+      data, loading, error, refreshData: fetchData,
+      adminCursos, adminMaterias, adminCursoMateria,
+      refreshAdminCursos, refreshAdminMaterias, refreshAdminCursoMateria,
+    }}>
       {children}
     </DataContext.Provider>
   );
@@ -654,7 +681,23 @@ export function useData() {
       getHorarioClase: () => '—',
       getActasByAlumnoId: () => [],
       refreshData: () => {},
+      adminCursos: [],
+      adminMaterias: [],
+      adminCursoMateria: [],
+      refreshAdminCursos: () => {},
+      refreshAdminMaterias: () => {},
+      refreshAdminCursoMateria: () => {},
     };
   }
-  return { loading: false, error: null, ...ctx.data, refreshData: ctx.refreshData };
+  return {
+    loading: false, error: null,
+    ...ctx.data,
+    refreshData: ctx.refreshData,
+    adminCursos: ctx.adminCursos,
+    adminMaterias: ctx.adminMaterias,
+    adminCursoMateria: ctx.adminCursoMateria,
+    refreshAdminCursos: ctx.refreshAdminCursos,
+    refreshAdminMaterias: ctx.refreshAdminMaterias,
+    refreshAdminCursoMateria: ctx.refreshAdminCursoMateria,
+  };
 }
