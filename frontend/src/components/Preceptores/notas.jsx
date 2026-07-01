@@ -13,8 +13,15 @@ function totalesInasistencias(inasistenciasPorMateria) {
 }
 
 function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasistenciasPorMateria }) {
-  const { nombreCorto, hijosFamilia, calificacionesFamilia } = useData();
-  const materias = boletinPorAlumno(alumno.id, curso, hijosFamilia, calificacionesFamilia);
+  const { nombreCorto, hijosFamilia, calificacionesFamilia, materiasPorCurso } = useData();
+  const materiasConNotas = boletinPorAlumno(alumno.id, curso, hijosFamilia, calificacionesFamilia);
+  const gradesByMateria = {};
+  materiasConNotas.forEach((m) => { gradesByMateria[m.materia] = m; });
+  const materiasDelCurso = materiasPorCurso[curso] || [];
+  const materias = materiasDelCurso.map((nombre, idx) => {
+    if (gradesByMateria[nombre]) return gradesByMateria[nombre];
+    return { id: idx + 1, materia: nombre, prenota1: '', nota1: '', prenota2: '', nota2: '', diagnostico: '' };
+  });
   const totales = totalesInasistencias(inasistenciasPorMateria);
 
   const handleExportar = (e) => {

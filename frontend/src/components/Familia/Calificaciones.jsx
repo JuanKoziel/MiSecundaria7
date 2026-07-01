@@ -74,11 +74,6 @@ function Calificaciones({ hijo }) {
     return porMateria;
   }, [asistenciasAdmin, alumno, cursoMateria]);
 
-  // Filter out subjects without actual grades for the PDF
-  const calsConNotas = calificacionesDisplay.filter(
-    (c) => c.prenota1 !== 'Sin calificaciones' || c.nota1 !== '' || c.prenota2 !== 'Sin calificaciones' || c.nota2 !== ''
-  );
-
   const handleDescargarBoletin = () => {
     if (!alumno) return;
     const html = boletinHTML({
@@ -86,7 +81,7 @@ function Calificaciones({ hijo }) {
       dni: alumno.dni,
       cursoNombre: alumno.curso_nombre_api || cursoNombre,
       anioLectivo: new Date().getFullYear(),
-      materias: calsConNotas,
+      materias: calificacionesDisplay,
       inasistenciasPorMateria,
     });
     exportarBoletinPDF(html, `Boletín — ${alumno.apellido}, ${alumno.nombre}`);
@@ -100,7 +95,7 @@ function Calificaciones({ hijo }) {
           type="button"
           className="btn btn-sm btn-secondary"
           onClick={handleDescargarBoletin}
-          disabled={calsConNotas.length === 0}
+          disabled={calificacionesDisplay.length === 0}
         >
           <i className="fas fa-file-pdf" aria-hidden="true" /> Descargar boletín PDF
         </button>
