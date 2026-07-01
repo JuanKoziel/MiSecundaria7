@@ -2,6 +2,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { deleteMiDdjjDocente } from '../../services/api';
+import { formatDNI, cleanDNI } from '../../utils/dni';
 
 const API_BASE = 'http://localhost:8000';
 const PREVIEWABLE_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp']);
@@ -90,16 +91,6 @@ function DdjjPreviewModal({ docente, onClose, onDelete }) {
           ) : (
             <div className="ddjj-no-preview">
               <p style={{ margin: 0 }}>Este archivo no admite vista previa.</p>
-              {downloadUrl && (
-                <a
-                  className="btn btn-primary"
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <i className="fas fa-download" aria-hidden="true" /> Descargar archivo
-                </a>
-              )}
             </div>
           )}
         </div>
@@ -240,11 +231,29 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
   );
 }
 
+function normalize(str) {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '');
+}
+
 function Docentes() {
   const { docentes, actasDocente, cursoMateria, planificaciones, refreshData } = useData();
+  const [searchTerm, setSearchTerm] = useState('');
   const [actasAbierto, setActasAbierto] = useState(null);
   const [cursosAbierto, setCursosAbierto] = useState(null);
   const [previewDocente, setPreviewDocente] = useState(null);
+
+  const filteredDocentes = useMemo(() => {
+    if (!searchTerm) return docentes;
+    const q = normalize(searchTerm);
+    return docentes.filter(
+      (d) =>
+        normalize(d.nombre).includes(q) ||
+        normalize(d.apellido).includes(q) ||
+        normalize(`${d.nombre} ${d.apellido}`).includes(q) ||
+        normalize(cleanDNI(d.dni)).includes(q),
+    );
+  }, [docentes, searchTerm]);
 
   const handleEliminarDdjj = async (docente) => {
     if (!window.confirm('¿Está seguro de eliminar esta D.D.J.J.?')) return;
@@ -265,6 +274,25 @@ function Docentes() {
         <h3>Docentes</h3>
       </div>
 
+      <div style={{ marginBottom: '12px' }}>
+        <input
+          type="text"
+          placeholder="Buscar por nombre, apellido o DNI..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            width: '100%',
+            maxWidth: '400px',
+            padding: '10px 14px',
+            border: '1px solid var(--table-border)',
+            borderRadius: '10px',
+            background: 'var(--table-row-bg)',
+            color: 'var(--text-dark)',
+            outline: 'none',
+          }}
+        />
+      </div>
+
       <div className="table-responsive">
         <table>
           <thead>
@@ -278,14 +306,14 @@ function Docentes() {
             </tr>
           </thead>
           <tbody>
-            {docentes.length === 0 ? (
+            {filteredDocentes.length === 0 ? (
               <tr>
                 <td colSpan={6} className="empty-state-message">
                   No hay docentes registrados.
                 </td>
               </tr>
             ) : (
-              docentes.map((d) => {
+              filteredDocentes.map((d) => {
                 const verActas = actasAbierto === d.id;
                 const verCursos = cursosAbierto === d.id;
                 const actas = actasDocente.filter((a) => a.docenteId === d.id);
@@ -298,7 +326,7 @@ function Docentes() {
                     <tr>
                       <td>{d.nombre}</td>
                       <td>{d.apellido}</td>
-                      <td><strong>{d.dni}</strong></td>
+                      <td><strong>{formatDNI(d.dni)}</strong></td>
                       <td>{d.correo || '—'}</td>
                       <td>{d.telefono || '—'}</td>
                       <td className="acciones-cell">

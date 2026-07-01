@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react';
+import { formatDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
 import { createAlumno, updateAlumno, deleteAlumno } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
@@ -214,7 +215,7 @@ function Alumnos() {
                   return (
                     <tr key={a.id}>
                       <td>
-                        <strong>{a.dni}</strong>
+                        <strong>{formatDNI(a.dni)}</strong>
                       </td>
                       <td>{nombreCompleto(a)}</td>
                       <td>{a.usuario || '—'}</td>
@@ -305,11 +306,11 @@ function Alumnos() {
               id="alumno-dni"
               type="text"
               value={form.dni}
-              onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
-            />
-          </div>
-          <div className="form-group-filter">
-            <label htmlFor="alumno-nombre">Nombre</label>
+               onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
+             />
+           </div>
+           <div className="form-group-filter">
+             <label htmlFor="alumno-nombre">Nombre</label>
             <input
               id="alumno-nombre"
               type="text"
@@ -487,16 +488,16 @@ function Alumnos() {
                 />
               </div>
               <div className="form-group-filter preceptor-form-full">
-                <label htmlFor="alumno-dni-mod">DNI</label>
-                <input
-                  id="alumno-dni-mod"
-                  type="text"
-                  value={form.dni}
-                  onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
-                />
-              </div>
-              <div className="form-group-filter">
-                <label htmlFor="alumno-nombre-mod">Nombre</label>
+               <label htmlFor="alumno-dni-mod">DNI</label>
+                 <input
+                   id="alumno-dni-mod"
+                   type="text"
+                   value={form.dni}
+                   onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
+                 />
+               </div>
+               <div className="form-group-filter">
+                 <label htmlFor="alumno-nombre-mod">Nombre</label>
                 <input
                   id="alumno-nombre-mod"
                   type="text"
@@ -573,7 +574,7 @@ function Alumnos() {
               <option value="">Seleccionar...</option>
               {lista.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {nombreCompleto(a)} — {a.dni}
+                  {nombreCompleto(a)} — {formatDNI(a.dni)}
                 </option>
               ))}
             </select>

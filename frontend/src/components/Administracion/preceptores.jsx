@@ -6,6 +6,7 @@ import {
   getPreceptores,
   updatePreceptor,
 } from '../../services/api';
+import { formatDNI, cleanDNI } from '../../utils/dni';
 
 const formVacio = {
   usuario_nombre: '',
@@ -80,16 +81,34 @@ function normalizarCursosIds(cursosAsignados) {
   return [...new Set(ids)];
 }
 
+function normalize(str) {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 function Preceptores() {
   const { cursosObj, refreshData } = useData();
   const [preceptores, setPreceptores] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingPreceptor, setEditingPreceptor] = useState(null);
   const [formData, setFormData] = useState(formVacio);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const filteredPreceptores = useMemo(() => {
+    if (!searchTerm) return preceptores;
+    const q = normalize(searchTerm);
+    return preceptores.filter(
+      (p) =>
+        normalize(p.nombre).includes(q) ||
+        normalize(p.apellido).includes(q) ||
+        normalize(`${p.nombre} ${p.apellido}`).includes(q) ||
+        normalize(cleanDNI(p.dni)).includes(q),
+    );
+  }, [preceptores, searchTerm]);
 
   const cursosOrdenados = useMemo(
     () => [...(cursosObj || [])].sort((a, b) => {
@@ -372,7 +391,7 @@ function Preceptores() {
                 id="preceptor-dni"
                 type="text"
                 value={formData.dni}
-                onChange={(e) => setFormData((prev) => ({ ...prev, dni: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, dni: formatDNI(e.target.value) }))}
                 required
               />
             </div>
@@ -459,6 +478,25 @@ function Preceptores() {
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
+      <div style={{ marginBottom: '12px' }}>
+        <input
+          type="text"
+          placeholder="Buscar por nombre, apellido o DNI..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            width: '100%',
+            maxWidth: '400px',
+            padding: '10px 14px',
+            border: '1px solid var(--table-border)',
+            borderRadius: '10px',
+            background: 'var(--table-row-bg)',
+            color: 'var(--text-dark)',
+            outline: 'none',
+          }}
+        />
+      </div>
+
       <div className="table-responsive">
         <table>
           <thead>
@@ -475,19 +513,19 @@ function Preceptores() {
             </tr>
           </thead>
           <tbody>
-            {preceptores.length === 0 ? (
+            {filteredPreceptores.length === 0 ? (
               <tr>
                 <td colSpan={9} className="empty-state-message">
-                  No hay preceptores registrados.
+                  {searchTerm ? 'No se encontraron preceptores con ese criterio.' : 'No hay preceptores registrados.'}
                 </td>
               </tr>
             ) : (
-              preceptores.map((p) => (
+              filteredPreceptores.map((p) => (
                 <Fragment key={p.id_preceptor}>
                   <tr>
                     <td>{p.nombre}</td>
                     <td>{p.apellido}</td>
-                    <td><strong>{p.dni}</strong></td>
+                    <td><strong>{formatDNI(p.dni)}</strong></td>
                     <td>{p.telefono || '---'}</td>
                     <td className="table-cell-strong">{p.usuario || '---'}</td>
                     <td>

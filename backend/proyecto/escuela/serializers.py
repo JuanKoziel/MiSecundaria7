@@ -2,7 +2,10 @@ import unicodedata
 
 from rest_framework import serializers
 
+from escuela.utils import normalizar_dni
+
 from escuela.models import (
+
     Acta,
     ActaAlumno,
     ActaCurso,
@@ -272,6 +275,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
         nombre = validated_data.pop('nombre', None)
         apellido = validated_data.pop('apellido', None)
         dni = validated_data.pop('dni', None)
+        if dni:
+            dni = normalizar_dni(dni)
         telefono = validated_data.pop('telefono', None)
         cargo = validated_data.pop('cargo', None)
 
@@ -306,6 +311,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
         nombre = validated_data.pop('nombre', None)
         apellido = validated_data.pop('apellido', None)
         dni = validated_data.pop('dni', None)
+        if dni:
+            dni = normalizar_dni(dni)
         telefono = validated_data.pop('telefono', None)
         cargo = validated_data.pop('cargo', None)
 
@@ -399,6 +406,9 @@ class PreceptorSerializer(serializers.ModelSerializer):
             'correo': {'required': False, 'allow_blank': True, 'allow_null': True},
             'telefono': {'required': False, 'allow_blank': True, 'allow_null': True},
         }
+
+    def validate_dni(self, value):
+        return normalizar_dni(value)
 
     def get_cursos_asignados(self, obj):
         cursos = Curso.objects.filter(id_preceptor=obj).order_by('nombre_curso')
@@ -807,6 +817,9 @@ class DocenteSerializer(serializers.ModelSerializer):
             'telefono': {'required': False, 'allow_blank': True, 'allow_null': True},
         }
 
+    def validate_dni(self, value):
+        return normalizar_dni(value)
+
     def _get_ddjj(self, obj):
         return DdjjDocente.objects.filter(id_docente=obj).first()
 
@@ -976,6 +989,9 @@ class AlumnoSerializer(serializers.ModelSerializer):
             'telefono': {'required': False, 'allow_blank': True, 'allow_null': True},
             'procedencia': {'required': False, 'allow_blank': True, 'allow_null': True},
         }
+
+    def validate_dni(self, value):
+        return normalizar_dni(value)
 
     def get_tutor_nombre(self, obj):
         if obj.id_tutor:

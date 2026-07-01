@@ -5,6 +5,7 @@ import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUti
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
+import { formatDNI } from '../../utils/dni';
 
 const formVacio = {
   usuario_nombre: '',
@@ -493,7 +494,7 @@ function Docentes() {
               const puedeCambiarEstado = d.usuario_estado !== null && d.usuario_estado !== undefined;
               return (
                 <tr key={d.id}>
-                  <td>{d.dni}</td>
+                  <td>{formatDNI(d.dni)}</td>
                   <td>{nombreDocente(d)}</td>
                   <td>{d.usuario || '—'}</td>
                   <td>{estadoLabel(d.usuario_estado)}</td>
@@ -577,16 +578,16 @@ function Docentes() {
               />
             </div>
             <div className="form-group-filter preceptor-form-full">
-              <label htmlFor="doc-dni">DNI</label>
-              <input
-                id="doc-dni"
-                type="text"
-                value={form.dni}
-                onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
-              />
-            </div>
-            <div className="form-group-filter">
-              <label htmlFor="doc-nombre">Nombre</label>
+               <label htmlFor="doc-dni">DNI</label>
+               <input
+                 id="doc-dni"
+                 type="text"
+                 value={form.dni}
+                 onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
+               />
+             </div>
+             <div className="form-group-filter">
+               <label htmlFor="doc-nombre">Nombre</label>
               <input
                 id="doc-nombre"
                 type="text"
@@ -723,16 +724,16 @@ function Docentes() {
                   />
                 </div>
                 <div className="form-group-filter preceptor-form-full">
-                  <label htmlFor="doc-dni-mod">DNI</label>
-                  <input
-                    id="doc-dni-mod"
-                    type="text"
-                    value={form.dni}
-                    onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group-filter">
-                  <label htmlFor="doc-nombre-mod">Nombre</label>
+               <label htmlFor="doc-dni-mod">DNI</label>
+                   <input
+                     id="doc-dni-mod"
+                     type="text"
+                     value={form.dni}
+                     onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
+                   />
+                 </div>
+                 <div className="form-group-filter">
+                   <label htmlFor="doc-nombre-mod">Nombre</label>
                   <input
                     id="doc-nombre-mod"
                     type="text"

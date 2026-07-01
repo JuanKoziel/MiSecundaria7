@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { createUsuario, deleteUsuario, getUsuarios, updateUsuario } from '../../services/api';
+import { formatDNI, cleanDNI } from '../../utils/dni';
 
 function toInputDateTime(value) {
   if (!value) return '';
@@ -312,7 +313,7 @@ function Administradores() {
                 type="text"
                 id="dni"
                 value={formData.dni}
-                onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, dni: formatDNI(e.target.value) })}
                 required
               />
             </div>
@@ -406,7 +407,7 @@ function Administradores() {
                     <td className="table-cell-strong">{u.usuario}</td>
                     <td>{u.directivo_nombre || '---'}</td>
                     <td>{u.directivo_apellido || '---'}</td>
-                    <td>{u.directivo_dni || '---'}</td>
+                    <td>{formatDNI(u.directivo_dni) || '---'}</td>
                     <td>{u.directivo_telefono || '---'}</td>
                     <td>{u.directivo_cargo || '---'}</td>
                     <td>

@@ -1,5 +1,6 @@
 import { useData } from '../../context/DataContext';
 import { cursoConOrientacion } from '../../utils/orientacion';
+import { formatDNI } from '../../utils/dni';
 
 function Resumen({ hijo }) {
   const { asistenciasFamilia, calificacionesFamilia } = useData();
@@ -50,7 +51,7 @@ function Resumen({ hijo }) {
               </tr>
               <tr>
                 <td className="table-label">DNI</td>
-                <td><strong>{hijo.dni}</strong></td>
+                <td><strong>{formatDNI(hijo.dni)}</strong></td>
               </tr>
               <tr>
                 <td className="table-label">Curso</td>

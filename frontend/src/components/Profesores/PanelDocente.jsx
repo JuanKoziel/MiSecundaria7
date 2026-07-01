@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { uploadMiDdjjDocente } from '../../services/api';
+import { formatDNI } from '../../utils/dni';
 
 function obtenerMensajeApi(err) {
   const data = err?.response?.data;
@@ -120,7 +121,7 @@ function PanelDocente({ miDocente }) {
           <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
             Documento (DNI)
           </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{miDocente.dni}</p>
+          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{formatDNI(miDocente.dni)}</p>
         </div>
         {miDocente.correo && (
           <div>

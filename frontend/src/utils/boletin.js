@@ -1,5 +1,6 @@
 // Generación de boletín escolar en PDF (vía ventana de impresión del navegador).
 import { cursoConOrientacion } from './orientacion';
+import { formatDNI } from './dni';
 
 function promedioMateria(m) {
   const notas = [m.nota1, m.nota2].filter((n) => n !== null && n !== undefined && n !== '');
@@ -44,7 +45,7 @@ export function boletinHTML({ alumnoNombre, dni, cursoNombre, anioLectivo, mater
         <div class="titulo">Boletín de Calificaciones</div>
         <div class="datos">
           <div><span>Alumno/a:</span> ${alumnoNombre}</div>
-          ${dni ? `<div><span>DNI:</span> ${dni}</div>` : ''}
+          ${dni ? `<div><span>DNI:</span> ${formatDNI(dni)}</div>` : ''}
           <div><span>Curso:</span> ${cursoLabel}</div>
           <div><span>Ciclo lectivo:</span> ${anioLectivo}</div>
           <div><span>Fecha de emisión:</span> ${fechaEmision}</div>

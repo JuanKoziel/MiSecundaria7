@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { formatDNI, cleanDNI } from '../../utils/dni';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 
 const API_BASE = 'http://localhost:8000';
@@ -116,7 +117,7 @@ function Alumnos() {
                       <tr>
                         <td>{a.nombre}</td>
                         <td>{a.apellido}</td>
-                        <td><strong>{a.dni}</strong></td>
+                        <td><strong>{formatDNI(a.dni)}</strong></td>
                         <td>{a.fecha_nacimiento || '—'}</td>
                         <td>{a.direccion || '—'}</td>
                         <td>{a.telefono || '—'}</td>
