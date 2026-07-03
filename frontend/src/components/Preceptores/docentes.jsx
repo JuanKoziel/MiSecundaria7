@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+﻿import { useState, useMemo, Fragment } from 'react';
 import { useData } from '../../context/DataContext';
 import { createDocente, updateDocente, deleteDocente, createCursoMateria, updateCursoMateria, deleteCursoMateria } from '../../services/api';
 import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
@@ -278,6 +278,8 @@ function Docentes() {
   const [seleccionado, setSeleccionado] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [programando, setProgramando] = useState(null);
+  const [progForm, setProgForm] = useState({ fecha_deshabilitacion_programada: '', fecha_habilitacion_programada: '' });
 
   const esCrear = modo === 'crear';
   const esVista = modo === 'vista';
@@ -447,6 +449,65 @@ function Docentes() {
       setGuardando(false);
     }
   };
+
+  const abrirProgramar = (docente) => {
+    setProgramando(docente.id);
+    setProgForm({
+      fecha_deshabilitacion_programada: toInputDateTime(docente.usuario_fecha_deshabilitacion_programada),
+      fecha_habilitacion_programada: toInputDateTime(docente.usuario_fecha_habilitacion_programada),
+    });
+  };
+
+  const cerrarProgramar = () => {
+    setProgramando(null);
+    setMensaje('');
+  };
+
+  const guardarProgramar = async () => {
+    if (!programando) return;
+    const deshab = progForm.fecha_deshabilitacion_programada;
+    const hab = progForm.fecha_habilitacion_programada;
+    if (deshab && hab && new Date(hab) > new Date(deshab)) {
+      setMensaje('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
+      return;
+    }
+    setGuardando(true);
+    setMensaje('');
+    try {
+      await updateDocente(programando, {
+        fecha_deshabilitacion_programada: deshab || null,
+        fecha_habilitacion_programada: hab || null,
+      });
+      setMensaje('Fechas actualizadas correctamente.');
+      setProgramando(null);
+      await dataCtx.refreshData();
+    } catch (err) {
+      setMensaje(`Error: ${mensajeError(err)}`);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const limpiarProgramar = async () => {
+    if (!programando) return;
+    if (!confirm('¿Desea eliminar todas las fechas programadas para este usuario?')) return;
+    setGuardando(true);
+    setMensaje('');
+    try {
+      await updateDocente(programando, {
+        fecha_deshabilitacion_programada: null,
+        fecha_habilitacion_programada: null,
+      });
+      setMensaje('Fechas eliminadas correctamente.');
+      setProgramando(null);
+      await dataCtx.refreshData();
+    } catch (err) {
+      setMensaje(`Error: ${mensajeError(err)}`);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   const cargarAsignacionesDocente = (docenteId) => {
     const cms = (dataCtx.cursoMateria || []).filter((cm) => cm.id_docente === docenteId);
     const mapped = cms.map((cm) => {
@@ -492,26 +553,75 @@ function Docentes() {
                 : 'Sin asignaciones';
               const puedeCambiarEstado = d.usuario_estado !== null && d.usuario_estado !== undefined;
               return (
-                <tr key={d.id}>
-                  <td>{formatDNI(d.dni)}</td>
-                  <td>{nombreDocente(d)}</td>
-                  <td>{d.usuario || 'Sin usuario'}</td>
-                  <td>{proximaAccion(d)}</td>
-                  <td>{asigTexto}</td>
-                  <td>
-                    {puedeCambiarEstado ? (
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${d.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
-                        onClick={() => toggleEstado(d)}
-                        disabled={guardando}
-                      >
-                        <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
-                        {d.usuario_estado === false ? 'Deshabilitado' : 'Habilitado'}
-                      </button>
-                    ) : '—'}
-                  </td>
-                </tr>
+                <Fragment key={d.id}>
+                  <tr>
+                    <td>{formatDNI(d.dni)}</td>
+                    <td>{nombreDocente(d)}</td>
+                    <td>{d.usuario || 'Sin usuario'}</td>
+                    <td>{proximaAccion(d)}</td>
+                    <td>{asigTexto}</td>
+                    <td>
+                      {puedeCambiarEstado ? (
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${d.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
+                            onClick={() => toggleEstado(d)}
+                            disabled={guardando}
+                          >
+                            <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
+                            {d.usuario_estado === false ? 'Deshabilitado' : 'Habilitado'}
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn btn-sm btn-secondary${programando === d.id ? ' active' : ''}`}
+                            onClick={() => abrirProgramar(d)}
+                            title="Programar"
+                          >
+                            <i className="fas fa-calendar-alt" aria-hidden="true" />
+                          </button>
+                        </div>
+                      ) : '—'}
+                    </td>
+                  </tr>
+                  {programando === d.id && (
+                    <tr>
+                      <td colSpan={6} style={{ padding: 0 }}>
+                        <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
+                          <div className="preceptor-form-row preceptor-form-row--two">
+                            <div className="form-group-filter">
+                              <label>Fecha deshabilitación programada</label>
+                              <input
+                                type="datetime-local"
+                                value={progForm.fecha_deshabilitacion_programada}
+                                onChange={(e) => setProgForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
+                              />
+                            </div>
+                            <div className="form-group-filter">
+                              <label>Fecha habilitación programada</label>
+                              <input
+                                type="datetime-local"
+                                value={progForm.fecha_habilitacion_programada}
+                                onChange={(e) => setProgForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                            <button type="button" className="btn btn-primary" onClick={guardarProgramar} disabled={guardando}>
+                              {guardando ? 'Guardando...' : 'Guardar'}
+                            </button>
+                            <button type="button" className="btn btn-danger" onClick={limpiarProgramar} disabled={guardando}>
+                              Limpiar
+                            </button>
+                            <button type="button" className="btn btn-secondary" onClick={cerrarProgramar}>
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })
           )}

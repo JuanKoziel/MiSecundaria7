@@ -52,6 +52,8 @@ def _assign_role(usuario, nombre_rol):
     UsuarioRol.objects.get_or_create(id_usuario=usuario, id_rol=rol)
 
 
+_sentinel = object()
+
 def _build_usuario_account(
     *,
     instance,
@@ -65,8 +67,8 @@ def _build_usuario_account(
         username = validated_data.pop('usuario', None)
     contrasena = validated_data.pop('contrasena', None)
     estado = validated_data.pop('estado', None)
-    fecha_deshabilitacion_programada = validated_data.pop('fecha_deshabilitacion_programada', None)
-    fecha_habilitacion_programada = validated_data.pop('fecha_habilitacion_programada', None)
+    fecha_deshabilitacion_programada = validated_data.pop('fecha_deshabilitacion_programada', _sentinel)
+    fecha_habilitacion_programada = validated_data.pop('fecha_habilitacion_programada', _sentinel)
 
     usuario = instance.id_usuario if getattr(instance, 'id_usuario_id', None) else None
     creating_usuario = usuario is None
@@ -80,17 +82,17 @@ def _build_usuario_account(
         usuario = Usuario(
             usuario=username,
             estado=estado if estado is not None else True,
-            fecha_deshabilitacion_programada=fecha_deshabilitacion_programada,
-            fecha_habilitacion_programada=fecha_habilitacion_programada,
+            fecha_deshabilitacion_programada=None if fecha_deshabilitacion_programada is _sentinel else fecha_deshabilitacion_programada,
+            fecha_habilitacion_programada=None if fecha_habilitacion_programada is _sentinel else fecha_habilitacion_programada,
         )
     else:
         if username is not None:
             usuario.usuario = username
         if estado is not None:
             usuario.estado = estado
-        if fecha_deshabilitacion_programada is not None:
+        if fecha_deshabilitacion_programada is not _sentinel:
             usuario.fecha_deshabilitacion_programada = fecha_deshabilitacion_programada
-        if fecha_habilitacion_programada is not None:
+        if fecha_habilitacion_programada is not _sentinel:
             usuario.fecha_habilitacion_programada = fecha_habilitacion_programada
 
     if contrasena:

@@ -53,6 +53,7 @@ body {
 .btn-primary:hover { background: var(--primary-dark); }
 .btn-secondary { background: #6c757d; color: var(--white); }
 .btn-secondary:hover { background: #5a6268; }
+.btn-secondary.active { background: #4e555b; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3); }
 .btn-danger { background: #dc3545; color: var(--white); }
 .btn-danger:hover { background: #bd2130; }
 .btn-success { background: #28a745; color: var(--white); }
