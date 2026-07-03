@@ -368,6 +368,10 @@ export async function createDiagnosticoGrupal(payload) {
   return data;
 }
 
+export async function deleteDiagnosticoGrupal(id) {
+  await api.delete(`/diagnosticos-grupales/${id}/`);
+}
+
 export async function getPadresTutores() {
   const { data } = await api.get('/padres-tutores/');
   return data;

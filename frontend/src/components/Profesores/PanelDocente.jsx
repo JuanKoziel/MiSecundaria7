@@ -128,7 +128,7 @@ function PanelDocente({ miDocente }) {
             <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
               Correo Electrónico
             </label>
-            <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px', color: 'var(--primary-color)' }}>
+            <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px', color: 'var(--primary-color)', wordBreak: 'break-all' }}>
               {miDocente.correo}
             </p>
           </div>

@@ -1629,6 +1629,22 @@ class DiagnosticoGrupalViewSet(viewsets.ModelViewSet):
 
         return qs
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        from escuela.models import Docente, Usuario
+        username = request.user.username
+        usuario_obj = Usuario.objects.filter(usuario=username).first()
+        if not usuario_obj:
+            return Response({'error': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
+        
+        # Verify the author
+        if not docente or instance.id_docente != docente:
+            return Response({'error': 'No tienes permiso para eliminar este diagnóstico.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        return super().destroy(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         # Validate that the docente can only create diagnostics for courses they have assignments in
         from escuela.auth_backend import get_roles_for_usuario

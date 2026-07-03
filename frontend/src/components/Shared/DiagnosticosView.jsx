@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
-import { createDiagnosticoGrupal } from '../../services/api';
+import { createDiagnosticoGrupal, deleteDiagnosticoGrupal } from '../../services/api';
 
 function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
   const {
@@ -11,8 +11,11 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
     cursoMateria,
     docentes,
     padresTutores,
+    refreshData,
   } = useData();
   const { user } = useAuth();
+  
+  const miDocente = useMemo(() => docentes.find((d) => d.id_usuario === (user?.id || user?.id_usuario)), [docentes, user]);
 
   const [selectedDiagnostico, setSelectedDiagnostico] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -105,13 +108,25 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
     return cursosObj.filter((c) => cursosSet.has(c.id_curso));
   }, [userRole, user, docentes, cursoMateria, cursosObj]);
 
+  const handleDelete = async (d) => {
+    if (window.confirm('¿Está seguro de que desea eliminar este diagnóstico grupal?')) {
+      try {
+        await deleteDiagnosticoGrupal(d.id);
+        await refreshData();
+        alert('Diagnóstico eliminado correctamente.');
+      } catch (err) {
+        console.error('Error deleting diagnostico:', err);
+        alert('Error al eliminar el diagnóstico.');
+      }
+    }
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setSaving(true);
     setSaveError('');
 
     try {
-      const miDocente = docentes.find((d) => d.id_usuario === (user.id || user.id_usuario));
       if (!miDocente) {
         setSaveError('No se encontró el perfil de docente');
         setSaving(false);
@@ -128,7 +143,8 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
       await createDiagnosticoGrupal(payload);
       setNewDiagnostico({ id_curso: '', descripcion: '' });
       setShowCreateForm(false);
-      window.location.reload();
+      await refreshData();
+      alert('Diagnóstico creado correctamente.');
     } catch (err) {
       console.error('Error creating diagnostico:', err);
       setSaveError('Error al crear el diagnóstico. Verificá que tengas permisos para este curso.');
@@ -276,7 +292,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
                   <td className="table-cell-strong">{getNombreCurso(d.id_curso)}</td>
                   <td>{d.docente}</td>
                   <td>{d.fecha || '—'}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: '8px' }}>
                     <button
                       type="button"
                       className="btn btn-sm btn-primary"
@@ -284,6 +300,15 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
                     >
                       <i className="fas fa-eye" aria-hidden="true" /> Ver
                     </button>
+                    {userRole === 'docente' && miDocente && miDocente.id === d.id_docente && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleDelete(d)}
+                      >
+                        <i className="fas fa-trash" aria-hidden="true" /> Eliminar
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
