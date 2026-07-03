@@ -41,7 +41,7 @@ function estadoLabel(estado) {
 }
 
 function proximaAccion(docente) {
-  if (docente.usuario_estado === null || docente.usuario_estado === undefined) return 'Sin usuario';
+  if (docente.usuario_estado === null || docente.usuario_estado === undefined) return '---';
   if (docente.usuario_estado && docente.usuario_fecha_deshabilitacion_programada) {
     return `Deshabilitar el ${formatDateTime(docente.usuario_fecha_deshabilitacion_programada)}`;
   }
@@ -472,7 +472,6 @@ function Docentes() {
             <th>DNI</th>
             <th>Nombre</th>
             <th>Usuario</th>
-            <th>Estado</th>
             <th>Próxima acción</th>
             <th>Asignaciones</th>
             <th>Acción</th>
@@ -481,7 +480,7 @@ function Docentes() {
         <tbody>
           {lista.length === 0 ? (
             <tr>
-              <td colSpan={7} className="empty-state-message">
+              <td colSpan={6} className="empty-state-message">
                 No hay docentes con los filtros seleccionados.
               </td>
             </tr>
@@ -496,20 +495,21 @@ function Docentes() {
                 <tr key={d.id}>
                   <td>{formatDNI(d.dni)}</td>
                   <td>{nombreDocente(d)}</td>
-                  <td>{d.usuario || '—'}</td>
-                  <td>{estadoLabel(d.usuario_estado)}</td>
+                  <td>{d.usuario || 'Sin usuario'}</td>
                   <td>{proximaAccion(d)}</td>
                   <td>{asigTexto}</td>
                   <td>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${d.usuario_estado === false ? 'btn-success' : 'btn-danger'}`}
-                      onClick={() => toggleEstado(d)}
-                      disabled={guardando || !puedeCambiarEstado}
-                    >
-                      <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
-                      {puedeCambiarEstado ? (d.usuario_estado === false ? 'Habilitar' : 'Deshabilitar') : 'Sin usuario'}
-                    </button>
+                    {puedeCambiarEstado ? (
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${d.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
+                        onClick={() => toggleEstado(d)}
+                        disabled={guardando}
+                      >
+                        <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
+                        {d.usuario_estado === false ? 'Deshabilitado' : 'Habilitado'}
+                      </button>
+                    ) : '—'}
                   </td>
                 </tr>
               );
