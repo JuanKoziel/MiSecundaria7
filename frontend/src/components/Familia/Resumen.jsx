@@ -3,7 +3,10 @@ import { cursoConOrientacion } from '../../utils/orientacion';
 import { formatDNI } from '../../utils/dni';
 
 function Resumen({ hijo }) {
-  const { asistenciasFamilia, calificacionesFamilia } = useData();
+  const { asistenciasFamilia, calificacionesFamilia, cursosObj, getAlumnoById } = useData();
+  const alumno = getAlumnoById(hijo.alumnoId);
+  const cursoObj = cursosObj.find((c) => c.id_curso === alumno?.id_curso);
+  const turno = cursoObj?.turno_calculado || '';
   const asistencias = asistenciasFamilia.filter((a) => a.hijoId === hijo.id);
   const calificaciones = calificacionesFamilia.filter((c) => c.hijoId === hijo.id);
 
@@ -58,8 +61,8 @@ function Resumen({ hijo }) {
                 <td>{cursoConOrientacion(hijo.curso)}</td>
               </tr>
               <tr>
-                <td className="table-label">Preceptoría</td>
-                <td>Turno mañana — División {hijo.curso}</td>
+                <td className="table-label">Turno</td>
+                <td>{turno}</td>
               </tr>
             </tbody>
           </table>
