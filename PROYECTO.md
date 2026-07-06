@@ -1335,6 +1335,29 @@ En **update**, además elimina el PDF anterior del disco antes de regenerar.
 
 **Solución:** Llamar a `refreshData()` (de `useData()`) después de operaciones de escritura. Ver ejemplo en `PanelPlanif.jsx`.
 
+### 17.9 Rules of Hooks — useMemo después de early return
+
+**Problema:** Colocar `useMemo` (o cualquier hook) después de un `if (!data) return <Empty/>` causa un crash de React.
+
+**Explicación:** En el primer render (data=null), la rama temprana ejecuta 4 hooks. Cuando data llega y se omite el early return, se ejecutan 5 hooks. React detecta que el número de hooks cambió y lanza: "Rendered fewer hooks than expected."
+
+**Solución siempre:** Mover TODOS los hooks ANTES de cualquier early return. Poner el guardia DENTRO del callback de `useMemo`:
+
+```jsx
+// ❌ MAL — hook después de early return
+if (!miDocente) return null;
+const stats = useMemo(() => computeStats(miDocente), [miDocente]);
+
+// ✅ BIEN — hook antes del early return
+const stats = useMemo(() => {
+  if (!miDocente) return null;
+  return computeStats(miDocente);
+}, [miDocente]);
+if (!miDocente) return null;
+```
+
+Además, usar `?? []` en todas las colecciones provenientes de DataContext para evitar `undefined` en `.map()`, `.filter()`, etc.
+
 ---
 
 ## 18. Recomendaciones para futuras IA
@@ -1373,6 +1396,7 @@ En **update**, además elimina el PDF anterior del disco antes de regenerar.
 5. **Todos los modelos tienen `managed = False`** — Django nunca debe crear/modificar tablas.
 6. **El CSS es global** — no crear estilos inline a menos que sea absolutamente necesario.
 7. **Los componentes de perfil siempre muestran datos condicionalmente** (`{campo && ...}`) porque no todos los roles tienen los mismos campos.
+8. **Todos los hooks deben ir ANTES de cualquier early return.** Si un dato puede ser null en el primer render, poner el guardia dentro de `useMemo`/`useEffect`, no antes del hook.
 
 ### 18.5 Estructura a seguir para nuevos módulos
 
@@ -1398,3 +1422,47 @@ Después de cualquier modificación, verificar:
 3. **Consistencia:** Que el serializer devuelva los campos que el frontend espera.
 4. **No regresión:** Que los perfiles existentes (todos los roles) sigan funcionando.
 5. **CSS:** Que no se hayan introducido estilos que rompan el layout existente.
+6. **Rules of Hooks:** Verificar que ningún hook esté después de un early return.
+
+---
+
+## 19. Mi Perfil — Estadísticas por rol
+
+Cada `Panel{Rol}.jsx` tiene una sección de tarjetas de estadísticas debajo de los datos personales, usando un `StatCard` local (no compartido) con el mismo grid responsivo.
+
+### 19.1 Docente (`PanelDocente.jsx`)
+
+- **Fuente de datos:** `miDocente` (de `data.docentes.find` por `user.id`).
+- **Estadísticas:** materias asignadas, cursos a cargo, alumnos a cargo, proyectos creados, actas realizadas, último ingreso (`—`), estado de cuenta.
+- **Cálculos:** `asignaciones` filtradas por `id_docente`, `planificaciones` filtradas por `id_docente`, `actasDocente` filtradas por `docenteId`.
+
+### 19.2 Preceptor (`PanelPreceptor.jsx`)
+
+- **Fuente de datos:** `miPreceptor` (de `data.preceptores.find` por `user.id`).
+- **Estadísticas:** cursos asignados, alumnos bajo seguimiento, comunicados, diagnósticos grupales, estado de cuenta.
+- **Cálculos:** `cursosPreceptor` filtrados por `id_preceptor`; `alumnos`, `comunicados`, `diagnosticos` filtrados por `id_curso`.
+
+### 19.3 Alumno (`PanelAlumno.jsx`)
+
+- **Fuente de datos:** `miAlumno` (de `data.alumnos.find` por `user.id`).
+- **Estadísticas:** curso actual, división, ciclo lectivo, materias, promedio general, inasistencias, estado académico.
+- **Estado académico:** ≥7 → Promocionado, ≥4 → Regular, <4 → En seguimiento, sin calificaciones → Sin calificaciones.
+- **Cálculos:** `calificacionesCompletas` filtradas por `id_alumno`, `asistenciasAdmin` filtradas por `alumnoId`.
+
+### 19.4 Familia (`PanelFamilia.jsx`)
+
+- **Fuente de datos:** `miFamilia` (de `data.padres_tutores.find` por `user.id`).
+- **Estadísticas:** hijos vinculados, lista de alumnos asociados con nombre y curso, estado de cuenta (hardcoded "Activo" — no hay campo `usuario_estado` en PadreTutor).
+
+### 19.5 Admin (`PanelAdmin.jsx`)
+
+- **Fuente de datos:** `miAdmin` (de `data.directivos.find` por `user.id`).
+- **Estadísticas:** 9 contadores del sistema (alumnos, docentes, preceptores, familias, cursos, materias, proyectos, comunicados, actas) + banner verde "Estado del sistema: todos los módulos funcionando con normalidad".
+- **Cálculos:** Todos de las listas completas de DataContext (`.length`).
+
+### 19.6 Reglas de implementación
+
+- `useMemo` siempre ANTES del early return, con guardia `if (!data) return null` dentro del callback.
+- Todas las colecciones de DataContext accedidas con `?? []`.
+- `StatCard` local dentro de cada archivo (no importado) — no crear nuevos archivos.
+- Si un stat no se puede calcular (dato faltante), mostrar `—` o "Sin información".
