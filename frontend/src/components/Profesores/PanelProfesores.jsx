@@ -205,6 +205,7 @@ function PanelProfesores({ user, onLogout }) {
                   docenteId={miDocente?.id}
                   materiaNombre={materiaSeleccionada}
                   cursoNombre={cursoNombre}
+                  miDocente={miDocente}
                 />
               )}
             </div>

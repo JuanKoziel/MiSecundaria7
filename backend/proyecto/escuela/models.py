@@ -510,17 +510,21 @@ class Planificacion(models.Model):
     id_curso_materia = models.ForeignKey(
         CursoMateria, on_delete=models.CASCADE, db_column='id_curso_materia',
     )
-    titulo = models.CharField(max_length=255, blank=True, null=True)
-    descripcion = models.TextField(blank=True, null=True)
+    contenido = models.TextField(blank=True, null=True)
+    objetivos = models.TextField(blank=True, null=True)
+    salidas = models.TextField(blank=True, null=True)
+    fundamentacion = models.TextField(blank=True, null=True)
+    estado = models.CharField(max_length=20, blank=True, default='Borrador')
     ruta_archivo = models.CharField(max_length=255, blank=True, null=True)
     fecha_subida = models.DateTimeField(blank=True, null=True)
+    fecha_ultima_modificacion = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'planificaciones'
 
     def __str__(self):
-        return self.titulo or ''
+        return f'Proyecto {self.id_planificacion}'
 
 
 class DiagnosticoGrupal(models.Model):

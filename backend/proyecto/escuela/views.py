@@ -1,4 +1,5 @@
-﻿from datetime import datetime, date, time
+﻿import os
+from datetime import datetime, date, time
 from django.contrib.auth import authenticate
 from django.db import models
 from django.http import FileResponse
@@ -1555,6 +1556,7 @@ class ComunicadoArchivoViewSet(viewsets.ModelViewSet):
 class PlanificacionViewSet(viewsets.ModelViewSet):
     queryset = Planificacion.objects.select_related(
         'id_docente', 'id_curso_materia',
+        'id_curso_materia__id_curso', 'id_curso_materia__id_materia',
     ).all()
     serializer_class = PlanificacionSerializer
 
@@ -1567,6 +1569,132 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)
         return qs
+
+    def _generar_pdf(self, planificacion, contenido, objetivos, salidas, fundamentacion):
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib.enums import TA_LEFT, TA_CENTER
+        import os
+        from django.conf import settings
+
+        docente = planificacion.id_docente
+        cm_obj = planificacion.id_curso_materia
+        materia_nombre = cm_obj.id_materia.nombre_materia if cm_obj and cm_obj.id_materia_id else ''
+        curso_nombre = cm_obj.id_curso.nombre_curso if cm_obj and cm_obj.id_curso_id else ''
+        docente_nombre = f"{docente.nombre} {docente.apellido}" if docente else ''
+
+        dest_dir = os.path.join(settings.MEDIA_ROOT, 'planificaciones')
+        os.makedirs(dest_dir, exist_ok=True)
+
+        filename = f'proyecto_{planificacion.id_planificacion}_{datetime.now().strftime("%Y%m%d%H%M%S")}.pdf'
+        filepath = os.path.join(dest_dir, filename)
+
+        doc = SimpleDocTemplate(filepath, pagesize=A4,
+                                topMargin=2.5 * cm, bottomMargin=2 * cm,
+                                leftMargin=2.5 * cm, rightMargin=2.5 * cm)
+
+        styles = getSampleStyleSheet()
+        titulo_style = ParagraphStyle(
+            'Titulo', parent=styles['Title'],
+            fontSize=16, spaceAfter=6, alignment=TA_CENTER,
+        )
+        subtitulo_style = ParagraphStyle(
+            'Subtitulo', parent=styles['Normal'],
+            fontSize=12, spaceAfter=4, alignment=TA_CENTER,
+        )
+        cuerpo_style = ParagraphStyle(
+            'Cuerpo', parent=styles['Normal'],
+            fontSize=11, spaceAfter=12, alignment=TA_LEFT,
+            leading=16,
+        )
+        seccion_style = ParagraphStyle(
+            'Seccion', parent=styles['Heading2'],
+            fontSize=13, spaceBefore=16, spaceAfter=6,
+        )
+
+        elements = []
+        elements.append(Paragraph(f"{materia_nombre} - {curso_nombre}", titulo_style))
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"Docente: {docente_nombre}", subtitulo_style))
+        elements.append(Spacer(1, 16))
+
+        if contenido:
+            elements.append(Paragraph("Contenido", seccion_style))
+            elements.append(Paragraph(contenido.replace('\n', '<br/>'), cuerpo_style))
+        if objetivos:
+            elements.append(Paragraph("Objetivos", seccion_style))
+            elements.append(Paragraph(objetivos.replace('\n', '<br/>'), cuerpo_style))
+        if salidas:
+            elements.append(Paragraph("Salidas", seccion_style))
+            elements.append(Paragraph(salidas.replace('\n', '<br/>'), cuerpo_style))
+        if fundamentacion:
+            elements.append(Paragraph("Fundamentación", seccion_style))
+            elements.append(Paragraph(fundamentacion.replace('\n', '<br/>'), cuerpo_style))
+
+        doc.build(elements)
+        return f'{settings.MEDIA_URL}planificaciones/{filename}'
+
+    def create(self, request, *args, **kwargs):
+        mutable = request.data.copy()
+        mutable['fecha_subida'] = datetime.now()
+        mutable['fecha_ultima_modificacion'] = datetime.now()
+
+        serializer = self.get_serializer(data=mutable)
+        serializer.is_valid(raise_exception=True)
+        planificacion = serializer.save()
+
+        pdf_url = self._generar_pdf(
+            planificacion,
+            planificacion.contenido or '',
+            planificacion.objetivos or '',
+            planificacion.salidas or '',
+            planificacion.fundamentacion or '',
+        )
+        Planificacion.objects.filter(id_planificacion=planificacion.id_planificacion).update(
+            ruta_archivo=pdf_url,
+        )
+        planificacion.ruta_archivo = pdf_url
+
+        return Response(PlanificacionSerializer(planificacion).data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        from django.conf import settings
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        mutable = request.data.copy()
+        mutable['fecha_subida'] = datetime.now()
+        mutable['fecha_ultima_modificacion'] = datetime.now()
+
+        serializer = self.get_serializer(instance, data=mutable, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        planificacion = serializer.save()
+
+        # Remove old PDF file if it exists
+        if planificacion.ruta_archivo:
+            rel_path = planificacion.ruta_archivo.replace(settings.MEDIA_URL, '', 1) if planificacion.ruta_archivo.startswith(settings.MEDIA_URL) else planificacion.ruta_archivo
+            old_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+            if os.path.exists(old_path):
+                try:
+                    os.remove(old_path)
+                except OSError:
+                    pass
+
+        pdf_url = self._generar_pdf(
+            planificacion,
+            planificacion.contenido or '',
+            planificacion.objetivos or '',
+            planificacion.salidas or '',
+            planificacion.fundamentacion or '',
+        )
+        Planificacion.objects.filter(id_planificacion=planificacion.id_planificacion).update(
+            ruta_archivo=pdf_url,
+        )
+        planificacion.ruta_archivo = pdf_url
+
+        return Response(PlanificacionSerializer(planificacion).data, status=status.HTTP_200_OK)
 
 
 class DiagnosticoGrupalViewSet(viewsets.ModelViewSet):

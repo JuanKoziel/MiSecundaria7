@@ -528,8 +528,6 @@ export function DataProvider({ children }) {
         id: p.id_planificacion,
         id_docente: p.id_docente,
         id_curso_materia: p.id_curso_materia,
-        titulo: p.titulo || '',
-        descripcion: p.descripcion || '',
         ruta_archivo: p.ruta_archivo || null,
         fecha_subida: p.fecha_subida || null,
       }));

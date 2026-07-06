@@ -507,4 +507,8 @@ export async function updatePlanificacion(id, payload) {
   return data;
 }
 
+export async function deletePlanificacion(id) {
+  await api.delete(`/planificaciones/${id}/`);
+}
+
 export default api;

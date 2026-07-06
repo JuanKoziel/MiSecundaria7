@@ -1492,12 +1492,19 @@ class ComunicadoSerializer(serializers.ModelSerializer):
         return None
 
 
-# ---------- Planificaciones ----------
+# ---------- Planificaciones / Proyectos ----------
 
 class PlanificacionSerializer(serializers.ModelSerializer):
+    docente_nombre = serializers.SerializerMethodField()
+
     class Meta:
         model = Planificacion
         fields = '__all__'
+
+    def get_docente_nombre(self, obj):
+        if obj.id_docente_id and hasattr(obj, 'id_docente') and obj.id_docente:
+            return f"{obj.id_docente.nombre} {obj.id_docente.apellido}"
+        return ''
 
 
 # ---------- DiagnÃ³sticos grupales ----------
