@@ -1,5 +1,25 @@
 import { formatDNI } from '../../utils/dni';
 
+function StatCard({ icon, value, label, color }) {
+  return (
+    <div style={{
+      background: 'var(--card-bg)',
+      borderRadius: '8px',
+      padding: '16px',
+      textAlign: 'center',
+      border: '1px solid var(--border-color)',
+    }}>
+      <i className={`fas ${icon}`} style={{ fontSize: '1.8rem', color: color || 'var(--primary-color)', marginBottom: '4px' }} aria-hidden="true" />
+      <div style={{ fontSize: '1.5rem', fontWeight: '700', marginTop: '4px', color: color || 'inherit' }}>
+        {value ?? '—'}
+      </div>
+      <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 function PanelFamilia({ miTutor, user, hijos }) {
   if (!miTutor) {
     return (
@@ -78,6 +98,67 @@ function PanelFamilia({ miTutor, user, hijos }) {
             Tutor
           </p>
         </div>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '16px',
+          marginBottom: '28px',
+        }}
+      >
+        <StatCard icon="fa-user-graduate" value={hijos.length} label="Hijos vinculados" />
+        <StatCard icon="fa-check-circle" value="Activo" label="Estado de la cuenta" color="#15803d" />
+      </div>
+
+      {hijos.length > 0 && (
+        <div
+          style={{
+            background: '#f8f9fa',
+            borderLeft: '4px solid var(--primary-color)',
+            borderRadius: '8px',
+            padding: '16px 20px',
+            marginBottom: '28px',
+          }}
+        >
+          <strong style={{ fontSize: '0.9rem', color: '#444', display: 'block', marginBottom: '10px' }}>
+            <i className="fas fa-users" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+            Alumnos asociados
+          </strong>
+          {hijos.map((hijo, idx) => (
+            <div key={hijo.id} style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '6px 0',
+              borderBottom: idx < hijos.length - 1 ? '1px solid var(--border-color)' : 'none',
+              fontSize: '0.9rem',
+            }}>
+              <span style={{ fontWeight: '600' }}>
+                <i className="fas fa-user-graduate" style={{ color: 'var(--primary-color)', marginRight: '8px', fontSize: '0.8rem' }} aria-hidden="true" />
+                {hijo.nombre}
+              </span>
+              <span style={{ color: '#666' }}>Curso: <strong>{hijo.curso || '—'}</strong></span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        style={{
+          background: '#f0f4ff',
+          borderLeft: '4px solid var(--primary-color)',
+          borderRadius: '8px',
+          padding: '14px 20px',
+          marginBottom: '28px',
+          fontSize: '0.9rem',
+          color: '#444',
+          lineHeight: '1.6',
+        }}
+      >
+        <i className="fas fa-info-circle" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+        Desde aquí puede realizar el seguimiento académico de sus hijos, visualizar comunicados, asistencias y calificaciones.
       </div>
 
       <div className="card-header-flex">

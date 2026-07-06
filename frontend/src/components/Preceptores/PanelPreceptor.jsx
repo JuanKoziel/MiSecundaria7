@@ -1,8 +1,44 @@
+import { useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { formatDNI } from '../../utils/dni';
 
+function StatCard({ icon, value, label, color }) {
+  return (
+    <div style={{
+      background: 'var(--card-bg)',
+      borderRadius: '8px',
+      padding: '16px',
+      textAlign: 'center',
+      border: '1px solid var(--border-color)',
+    }}>
+      <i className={`fas ${icon}`} style={{ fontSize: '1.8rem', color: color || 'var(--primary-color)', marginBottom: '4px' }} aria-hidden="true" />
+      <div style={{ fontSize: '1.5rem', fontWeight: '700', marginTop: '4px', color: color || 'inherit' }}>
+        {value ?? '—'}
+      </div>
+      <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 function PanelPreceptor({ miPreceptor }) {
-  const { cursosObj } = useData();
+  const { cursosObj, alumnos, comunicados, diagnosticos } = useData();
+
+  const stats = useMemo(() => {
+    if (!miPreceptor) return null;
+    const safeAlumnos = alumnos ?? [];
+    const safeComunicados = comunicados ?? [];
+    const safeDiagnosticos = diagnosticos ?? [];
+    const cursoIds = (miPreceptor.cursos || []).map((c) => c.id_curso).filter(Boolean);
+    return {
+      cursos: (miPreceptor.cursos || []).length,
+      alumnos: safeAlumnos.filter((a) => cursoIds.includes(a.id_curso)).length,
+      comunicados: safeComunicados.filter((c) => cursoIds.includes(c.id_curso)).length,
+      diagnosticos: safeDiagnosticos.filter((d) => cursoIds.includes(d.id_curso)).length,
+      estado: miPreceptor.estado === false ? 'Inactivo' : 'Activo',
+    };
+  }, [miPreceptor, alumnos, comunicados, diagnosticos]);
 
   if (!miPreceptor) {
     return (
@@ -76,6 +112,42 @@ function PanelPreceptor({ miPreceptor }) {
             <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{miPreceptor.telefono}</p>
           </div>
         )}
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '16px',
+          marginBottom: '28px',
+        }}
+      >
+        <StatCard icon="fa-school" value={stats.cursos} label="Cursos asignados" />
+        <StatCard icon="fa-users" value={stats.alumnos} label="Alumnos bajo seguimiento" />
+        <StatCard icon="fa-bullhorn" value={stats.comunicados} label="Comunicados" />
+        <StatCard icon="fa-chart-bar" value={stats.diagnosticos} label="Diagnósticos grupales" />
+        <StatCard
+          icon={stats.estado === 'Activo' ? 'fa-check-circle' : 'fa-exclamation-circle'}
+          value={stats.estado}
+          label="Estado de la cuenta"
+          color={stats.estado === 'Activo' ? '#15803d' : '#b91c1c'}
+        />
+      </div>
+
+      <div
+        style={{
+          background: '#f0f4ff',
+          borderLeft: '4px solid var(--primary-color)',
+          borderRadius: '8px',
+          padding: '14px 20px',
+          marginBottom: '28px',
+          fontSize: '0.9rem',
+          color: '#444',
+          lineHeight: '1.6',
+        }}
+      >
+        <i className="fas fa-info-circle" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+        Responsable del seguimiento diario de los estudiantes, asistencia, comunicación institucional y acompañamiento escolar.
       </div>
 
       <div className="card-header-flex">

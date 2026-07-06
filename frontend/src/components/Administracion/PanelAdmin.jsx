@@ -1,6 +1,45 @@
+import { useMemo } from 'react';
+import { useData } from '../../context/DataContext';
 import { formatDNI } from '../../utils/dni';
 
+function StatCard({ icon, value, label, color }) {
+  return (
+    <div style={{
+      background: 'var(--card-bg)',
+      borderRadius: '8px',
+      padding: '16px',
+      textAlign: 'center',
+      border: '1px solid var(--border-color)',
+    }}>
+      <i className={`fas ${icon}`} style={{ fontSize: '1.8rem', color: color || 'var(--primary-color)', marginBottom: '4px' }} aria-hidden="true" />
+      <div style={{ fontSize: '1.5rem', fontWeight: '700', marginTop: '4px', color: color || 'inherit' }}>
+        {value ?? '—'}
+      </div>
+      <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 function PanelAdmin({ miDirectivo, user }) {
+  const { alumnos, docentes, preceptores, padresTutores, cursosObj, materiasObj, planificaciones, comunicados, actas } = useData();
+
+  const systemStats = useMemo(() => {
+    if (!miDirectivo) return null;
+    return {
+      alumnos: (alumnos ?? []).length,
+      docentes: (docentes ?? []).length,
+      preceptores: (preceptores ?? []).length,
+      familias: (padresTutores ?? []).length,
+      cursos: (cursosObj ?? []).length,
+      materias: (materiasObj ?? []).length,
+      proyectos: (planificaciones ?? []).length,
+      comunicados: (comunicados ?? []).length,
+      actas: (actas ?? []).length,
+    };
+  }, [miDirectivo, alumnos, docentes, preceptores, padresTutores, cursosObj, materiasObj, planificaciones, comunicados, actas]);
+
   if (!miDirectivo) {
     return (
       <div className="card">
@@ -80,6 +119,56 @@ function PanelAdmin({ miDirectivo, user }) {
             {rolLabel}
           </p>
         </div>
+      </div>
+
+      <div
+        style={{
+          background: '#e8f5e9',
+          borderLeft: '4px solid #2e7d32',
+          borderRadius: '8px',
+          padding: '14px 20px',
+          marginBottom: '28px',
+          fontSize: '0.9rem',
+          color: '#1b5e20',
+          lineHeight: '1.6',
+        }}
+      >
+        <i className="fas fa-server" style={{ color: '#2e7d32', marginRight: '8px' }} aria-hidden="true" />
+        Sistema operativo — todos los módulos funcionando con normalidad.
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '16px',
+          marginBottom: '28px',
+        }}
+      >
+        <StatCard icon="fa-user-graduate" value={systemStats.alumnos} label="Alumnos" />
+        <StatCard icon="fa-chalkboard-teacher" value={systemStats.docentes} label="Docentes" />
+        <StatCard icon="fa-user-tie" value={systemStats.preceptores} label="Preceptores" />
+        <StatCard icon="fa-users" value={systemStats.familias} label="Familias" />
+        <StatCard icon="fa-school" value={systemStats.cursos} label="Cursos" />
+        <StatCard icon="fa-book" value={systemStats.materias} label="Materias" />
+        <StatCard icon="fa-folder-open" value={systemStats.proyectos} label="Proyectos" />
+        <StatCard icon="fa-bullhorn" value={systemStats.comunicados} label="Comunicados" />
+        <StatCard icon="fa-file-signature" value={systemStats.actas} label="Actas" />
+      </div>
+
+      <div
+        style={{
+          background: '#f0f4ff',
+          borderLeft: '4px solid var(--primary-color)',
+          borderRadius: '8px',
+          padding: '14px 20px',
+          fontSize: '0.9rem',
+          color: '#444',
+          lineHeight: '1.6',
+        }}
+      >
+        <i className="fas fa-info-circle" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+        Panel de administración general del sistema escolar. Desde aquí se gestionan usuarios, cursos, materias, configuraciones y toda la información institucional.
       </div>
     </div>
   );

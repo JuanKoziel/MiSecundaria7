@@ -1,7 +1,27 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { uploadMiDdjjDocente } from '../../services/api';
 import { formatDNI } from '../../utils/dni';
+
+function StatCard({ icon, value, label, color }) {
+  return (
+    <div style={{
+      background: 'var(--card-bg)',
+      borderRadius: '8px',
+      padding: '16px',
+      textAlign: 'center',
+      border: '1px solid var(--border-color)',
+    }}>
+      <i className={`fas ${icon}`} style={{ fontSize: '1.8rem', color: color || 'var(--primary-color)', marginBottom: '4px' }} aria-hidden="true" />
+      <div style={{ fontSize: '1.5rem', fontWeight: '700', marginTop: '4px', color: color || 'inherit' }}>
+        {value ?? '—'}
+      </div>
+      <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
+        {label}
+      </div>
+    </div>
+  );
+}
 
 function obtenerMensajeApi(err) {
   const data = err?.response?.data;
@@ -35,11 +55,29 @@ function obtenerMensajeApi(err) {
 }
 
 function PanelDocente({ miDocente }) {
-  const { cursoMateria, cursosObj, refreshData } = useData();
+  const { cursoMateria, cursosObj, alumnos, planificaciones, actasDocente, refreshData } = useData();
   const fileInputRef = useRef(null);
   const [mensaje, setMensaje] = useState('');
   const [subiendo, setSubiendo] = useState(false);
   const MEDIA_BASE = 'http://localhost:8000';
+
+  const stats = useMemo(() => {
+    if (!miDocente) return null;
+    const safeCursoMateria = cursoMateria ?? [];
+    const safeAlumnos = alumnos ?? [];
+    const safePlanificaciones = planificaciones ?? [];
+    const safeActasDocente = actasDocente ?? [];
+    const misAsigs = safeCursoMateria.filter((cm) => cm.id_docente === miDocente.id);
+    const cursoIds = [...new Set(misAsigs.map((cm) => cm.id_curso).filter(Boolean))];
+    return {
+      materias: [...new Set(misAsigs.map((cm) => cm.materia_nombre).filter(Boolean))].length,
+      cursos: [...new Set(misAsigs.map((cm) => cm.curso_nombre).filter(Boolean))].length,
+      alumnos: safeAlumnos.filter((a) => cursoIds.includes(a.id_curso)).length,
+      proyectos: safePlanificaciones.filter((p) => p.id_docente === miDocente.id).length,
+      actas: safeActasDocente.filter((ad) => ad.docenteId === miDocente.id).length,
+      estado: miDocente.usuario_estado === false ? 'Inactivo' : 'Activo',
+    };
+  }, [miDocente, cursoMateria, alumnos, planificaciones, actasDocente]);
 
   if (!miDocente) {
     return (
@@ -141,6 +179,44 @@ function PanelDocente({ miDocente }) {
             <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{miDocente.telefono}</p>
           </div>
         )}
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '16px',
+          marginBottom: '28px',
+        }}
+      >
+        <StatCard icon="fa-book" value={stats.materias} label="Materias asignadas" />
+        <StatCard icon="fa-school" value={stats.cursos} label="Cursos a cargo" />
+        <StatCard icon="fa-users" value={stats.alumnos} label="Alumnos a cargo" />
+        <StatCard icon="fa-folder-open" value={stats.proyectos} label="Proyectos creados" />
+        <StatCard icon="fa-file-signature" value={stats.actas} label="Actas realizadas" />
+        <StatCard icon="fa-clock" value="—" label="Último ingreso" />
+        <StatCard
+          icon={stats.estado === 'Activo' ? 'fa-check-circle' : 'fa-exclamation-circle'}
+          value={stats.estado}
+          label="Estado de la cuenta"
+          color={stats.estado === 'Activo' ? '#15803d' : '#b91c1c'}
+        />
+      </div>
+
+      <div
+        style={{
+          background: '#f0f4ff',
+          borderLeft: '4px solid var(--primary-color)',
+          borderRadius: '8px',
+          padding: '14px 20px',
+          marginBottom: '28px',
+          fontSize: '0.9rem',
+          color: '#444',
+          lineHeight: '1.6',
+        }}
+      >
+        <i className="fas fa-info-circle" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+        Desde este panel puede administrar calificaciones, asistencias, proyectos, actas y el seguimiento académico de sus cursos.
       </div>
 
       <div
