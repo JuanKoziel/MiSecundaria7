@@ -120,8 +120,12 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
   };
 
   const abrirNuevo = () => {
-    limpiar();
-    setShowNewForm((prev) => !prev);
+    if (showNewForm) {
+      limpiar();
+    } else {
+      limpiar();
+      setShowNewForm(true);
+    }
   };
 
   const abrirEditar = (proyecto) => {

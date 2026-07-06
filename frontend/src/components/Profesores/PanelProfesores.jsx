@@ -16,7 +16,7 @@ function PanelProfesores({ user, onLogout }) {
   const { docentes, cursoMateria, cursosObj } = useData();
   const [cursoId, setCursoId] = useState('');
   const [materiaSeleccionada, setMateriaSeleccionada] = useState('');
-  const [seccionActiva, setSeccionActiva] = useState('alumnos');
+  const [seccionActiva, setSeccionActiva] = useState('docente');
   const [cursoComunicados, setCursoComunicados] = useState('');
   const [cursoDiagnosticos, setCursoDiagnosticos] = useState('');
 
