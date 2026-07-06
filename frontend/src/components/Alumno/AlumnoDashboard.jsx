@@ -8,6 +8,7 @@ import { cursoConOrientacion } from '../../utils/orientacion';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
+import PanelAlumno from './PanelAlumno';
 
 function AlumnoDashboard({ user, onLogout }) {
   const {
@@ -21,7 +22,7 @@ function AlumnoDashboard({ user, onLogout }) {
     cursosObj,
   } = useData();
 
-  const [view, setView] = useState('calificaciones');
+  const [view, setView] = useState('perfil');
   const [asistenciaTipo, setAsistenciaTipo] = useState(() => {
     const saved = sessionStorage.getItem('alumno_asistencia_tipo');
     return saved || 'general';
@@ -193,6 +194,12 @@ function AlumnoDashboard({ user, onLogout }) {
         </div>
 
         <ul className="sidebar-menu">
+          <li className={view === 'perfil' ? 'active' : ''}>
+            <button type="button" className="sidebar-menu-btn" onClick={() => setView('perfil')}>
+              <i className="fas fa-user-graduate" aria-hidden="true" />
+              <span>Mi Perfil</span>
+            </button>
+          </li>
           <li className={view === 'calificaciones' ? 'active' : ''}>
             <button type="button" className="sidebar-menu-btn" onClick={() => setView('calificaciones')}>
               <i className="fas fa-book" aria-hidden="true" />
@@ -250,7 +257,11 @@ function AlumnoDashboard({ user, onLogout }) {
           <span className="badge role-badge-display">Alumno</span>
         </header>
 
-        {view === 'notificaciones' ? (
+        {view === 'perfil' ? (
+          <div className="view-section active">
+            <PanelAlumno miAlumno={miAlumno} user={user} />
+          </div>
+        ) : view === 'notificaciones' ? (
           <div className="view-section active">
             <Notificaciones />
           </div>

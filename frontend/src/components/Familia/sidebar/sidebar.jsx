@@ -1,4 +1,5 @@
 const menuItems = [
+  { id: 'perfil', label: 'Mi Perfil', icon: 'fa-user-tie' },
   { id: 'resumen', label: 'Resumen', icon: 'fa-home' },
   { id: 'calificaciones', label: 'Calificaciones', icon: 'fa-graduation-cap' },
   { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },

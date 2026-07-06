@@ -1,4 +1,5 @@
 export const menuItems = [
+  { id: 'perfil', label: 'Mi Perfil', icon: 'fa-user-shield' },
   { id: 'alumnos', label: 'Alumnos', icon: 'fa-users' },
   { id: 'docentes', label: 'Docentes', icon: 'fa-chalkboard-teacher' },
   { id: 'preceptores', label: 'Preceptores', icon: 'fa-user-tie' },

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from './sidebar/sidebar';
 import Header from './header/header';
 import Alumnos from './alumnos';
@@ -13,12 +13,25 @@ import Administradores from './administradores';
 import Preceptores from './preceptores';
 import Cursos from './cursos';
 import Materias from './materias';
+import PanelAdmin from './PanelAdmin';
+import { getDirectivos } from '../../services/api';
 
 function AdminDashboard({ user, onLogout }) {
-  const [view, setView] = useState('alumnos');
+  const [view, setView] = useState('perfil');
+  const [directivos, setDirectivos] = useState([]);
+
+  useEffect(() => {
+    getDirectivos()
+      .then(setDirectivos)
+      .catch(() => setDirectivos([]));
+  }, []);
+
+  const miDirectivo = directivos.find((d) => d.id_usuario === user?.id) || null;
 
   const renderView = () => {
     switch (view) {
+      case 'perfil':
+        return <PanelAdmin miDirectivo={miDirectivo} user={user} />;
       case 'alumnos':
         return <Alumnos />;
       case 'docentes':

@@ -225,6 +225,7 @@ export function DataProvider({ children }) {
         dni: p.dni,
         nombre: p.nombre,
         apellido: p.apellido,
+        correo: p.correo || '',
         telefono: p.telefono || '',
         cursos: Array.isArray(p.cursos_asignados) ? p.cursos_asignados : [],
       }));

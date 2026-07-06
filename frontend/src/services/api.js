@@ -124,6 +124,11 @@ export async function getPreceptores() {
   return data;
 }
 
+export async function getDirectivos() {
+  const { data } = await api.get('/directivos/');
+  return data;
+}
+
 export async function createPreceptor(payload) {
   const { data } = await api.post('/preceptores/', payload);
   return data;

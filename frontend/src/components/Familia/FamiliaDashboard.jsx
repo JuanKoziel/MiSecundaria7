@@ -13,11 +13,12 @@ import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
 import VistaHorarios from '../Administracion/VistaHorarios';
+import PanelFamilia from './PanelFamilia';
 import { useData } from '../../context/DataContext';
 
 function FamiliaDashboard({ user, onLogout }) {
   const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj } = useData();
-  const [view, setView] = useState('resumen');
+  const [view, setView] = useState('perfil');
   const [hijoId, setHijoId] = useState('');
 
   const miTutor = useMemo(
@@ -176,7 +177,15 @@ function FamiliaDashboard({ user, onLogout }) {
         {/* CONTENIDO PRINCIPAL                                   */}
         {/* ===================================================== */}
 
-        {view === 'notificaciones' ? (
+        {view === 'perfil' ? (
+
+          <div className="dashboard-content">
+            <div className="view-section active">
+              <PanelFamilia miTutor={miTutor} user={user} hijos={hijos} />
+            </div>
+          </div>
+
+        ) : view === 'notificaciones' ? (
 
           <div className="dashboard-content">
             <div className="view-section active">

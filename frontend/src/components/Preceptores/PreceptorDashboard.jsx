@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 import Sidebar from './sidebar';
 import Header from './header';
@@ -11,10 +11,20 @@ import Docentes from './docentes';
 import Horarios from '../Administracion/horarios';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
+import PanelPreceptor from './PanelPreceptor';
+import { useData } from '../../context/DataContext';
 
 function PreceptorDashboard({ user, onLogout }) {
 
-  const [view, setView] = useState('alumnos');
+  const { preceptores } = useData();
+
+  const userId = user?.id_usuario ?? user?.id ?? null;
+  const miPreceptor = useMemo(
+    () => preceptores.find((p) => p.id_usuario === userId) || null,
+    [preceptores, userId],
+  );
+
+  const [view, setView] = useState('perfil');
 
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
@@ -34,6 +44,13 @@ function PreceptorDashboard({ user, onLogout }) {
   const renderView = () => {
 
     switch (view) {
+
+      case 'perfil':
+        return (
+          <div className="view-section active">
+            <PanelPreceptor miPreceptor={miPreceptor} />
+          </div>
+        );
 
       case 'alumnos':
         return (
