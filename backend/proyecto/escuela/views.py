@@ -1557,6 +1557,7 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
     queryset = Planificacion.objects.select_related(
         'id_docente', 'id_curso_materia',
         'id_curso_materia__id_curso', 'id_curso_materia__id_materia',
+        'id_curso_materia__id_curso__id_ciclo',
     ).all()
     serializer_class = PlanificacionSerializer
 
@@ -1585,10 +1586,14 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         curso_nombre = cm_obj.id_curso.nombre_curso if cm_obj and cm_obj.id_curso_id else ''
         docente_nombre = f"{docente.nombre} {docente.apellido}" if docente else ''
 
+        anio = str(cm_obj.id_curso.id_ciclo.anio) if (cm_obj and cm_obj.id_curso_id and cm_obj.id_curso.id_ciclo_id) else ''
+
+        safe_materia = re.sub(r'[\\/*?:"<>|]', '', (materia_nombre or '')).replace(' ', '_')
+        safe_curso = re.sub(r'[\\/*?:"<>|]', '', (curso_nombre or '')).replace(' ', '_')
+        filename = f'Proyecto_{safe_materia}_{safe_curso}_{anio}.pdf'
+
         dest_dir = os.path.join(settings.MEDIA_ROOT, 'planificaciones')
         os.makedirs(dest_dir, exist_ok=True)
-
-        filename = f'proyecto_{planificacion.id_planificacion}_{datetime.now().strftime("%Y%m%d%H%M%S")}.pdf'
         filepath = os.path.join(dest_dir, filename)
 
         doc = SimpleDocTemplate(filepath, pagesize=A4,
