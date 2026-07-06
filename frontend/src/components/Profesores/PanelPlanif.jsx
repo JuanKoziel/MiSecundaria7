@@ -16,52 +16,53 @@ function mensajeError(err) {
 
 function FormProyecto({ formData, setFormData, editing, saving, onSubmit, onCancel }) {
   return (
-    <form onSubmit={onSubmit} style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
-      <div className="form-group-filter">
-        <label htmlFor="proy-contenido">Contenido</label>
-        <textarea
-          id="proy-contenido"
-          rows={5}
-          value={formData.contenido}
-          onChange={(e) => setFormData((p) => ({ ...p, contenido: e.target.value }))}
-          required
-          style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', resize: 'vertical', fontFamily: 'inherit' }}
-        />
+    <form onSubmit={onSubmit} className="proyecto-form" style={{ padding: '20px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '12px 0' }}>
+      <style>{`.proyecto-form .form-group-filter label { color: #fff !important; }`}</style>
+      <div className="preceptor-form-row preceptor-form-row--two">
+        <div className="form-group-filter">
+          <label htmlFor="proy-contenido">Contenido</label>
+          <textarea
+            id="proy-contenido"
+            rows={5}
+            value={formData.contenido}
+            onChange={(e) => setFormData((p) => ({ ...p, contenido: e.target.value }))}
+            required
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="proy-objetivos">Objetivos</label>
+          <textarea
+            id="proy-objetivos"
+            rows={5}
+            value={formData.objetivos}
+            onChange={(e) => setFormData((p) => ({ ...p, objetivos: e.target.value }))}
+            required
+          />
+        </div>
       </div>
-      <div className="form-group-filter" style={{ marginTop: '12px' }}>
-        <label htmlFor="proy-objetivos">Objetivos</label>
-        <textarea
-          id="proy-objetivos"
-          rows={5}
-          value={formData.objetivos}
-          onChange={(e) => setFormData((p) => ({ ...p, objetivos: e.target.value }))}
-          required
-          style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', resize: 'vertical', fontFamily: 'inherit' }}
-        />
+      <div className="preceptor-form-row preceptor-form-row--two">
+        <div className="form-group-filter">
+          <label htmlFor="proy-salidas">Salidas educativas</label>
+          <textarea
+            id="proy-salidas"
+            rows={5}
+            value={formData.salidas}
+            onChange={(e) => setFormData((p) => ({ ...p, salidas: e.target.value }))}
+            required
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="proy-fundamentacion">Fundamentación</label>
+          <textarea
+            id="proy-fundamentacion"
+            rows={5}
+            value={formData.fundamentacion}
+            onChange={(e) => setFormData((p) => ({ ...p, fundamentacion: e.target.value }))}
+            required
+          />
+        </div>
       </div>
-      <div className="form-group-filter" style={{ marginTop: '12px' }}>
-        <label htmlFor="proy-salidas">Salidas</label>
-        <textarea
-          id="proy-salidas"
-          rows={5}
-          value={formData.salidas}
-          onChange={(e) => setFormData((p) => ({ ...p, salidas: e.target.value }))}
-          required
-          style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', resize: 'vertical', fontFamily: 'inherit' }}
-        />
-      </div>
-      <div className="form-group-filter" style={{ marginTop: '12px' }}>
-        <label htmlFor="proy-fundamentacion">Fundamentación</label>
-        <textarea
-          id="proy-fundamentacion"
-          rows={5}
-          value={formData.fundamentacion}
-          onChange={(e) => setFormData((p) => ({ ...p, fundamentacion: e.target.value }))}
-          required
-          style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', resize: 'vertical', fontFamily: 'inherit' }}
-        />
-      </div>
-      <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
         <button type="submit" className="btn btn-primary" disabled={saving}>
           {saving ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
         </button>
