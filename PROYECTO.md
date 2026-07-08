@@ -20,6 +20,9 @@
 16. [Buenas prácticas del proyecto](#16-buenas-prácticas-del-proyecto)
 17. [Errores comunes](#17-errores-comunes)
 18. [Recomendaciones para futuras IA](#18-recomendaciones-para-futuras-ia)
+19. [Estándar Visual de Formularios](#19-estándar-visual-de-formularios)
+20. [Consistencia Visual entre Módulos](#20-consistencia-visual-entre-módulos)
+21. [Mi Perfil — Estadísticas por rol](#21-mi-perfil--estadísticas-por-rol)
 
 ---
 
@@ -789,7 +792,16 @@ horarios
   └─── modulos (FK)
 ```
 
-### 8.2 Propósito de cada tabla
+### 8.2 Prioridad de la BD real sobre el SQL de referencia
+
+**🔥 REGLA ABSOLUTA:** El archivo `estructura base de datos/sistema_escolar.sql` es solo una referencia visual. La base de datos MySQL real es la ÚNICA fuente de verdad.
+
+- Nunca asumir que un campo existe porque aparece en el SQL de referencia.
+- Antes de modificar un modelo Django, verificar la estructura real de MySQL con `DESCRIBE <tabla>;` o `SHOW COLUMNS FROM <tabla>;`.
+- Si hay discrepancia entre el modelo Django y la BD real, la BD real tiene razón. Actualizar el modelo Django.
+- No crear migraciones ni modificar el esquema desde Django (`managed = False` en todos los modelos).
+
+### 8.3 Propósito de cada tabla
 
 | Tabla | Propósito |
 |-------|-----------|
@@ -1186,7 +1198,15 @@ El formulario (`FormProyecto` en `PanelPlanif.jsx`) tiene **cuatro campos** en d
 
 Estilo: fondo `var(--sidebar-hover)` (azul oscuro), labels blancos, en grid de 2 columnas responsivo.
 
-### 14.5 Generación de PDF
+### 14.5 Reglas de generación de PDF
+
+- **Los PDFs se generan desde el backend** usando ReportLab (Django). No desde React.
+- La única excepción es el boletín de calificaciones (`frontend/src/utils/boletin.js`) que usa `window.print()`.
+- Al actualizar un proyecto, **se elimina automáticamente el PDF anterior** del disco antes de regenerar.
+- **En la BD solo se guarda la ruta** (CharField), no el contenido del archivo.
+- **Nombres consistentes:** `Proyecto_{Materia}_{Curso}_{Año}.pdf` (sanitizado).
+
+### 14.6 Generación de PDF
 
 Cuando se crea o actualiza un proyecto, el backend:
 
@@ -1426,7 +1446,56 @@ Después de cualquier modificación, verificar:
 
 ---
 
-## 19. Mi Perfil — Estadísticas por rol
+## 19. Estándar Visual de Formularios
+
+### 19.1 Patrón obligatorio
+
+Todos los formularios del sistema siguen este patrón visual. Cualquier formulario nuevo debe cumplirlo:
+
+| Elemento | Especificación |
+|----------|---------------|
+| Botón para abrir | `.btn-primary` con texto "Crear", "Nuevo", "Agregar" |
+| Estado inicial | Formulario oculto (no visible hasta hacer clic en el botón) |
+| Cierre | Botón "Cancelar" → formulario se oculta |
+| Labels | Texto legible en español, en negrita |
+| Grid | 2 columnas responsivas (`.preceptor-form-row--two` o similar) |
+| Campos largos | Ocupan ambas columnas (full width) |
+| Botón Guardar | `.btn-success` o `.btn-primary` |
+| Botón Cancelar | `.btn-secondary` |
+| Validación | Mensajes de error visibles abajo del campo |
+
+### 19.2 Clases CSS a usar
+
+- Contenedor: `.preceptor-form-row`, `.filter-row`
+- Grid de 2 columnas: `.preceptor-form-row--two`
+- Botones: `.btn`, `.btn-primary`, `.btn-success`, `.btn-secondary`
+- No crear nuevos estilos para formularios. Usar las clases existentes.
+
+---
+
+## 20. Consistencia Visual entre Módulos
+
+### 20.1 Regla
+
+Si un usuario cambia entre módulos (Perfil, Calificaciones, Comunicados, etc.), no debe percibir diferencias de diseño. Todos los módulos deben parecer parte del mismo sistema.
+
+### 20.2 Cómo mantenerla
+
+- Usar las mismas clases CSS en todos los módulos (`.card`, `.btn`, `.table-responsive`, `.badge`).
+- Todos los dashboards usan el mismo layout: sidebar izquierdo + header superior + contenido central.
+- Los perfiles (`Panel{Rol}.jsx`) tienen la misma estructura: grid de datos personales + tabla contextual + tarjetas de estadísticas.
+- Los formularios usan el mismo patrón visual (ver sección 19).
+- Los botones, tablas y tarjetas tienen los mismos colores, bordes y tamaños en todos los módulos.
+
+### 20.3 Lo que nunca debe pasar
+
+- Un módulo usa botones verdes y otro azules para la misma acción.
+- Un módulo tiene el formulario visible por defecto y otro lo tiene oculto.
+- Los colores de fondo, padding o márgenes cambian entre módulos.
+
+---
+
+## 21. Mi Perfil — Estadísticas por rol
 
 Cada `Panel{Rol}.jsx` tiene una sección de tarjetas de estadísticas debajo de los datos personales, usando un `StatCard` local (no compartido) con el mismo grid responsivo.
 
