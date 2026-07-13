@@ -207,9 +207,9 @@ export async function getAsistenciasAlumnoDetalle(cursoMateriaId, alumnoId) {
   return data;
 }
 
-export async function getAsistenciasPreceptorMateria(cursoMateriaId, fecha) {
+export async function getAsistenciasPreceptorMateria(cursoMateriaId, params = {}) {
   const { data } = await api.get('/asistencias/preceptor-materia/', {
-    params: { curso_materia: cursoMateriaId, fecha },
+    params: { curso_materia: cursoMateriaId, ...params },
   });
   return data;
 }
@@ -236,6 +236,20 @@ export async function updateAsistencia(id, payload) {
 
 export async function getEstadosAsistencia() {
   const { data } = await api.get('/estados-asistencia/');
+  return data;
+}
+
+export async function getAsistenciaDiaria(curso, fecha) {
+  const { data } = await api.get('/asistencias/asistencia-diaria/', {
+    params: { curso, fecha },
+  });
+  return data;
+}
+
+export async function getRegistroDiario(curso, params = {}) {
+  const { data } = await api.get('/asistencias/registro-diario/', {
+    params: { curso, ...params },
+  });
   return data;
 }
 

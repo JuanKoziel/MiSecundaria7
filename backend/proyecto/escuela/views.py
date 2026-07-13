@@ -1264,6 +1264,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         curso = self.request.query_params.get('curso')
         fecha = self.request.query_params.get('fecha')
         curso_materia = self.request.query_params.get('curso_materia')
+        materia = self.request.query_params.get('materia')
         if alumno:
             qs = qs.filter(id_alumno=alumno)
         if curso:
@@ -1272,6 +1273,8 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             qs = qs.filter(fecha=fecha)
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)
+        if materia:
+            qs = qs.filter(id_curso_materia__id_materia__nombre_materia=materia)
         return qs
 
     @action(detail=False, methods=['get'], url_path='server-time')
@@ -1399,32 +1402,39 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='preceptor-materia')
     def preceptor_materia(self, request):
         roles = get_roles_for_usuario(request.user.username)
-        if 'preceptor' not in roles:
-            return Response({'error': 'Solo preceptores.'}, status=status.HTTP_403_FORBIDDEN)
-        cursos_ids = _preceptor_cursos_ids(request)
-        if not cursos_ids:
+        if 'preceptor' not in roles and 'admin' not in roles and 'director' not in roles:
+            return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
+        cursos_ids = _preceptor_cursos_ids(request) if 'preceptor' in roles else None
+        if 'preceptor' in roles and not cursos_ids:
             return Response({'error': 'Preceptor sin cursos asignados.'}, status=status.HTTP_403_FORBIDDEN)
 
         cm_id = request.query_params.get('curso_materia')
         fecha_str = request.query_params.get('fecha')
-        if not cm_id or not fecha_str:
-            return Response({'error': 'Se requiere curso_materia y fecha.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not cm_id:
+            return Response({'error': 'Se requiere curso_materia.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             cm = CursoMateria.objects.get(id_curso_materia=cm_id)
         except CursoMateria.DoesNotExist:
             return Response({'error': 'Materia no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
-        if cm.id_curso_id not in cursos_ids:
+        if cursos_ids is not None and cm.id_curso_id not in cursos_ids:
             return Response({'error': 'No autorizado para esta materia.'}, status=status.HTTP_403_FORBIDDEN)
 
         qs = Asistencia.objects.filter(
-            id_curso_materia=cm_id, fecha=fecha_str,
+            id_curso_materia=cm_id,
         ).select_related(
             'id_alumno', 'id_curso_materia__id_materia',
             'id_curso_materia__id_docente', 'id_estado_asistencia',
-        ).order_by('id_alumno__apellido', 'id_alumno__nombre')
+        ).order_by('-fecha', 'id_alumno__apellido', 'id_alumno__nombre')
 
-        dia_semana = DIAS_SEMANA_ES[datetime.strptime(fecha_str, '%Y-%m-%d').weekday()]
+        if fecha_str:
+            qs = qs.filter(fecha=fecha_str)
+
+        alumno_id = request.query_params.get('alumno')
+        if alumno_id:
+            qs = qs.filter(id_alumno=alumno_id)
+
+        dia_semana = DIAS_SEMANA_ES[datetime.strptime(fecha_str, '%Y-%m-%d').weekday()] if fecha_str else _dia_semana_es()
 
         result = []
         for a in qs:
@@ -1434,6 +1444,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
                 'id': a.id_asistencia,
                 'id_alumno': a.id_alumno_id,
                 'alumno_nombre': f'{a.id_alumno.apellido}, {a.id_alumno.nombre}',
+                'fecha': a.fecha.strftime('%Y-%m-%d'),
                 'horario': horario.get('horario') if horario else '-',
                 'docente_nombre': f'{docente.nombre} {docente.apellido}' if docente else '-',
                 'estado_nombre': a.id_estado_asistencia.nombre_estado if a.id_estado_asistencia else '-',
@@ -1446,20 +1457,136 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         ).select_related('id_usuario').order_by('apellido', 'nombre')
 
         ids_encontrados = {r['id_alumno'] for r in result}
-        for al in alumnos_del_curso:
-            if al.id_alumno not in ids_encontrados:
-                result.append({
-                    'id': None,
-                    'id_alumno': al.id_alumno,
-                    'alumno_nombre': f'{al.apellido}, {al.nombre}',
-                    'horario': '-',
-                    'docente_nombre': '-',
-                    'estado_nombre': 'Sin registro',
-                    'hora_carga': '',
-                    'justificado': False,
-                })
+        if fecha_str:
+            for al in alumnos_del_curso:
+                if al.id_alumno not in ids_encontrados:
+                    result.append({
+                        'id': None,
+                        'id_alumno': al.id_alumno,
+                        'alumno_nombre': f'{al.apellido}, {al.nombre}',
+                        'horario': '-',
+                        'docente_nombre': '-',
+                        'estado_nombre': 'Sin registro',
+                        'hora_carga': '',
+                        'justificado': False,
+                    })
 
         result.sort(key=lambda r: r['alumno_nombre'])
+        return Response(result)
+
+    @action(detail=False, methods=['get'], url_path='asistencia-diaria')
+    def asistencia_diaria(self, request):
+        curso_nombre = request.query_params.get('curso')
+        fecha_str = request.query_params.get('fecha')
+        if not curso_nombre or not fecha_str:
+            return Response({'error': 'Se requiere curso y fecha.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        curso_obj = Curso.objects.filter(nombre_curso=curso_nombre).first()
+        if not curso_obj:
+            return Response({'error': 'Curso no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        cm_ids = list(
+            CursoMateria.objects.filter(id_curso=curso_obj).values_list('id_curso_materia', flat=True)
+        )
+        if not cm_ids:
+            return Response([])
+
+        asistencias = Asistencia.objects.filter(
+            id_curso_materia__in=cm_ids,
+            fecha=fecha_str,
+        ).select_related('id_alumno', 'id_estado_asistencia')
+
+        alumnos_del_curso = Alumno.objects.filter(
+            id_curso=curso_obj,
+        ).order_by('apellido', 'nombre')
+
+        estado_map = {}
+        for a in asistencias:
+            aid = a.id_alumno_id
+            nombre = a.id_estado_asistencia.nombre_estado if a.id_estado_asistencia else None
+            if aid not in estado_map:
+                estado_map[aid] = []
+            if nombre:
+                estado_map[aid].append(nombre)
+
+        resultado = {
+            'Presente': 'Presente',
+            'Ausente': 'Ausente',
+        }
+        reglas = [
+            ({'Presente', 'Presente'}, 'Presente'),
+            ({'Presente', 'Ausente'}, 'Retiro'),
+            ({'Ausente', 'Presente'}, 'Tarde'),
+            ({'Ausente', 'Ausente'}, 'Ausente'),
+        ]
+
+        result = []
+        for al in alumnos_del_curso:
+            estados = estado_map.get(al.id_alumno, [])
+            if not estados:
+                estado_final = 'Sin registro'
+            elif len(estados) == 1:
+                estado_final = resultado.get(estados[0], estados[0])
+            else:
+                conjunto = set(estados[:2])
+                estado_final = 'Sin registro'
+                for regla_conjunto, regla_estado in reglas:
+                    if conjunto == regla_conjunto:
+                        estado_final = regla_estado
+                        break
+
+            result.append({
+                'id_alumno': al.id_alumno,
+                'alumno_nombre': f'{al.apellido}, {al.nombre}',
+                'estado': estado_final,
+            })
+
+        result.sort(key=lambda r: r['alumno_nombre'])
+        return Response(result)
+
+    @action(detail=False, methods=['get'], url_path='registro-diario')
+    def registro_diario(self, request):
+        curso_nombre = request.query_params.get('curso')
+        fecha_str = request.query_params.get('fecha')
+        alumno_id = request.query_params.get('alumno')
+
+        if not curso_nombre:
+            return Response({'error': 'Se requiere curso.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        curso_obj = Curso.objects.filter(nombre_curso=curso_nombre).first()
+        if not curso_obj:
+            return Response({'error': 'Curso no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        cm_ids = list(
+            CursoMateria.objects.filter(id_curso=curso_obj).values_list('id_curso_materia', flat=True)
+        )
+        if not cm_ids:
+            return Response([])
+
+        if not fecha_str and not alumno_id:
+            return Response([])
+
+        asistencias = Asistencia.objects.filter(
+            id_curso_materia__in=cm_ids,
+        ).select_related('id_alumno', 'id_estado_asistencia')
+
+        if fecha_str:
+            asistencias = asistencias.filter(fecha=fecha_str)
+        if alumno_id:
+            asistencias = asistencias.filter(id_alumno=alumno_id)
+
+        asistencias = asistencias.order_by('-fecha', 'id_alumno__apellido', 'id_alumno__nombre')
+
+        result = []
+        for a in asistencias:
+            result.append({
+                'id': a.id_asistencia,
+                'fecha': a.fecha.strftime('%Y-%m-%d'),
+                'id_alumno': a.id_alumno_id,
+                'alumno_nombre': f'{a.id_alumno.apellido}, {a.id_alumno.nombre}' if a.id_alumno else '',
+                'estado': a.id_estado_asistencia.nombre_estado if a.id_estado_asistencia else '-',
+            })
+
         return Response(result)
 
     @action(detail=True, methods=['patch'], url_path='justificar')
