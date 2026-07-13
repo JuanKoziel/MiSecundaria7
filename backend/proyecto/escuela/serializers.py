@@ -355,9 +355,156 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
 
 class PadreTutorSerializer(serializers.ModelSerializer):
+    usuario = serializers.CharField(source='id_usuario.usuario', read_only=True)
+    usuario_nombre = serializers.CharField(write_only=True, required=False)
+    contrasena = serializers.CharField(write_only=True, required=False)
+    estado = serializers.BooleanField(write_only=True, required=False)
+    fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    alumnos_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+    )
+    alumnos = serializers.SerializerMethodField()
+    cantidad_alumnos = serializers.SerializerMethodField()
+    usuario_estado = serializers.SerializerMethodField()
+    usuario_fecha_deshabilitacion_programada = serializers.SerializerMethodField()
+    usuario_fecha_habilitacion_programada = serializers.SerializerMethodField()
+    estado_label = serializers.SerializerMethodField()
+    proxima_accion_programada = serializers.SerializerMethodField()
+
     class Meta:
         model = PadreTutor
-        fields = '__all__'
+        fields = [
+            'id_tutor',
+            'id_usuario',
+            'usuario',
+            'usuario_nombre',
+            'contrasena',
+            'estado',
+            'fecha_deshabilitacion_programada',
+            'fecha_habilitacion_programada',
+            'nombre',
+            'apellido',
+            'dni',
+            'correo',
+            'tipo',
+            'telefono',
+            'direccion',
+            'alumnos_ids',
+            'alumnos',
+            'cantidad_alumnos',
+            'usuario_estado',
+            'usuario_fecha_deshabilitacion_programada',
+            'usuario_fecha_habilitacion_programada',
+            'estado_label',
+            'proxima_accion_programada',
+        ]
+        extra_kwargs = {
+            'id_usuario': {'read_only': True},
+            'telefono': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'direccion': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'correo': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'tipo': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
+
+    def validate_dni(self, value):
+        return normalizar_dni(value)
+
+    def get_alumnos(self, obj):
+        alumnos = Alumno.objects.filter(id_tutor=obj).select_related('id_curso', 'id_curso__id_ciclo')
+        return [
+            {
+                'id_alumno': al.id_alumno,
+                'nombre': al.nombre,
+                'apellido': al.apellido,
+                'dni': al.dni,
+                'id_curso': al.id_curso_id,
+                'curso_nombre': al.id_curso.nombre_curso if al.id_curso else None,
+                'ciclo_anio': al.id_curso.id_ciclo.anio if al.id_curso and al.id_curso.id_ciclo else None,
+            }
+            for al in alumnos
+        ]
+
+    def get_cantidad_alumnos(self, obj):
+        return Alumno.objects.filter(id_tutor=obj).count()
+
+    def get_estado_label(self, obj):
+        if not obj.id_usuario:
+            return 'Sin usuario'
+        return 'Habilitado' if obj.id_usuario.estado else 'Deshabilitado'
+
+    def get_proxima_accion_programada(self, obj):
+        usuario = obj.id_usuario
+        if not usuario:
+            return None
+        if usuario.estado and usuario.fecha_deshabilitacion_programada:
+            return {
+                'tipo': 'deshabilitar',
+                'fecha': usuario.fecha_deshabilitacion_programada.isoformat(),
+            }
+        if not usuario.estado and usuario.fecha_habilitacion_programada:
+            return {
+                'tipo': 'habilitar',
+                'fecha': usuario.fecha_habilitacion_programada.isoformat(),
+            }
+        if usuario.fecha_deshabilitacion_programada:
+            return {
+                'tipo': 'deshabilitar',
+                'fecha': usuario.fecha_deshabilitacion_programada.isoformat(),
+            }
+        if usuario.fecha_habilitacion_programada:
+            return {
+                'tipo': 'habilitar',
+                'fecha': usuario.fecha_habilitacion_programada.isoformat(),
+            }
+        return None
+
+    def get_usuario_estado(self, obj):
+        return obj.id_usuario.estado if obj.id_usuario else None
+
+    def get_usuario_fecha_deshabilitacion_programada(self, obj):
+        if not obj.id_usuario:
+            return None
+        value = obj.id_usuario.fecha_deshabilitacion_programada
+        return value.isoformat() if value else None
+
+    def get_usuario_fecha_habilitacion_programada(self, obj):
+        if not obj.id_usuario:
+            return None
+        value = obj.id_usuario.fecha_habilitacion_programada
+        return value.isoformat() if value else None
+
+    def create(self, validated_data):
+        alumnos_ids = validated_data.pop('alumnos_ids', [])
+        usuario, validated_data = _build_usuario_account(
+            instance=self.instance or PadreTutor(),
+            validated_data=validated_data,
+            username_key='usuario_nombre',
+            role_name='familia',
+        )
+        padre = PadreTutor.objects.create(id_usuario=usuario, **validated_data)
+        if alumnos_ids:
+            Alumno.objects.filter(id_alumno__in=alumnos_ids).update(id_tutor=padre)
+        return padre
+
+    def update(self, instance, validated_data):
+        alumnos_ids = validated_data.pop('alumnos_ids', None)
+        usuario, validated_data = _build_usuario_account(
+            instance=instance,
+            validated_data=validated_data,
+            username_key='usuario_nombre',
+            role_name='familia',
+        )
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.id_usuario = usuario
+        instance.save()
+        if alumnos_ids is not None:
+            Alumno.objects.filter(id_tutor=instance).update(id_tutor=None)
+            Alumno.objects.filter(id_alumno__in=alumnos_ids).update(id_tutor=instance)
+        return instance
 
 
 class PreceptorSerializer(serializers.ModelSerializer):

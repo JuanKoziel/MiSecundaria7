@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
@@ -17,29 +17,16 @@ function AlumnoDashboard({ user, onLogout }) {
     calificacionesCompletas,
     asistenciasAdmin,
     periodos,
-    nombreCompleto,
     materiasPorCurso,
     cursoMateria,
     cursosObj,
   } = useData();
 
   const [view, setView] = useState('perfil');
-  const [asistenciaTipo, setAsistenciaTipo] = useState(() => {
-    const saved = sessionStorage.getItem('alumno_asistencia_tipo');
-    return saved || 'general';
-  });
-
-  useEffect(() => {
-    sessionStorage.setItem('alumno_asistencia_tipo', asistenciaTipo);
-  }, [asistenciaTipo]);
-
   const miAlumno = useMemo(
     () => alumnos.find((a) => a.id_usuario === user?.id) || null,
     [alumnos, user],
   );
-
-  const periodo1 = useMemo(() => periodos.find((p) => (p.orden_periodo || 0) <= 1), [periodos]);
-  const periodo2 = useMemo(() => periodos.find((p) => (p.orden_periodo || 0) === 2), [periodos]);
 
   const misCalificaciones = useMemo(() => {
     if (!miAlumno) return [];
@@ -109,48 +96,6 @@ function AlumnoDashboard({ user, onLogout }) {
       .filter((a) => a.alumnoId === miAlumno.id)
       .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
   }, [asistenciasAdmin, miAlumno]);
-
-  const asistenciasFiltradas = useMemo(() => {
-    if (!miAlumno) return [];
-    const filtradas = misAsistencias.filter(a => {
-      if (asistenciaTipo === 'general') return a.tipo === 'general';
-      return a.tipo === 'materia';
-    });
-    return filtradas;
-  }, [misAsistencias, asistenciaTipo]);
-
-  const historialPorDia = useMemo(() => {
-    if (!miAlumno) return [];
-    const fechasUnicas = [...new Set(misAsistencias.filter(a => a.tipo === 'general').map(a => a.fecha))];
-    return fechasUnicas.map(fecha => {
-      const asistenciasFecha = misAsistencias.filter(a => a.fecha === fecha && a.tipo === 'general');
-      const presentes = asistenciasFecha.filter(a => a.estado === 'Presente').length;
-      const ausentes = asistenciasFecha.filter(a => a.estado === 'Ausente').length;
-      const estadoGeneral = presentes > ausentes ? 'Bueno' : presentes < ausentes ? 'Atención' : 'Regular';
-      return {
-        fecha,
-        curso: miAlumno.curso || '—',
-        presentes,
-        ausentes,
-        estadoGeneral
-      };
-    }).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [misAsistencias, miAlumno]);
-
-  const historialPorMateria = useMemo(() => {
-    if (!miAlumno) return [];
-    return misAsistencias
-      .filter(a => a.tipo === 'materia')
-      .map(a => ({
-        fecha: a.fecha,
-        curso: miAlumno.curso || '—',
-        materia: a.materia || '—',
-        modulo: a.numero_modulo ? `Módulo ${a.numero_modulo}` : '—',
-        docente: a.docente_nombre || '—',
-        estado: a.estado
-      }))
-      .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [misAsistencias, miAlumno]);
 
   const inasistenciasPorMateria = useMemo(() => {
     const porMateria = {};
@@ -310,23 +255,6 @@ function AlumnoDashboard({ user, onLogout }) {
                   <span className="badge role-badge-display">Solo lectura</span>
                 </div>
 
-                <div className="asist-tipo-selector">
-                  <button
-                    type="button"
-                    className={`btn btn-sm ${asistenciaTipo === 'general' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setAsistenciaTipo('general')}
-                  >
-                    Asistencia por Día
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm ${asistenciaTipo === 'materia' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setAsistenciaTipo('materia')}
-                  >
-                    Asistencia por Materia
-                  </button>
-                </div>
-
                 <div className="flex-gap-16--wrap mb-16">
                   <div className="asistencia-badge ausencias">
                     <strong>{resumenAsistencia.ausencias}</strong> Inasistencias
@@ -344,44 +272,7 @@ function AlumnoDashboard({ user, onLogout }) {
                     <h3>Historial</h3>
                   </div>
 
-                  {asistenciaTipo === 'general' ? (
-                    <div className="table-responsive">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Fecha</th>
-                            <th>Curso</th>
-                            <th>Presentes</th>
-                            <th>Ausentes</th>
-                            <th>Estado General</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {historialPorDia.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="empty-state-message">
-                                No hay registros de historial por día.
-                              </td>
-                            </tr>
-                          ) : (
-                            historialPorDia.map((h, idx) => (
-                              <tr key={idx}>
-                                <td>{h.fecha}</td>
-                                <td>{h.curso}</td>
-                                <td>{h.presentes}</td>
-                                <td>{h.ausentes}</td>
-                                <td>
-                                  <span className={`badge ${h.estadoGeneral === 'Bueno' ? 'badge-presente' : h.estadoGeneral === 'Atención' ? 'badge-ausente' : 'badge-tarde'}`}>
-                                    {h.estadoGeneral}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : miAlumno ? (
+                  {miAlumno ? (
                     <AsistenciaMateriaDetalle
                       alumnoId={miAlumno.id}
                       cursoMateria={cursoMateria}

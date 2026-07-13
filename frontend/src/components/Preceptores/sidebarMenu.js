@@ -1,6 +1,7 @@
 export const menuItems = [
   { id: 'perfil', label: 'Mi Perfil', icon: 'fa-user-tie' },
   { id: 'alumnos', label: 'Alumnos', icon: 'fa-users' },
+  { id: 'tutores', label: 'Tutores', icon: 'fa-user-shield' },
   { id: 'docentes', label: 'Docentes', icon: 'fa-chalkboard-teacher' },
   { id: 'horarios', label: 'Horarios', icon: 'fa-calendar-alt' },
   { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },

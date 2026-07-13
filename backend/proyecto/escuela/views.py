@@ -897,6 +897,80 @@ class PadreTutorViewSet(viewsets.ModelViewSet):
     queryset = PadreTutor.objects.select_related('id_usuario').all()
     serializer_class = PadreTutorSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' in roles or 'director' in roles:
+            return qs
+        if 'preceptor' in roles:
+            cursos_ids = _preceptor_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            tutor_ids = Alumno.objects.filter(
+                id_curso__in=cursos_ids,
+                id_tutor__isnull=False,
+            ).values_list('id_tutor', flat=True).distinct()
+            return qs.filter(id_tutor__in=tutor_ids)
+        if 'familia' in roles and username:
+            usuario = Usuario.objects.filter(usuario=username).first()
+            if usuario:
+                return qs.filter(id_usuario=usuario)
+            return qs.none()
+        return qs.none()
+
+    def _require_preceptor_course_access(self, alumnos_ids):
+        if not alumnos_ids:
+            return
+        cursos_ids = _preceptor_cursos_ids(self.request)
+        if not cursos_ids:
+            raise PermissionDenied('No tienes cursos asignados para gestionar familias.')
+        alumnos_curso_ids = set(
+            Alumno.objects.filter(id_alumno__in=alumnos_ids)
+            .values_list('id_curso_id', flat=True)
+        )
+        no_permitidos = alumnos_curso_ids - {int(c) for c in cursos_ids}
+        if no_permitidos:
+            raise PermissionDenied('No tienes permiso para asociar alumnos de otros cursos.')
+
+    def _require_admin_or_director(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' not in roles and 'director' not in roles:
+            raise PermissionDenied("Solo administradores o directores pueden gestionar familias.")
+
+    def perform_create(self, serializer):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' in roles:
+            alumnos_ids = serializer.validated_data.get('alumnos_ids', [])
+            self._require_preceptor_course_access(alumnos_ids)
+        else:
+            self._require_admin_or_director()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' in roles:
+            alumnos_ids = serializer.validated_data.get('alumnos_ids')
+            if alumnos_ids is not None:
+                self._require_preceptor_course_access(alumnos_ids)
+        else:
+            self._require_admin_or_director()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'preceptor' not in roles:
+            self._require_admin_or_director()
+        Alumno.objects.filter(id_tutor=instance).update(id_tutor=None)
+        usuario = instance.id_usuario
+        if usuario:
+            UsuarioRol.objects.filter(id_usuario=usuario).delete()
+        instance.delete()
+
 
 class CicloLectivoViewSet(viewsets.ModelViewSet):
     queryset = CicloLectivo.objects.all()

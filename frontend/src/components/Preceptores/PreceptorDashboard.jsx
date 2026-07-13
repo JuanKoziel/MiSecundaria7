@@ -4,6 +4,7 @@ import Sidebar from './sidebar';
 import Header from './header';
 
 import Alumnos from './alumnos';
+import Tutores from './tutores';
 import Asistencias from './asistencias';
 import Notas from './notas';
 import Actas from './actas';
@@ -56,6 +57,13 @@ function PreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Alumnos />
+          </div>
+        );
+
+      case 'tutores':
+        return (
+          <div className="view-section active">
+            <Tutores />
           </div>
         );
 

@@ -382,6 +382,20 @@ export async function getPadresTutores() {
   return data;
 }
 
+export async function createPadreTutor(payload) {
+  const { data } = await api.post('/padres-tutores/', payload);
+  return data;
+}
+
+export async function updatePadreTutor(id, payload) {
+  const { data } = await api.patch(`/padres-tutores/${id}/`, payload);
+  return data;
+}
+
+export async function deletePadreTutor(id) {
+  await api.delete(`/padres-tutores/${id}/`);
+}
+
 export async function getInscripciones(params) {
   const { data } = await api.get('/inscripciones/', { params });
   return data;

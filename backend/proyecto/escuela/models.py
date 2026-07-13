@@ -61,6 +61,8 @@ class PadreTutor(models.Model):
     dni = models.CharField(max_length=20, unique=True)
     telefono = models.CharField(max_length=30, blank=True, null=True)
     direccion = models.CharField(max_length=255, blank=True, null=True)
+    correo = models.CharField(max_length=100, blank=True, null=True)
+    tipo = models.CharField(max_length=30, blank=True, null=True)
 
     class Meta:
         managed = False
