@@ -7,9 +7,9 @@ function TopHeader({ cursoSeleccionado, materiaSeleccionada, user }) {
     subtitulo = cursoSeleccionado;
     if (materiaSeleccionada) {
       subtitulo = (
-        <>
+        <div>
           {cursoSeleccionado} &gt; <span className="font-accent">{materiaSeleccionada}</span>
-        </>
+        </div>
       );
     }
   }

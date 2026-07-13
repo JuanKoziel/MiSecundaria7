@@ -48,7 +48,7 @@ export default function AsistenciaMateriaDetalle({ alumnoId, cursoMateria, idCur
 
   return (
     <div>
-      <div className="form-group-filter" style={{ marginBottom: '16px' }}>
+      <div className="form-group-filter mb-16">
         <label htmlFor="materia-asist-detalle">Materia</label>
         <select
           id="materia-asist-detalle"

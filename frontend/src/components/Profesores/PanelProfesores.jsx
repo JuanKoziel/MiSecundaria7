@@ -72,8 +72,8 @@ function PanelProfesores({ user, onLogout }) {
   return (
     <div className="dashboard-layout">
       <Sidebar
-        seccionActiva={seccionActiva}
-        onCambiarSeccion={setSeccionActiva}
+        view={seccionActiva}
+        setView={setSeccionActiva}
         onLogout={onLogout}
       />
 
@@ -181,7 +181,7 @@ function PanelProfesores({ user, onLogout }) {
             <PanelDocente miDocente={miDocente} />
           </div>
         ) : cursoId && materiaSeleccionada && cursoMateriaActivo ? (
-          <>
+          <div>
             <div className={`view-section ${seccionActiva === 'alumnos' ? 'active' : ''}`}>
               {seccionActiva === 'alumnos' && (
                 <PanelAlumnos
@@ -228,7 +228,7 @@ function PanelProfesores({ user, onLogout }) {
                 />
               )}
             </div>
-          </>
+          </div>
         ) : (
           <div className="card empty-state-card">
             <p className="empty-state-message">

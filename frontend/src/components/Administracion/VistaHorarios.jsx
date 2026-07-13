@@ -275,13 +275,13 @@ function ScheduleTable({ timeKeys, daySlots, rowspans, nombreCursoDisplay, turno
                       className={`vista-horarios-cell${slot.tipo === 'especial' ? ' vista-horarios-especial' : ''}`}
                     >
                       {slot.materia_nombre ? (
-                        <>
+                        <div>
                           <div className="vista-horarios-materia">{slot.materia_nombre}</div>
                           <div className="vista-horarios-docente">{slot.docente_nombre || '-'}</div>
                           {slot.aula && (
                             <div className="vista-horarios-aula">{slot.aula}</div>
                           )}
-                        </>
+                        </div>
                       ) : null}
                     </td>
                   );
@@ -424,7 +424,7 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
   const hasData = Object.keys(timeKeys).length > 0;
 
   return (
-    <>
+    <div>
       {!cursoForzado && (
         <div className="filter-row">
           <div className="form-group-filter" style={{ maxWidth: '320px' }}>
@@ -444,20 +444,20 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
       )}
 
       {cargando && (
-        <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+        <p className="empty-state-message empty-state-centered">
           Cargando horarios...
         </p>
       )}
 
       {!cargando && cursoSeleccionado && !hasData && (
-        <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+        <p className="empty-state-message empty-state-centered">
           No hay horarios cargados para este curso.
         </p>
       )}
 
       {hasData && !cargando && (
-        <>
-          <div className="form-actions" style={{ marginBottom: '16px' }}>
+        <div>
+          <div className="form-actions mb-16">
             <button type="button" className="btn btn-primary" onClick={descargarPDF}>
               <i className="fas fa-download" aria-hidden="true" /> Descargar PDF
             </button>
@@ -471,9 +471,9 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
             turno={turno}
             preceptorNombre={preceptorNombre}
           />
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 

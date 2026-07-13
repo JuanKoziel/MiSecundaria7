@@ -56,20 +56,15 @@ function getErrorMessage(err) {
 function ArchivoRow({ archivo, onVer, onDescargar, onEliminar, editable = false }) {
   const nombre = archivo?.nombre_archivo || 'Archivo';
   return (
-    <div
+    <div className="flex-row--between"
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '10px',
         border: '1px solid var(--border-color)',
         borderRadius: '8px',
         padding: '10px 12px',
         background: 'var(--card-bg)',
-      }}
-    >
+      }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>
+        <div className="font-bold" style={{ wordBreak: 'break-word' }}>
           {nombre}
           {archivo?.es_principal ? ' · principal' : ''}
         </div>
@@ -77,7 +72,7 @@ function ArchivoRow({ archivo, onVer, onDescargar, onEliminar, editable = false 
           {archivo?.fecha_carga ? formatDateTime(archivo.fecha_carga).fecha : ''}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <div className="flex-row--end flex-row--wrap">
         {archivo?.archivo_url && (
           <button type="button" className="btn btn-success btn-sm" onClick={onVer}>
             <i className="fas fa-eye" aria-hidden="true" /> Ver
@@ -136,7 +131,7 @@ function ModalActividad({ actividad, onClose }) {
             </div>
           )
         ) : (
-          <p style={{ margin: 0 }}>Este archivo no admite vista previa.</p>
+          <p className="m-0">Este archivo no admite vista previa.</p>
         )}
       </div>
     );
@@ -168,7 +163,7 @@ function ModalActividad({ actividad, onClose }) {
 
           {archivos.length > 0 ? (
             <div style={{ display: 'grid', gap: '10px' }}>
-              <p style={{ margin: 0, fontWeight: 600 }}>Archivos adjuntos</p>
+              <p className="m-0 font-bold">Archivos adjuntos</p>
               {archivos.map((archivo) => (
                 <ArchivoRow
                   key={archivo.id_archivo || archivo.nombre_archivo}
@@ -181,7 +176,7 @@ function ModalActividad({ actividad, onClose }) {
             </div>
           ) : (
             <div className="ddjj-no-preview">
-              <p style={{ margin: 0 }}>La actividad no tiene archivos adjuntos.</p>
+              <p className="m-0">La actividad no tiene archivos adjuntos.</p>
             </div>
           )}
         </div>
@@ -228,17 +223,17 @@ function ModalFormularioActividad({
   return (
     <div className="ddjj-modal-overlay" role="presentation" onClick={onClose}>
       <div
-        className="ddjj-modal"
+        className="standard-modal"
         role="dialog"
         aria-modal="true"
         aria-label={actividadEditando ? 'Editar actividad' : 'Nueva actividad'}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="ddjj-modal-header">
+        <div className="standard-modal-header">
           <h3>{actividadEditando ? 'Editar actividad' : 'Nueva actividad'}</h3>
         </div>
 
-        <form onSubmit={onGuardar} className="ddjj-modal-body" style={{ display: 'grid', gap: '14px' }}>
+        <form onSubmit={onGuardar} className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <div className="form-group-filter">
             <label htmlFor="actividad-titulo">Título *</label>
             <input
@@ -275,7 +270,7 @@ function ModalFormularioActividad({
 
           {archivosExistentes.length > 0 && (
             <div style={{ display: 'grid', gap: '10px' }}>
-              <p style={{ margin: 0, fontWeight: 600 }}>Archivos actuales</p>
+              <p className="m-0 font-bold">Archivos actuales</p>
               {archivosExistentes.map((archivo) => (
                 <ArchivoRow
                   key={archivo.id_archivo || archivo.nombre_archivo}
@@ -290,7 +285,7 @@ function ModalFormularioActividad({
 
           {nuevosArchivos.length > 0 && (
             <div style={{ display: 'grid', gap: '10px' }}>
-              <p style={{ margin: 0, fontWeight: 600 }}>Nuevos archivos a agregar</p>
+              <p className="m-0 font-bold">Nuevos archivos a agregar</p>
               {nuevosArchivos.map((file, index) => (
                 <ArchivoRow
                   key={`${file.name}-${file.size}-${file.lastModified}`}
@@ -307,7 +302,7 @@ function ModalFormularioActividad({
             {cursoNombre} - {materiaNombre}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+          <div className="standard-modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancelar
             </button>
@@ -510,7 +505,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
                     <td>{fecha.fecha}</td>
                     <td>{fecha.hora}</td>
                     <td>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <div className="flex-row--wrap">
                         <button
                           type="button"
                           className="btn btn-success btn-sm"

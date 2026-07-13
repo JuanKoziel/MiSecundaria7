@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { createMateria, updateMateria } from '../../services/api';
 import AsignacionMaterias from './asignacionMaterias';
+import FormModal from '../../components/Shared/FormModal';
 
 const formVacio = { nombre_materia: '' };
 
@@ -13,20 +14,24 @@ function mensajeError(err) {
   return data?.detail || err.message || 'Error inesperado';
 }
 
-function FormMateria({ formData, setFormData, editing, saving, onSubmit, onCancel }) {
+function FormMateria({ formData, setFormData, editing, guardando, onSubmit, onCancel }) {
   return (
-    <form onSubmit={onSubmit} style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
-      <div className="form-group-filter">
-        <label htmlFor="mat-nombre">Nombre de la materia</label>
-        <input id="mat-nombre" type="text" value={formData.nombre_materia} onChange={(e) => setFormData((p) => ({ ...p, nombre_materia: e.target.value }))} required />
-      </div>
-      <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-        <button type="submit" className="btn btn-primary" disabled={saving}>
-          {saving ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
-      </div>
-    </form>
+    <FormModal title={editing ? 'Editar materia' : 'Nueva materia'} onClose={onCancel}>
+      <form onSubmit={onSubmit}>
+        <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+          <div className="form-group-filter">
+            <label htmlFor="mat-nombre">Nombre de la materia</label>
+            <input id="mat-nombre" type="text" value={formData.nombre_materia} onChange={(e) => setFormData((p) => ({ ...p, nombre_materia: e.target.value }))} required />
+          </div>
+        </div>
+        <div className="standard-modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" disabled={guardando}>
+            {guardando ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
+          </button>
+        </div>
+      </form>
+    </FormModal>
   );
 }
 
@@ -38,7 +43,7 @@ function GestionMaterias() {
   const [formData, setFormData] = useState(formVacio);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     refreshAdminMaterias(mostrarInactivos);
@@ -67,7 +72,7 @@ function GestionMaterias() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setSaving(true);
+    setGuardando(true);
     try {
       const payload = { nombre_materia: formData.nombre_materia };
       if (esEdicion) {
@@ -82,7 +87,7 @@ function GestionMaterias() {
     } catch (err) {
       setError(mensajeError(err));
     } finally {
-      setSaving(false);
+      setGuardando(false);
     }
   };
 
@@ -107,11 +112,11 @@ function GestionMaterias() {
   };
 
   return (
-    <>
+    <div>
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div className="flex-row--between mb-16">
         <label style={{ cursor: 'pointer', userSelect: 'none' }}>
           <input type="checkbox" checked={mostrarInactivos} onChange={(e) => setMostrarInactivos(e.target.checked)} style={{ marginRight: '8px' }} />
           Mostrar registros inactivos
@@ -126,7 +131,7 @@ function GestionMaterias() {
           formData={formData}
           setFormData={setFormData}
           editing={null}
-          saving={saving}
+          guardando={guardando}
           onSubmit={(e) => handleSubmit(e, false)}
           onCancel={limpiar}
         />
@@ -152,36 +157,34 @@ function GestionMaterias() {
                     <td>
                       <span className={`badge ${m.activo ? 'badge-success' : 'badge-danger'}`}>{m.activo ? 'Activo' : 'Inactivo'}</span>
                     </td>
-                    <td className="acciones-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <td className="acciones-cell flex-row--center">
                       {m.activo && (
-                        <>
+                        <div>
                           <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(m)} aria-label="Editar materia" title="Editar"><i className="fas fa-edit" aria-hidden="true" /></button>
                           <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDesactivar(m)} aria-label="Desactivar materia" title="Desactivar"><i className="fas fa-ban" aria-hidden="true" /></button>
-                        </>
+                        </div>
                       )}
                     </td>
                   </tr>
-                  {editing && editing.id_materia === m.id_materia && (
-                    <tr key={`${m.id_materia}-edit`}>
-                      <td colSpan={3} style={{ padding: 0 }}>
-                        <FormMateria
-                          formData={formData}
-                          setFormData={setFormData}
-                          editing={editing}
-                          saving={saving}
-                          onSubmit={(e) => handleSubmit(e, true)}
-                          onCancel={limpiar}
-                        />
-                      </td>
-                    </tr>
-                  )}
+
                 </Fragment>
               ))
             )}
           </tbody>
         </table>
       </div>
-    </>
+
+      {editing && (
+        <FormMateria
+          formData={formData}
+          setFormData={setFormData}
+          editing={editing}
+          guardando={guardando}
+          onSubmit={(e) => handleSubmit(e, true)}
+          onCancel={limpiar}
+        />
+      )}
+    </div>
   );
 }
 
@@ -192,8 +195,8 @@ function Materias() {
     <div className="card">
       <div className="card-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <h2 style={{ margin: 0 }}>Materias</h2>
-          <div className="tabs-container" style={{ margin: 0 }}>
+          <h2 className="m-0">Materias</h2>
+          <div className="tabs-container m-0">
             <button
               type="button"
               className={`tab-btn${tab === 'gestion' ? ' active' : ''}`}

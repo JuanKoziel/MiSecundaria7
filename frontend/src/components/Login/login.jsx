@@ -1,4 +1,3 @@
-import './login.css';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -43,17 +42,7 @@ function Login() {
         <p>Ingresa tus credenciales para acceder</p>
 
         {error && (
-          <div
-            style={{
-              background: '#fef2f2',
-              border: '1px solid #fca5a5',
-              color: '#b91c1c',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              marginBottom: '12px',
-              fontSize: '0.9rem',
-            }}
-          >
+          <div className="error-message">
             {error}
           </div>
         )}

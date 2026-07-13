@@ -133,10 +133,10 @@ function ActividadesView({ userRole, selectedChild }) {
           <h3>Detalle de la Actividad</h3>
         </div>
 
-        <div style={{ marginTop: '16px' }}>
+        <div className="mt-16">
           <h2>{actividad.titulo}</h2>
 
-          <div style={{ marginTop: '12px', color: '#666', fontSize: '14px' }}>
+          <div className="mt-12 text-muted" style={{ fontSize: '14px' }}>
             <p><strong>Materia:</strong> {actividad.materia_nombre || '—'}</p>
             <p><strong>Curso:</strong> {actividad.curso_nombre || '—'}</p>
             <p><strong>Docente:</strong> {actividad.docente_apellido ? `${actividad.docente_apellido}, ${actividad.docente_nombre}` : '—'}</p>
@@ -145,34 +145,24 @@ function ActividadesView({ userRole, selectedChild }) {
           </div>
 
           {actividad.descripcion && (
-            <div style={{ marginTop: '20px', padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
+            <div className="mt-20" style={{ padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
               <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}><strong>Descripción:</strong></p>
               <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', marginTop: '8px' }}>{actividad.descripcion}</p>
             </div>
           )}
 
           {archivos.length > 0 && (
-            <div style={{ marginTop: '20px' }}>
+            <div className="mt-20">
               <h4>Archivos adjuntos ({archivos.length})</h4>
-              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="mt-12" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {archivos.map((archivo) => (
                   <div key={archivo.id_archivo || archivo.nombre_archivo}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px',
-                        background: '#fff',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                      }}
-                    >
+                    <div className="flex-row--between" style={{ padding: '12px', background: '#fff', border: '1px solid #ddd', borderRadius: '4px' }}>
                       <span style={{ fontSize: '14px' }}>
                         <i className="fas fa-paperclip" aria-hidden="true" />{' '}
                         {archivo.nombre_archivo || 'Archivo'}
                       </span>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div className="flex-row">
                         <button
                           type="button"
                           className="btn btn-sm btn-success"
@@ -212,7 +202,7 @@ function ActividadesView({ userRole, selectedChild }) {
                             />
                           )
                         ) : (
-                          <p style={{ margin: 0, color: '#666' }}>Este archivo no admite vista previa.</p>
+                          <p className="m-0 text-muted">Este archivo no admite vista previa.</p>
                         )}
                       </div>
                     )}
@@ -234,21 +224,21 @@ function ActividadesView({ userRole, selectedChild }) {
       </div>
 
       {cursoNombre && (
-        <p className="upload-hint" style={{ margin: '0 0 12px' }}>
+        <p className="upload-hint m-0 mb-12">
           Curso: <strong>{cursoNombre}</strong>
         </p>
       )}
 
       {loading ? (
-        <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+        <p className="empty-state-message empty-state-centered">
           Cargando actividades...
         </p>
       ) : materiasDelCurso.length === 0 ? (
-        <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+        <p className="empty-state-message empty-state-centered">
           No hay materias disponibles.
         </p>
       ) : (
-        <>
+        <div>
           <div className="filter-row">
             <div className="form-group-filter" style={{ maxWidth: '360px' }}>
               <label htmlFor="materia-select">Materia</label>
@@ -265,7 +255,7 @@ function ActividadesView({ userRole, selectedChild }) {
           </div>
 
           <div>
-            <h4 style={{ margin: '0 0 12px', borderBottom: '2px solid var(--primary-color)', paddingBottom: '4px' }}>
+            <h4 className="m-0 mb-12" style={{ borderBottom: '2px solid var(--primary-color)', paddingBottom: '4px' }}>
               {selectedMateria}
             </h4>
             {(() => {
@@ -293,7 +283,7 @@ function ActividadesView({ userRole, selectedChild }) {
                         }}
                       >
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{act.titulo}</div>
+                          <div className="font-bold" style={{ wordBreak: 'break-word' }}>{act.titulo}</div>
                           <div className="upload-hint" style={{ marginTop: '4px', fontSize: '13px' }}>
                             {formatFecha(act.fecha_creacion)} {formatHora(act.fecha_creacion)}
                             {act.docente_apellido ? ` — ${act.docente_apellido}, ${act.docente_nombre}` : ''}
@@ -302,8 +292,7 @@ function ActividadesView({ userRole, selectedChild }) {
                         </div>
                         <button
                           type="button"
-                          className="btn btn-sm btn-primary"
-                          style={{ whiteSpace: 'nowrap' }}
+                          className="btn btn-sm btn-primary nowrap"
                           onClick={() => setSelectedActividad(act)}
                         >
                           <i className="fas fa-eye" aria-hidden="true" /> Ver
@@ -315,7 +304,7 @@ function ActividadesView({ userRole, selectedChild }) {
               );
             })()}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

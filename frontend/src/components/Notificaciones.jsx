@@ -3,7 +3,7 @@ import { useState } from 'react';
 function Notificaciones({ userRole, selectedChild }) {
   const [activeTab, setActiveTab] = useState('alumno');
 
-  // For Familia role, show tabs for student and personal notifications
+  // Para rol Familia, mostrar pestañas para notificaciones del alumno y personales
   if (userRole === 'familia') {
     return (
       <div className="card">
@@ -11,7 +11,7 @@ function Notificaciones({ userRole, selectedChild }) {
           <h3>Notificaciones</h3>
         </div>
 
-        {/* Tabs */}
+        {/* Pestañas */}
         <div className="tabs-container">
           <button
             type="button"
@@ -29,7 +29,7 @@ function Notificaciones({ userRole, selectedChild }) {
           </button>
         </div>
 
-        {/* Tab Content */}
+        {/* Contenido de pestañas */}
         {activeTab === 'alumno' ? (
           <div className="tab-content">
             {selectedChild ? (
@@ -64,7 +64,7 @@ function Notificaciones({ userRole, selectedChild }) {
     );
   }
 
-  // For other roles (Alumno, Docente, Preceptor, Admin), show single view
+  // Para otros roles (Alumno, Docente, Preceptor, Admin), mostrar vista única
   return (
     <div className="card">
       <div className="card-header-flex">

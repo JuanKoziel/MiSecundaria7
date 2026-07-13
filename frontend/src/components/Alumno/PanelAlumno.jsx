@@ -5,20 +5,12 @@ import { cursoConOrientacion } from '../../utils/orientacion';
 
 function StatCard({ icon, value, label, color }) {
   return (
-    <div style={{
-      background: 'var(--card-bg)',
-      borderRadius: '8px',
-      padding: '16px',
-      textAlign: 'center',
-      border: '1px solid var(--border-color)',
-    }}>
-      <i className={`fas ${icon}`} style={{ fontSize: '1.8rem', color: color || 'var(--primary-color)', marginBottom: '4px' }} aria-hidden="true" />
-      <div style={{ fontSize: '1.5rem', fontWeight: '700', marginTop: '4px', color: color || 'inherit' }}>
+    <div className="stat-card">
+      <i className={`fas ${icon} stat-card-icon`} style={{ color: color || 'var(--primary-color)' }} aria-hidden="true" />
+      <div className="stat-card-value" style={{ color: color || 'inherit' }}>
         {value ?? '—'}
       </div>
-      <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
-        {label}
-      </div>
+      <div className="stat-card-label">{label}</div>
     </div>
   );
 }
@@ -67,91 +59,51 @@ function PanelAlumno({ miAlumno, user }) {
 
   return (
     <div className="card">
-      <div className="card-header-flex" style={{ marginBottom: '20px' }}>
+      <div className="card-header-flex card-header-flex--compact">
         <h3>Perfil del Alumno</h3>
-        <span className="badge badge-presente" style={{ fontSize: '0.9rem', padding: '6px 12px' }}>
+        <span className="badge badge-presente badge--header">
           <i className="fas fa-check-circle" aria-hidden="true" /> Activo
         </span>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '20px',
-          marginBottom: '28px',
-          background: '#f8f9fa',
-          padding: '20px',
-          borderRadius: '8px',
-          borderLeft: '4px solid var(--primary-color)',
-        }}
-      >
+      <div className="profile-grid">
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
-            Nombre Completo
-          </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>
-            {miAlumno.apellido}, {miAlumno.nombre}
-          </p>
+          <label className="profile-label">Nombre Completo</label>
+          <p className="profile-value">{miAlumno.apellido}, {miAlumno.nombre}</p>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
-            Documento (DNI)
-          </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{formatDNI(miAlumno.dni)}</p>
+          <label className="profile-label">Documento (DNI)</label>
+          <p className="profile-value">{formatDNI(miAlumno.dni)}</p>
         </div>
         {miAlumno.telefono && (
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
-              Teléfono de Contacto
-            </label>
-            <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{miAlumno.telefono}</p>
+            <label className="profile-label">Teléfono de Contacto</label>
+            <p className="profile-value">{miAlumno.telefono}</p>
           </div>
         )}
         {miAlumno.direccion && (
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
-              Dirección
-            </label>
-            <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{miAlumno.direccion}</p>
+            <label className="profile-label">Dirección</label>
+            <p className="profile-value">{miAlumno.direccion}</p>
           </div>
         )}
         {miAlumno.fecha_nacimiento && (
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
-              Fecha de Nacimiento
-            </label>
-            <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>
-              {miAlumno.fecha_nacimiento}
-            </p>
+            <label className="profile-label">Fecha de Nacimiento</label>
+            <p className="profile-value">{miAlumno.fecha_nacimiento}</p>
           </div>
         )}
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
-            Usuario
-          </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>
-            {miAlumno.usuario}
-          </p>
+          <label className="profile-label">Usuario</label>
+          <p className="profile-value">{miAlumno.usuario}</p>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
-            Rol
-          </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>
-            Alumno
-          </p>
+          <label className="profile-label">Rol</label>
+          <p className="profile-value">Alumno</p>
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: '16px',
-          marginBottom: '28px',
-        }}
-      >
+      <div className="stats-grid">
         {miAlumno.curso && <StatCard icon="fa-users" value={cursoConOrientacion(miAlumno.curso)} label="Curso actual" />}
         <StatCard icon="fa-layer-group" value={division || '—'} label="División" />
         <StatCard icon="fa-calendar" value={miAlumno.ciclo_anio || '—'} label="Ciclo lectivo" />
@@ -166,19 +118,8 @@ function PanelAlumno({ miAlumno, user }) {
         />
       </div>
 
-      <div
-        style={{
-          background: '#f0f4ff',
-          borderLeft: '4px solid var(--primary-color)',
-          borderRadius: '8px',
-          padding: '14px 20px',
-          marginBottom: '28px',
-          fontSize: '0.9rem',
-          color: '#444',
-          lineHeight: '1.6',
-        }}
-      >
-        <i className="fas fa-info-circle" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+      <div className="info-box mb-28">
+        <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
         Desde este perfil puede consultar calificaciones, asistencias, horarios, comunicados y toda su información académica.
       </div>
 
@@ -186,22 +127,22 @@ function PanelAlumno({ miAlumno, user }) {
         <h4>Cursando</h4>
       </div>
 
-      <div className="table-responsive" style={{ marginTop: '10px' }}>
+      <div className="table-responsive mt-10">
         <table>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', paddingLeft: '15px' }}>Curso / División</th>
+              <th className="text-left">Curso / División</th>
               <th>Año Lectivo</th>
             </tr>
           </thead>
           <tbody>
             {miAlumno.curso ? (
               <tr>
-                <td style={{ textAlign: 'left', paddingLeft: '15px', fontWeight: '600' }}>
-                  <i className="fas fa-users" style={{ color: '#888', marginRight: '8px' }} aria-hidden="true" />
+                <td className="text-left font-bold">
+                  <i className="fas fa-users icon-muted" aria-hidden="true" />
                   {cursoConOrientacion(miAlumno.curso)}
                 </td>
-                <td style={{ color: '#555' }}>{miAlumno.ciclo_anio || '—'}</td>
+                <td className="text-muted">{miAlumno.ciclo_anio || '—'}</td>
               </tr>
             ) : (
               <tr>

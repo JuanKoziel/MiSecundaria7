@@ -52,7 +52,7 @@ function DdjjPreviewModal({ docente, onClose, onDelete }) {
       >
         <div className="ddjj-modal-header">
           <div>
-            <h4 style={{ margin: 0 }}>D.D.J.J. del docente</h4>
+            <h4 className="m-0">D.D.J.J. del docente</h4>
             <p style={{ margin: '4px 0 0', color: 'var(--text-light)', fontSize: '0.9rem' }}>
               {docente.apellido}, {docente.nombre}
             </p>
@@ -90,7 +90,7 @@ function DdjjPreviewModal({ docente, onClose, onDelete }) {
             )
           ) : (
             <div className="ddjj-no-preview">
-              <p style={{ margin: 0 }}>Este archivo no admite vista previa.</p>
+              <p className="m-0">Este archivo no admite vista previa.</p>
             </div>
           )}
         </div>
@@ -274,22 +274,13 @@ function Docentes() {
         <h3>Docentes</h3>
       </div>
 
-      <div style={{ marginBottom: '12px' }}>
+      <div className="mb-12">
         <input
           type="text"
           placeholder="Buscar por nombre, apellido o DNI..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            padding: '10px 14px',
-            border: '1px solid var(--table-border)',
-            borderRadius: '10px',
-            background: 'var(--table-row-bg)',
-            color: 'var(--text-dark)',
-            outline: 'none',
-          }}
+          className="search-input"
         />
       </div>
 

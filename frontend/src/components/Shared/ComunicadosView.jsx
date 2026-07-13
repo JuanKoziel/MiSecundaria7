@@ -169,9 +169,9 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
           <h3>Detalle del Comunicado</h3>
         </div>
 
-        <div style={{ marginTop: '16px' }}>
+        <div className="mt-16">
           <h2>{selectedComunicado.titulo}</h2>
-          <div style={{ marginTop: '12px', color: '#666', fontSize: '14px' }}>
+          <div className="mt-12 text-muted" style={{ fontSize: '14px' }}>
             <p><strong>Autor:</strong> {getNombreAutor(selectedComunicado.id_usuario_creador)}</p>
             <p><strong>Fecha y hora:</strong> {selectedComunicado.fecha}</p>
             <p><strong>Curso destinatario:</strong> {selectedComunicado.alcance_label || getNombreCurso(selectedComunicado.id_curso) || 'General'}</p>
@@ -180,32 +180,25 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
             )}
           </div>
 
-          <div style={{ marginTop: '20px', padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
+          <div className="mt-20" style={{ padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
             <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{selectedComunicado.cuerpo}</p>
           </div>
 
           {selectedComunicado.archivos && selectedComunicado.archivos.length > 0 && (
-            <div style={{ marginTop: '20px' }}>
+            <div className="mt-20">
               <h4>Archivos adjuntos ({selectedComunicado.archivos.length})</h4>
-              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="mt-12" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {selectedComunicado.archivos.map((archivo) => (
                   <div
                     key={archivo.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '12px',
-                      background: '#fff',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                    }}
+                    className="flex-row--between"
+                    style={{ padding: '12px', background: '#fff', border: '1px solid #ddd', borderRadius: '4px' }}
                   >
                     <span style={{ fontSize: '14px' }}>
                       <i className="fas fa-paperclip" aria-hidden="true" />{' '}
                       {archivo.ruta_archivo.split('/').pop()}
                     </span>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className="flex-row">
                       <button
                         type="button"
                         className="btn btn-sm btn-success"
@@ -244,7 +237,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
       </div>
 
       {comunicadosOrdenados.length === 0 ? (
-        <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+        <p className="empty-state-message empty-state-centered">
           No hay comunicados disponibles para visualizar.
         </p>
       ) : (

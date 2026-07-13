@@ -165,7 +165,7 @@ function HorarioSemanal({ cursosOptions }) {
   };
 
   return (
-    <>
+    <div>
       <div className="filter-row">
         <div className="form-group-filter" style={{ maxWidth: '320px' }}>
           <label htmlFor="hs-curso">Curso</label>
@@ -189,21 +189,21 @@ function HorarioSemanal({ cursosOptions }) {
       )}
 
       {cursoSeleccionado && (
-        <>
+        <div>
           {cargandoGrilla ? (
-            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+            <p className="empty-state-message empty-state-centered">
               Cargando horarios...
             </p>
           ) : modulosSorted.length === 0 ? (
-            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+            <p className="empty-state-message empty-state-centered">
               No hay módulos horarios definidos en el sistema.
             </p>
           ) : materiasCurso.length === 0 ? (
-            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+            <p className="empty-state-message empty-state-centered">
               El curso no tiene materias asignadas.
             </p>
           ) : (
-            <>
+            <div>
               <div className="table-responsive">
                 <table>
                   <thead>
@@ -217,7 +217,7 @@ function HorarioSemanal({ cursosOptions }) {
                   <tbody>
                     {modulosSorted.map((mod) => (
                       <tr key={mod.id_modulo}>
-                        <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        <td className="font-bold nowrap">
                           {timeStr(mod.hora_inicio)} - {timeStr(mod.hora_fin)}
                         </td>
                         {DIAS.map((dia) => (
@@ -241,7 +241,7 @@ function HorarioSemanal({ cursosOptions }) {
                 </table>
               </div>
 
-              <div className="form-actions" style={{ marginTop: '16px' }}>
+              <div className="form-actions mt-16">
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -251,11 +251,11 @@ function HorarioSemanal({ cursosOptions }) {
                   {guardando ? 'Guardando...' : 'Guardar cambios'}
                 </button>
               </div>
-            </>
+            </div>
           )}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -386,7 +386,7 @@ function EducacionFisica({ cursosOptions }) {
   };
 
   return (
-    <>
+    <div>
       <div className="filter-row">
         <div className="form-group-filter" style={{ maxWidth: '320px' }}>
           <label htmlFor="ef-curso">Curso</label>
@@ -410,19 +410,19 @@ function EducacionFisica({ cursosOptions }) {
       )}
 
       {cursoSeleccionado && (
-        <>
+        <div>
           {cargando ? (
-            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+            <p className="empty-state-message empty-state-centered">
               Cargando...
             </p>
           ) : !cmEf ? (
-            <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+            <p className="empty-state-message empty-state-centered">
               El curso no tiene Educación Física asignada.
             </p>
           ) : (
-            <>
+            <div>
               {form && (
-                <form onSubmit={handleSubmit} style={{ marginBottom: '20px' }}>
+                <form onSubmit={handleSubmit} className="mb-20">
                   <div className="filter-row">
                     <div className="form-group-filter">
                       <label htmlFor="ef-dia">Día</label>
@@ -480,16 +480,15 @@ function EducacionFisica({ cursosOptions }) {
               {!form && (
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary mb-16"
                   onClick={() => setForm({ ...FORM_VACIO })}
-                  style={{ marginBottom: '16px' }}
                 >
                   Agregar horario
                 </button>
               )}
 
               {horarios.length === 0 ? (
-                <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+                <p className="empty-state-message empty-state-centered">
                   No hay horarios de Educación Física cargados.
                 </p>
               ) : (
@@ -533,11 +532,11 @@ function EducacionFisica({ cursosOptions }) {
                   </table>
                 </div>
               )}
-            </>
+            </div>
           )}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -556,10 +555,10 @@ function Horarios() {
         <h3>Horarios</h3>
       </div>
 
-      <div className="filter-row" style={{ marginBottom: '20px' }}>
+      <div className="filter-row mb-20">
         <div className="form-group-filter" style={{ maxWidth: '320px' }}>
           <label>Vista</label>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="flex-row">
             <button
               type="button"
               className={`btn btn-sm ${modo === 'semanal' ? 'btn-primary' : 'btn-secondary'}`}

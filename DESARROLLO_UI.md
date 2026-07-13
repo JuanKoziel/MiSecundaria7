@@ -32,171 +32,164 @@
   ### Reutilización de componentes
   - No crear un componente si ya existe uno similar.
   - No crear un filtro si ya existe `FiltrosAnioCurso`.
-  - No crear un formulario desde cero: copiar el patrón de `cursos.jsx` o `preceptores.jsx`.
+  - No crear un formulario desde cero: seguir el **"Estándar oficial de formularios"** más abajo.
   - No crear un perfil desde cero: copiar el patrón de `PanelAdmin.jsx`.
 
   ---
 
-  ## Formularios
+  ## Formularios — Versión legacy (en migración)
 
-  ### Estructura exacta
+  > **ATENCIÓN:** Todos los formularios nuevos deben seguir el **"Estándar oficial de formularios"** definido en la sección siguiente. Esta sección describe el patrón anterior y se mantiene solo para compatibilidad con formularios que aún no han sido migrados.
 
-  ```jsx
-  <form onSubmit={handleSubmit} className="preceptor-form">
-    <section className="preceptor-form-section">
-      <h4>TÍTULO DE LA SECCIÓN</h4>
-      <div className="preceptor-form-row preceptor-form-row--two">
-        <div className="form-group-filter">
-          <label htmlFor="campo-id">Label del campo</label>
-          <input id="campo-id" type="text" value={...} onChange={...} required />
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="campo-id-2">Label del campo 2</label>
-          <select id="campo-id-2" value={...} onChange={...}>
-            <option value="">Seleccionar...</option>
-          </select>
-        </div>
-      </div>
-    </section>
-
-    <div className="modal-footer" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-      <button type="submit" className="btn btn-primary" disabled={saving}>
-        <i className="fas fa-save" /> {saving ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
-      </button>
-      <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
-    </div>
-  </form>
-  ```
-
-  ### Contenedor principal del formulario
-  - Si el formulario está dentro de un card: usar `<div className="card">`.
-  - Si es un formulario inline que se despliega (crear/editar): usar `style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}` aplicado al `<form>`.
-  - Si es un formulario más complejo con borde y sombra: usar `className="administradores-inline-form"`.
-
-  ### Clases CSS obligatorias
+  ### Clases de layout disponibles (compartidas con el nuevo estándar)
 
   | Clase | Cuándo usarla |
   |-------|---------------|
-  | `preceptor-form` | En el `<form>` principal |
+  | `form-group-filter` | **SIEMPRE** para cada par label+campo |
   | `preceptor-form-section` | Para cada grupo de campos separado por borde superior |
   | `preceptor-form-row` | Fila simple de una columna |
   | `preceptor-form-row--two` | Fila de 2 columnas iguales |
   | `preceptor-form-row--status` | Fila de 3 columnas (estado + 2 fechas) |
   | `preceptor-form-grid` | Grid de 2 columnas asimétrico (1fr / minmax(160px,220px)) |
   | `preceptor-form-full` | Campo que ocupa todo el ancho del grid |
-  | `form-group-filter` | **SIEMPRE** para cada par label+campo |
   | `preceptor-status-toggle` | Checkbox de estado estilizado |
   | `preceptor-cursos-multiselect` | Grid de opciones seleccionables |
   | `preceptor-curso-option` | Cada opción del multiselect |
   | `preceptor-curso-option--selected` | Opción seleccionada |
 
-  ### Títulos y subtítulos
-  - Los títulos de sección dentro del formulario usan `<h4>` con `text-transform: uppercase; font-size: 0.9rem; color: var(--sidebar-color); font-weight: 700;`.
-  - Los títulos del card usan `<h3>` o `<h2>` dentro de `.card-header-flex`.
+  ### Contenedores inline (fondo oscuro institucional)
+  - Para formularios inline (no modales): usar `className="inline-form-container"` en el `<form>` o contenedor.
+  - Para formularios grandes tipo administradores: usar `className="administradores-inline-form"`.
+  - Para planificaciones: usar `className="proyecto-form"`.
+  - Para actas: usar `className="acta-form"`.
+
+  ---
+
+  ## Estándar oficial de formularios
+
+  Este es el **único estándar permitido** para todos los formularios del sistema. Cualquier formulario nuevo debe seguirlo obligatoriamente. No se permiten diseños alternativos.
+
+  ### Filosofía
+  - Fondo azul oscuro institucional (`--sidebar-hover`) para el contenedor del formulario.
+  - Overlay semitransparente para modales.
+  - Labels en gris muy claro (`#cbd5e1`) para máxima legibilidad sobre fondo oscuro.
+  - Inputs y textareas con fondo blanco, bordes redondeados y focus naranja.
+  - Botones del sistema (`.btn-primary`, `.btn-secondary`, etc.) sin cambios.
+  - Espaciado generoso y organización mediante grid.
+
+  ### Modal centrado (para formularios que abren en ventana)
+
+  ```jsx
+  <div className="ddjj-modal-overlay" role="presentation" onClick={onClose}>
+    <div className="standard-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+      <div className="standard-modal-header">
+        <h3>Título del formulario</h3>
+      </div>
+
+      <form className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+        {/* campos */}
+      </form>
+
+      <div className="standard-modal-footer">
+        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+        <button type="submit" className="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+  ```
+
+  #### Clases CSS del modal
+
+  | Clase | Propósito |
+  |-------|-----------|
+  | `ddjj-modal-overlay` | Overlay oscuro semitransparente. Centra el modal con flex. |
+  | `standard-modal` | Contenedor del modal. Fondo `--sidebar-hover`, bordes redondeados, sombra. |
+  | `standard-modal-header` | Header con borde inferior sutil. Título en blanco. |
+  | `standard-modal-body` | Cuerpo con scroll si es necesario. Padding de 24px. |
+  | `standard-modal-footer` | Botonera alineada a la derecha con borde superior. |
+
+  #### Estructura visual
+  - **Overlay**: `rgba(15, 23, 42, 0.62)` — oscuro pero no opaco.
+  - **Modal**: `background: var(--sidebar-hover)` (#163452) — azul oscuro institucional.
+  - **Header**: padding 18px 24px, borde inferior `rgba(255,255,255,0.08)`, título blanco.
+  - **Body**: padding 24px, scroll vertical automático si el contenido excede.
+  - **Footer**: padding 16px 24px, borde superior `rgba(255,255,255,0.08)`, botones a la derecha.
+
+  ### Formulario inline (dentro de card o sección)
+
+  ```jsx
+  <form onSubmit={handleSubmit} className="inline-form-container">
+    <div className="preceptor-form-row preceptor-form-row--two">
+      <div className="form-group-filter">
+        <label htmlFor="campo-id">Label del campo</label>
+        <input id="campo-id" type="text" value={...} onChange={...} required />
+      </div>
+    </div>
+
+    <div className="standard-modal-footer" style={{ marginTop: '16px' }}>
+      <button type="submit" className="btn btn-primary">Guardar</button>
+      <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
+    </div>
+  </form>
+  ```
 
   ### Labels
-  - `<label htmlFor="id-del-input">Texto del label</label>`.
-  - Estilo CSS: `display: block; margin-bottom: 6px; font-size: 0.85rem; color: var(--text-light); font-weight: 500;`.
+  - Usar siempre `<label htmlFor="id-del-input">Texto</label>`.
+  - Sobre fondo oscuro institucional: color `#cbd5e1` (gris muy claro).
+  - Tamaño: `0.85rem`.
+  - Peso: `500`.
   - Nunca usar placeholder como label.
 
   ### Inputs
-  - Clase: dentro de `.form-group-filter`, no necesitan clase adicional.
-  - Estilo: `width: 100%; padding: 12px 14px; border: 1px solid var(--table-border); border-radius: 10px;`.
-  - Focus: `border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.10);`.
-  - Para `type="datetime-local"` se usa el mismo estilo.
+  - Siempre dentro de `.form-group-filter`.
+  - Fondo blanco (`var(--table-row-bg)`).
+  - Bordes: `1px solid var(--table-border)` con `border-radius: 10px`.
+  - Padding: `12px 14px`.
+  - Focus: `border-color: var(--primary-color)` + `box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.10)`.
+  - Placeholder: `color: #6b7785`.
+
+  ### Textareas
+  - Mismo estilo que inputs.
+  - `resize: vertical`, `min-height: 170px`.
+  - En comunicados: `min-height: 220px`.
 
   ### Selects
   - Misma apariencia que los inputs.
   - Opción por defecto: `<option value="">Seleccionar...</option>`.
-  - Los selects con dependencia usan `disabled={!dependencia}`.
 
-  ### Textareas
-  - Misma clase contenedora que inputs y selects.
-  - Estilo adicional: `resize: vertical; min-height: 170px; outline: none;`.
-  - En comunicados: `min-height: 220px`.
+  ### Botones
+  - NO cambiar colores, tamaños ni clases existentes.
+  - Guardar/Crear: `className="btn btn-primary"`.
+  - Cancelar/Cerrar: `className="btn btn-secondary"`.
+  - Ver más en la sección [Botones](#botones).
+  - La botonera SIEMPRE usa `className="standard-modal-footer"`.
 
-  ### Placeholders
-  - Color: `#6b7785` (definido en CSS para `::placeholder`).
+  ### Espaciados
+  - Gap entre campos en grid: `14px`.
+  - Padding del body modal: `24px`.
+  - Padding del form inline: `16px` a `20px`.
+  - Separación entre último campo y botones: el footer tiene `padding: 16px 24px` con borde superior.
 
-  ### Alturas y espaciados
-  - Gap entre filas: `14px`.
-  - Gap entre columnas: `14px`.
-  - Gap entre secciones: `18px` (el `preceptor-form` tiene `gap: 18px`).
-  - Margen superior de la primera sección: `14px` (con `padding-top: 14px; border-top: 1px solid #e6ebf2`).
-  - Margen inferior de la última sección: ninguno.
-  - Separación entre botones y último campo: `margin-top: 16px`.
+  ### Organización de campos
+  - Usar filas de 2 columnas con `preceptor-form-row--two`.
+  - Usar fila completa con `preceptor-form-full`.
+  - Usar grid asimétrico con `preceptor-form-grid`.
+  - Ver tabla de clases de layout en sección anterior.
 
-  ### Mensajes de error
-  - Usar variable `error` (string) y renderizar:
-    ```jsx
-    {error && <div className="alert alert-danger">{error}</div>}
-    ```
-    O alternativamente:
-    ```jsx
-    {error && <p style={{ color: 'red', margin: '8px 0' }}>{error}</p>}
-    ```
+  ### Títulos de sección dentro del formulario
+  - `<h4>` con `text-transform: uppercase; font-size: 0.9rem; font-weight: 700;`.
+  - Sobre fondo oscuro: `color: #ffffff`.
 
-  ### Mensajes de éxito
-  - Usar variable `success` (string) y renderizar:
-    ```jsx
-    {success && <div className="alert alert-success">{success}</div>}
-    ```
-    O alternativamente:
-    ```jsx
-    {success && <p style={{ color: 'green', margin: '8px 0' }}>{success}</p>}
-    ```
+  ### Mensajes de error y éxito
+  - Misma estructura que en versión legacy (ver arriba).
+  - Sobre fondo oscuro, los colores `#b91c1c` (error) y `#15803d` (éxito) son legibles.
 
-  ### Comportamiento al cancelar
-  - Se ejecuta la función `limpiar()` que:
-    ```jsx
-    const limpiar = () => {
-      setShowNewForm(false);
-      setEditing(null);
-      setFormData(formVacio);
-      setError('');
-      setSuccess('');
-      // setSaving(false); — ya se resetea en el finally del submit
-    };
-    ```
-  - El formulario se oculta completamente.
-  - No se guarda nada.
-
-  ### Comportamiento al guardar
-  ```jsx
-  const handleSubmit = async (e, esEdicion) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setSaving(true);
-    try {
-      const payload = { ...formData };
-      if (esEdicion) {
-        await updateEntidad(editing.id, payload);
-        setSuccess('Entidad actualizada correctamente');
-      } else {
-        await createEntidad(payload);
-        setSuccess('Entidad creada correctamente');
-      }
-      limpiar();
-      await refreshData(); // o función específica
-    } catch (err) {
-      setError(mensajeError(err));
-    } finally {
-      setSaving(false);
-    }
-  };
-  ```
-
-  ### Función mensajeError (siempre igual)
-  ```jsx
-  function mensajeError(err) {
-    const data = err.response?.data;
-    if (data && typeof data === 'object' && !data.detail) {
-      return Object.values(data).flat().join(' | ');
-    }
-    return data?.detail || err.message || 'Error inesperado';
-  }
-  ```
+  ### Regla obligatoria
+  - **Todos los formularios del sistema deben seguir este estándar.**
+  - No crear formularios con fondo blanco.
+  - No crear formularios sin overlay si usan modal.
+  - No cambiar colores de labels, inputs o botones.
+  - Reutilizar las clases CSS existentes antes de crear nuevas.
 
   ---
 
@@ -714,8 +707,8 @@
   ### ❌ Error 6: Crear CSS duplicado
   No agregar nuevas reglas CSS a `index.css` si ya existe una clase que hace lo mismo. No crear nuevos archivos `.css`.
 
-  ### ❌ Error 7: Usar modales para formularios
-  No crear ventanas modales para crear/editar. Usar siempre formularios inline desplegables. La única excepción existente es `DdjjPreviewModal`.
+  ### ❌ Error 7: Usar fondo blanco en formularios
+  Todos los formularios deben usar fondo oscuro institucional (`--sidebar-hover`). No usar `background: #ffffff` ni `background: var(--white)` en contenedores de formulario. Los modales centrados están permitidos (usar `standard-modal` + `ddjj-modal-overlay`). Los formularios inline deben usar `inline-form-container`, `administradores-inline-form`, `proyecto-form` o `acta-form`.
 
   ### ❌ Error 8: No usar `window.confirm()` para eliminaciones
   No eliminar sin confirmación. No usar `alert()` como confirmación. Solo `window.confirm()`.

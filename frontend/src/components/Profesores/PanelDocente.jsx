@@ -5,18 +5,12 @@ import { formatDNI } from '../../utils/dni';
 
 function StatCard({ icon, value, label, color }) {
   return (
-    <div style={{
-      background: 'var(--card-bg)',
-      borderRadius: '8px',
-      padding: '16px',
-      textAlign: 'center',
-      border: '1px solid var(--border-color)',
-    }}>
-      <i className={`fas ${icon}`} style={{ fontSize: '1.8rem', color: color || 'var(--primary-color)', marginBottom: '4px' }} aria-hidden="true" />
-      <div style={{ fontSize: '1.5rem', fontWeight: '700', marginTop: '4px', color: color || 'inherit' }}>
+    <div className="stat-card">
+      <i className={`fas ${icon} stat-card-icon`} style={{ color: color || 'var(--primary-color)' }} aria-hidden="true" />
+      <div className="stat-card-value" style={{ color: color || 'inherit' }}>
         {value ?? '—'}
       </div>
-      <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
+      <div className="stat-card-label">
         {label}
       </div>
     </div>
@@ -128,67 +122,54 @@ function PanelDocente({ miDocente }) {
 
   return (
     <div className="card">
-      <div className="card-header-flex" style={{ marginBottom: '20px' }}>
+      <div className="card-header-flex card-header-flex--compact">
         <h3>Perfil del Docente</h3>
-        <span className="badge badge-presente" style={{ fontSize: '0.9rem', padding: '6px 12px' }}>
+        <span className="badge badge-presente badge--header">
           <i className="fas fa-check-circle" aria-hidden="true" /> Activo
         </span>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '20px',
-          marginBottom: '28px',
+      <div className="profile-grid" style={{
           background: '#f8f9fa',
           padding: '20px',
           borderRadius: '8px',
           borderLeft: '4px solid var(--primary-color)',
-        }}
-      >
+        }}>
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+          <label className="profile-label">
             Nombre Completo
           </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>
+          <p className="profile-value">
             {miDocente.apellido}, {miDocente.nombre}
           </p>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+          <label className="profile-label">
             Documento (DNI)
           </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{formatDNI(miDocente.dni)}</p>
+          <p className="profile-value">{formatDNI(miDocente.dni)}</p>
         </div>
         {miDocente.correo && (
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+            <label className="profile-label">
               Correo Electrónico
             </label>
-            <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px', color: 'var(--primary-color)', wordBreak: 'break-all' }}>
+            <p className="profile-value--link">
               {miDocente.correo}
             </p>
           </div>
         )}
         {miDocente.telefono && (
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+            <label className="profile-label">
               Teléfono de Contacto
             </label>
-            <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{miDocente.telefono}</p>
+            <p className="profile-value">{miDocente.telefono}</p>
           </div>
         )}
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: '16px',
-          marginBottom: '28px',
-        }}
-      >
+      <div className="stats-grid">
         <StatCard icon="fa-book" value={stats.materias} label="Materias asignadas" />
         <StatCard icon="fa-school" value={stats.cursos} label="Cursos a cargo" />
         <StatCard icon="fa-users" value={stats.alumnos} label="Alumnos a cargo" />
@@ -203,40 +184,21 @@ function PanelDocente({ miDocente }) {
         />
       </div>
 
-      <div
-        style={{
-          background: '#f0f4ff',
-          borderLeft: '4px solid var(--primary-color)',
-          borderRadius: '8px',
-          padding: '14px 20px',
-          marginBottom: '28px',
-          fontSize: '0.9rem',
-          color: '#444',
-          lineHeight: '1.6',
-        }}
-      >
-        <i className="fas fa-info-circle" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+      <div className="info-box">
+        <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
         Desde este panel puede administrar calificaciones, asistencias, proyectos, actas y el seguimiento académico de sus cursos.
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          marginBottom: '28px',
-        }}
-      >
-        <div
+      <div className="flex-row--center mb-28">
+        <div className="text-center"
           style={{
             width: '100%',
             maxWidth: '720px',
-            textAlign: 'center',
             padding: '18px',
             border: '1px solid var(--border-color)',
             borderRadius: '8px',
             background: 'var(--card-bg)',
-          }}
-        >
+          }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -271,7 +233,7 @@ function PanelDocente({ miDocente }) {
             }}
           />
 
-          <p style={{ margin: '10px 0 0', fontWeight: 600 }}>
+          <p className="m-0 mt-10 font-bold">
             Estado: {ddjjPresentada ? 'D.D.J.J. presentada' : 'D.D.J.J. pendiente'}
           </p>
           <p style={{ margin: '6px 0 0' }}>
@@ -281,7 +243,7 @@ function PanelDocente({ miDocente }) {
             Archivo: {nombreArchivo || '—'}
           </p>
           {mensaje && (
-            <p style={{ margin: '10px 0 0', color: mensaje.startsWith('Error') ? '#b91c1c' : '#15803d' }}>
+            <p className="m-0 mt-10" style={{ color: mensaje.startsWith('Error') ? '#b91c1c' : '#15803d' }}>
               {mensaje}
             </p>
           )}
@@ -292,7 +254,7 @@ function PanelDocente({ miDocente }) {
         <h4>Materias y Cursos Asignados</h4>
       </div>
 
-      <div className="table-responsive" style={{ marginTop: '10px' }}>
+      <div className="table-responsive mt-10">
         <table>
           <thead>
             <tr>
@@ -311,12 +273,12 @@ function PanelDocente({ miDocente }) {
             ) : (
               misAsignaciones.map((item) => (
                 <tr key={item.id}>
-                  <td style={{ textAlign: 'left', paddingLeft: '15px', fontWeight: '600' }}>
-                    <i className="fas fa-users" style={{ color: '#888', marginRight: '8px' }} aria-hidden="true" />
+                  <td className="font-bold" style={{ textAlign: 'left', paddingLeft: '15px' }}>
+                    <i className="fas fa-users icon-muted" aria-hidden="true" />
                     {item.curso}
                   </td>
                   <td style={{ textAlign: 'left', paddingLeft: '15px' }}>
-                    <i className="fas fa-book" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+                    <i className="fas fa-book icon-primary" aria-hidden="true" />
                     {item.materia}
                   </td>
                   <td style={{ color: '#555' }}>{item.anio}</td>

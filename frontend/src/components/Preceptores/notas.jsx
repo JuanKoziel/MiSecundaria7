@@ -142,7 +142,7 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
   if (!filtrosCompletos(anioLectivo, curso)) {
     return (
-      <>
+      <div>
         <div className="card">
           <FiltrosAnioCurso
             anioLectivo={anioLectivo}
@@ -152,7 +152,7 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           />
         </div>
         <EmptyFiltros />
-      </>
+      </div>
     );
   }
 

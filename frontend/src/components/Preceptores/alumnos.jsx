@@ -5,6 +5,7 @@ import { createAlumno, updateAlumno, deleteAlumno } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
+import FormModal from '../../components/Shared/FormModal';
 import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
 
 const formVacio = {
@@ -283,7 +284,7 @@ function Alumnos() {
                         <td>{proximaAccion(a)}</td>
                         <td>
                           {puedeCambiarEstado ? (
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+                            <div className="flex-row--center flex-gap-16">
                               <button
                                 type="button"
                                 className={`btn btn-sm ${a.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
@@ -327,7 +328,7 @@ function Alumnos() {
                                   />
                                 </div>
                               </div>
-                              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                              <div className="flex-row flex-gap-16 mt-16">
                                 <button type="button" className="btn btn-primary" onClick={guardarProgramar} disabled={guardando}>
                                   {guardando ? 'Guardando...' : 'Guardar'}
                                 </button>
@@ -508,7 +509,15 @@ function Alumnos() {
 
     if (modo === 'modificar') {
       return (
-        <>
+        <div>
+          <FiltrosAnioCurso
+            anioLectivo={anioLectivo}
+            curso={curso}
+            onAnioChange={handleAnioFiltro}
+            onCursoChange={setCurso}
+          />
+          {filtrosOk ? (
+            <>
           <div className="filter-row">
             <div className="form-group-filter">
               <label htmlFor="alumno-select-mod">Alumno</label>
@@ -667,7 +676,11 @@ function Alumnos() {
               </div>
             </div>
           )}
-        </>
+          </> 
+        ) : (
+          <EmptyFiltros />
+        )}
+      </div>
       );
     }
 
@@ -706,8 +719,8 @@ function Alumnos() {
     <div className="card">
       <SelectorModo modo={modo} onModoChange={resetModo} titulo="Alumnos — ¿Qué deseás hacer?" />
 
-      {modo && (
-        <>
+      {modo && modo !== 'crear' && modo !== 'modificar' && (
+        <div>
           {necesitaFiltroCurso && (
             <FiltrosAnioCurso
               anioLectivo={anioLectivo}
@@ -720,23 +733,12 @@ function Alumnos() {
           {necesitaFiltroCurso && !filtrosOk ? (
             <EmptyFiltros />
           ) : (
-            <>
+            <div>
               <div className="card-header-flex">
                 <h3>
                   {tituloModo[modo]}
                   {filtrosOk && ` — ${curso} (${anioLectivo})`}
                 </h3>
-                {modo !== 'vista' && (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={handleGuardar}
-                    disabled={guardando}
-                  >
-                    <i className="fas fa-save" aria-hidden="true" />{' '}
-                    {guardando ? 'Guardando...' : 'Guardar'}
-                  </button>
-                )}
               </div>
               {mensaje && (
                 <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
@@ -744,9 +746,33 @@ function Alumnos() {
                 </p>
               )}
               {renderContenido()}
-            </>
+            </div>
           )}
-        </>
+        </div>
+      )}
+
+      {(modo === 'crear' || modo === 'modificar') && (
+        <FormModal
+          title={`${tituloModo[modo]}${filtrosOk && modo === 'modificar' ? ` — ${curso} (${anioLectivo})` : ''}`}
+          onClose={() => resetModo('')}
+        >
+          {mensaje && (
+            <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '0 0 8px' }}>
+              {mensaje}
+            </p>
+          )}
+          <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+            {renderContenido()}
+          </div>
+          <div className="standard-modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={() => resetModo('')}>
+              Cancelar
+            </button>
+            <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+              <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </FormModal>
       )}
     </div>
   );

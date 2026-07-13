@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import FormModal from '../../components/Shared/FormModal';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import {
@@ -49,6 +50,7 @@ function Comunicados() {
     anioCurso: '',
     division: '',
   });
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const filesRef = useRef(null);
@@ -240,135 +242,154 @@ function Comunicados() {
   };
 
   return (
-    <>
+    <div>
       <div className="card">
         <div className="card-header-flex">
           <h3>Nuevo Comunicado</h3>
-        </div>
-
-        {mensaje && (
-          <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
-            {mensaje}
-          </p>
-        )}
-
-        <div className="table-responsive upload-dashed-box comunicados-form">
-          <div className="preceptor-form-grid">
-            <div className="form-group-filter preceptor-form-full">
-              <label htmlFor="com-titulo">Título *</label>
-              <input
-                id="com-titulo"
-                type="text"
-                value={form.titulo}
-                onChange={(e) => setForm((p) => ({ ...p, titulo: e.target.value }))}
-                placeholder="Escribe el título del comunicado"
-              />
-            </div>
-
-            <div className="form-group-filter preceptor-form-full">
-              <label htmlFor="com-cuerpo">Cuerpo del comunicado *</label>
-              <textarea
-                id="com-cuerpo"
-                rows={8}
-                value={form.cuerpo}
-                onChange={(e) => setForm((p) => ({ ...p, cuerpo: e.target.value }))}
-                placeholder="Escribe aquí el contenido del comunicado"
-              />
-            </div>
-
-            <div className="form-group-filter">
-              <label htmlFor="com-ciclo">Año lectivo *</label>
-              <select
-                id="com-ciclo"
-                value={form.cicloId}
-                onChange={(e) => setForm((p) => ({
-                  ...p,
-                  cicloId: e.target.value,
-                  destinos: [],
-                  materiaId: '',
-                }))}
-              >
-                <option value="">Seleccionar...</option>
-                {ciclosOrdenados.map((ciclo) => (
-                  <option key={ciclo.id_ciclo} value={ciclo.id_ciclo}>
-                    {ciclo.anio}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group-filter preceptor-form-full">
-              <div className="preceptor-cursos-header">
-                <h4 id="com-destinos-label">Destinos acad?micos</h4>
-                <span className="badge badge-neutral">
-                  {destinosSeleccionados.length} seleccionados
-                </span>
-              </div>
-              <div className="preceptor-cursos-multiselect" role="group" aria-labelledby="com-destinos-label">
-                {destinosDisponibles.map((destino) => {
-                  const checked = destinosSeleccionados.some((item) => getDestinoKey(item) === destino.key);
-                  return (
-                    <label
-                      key={destino.key}
-                      className={`preceptor-curso-option${checked ? ' preceptor-curso-option--selected' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={() => toggleDestino(destino)}
-                      />
-                      <span>{destino.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="form-group-filter">
-              <label htmlFor="com-materia">Materia (opcional)</label>
-              <select
-                id="com-materia"
-                value={form.materiaId}
-                onChange={(e) => setForm((p) => ({ ...p, materiaId: e.target.value }))}
-                disabled={!cursoExacto}
-              >
-                <option value="">Sin materia</option>
-                {materiasDelCurso.map((materiaNombre) => {
-                  const materiaObj = materiasObj.find((m) => m.nombre_materia === materiaNombre);
-                  return (
-                    <option key={materiaObj?.id_materia || materiaNombre} value={materiaObj?.id_materia || ''}>
-                      {materiaNombre}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <div className="form-group-filter preceptor-form-full">
-              <label htmlFor="com-files">Archivos adjuntos (opcional, uno o varios)</label>
-              <input
-                id="com-files"
-                ref={filesRef}
-                type="file"
-                multiple
-                accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp"
-              />
-            </div>
-
-            <div className="form-group-filter preceptor-form-full">
-              <label>Destino previsto</label>
-              <div className="comunicados-destino-preview">{selectedDestinoLabels}</div>
-            </div>
-          </div>
-
-          <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
-            <i className="fas fa-paper-plane" aria-hidden="true" /> {guardando ? 'Enviando...' : 'Enviar comunicado'}
+          <button type="button" className="btn btn-sm btn-primary" onClick={() => setMostrarFormulario(!mostrarFormulario)}>
+            <i className={`fas ${mostrarFormulario ? 'fa-times' : 'fa-plus'}`} aria-hidden="true" />
+            {mostrarFormulario ? 'Cancelar' : 'Nuevo comunicado'}
           </button>
         </div>
+
+        {mostrarFormulario && (
+          <FormModal title="Nuevo Comunicado" onClose={() => setMostrarFormulario(false)}>
+            {mensaje && (
+              <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+                {mensaje}
+              </p>
+            )}
+            <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+              <div className="preceptor-form-grid">
+                <div className="form-group-filter preceptor-form-full">
+                  <label htmlFor="com-titulo">Título *</label>
+                  <input
+                    id="com-titulo"
+                    type="text"
+                    value={form.titulo}
+                    onChange={(e) => setForm((p) => ({ ...p, titulo: e.target.value }))}
+                    placeholder="Escribe el título del comunicado"
+                  />
+                </div>
+
+                <div className="form-group-filter preceptor-form-full">
+                  <label htmlFor="com-cuerpo">Cuerpo del comunicado *</label>
+                  <textarea
+                    id="com-cuerpo"
+                    rows={8}
+                    value={form.cuerpo}
+                    onChange={(e) => setForm((p) => ({ ...p, cuerpo: e.target.value }))}
+                    placeholder="Escribe aquí el contenido del comunicado"
+                  />
+                </div>
+
+                <div className="form-group-filter">
+                  <label htmlFor="com-ciclo">Año lectivo *</label>
+                  <select
+                    id="com-ciclo"
+                    value={form.cicloId}
+                    onChange={(e) => setForm((p) => ({
+                      ...p,
+                      cicloId: e.target.value,
+                      destinos: [],
+                      materiaId: '',
+                    }))}
+                  >
+                    <option value="">Seleccionar...</option>
+                    {ciclosOrdenados.map((ciclo) => (
+                      <option key={ciclo.id_ciclo} value={ciclo.id_ciclo}>
+                        {ciclo.anio}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group-filter preceptor-form-full">
+                  <div className="preceptor-cursos-header">
+                    <h4 id="com-destinos-label">Destinos académicos</h4>
+                    <span className="badge badge-neutral">
+                      {destinosSeleccionados.length} seleccionados
+                    </span>
+                  </div>
+                  <div className="preceptor-cursos-multiselect" role="group" aria-labelledby="com-destinos-label">
+                    {destinosDisponibles.length === 0 ? (
+                      <p className="empty-state-message">
+                        {anioLectivoSeleccionado
+                          ? 'No hay cursos disponibles para el año lectivo seleccionado.'
+                          : 'Seleccioná un año lectivo para ver los cursos disponibles.'}
+                      </p>
+                    ) : (
+                      destinosDisponibles.map((destino) => {
+                        const checked = destinosSeleccionados.some((item) => getDestinoKey(item) === destino.key);
+                        return (
+                          <label
+                            key={destino.key}
+                            className={`preceptor-curso-option${checked ? ' preceptor-curso-option--selected' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => toggleDestino(destino)}
+                            />
+                            <span>{destino.label}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-group-filter">
+                  <label htmlFor="com-materia">Materia (opcional)</label>
+                  <select
+                    id="com-materia"
+                    value={form.materiaId}
+                    onChange={(e) => setForm((p) => ({ ...p, materiaId: e.target.value }))}
+                    disabled={!cursoExacto}
+                  >
+                    <option value="">Sin materia</option>
+                    {materiasDelCurso.map((materiaNombre) => {
+                      const materiaObj = materiasObj.find((m) => m.nombre_materia === materiaNombre);
+                      return (
+                        <option key={materiaObj?.id_materia || materiaNombre} value={materiaObj?.id_materia || ''}>
+                          {materiaNombre}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div className="form-group-filter preceptor-form-full">
+                  <label htmlFor="com-files">Archivos adjuntos (opcional, uno o varios)</label>
+                  <input
+                    id="com-files"
+                    ref={filesRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp"
+                  />
+                </div>
+
+                <div className="form-group-filter preceptor-form-full">
+                  <label>Destino previsto</label>
+                  <div className="comunicados-destino-preview">{selectedDestinoLabels}</div>
+                </div>
+              </div>
+            </div>
+            <div className="standard-modal-footer">
+              <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+                <i className="fas fa-paper-plane" aria-hidden="true" /> {guardando ? 'Enviando...' : 'Enviar comunicado'}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setMostrarFormulario(false)}>
+                Cancelar
+              </button>
+            </div>
+          </FormModal>
+        )}
       </div>
 
-      <div className="card" style={{ marginTop: '20px' }}>
+      <div className="card mt-20">
         <div className="card-header-flex">
           <h3>Comunicados enviados</h3>
         </div>
@@ -435,7 +456,7 @@ function Comunicados() {
         </div>
 
         {listaFiltrada.length === 0 ? (
-          <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+          <p className="empty-state-message empty-state-centered">
             No hay comunicados en este momento.
           </p>
         ) : (
@@ -483,7 +504,7 @@ function Comunicados() {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

@@ -18,125 +18,127 @@ import {
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
+import FormModal from '../../components/Shared/FormModal';
 
 const API_BASE = 'http://localhost:8000';
 
 const formVacio = { tipo: '', titulo: '', fecha: '', descripcion: '', alumnoId: '', docenteId: '' };
 
-function FormActa({ formData, setFormData, editing, saving, onSubmit, onCancel, listaAlumnos, docentesDelCurso, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje }) {
+function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCancel, listaAlumnos, docentesDelCurso, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje }) {
   return (
-    <>
-      <style>{`.acta-form label { color: #fff !important; }`}</style>
-      <form className="acta-form" onSubmit={onSubmit} style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0', color: '#fff' }}>
-      {mensaje && (
-        <div className={`alert ${mensaje.startsWith('Error') ? 'alert-danger' : 'alert-success'}`} style={{ marginBottom: '12px' }}>
-          {mensaje}
-        </div>
-      )}
+    <FormModal title={editing ? 'Editar acta' : 'Nueva acta'} onClose={onCancel}>
+      <form onSubmit={onSubmit}>
+        <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+          {mensaje && (
+            <div className={`alert ${mensaje.startsWith('Error') ? 'alert-danger' : 'alert-success'} mb-12`}>
+              {mensaje}
+            </div>
+          )}
 
-      {editing ? (
-        <div className="preceptor-form-row preceptor-form-row--two">
-          <div className="form-group-filter">
-            <label>Fecha</label>
-            <input type="date" value={formData.fecha} onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))} />
-          </div>
-          <div className="form-group-filter">
-            <label>Título</label>
-            <input type="text" value={formData.titulo} onChange={(e) => setFormData((p) => ({ ...p, titulo: e.target.value }))} />
-          </div>
-        </div>
-      ) : (
-        <>
+          {editing ? (
+            <div className="preceptor-form-row preceptor-form-row--two">
+              <div className="form-group-filter">
+                <label>Fecha</label>
+                <input type="date" value={formData.fecha} onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))} />
+              </div>
+              <div className="form-group-filter">
+                <label>Título</label>
+                <input type="text" value={formData.titulo} onChange={(e) => setFormData((p) => ({ ...p, titulo: e.target.value }))} />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="preceptor-form-row preceptor-form-row--two">
+                <div className="form-group-filter">
+                  <label>Tipo de acta</label>
+                  <select value={formData.tipo} onChange={(e) => setFormData((p) => ({ ...p, tipo: e.target.value, alumnoId: '', docenteId: '' }))}>
+                    <option value="">Seleccionar tipo</option>
+                    <option value="alumno">Alumno</option>
+                    <option value="docente">Docente</option>
+                    <option value="curso">Curso</option>
+                  </select>
+                </div>
+                <div className="form-group-filter">
+                  <label>Fecha</label>
+                  <input type="date" value={formData.fecha} onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))} />
+                </div>
+              </div>
+              <div className="preceptor-form-row">
+                <div className="form-group-filter">
+                  <label>Título</label>
+                  <input type="text" value={formData.titulo} onChange={(e) => setFormData((p) => ({ ...p, titulo: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="preceptor-form-row preceptor-form-row--two">
             <div className="form-group-filter">
-              <label>Tipo de acta</label>
-              <select value={formData.tipo} onChange={(e) => setFormData((p) => ({ ...p, tipo: e.target.value, alumnoId: '', docenteId: '' }))}>
-                <option value="">Seleccionar tipo</option>
-                <option value="alumno">Alumno</option>
-                <option value="docente">Docente</option>
-                <option value="curso">Curso</option>
-              </select>
+              {formData.tipo === 'alumno' && (
+                <div>
+                  <label>Alumno</label>
+                  <select value={formData.alumnoId} onChange={(e) => setFormData((p) => ({ ...p, alumnoId: e.target.value }))}>
+                    <option value="">Seleccionar alumno</option>
+                    {listaAlumnos.map((a) => (
+                      <option key={a.id} value={a.id}>{nombreCorto(a)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {formData.tipo === 'docente' && (
+                <div>
+                  <label>Docente</label>
+                  <select value={formData.docenteId} onChange={(e) => setFormData((p) => ({ ...p, docenteId: e.target.value }))}>
+                    <option value="">Seleccionar docente</option>
+                    {docentesDelCurso.map((d) => (
+                      <option key={d.id} value={d.id}>{d.apellido}, {d.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {formData.tipo === 'curso' && (
+                <div className="mt-10">
+                  <p className="font-bold m-0">
+                    <i className="fas fa-graduation-cap" aria-hidden="true" /> Curso: {curso}
+                  </p>
+                </div>
+              )}
+              {!formData.tipo && (
+                <p className="mt-10 text-muted">Seleccioná un tipo de acta primero.</p>
+              )}
             </div>
             <div className="form-group-filter">
-              <label>Fecha</label>
-              <input type="date" value={formData.fecha} onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))} />
+              <label>Archivo</label>
+              {editando?.ruta_archivo && !removeArchivo && (
+                <div style={{ marginBottom: '4px' }}>
+                  <a href={`${API_BASE}${editando.ruta_archivo}`} target="_blank" rel="noopener noreferrer">Archivo actual</a>
+                  <button type="button" className="btn-link-danger" style={{ marginLeft: '8px' }} onClick={() => setRemoveArchivo(true)}>
+                    <i className="fas fa-times" aria-hidden="true" /> Quitar
+                  </button>
+                </div>
+              )}
+              {(!editando?.ruta_archivo || removeArchivo) && (
+                <input type="file" accept=".pdf,.docx,.doc,.jpg,.png" onChange={(e) => setArchivo(e.target.files[0] || null)} />
+              )}
             </div>
           </div>
+
           <div className="preceptor-form-row">
             <div className="form-group-filter">
-              <label>Título</label>
-              <input type="text" value={formData.titulo} onChange={(e) => setFormData((p) => ({ ...p, titulo: e.target.value }))} />
+              <label>Descripción</label>
+              <textarea rows={2} value={formData.descripcion} onChange={(e) => setFormData((p) => ({ ...p, descripcion: e.target.value }))} />
             </div>
           </div>
-        </>
-      )}
-
-      <div className="preceptor-form-row preceptor-form-row--two">
-        <div className="form-group-filter">
-          {formData.tipo === 'alumno' && (
-            <>
-              <label>Alumno</label>
-              <select value={formData.alumnoId} onChange={(e) => setFormData((p) => ({ ...p, alumnoId: e.target.value }))}>
-                <option value="">Seleccionar alumno</option>
-                {listaAlumnos.map((a) => (
-                  <option key={a.id} value={a.id}>{nombreCorto(a)}</option>
-                ))}
-              </select>
-            </>
-          )}
-          {formData.tipo === 'docente' && (
-            <>
-              <label>Docente</label>
-              <select value={formData.docenteId} onChange={(e) => setFormData((p) => ({ ...p, docenteId: e.target.value }))}>
-                <option value="">Seleccionar docente</option>
-                {docentesDelCurso.map((d) => (
-                  <option key={d.id} value={d.id}>{d.apellido}, {d.nombre}</option>
-                ))}
-              </select>
-            </>
-          )}
-          {formData.tipo === 'curso' && (
-            <div style={{ marginTop: '8px' }}>
-              <p style={{ fontWeight: 500, margin: 0 }}>
-                <i className="fas fa-graduation-cap" aria-hidden="true" /> Curso: {curso}
-              </p>
-            </div>
-          )}
-          {!formData.tipo && (
-            <p style={{ marginTop: '8px', opacity: '0.7' }}>Seleccioná un tipo de acta primero.</p>
-          )}
         </div>
-        <div className="form-group-filter">
-          <label>Archivo</label>
-          {editando?.ruta_archivo && !removeArchivo && (
-            <div style={{ marginBottom: '4px' }}>
-              <a href={`${API_BASE}${editando.ruta_archivo}`} target="_blank" rel="noopener noreferrer">Archivo actual</a>
-              <button type="button" className="btn-link-danger" style={{ marginLeft: '8px' }} onClick={() => setRemoveArchivo(true)}>
-                <i className="fas fa-times" aria-hidden="true" /> Quitar
-              </button>
-            </div>
-          )}
-          {(!editando?.ruta_archivo || removeArchivo) && (
-            <input type="file" accept=".pdf,.docx,.doc,.jpg,.png" onChange={(e) => setArchivo(e.target.files[0] || null)} />
-          )}
-        </div>
-      </div>
 
-      <div className="preceptor-form-row">
-        <div className="form-group-filter">
-          <label>Descripción</label>
-          <textarea rows={2} value={formData.descripcion} onChange={(e) => setFormData((p) => ({ ...p, descripcion: e.target.value }))} />
+        <div className="standard-modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" disabled={guardando}>
+            {guardando ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
+          </button>
         </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-        <button type="submit" className="btn btn-primary" disabled={saving}>
-          {saving ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
-      </div>
-    </form>
-    </>
+      </form>
+    </FormModal>
   );
 }
 
@@ -350,12 +352,12 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
   if (!filtrosCompletos(anioLectivo, curso)) {
     return (
-      <>
+      <div>
         <div className="card">
           <FiltrosAnioCurso anioLectivo={anioLectivo} curso={curso} onAnioChange={onAnioChange} onCursoChange={onCursoChange} />
         </div>
         <EmptyFiltros />
-      </>
+      </div>
     );
   }
 
@@ -370,7 +372,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+      <div className="flex-row--end mb-16">
         <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
           <i className="fas fa-plus" aria-hidden="true" /> Nueva Acta
         </button>
@@ -381,7 +383,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           formData={formData}
           setFormData={setFormData}
           editing={null}
-          saving={guardando}
+          guardando={guardando}
           onSubmit={handleCreate}
           onCancel={limpiar}
           listaAlumnos={listaAlumnos}
@@ -398,7 +400,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
       )}
 
       {/* Actas de Alumnos */}
-      <div className="card-header-flex" style={{ marginTop: '24px' }}>
+      <div className="card-header-flex mt-20">
         <h4 className="preceptor-section-title">Actas de Alumnos</h4>
         <button type="button" className="btn btn-secondary" onClick={() => setShowAlumnos((v) => !v)}>
           <i className={`fas fa-eye${showAlumnos ? '-slash' : ''}`} aria-hidden="true" /> {showAlumnos ? 'Ocultar' : 'Mostrar'}
@@ -449,30 +451,6 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                             </button>
                           </td>
                         </tr>
-                        {esEditando && (
-                          <tr>
-                            <td colSpan={6} style={{ padding: 0 }}>
-                              <FormActa
-                                formData={formData}
-                                setFormData={setFormData}
-                                editing={editando}
-                                saving={guardando}
-                                onSubmit={handleUpdate}
-                                onCancel={cancelEdit}
-                                listaAlumnos={listaAlumnos}
-                                docentesDelCurso={docentesDelCurso}
-                                curso={curso}
-                                nombreCorto={nombreCorto}
-                                archivo={archivo}
-                                setArchivo={setArchivo}
-                                editando={editando}
-                                removeArchivo={removeArchivo}
-                                setRemoveArchivo={setRemoveArchivo}
-                                mensaje={esEditando ? mensaje : ''}
-                              />
-                            </td>
-                          </tr>
-                        )}
                       </Fragment>
                     );
                   });
@@ -484,7 +462,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
       )}
 
       {/* Actas de Docentes */}
-      <div className="card-header-flex" style={{ marginTop: '24px' }}>
+      <div className="card-header-flex mt-20">
         <h4 className="preceptor-section-title">Actas de Docentes</h4>
         <button type="button" className="btn btn-secondary" onClick={() => setShowDocentes((v) => !v)}>
           <i className={`fas fa-eye${showDocentes ? '-slash' : ''}`} aria-hidden="true" /> {showDocentes ? 'Ocultar' : 'Mostrar'}
@@ -535,30 +513,6 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                             </button>
                           </td>
                         </tr>
-                        {esEditando && (
-                          <tr>
-                            <td colSpan={6} style={{ padding: 0 }}>
-                              <FormActa
-                                formData={formData}
-                                setFormData={setFormData}
-                                editing={editando}
-                                saving={guardando}
-                                onSubmit={handleUpdate}
-                                onCancel={cancelEdit}
-                                listaAlumnos={listaAlumnos}
-                                docentesDelCurso={docentesDelCurso}
-                                curso={curso}
-                                nombreCorto={nombreCorto}
-                                archivo={archivo}
-                                setArchivo={setArchivo}
-                                editando={editando}
-                                removeArchivo={removeArchivo}
-                                setRemoveArchivo={setRemoveArchivo}
-                                mensaje={esEditando ? mensaje : ''}
-                              />
-                            </td>
-                          </tr>
-                        )}
                       </Fragment>
                     );
                   });
@@ -570,7 +524,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
       )}
 
       {/* Actas de Curso */}
-      <div className="card-header-flex" style={{ marginTop: '24px' }}>
+      <div className="card-header-flex mt-20">
         <h4 className="preceptor-section-title">Actas de Curso</h4>
         <button type="button" className="btn btn-secondary" onClick={() => setShowCurso((v) => !v)}>
           <i className={`fas fa-eye${showCurso ? '-slash' : ''}`} aria-hidden="true" /> {showCurso ? 'Ocultar' : 'Mostrar'}
@@ -617,37 +571,34 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                           </button>
                         </td>
                       </tr>
-                      {esEditando && (
-                        <tr>
-                          <td colSpan={5} style={{ padding: 0 }}>
-                            <FormActa
-                              formData={formData}
-                              setFormData={setFormData}
-                              editing={editando}
-                              saving={guardando}
-                              onSubmit={handleUpdate}
-                              onCancel={cancelEdit}
-                              listaAlumnos={listaAlumnos}
-                              docentesDelCurso={docentesDelCurso}
-                              curso={curso}
-                              nombreCorto={nombreCorto}
-                              archivo={archivo}
-                              setArchivo={setArchivo}
-                              editando={editando}
-                              removeArchivo={removeArchivo}
-                              setRemoveArchivo={setRemoveArchivo}
-                              mensaje={esEditando ? mensaje : ''}
-                            />
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })
-              )}
+                      </Fragment>
+                    );
+                  })
+                )}
             </tbody>
           </table>
         </div>
+      )}
+
+      {editando && (
+        <FormActa
+          editing={editando}
+          formData={formData}
+          setFormData={setFormData}
+          guardando={guardando}
+          onSubmit={handleUpdate}
+          onCancel={cancelEdit}
+          listaAlumnos={listaAlumnos}
+          docentesDelCurso={docentesDelCurso}
+          curso={curso}
+          nombreCorto={nombreCorto}
+          archivo={archivo}
+          setArchivo={setArchivo}
+          editando={editando}
+          removeArchivo={removeArchivo}
+          setRemoveArchivo={setRemoveArchivo}
+          mensaje={mensaje}
+        />
       )}
     </div>
   );

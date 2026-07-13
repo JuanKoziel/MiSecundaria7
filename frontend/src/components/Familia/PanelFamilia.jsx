@@ -2,18 +2,12 @@ import { formatDNI } from '../../utils/dni';
 
 function StatCard({ icon, value, label, color }) {
   return (
-    <div style={{
-      background: 'var(--card-bg)',
-      borderRadius: '8px',
-      padding: '16px',
-      textAlign: 'center',
-      border: '1px solid var(--border-color)',
-    }}>
+    <div className="stat-card">
       <i className={`fas ${icon}`} style={{ fontSize: '1.8rem', color: color || 'var(--primary-color)', marginBottom: '4px' }} aria-hidden="true" />
       <div style={{ fontSize: '1.5rem', fontWeight: '700', marginTop: '4px', color: color || 'inherit' }}>
         {value ?? '—'}
       </div>
-      <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>
+      <div className="stat-card-label">
         {label}
       </div>
     </div>
@@ -33,81 +27,63 @@ function PanelFamilia({ miTutor, user, hijos }) {
 
   return (
     <div className="card">
-      <div className="card-header-flex" style={{ marginBottom: '20px' }}>
+      <div className="card-header-flex mb-20">
         <h3>Perfil del Tutor</h3>
-        <span className="badge badge-presente" style={{ fontSize: '0.9rem', padding: '6px 12px' }}>
+        <span className="badge badge-presente badge--header">
           <i className="fas fa-check-circle" aria-hidden="true" /> Activo
         </span>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '20px',
-          marginBottom: '28px',
-          background: '#f8f9fa',
-          padding: '20px',
-          borderRadius: '8px',
-          borderLeft: '4px solid var(--primary-color)',
-        }}
-      >
+      <div className="profile-grid">
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+          <label className="profile-label">
             Nombre Completo
           </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>
+          <p className="profile-value">
             {miTutor.apellido}, {miTutor.nombre}
           </p>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+          <label className="profile-label">
             Documento (DNI)
           </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{formatDNI(miTutor.dni)}</p>
+          <p className="profile-value">{formatDNI(miTutor.dni)}</p>
         </div>
         {miTutor.telefono && (
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+            <label className="profile-label">
               Teléfono de Contacto
             </label>
-            <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{miTutor.telefono}</p>
+            <p className="profile-value">{miTutor.telefono}</p>
           </div>
         )}
         {miTutor.direccion && (
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+            <label className="profile-label">
               Dirección
             </label>
-            <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>{miTutor.direccion}</p>
+            <p className="profile-value">{miTutor.direccion}</p>
           </div>
         )}
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+          <label className="profile-label">
             Usuario
           </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>
+          <p className="profile-value">
             {user?.username || '—'}
           </p>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>
+          <label className="profile-label">
             Rol
           </label>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginTop: '4px' }}>
+          <p className="profile-value">
             Tutor
           </p>
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: '16px',
-          marginBottom: '28px',
-        }}
-      >
+      <div className="stats-grid">
         <StatCard icon="fa-user-graduate" value={hijos.length} label="Hijos vinculados" />
         <StatCard icon="fa-check-circle" value="Activo" label="Estado de la cuenta" color="#15803d" />
       </div>
@@ -123,7 +99,7 @@ function PanelFamilia({ miTutor, user, hijos }) {
           }}
         >
           <strong style={{ fontSize: '0.9rem', color: '#444', display: 'block', marginBottom: '10px' }}>
-            <i className="fas fa-users" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+            <i className="fas fa-users icon-primary" aria-hidden="true" />
             Alumnos asociados
           </strong>
           {hijos.map((hijo, idx) => (
@@ -135,29 +111,18 @@ function PanelFamilia({ miTutor, user, hijos }) {
               borderBottom: idx < hijos.length - 1 ? '1px solid var(--border-color)' : 'none',
               fontSize: '0.9rem',
             }}>
-              <span style={{ fontWeight: '600' }}>
+              <span className="font-bold">
                 <i className="fas fa-user-graduate" style={{ color: 'var(--primary-color)', marginRight: '8px', fontSize: '0.8rem' }} aria-hidden="true" />
                 {hijo.nombre}
               </span>
-              <span style={{ color: '#666' }}>Curso: <strong>{hijo.curso || '—'}</strong></span>
+              <span className="text-muted">Curso: <strong>{hijo.curso || '—'}</strong></span>
             </div>
           ))}
         </div>
       )}
 
-      <div
-        style={{
-          background: '#f0f4ff',
-          borderLeft: '4px solid var(--primary-color)',
-          borderRadius: '8px',
-          padding: '14px 20px',
-          marginBottom: '28px',
-          fontSize: '0.9rem',
-          color: '#444',
-          lineHeight: '1.6',
-        }}
-      >
-        <i className="fas fa-info-circle" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
+      <div className="info-box mb-28">
+        <i className="fas fa-info-circle icon-primary" aria-hidden="true" />
         Desde aquí puede realizar el seguimiento académico de sus hijos, visualizar comunicados, asistencias y calificaciones.
       </div>
 
@@ -165,12 +130,12 @@ function PanelFamilia({ miTutor, user, hijos }) {
         <h4>Hijos Vinculados</h4>
       </div>
 
-      <div className="table-responsive" style={{ marginTop: '10px' }}>
+      <div className="table-responsive mt-10">
         <table>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', paddingLeft: '15px' }}>Alumno</th>
-              <th style={{ textAlign: 'left', paddingLeft: '15px' }}>DNI</th>
+              <th className="text-left" style={{ paddingLeft: '15px' }}>Alumno</th>
+              <th className="text-left" style={{ paddingLeft: '15px' }}>DNI</th>
               <th>Curso</th>
             </tr>
           </thead>
@@ -184,12 +149,12 @@ function PanelFamilia({ miTutor, user, hijos }) {
             ) : (
               hijos.map((hijo) => (
                 <tr key={hijo.id}>
-                  <td style={{ textAlign: 'left', paddingLeft: '15px', fontWeight: '600' }}>
+                  <td className="text-left font-bold" style={{ paddingLeft: '15px' }}>
                     <i className="fas fa-user-graduate" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
                     {hijo.nombre}
                   </td>
-                  <td style={{ textAlign: 'left', paddingLeft: '15px' }}>{hijo.dni}</td>
-                  <td style={{ color: '#555' }}>{hijo.curso}</td>
+                  <td className="text-left" style={{ paddingLeft: '15px' }}>{hijo.dni}</td>
+                  <td>{hijo.curso}</td>
                 </tr>
               ))
             )}

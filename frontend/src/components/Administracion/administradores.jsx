@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import FormModal from '../../components/Shared/FormModal';
 import { createUsuario, deleteUsuario, getUsuarios, updateUsuario } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 
@@ -191,171 +192,150 @@ function Administradores() {
   }
 
   const renderFormulario = () => (
-    <div className="administradores-inline-form">
-      <div className="modal-header administradores-inline-form-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0 }}>{editingUsuario ? 'Editar Administrador' : 'Nuevo Administrador'}</h3>
-        <button
-          type="button"
-          className="btn-close"
-          onClick={cerrarModal}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '20px',
-            padding: '8px',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <i className="fas fa-times" aria-hidden="true" />
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit} className="preceptor-form">
-        <section className="preceptor-form-section">
-          <h4>Datos de acceso</h4>
-          <div className="preceptor-form-row preceptor-form-row--two">
-            <div className="form-group-filter">
-              <label htmlFor="usuario">Usuario</label>
-              <input
-                type="text"
-                id="usuario"
-                value={formData.usuario}
-                onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
-                required
-                disabled={!!editingUsuario}
-              />
-            </div>
-
-            <div className="form-group-filter">
-              <label htmlFor="contrasena">
-                Contrasena {editingUsuario ? '(dejar en blanco para mantener)' : ''}
-              </label>
-              <input
-                type="password"
-                id="contrasena"
-                value={formData.contrasena}
-                onChange={(e) => setFormData({ ...formData, contrasena: e.target.value })}
-                required={!editingUsuario}
-              />
-            </div>
-          </div>
-        </section>
-
-        <section className="preceptor-form-section">
-          <h4>Estado de la cuenta</h4>
-          <div className="preceptor-form-row preceptor-form-row--status">
-            <div className="form-group-filter">
-              <label>Estado</label>
-              <label htmlFor="estado" className="preceptor-status-toggle">
+    <FormModal title={editingUsuario ? 'Editar Administrador' : 'Nuevo Administrador'} onClose={cerrarModal}>
+      <form onSubmit={handleSubmit}>
+        <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+          <section className="preceptor-form-section">
+            <h4>Datos de acceso</h4>
+            <div className="preceptor-form-row preceptor-form-row--two">
+              <div className="form-group-filter">
+                <label htmlFor="usuario">Usuario</label>
                 <input
-                  type="checkbox"
-                  id="estado"
-                  checked={formData.estado}
-                  onChange={(e) => setFormData({ ...formData, estado: e.target.checked })}
+                  type="text"
+                  id="usuario"
+                  value={formData.usuario}
+                  onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
+                  required
+                  disabled={!!editingUsuario}
                 />
-                <span>{estadoLabel(formData.estado)}</span>
-              </label>
+              </div>
+
+              <div className="form-group-filter">
+                <label htmlFor="contrasena">
+                  Contrasena {editingUsuario ? '(dejar en blanco para mantener)' : ''}
+                </label>
+                <input
+                  type="password"
+                  id="contrasena"
+                  value={formData.contrasena}
+                  onChange={(e) => setFormData({ ...formData, contrasena: e.target.value })}
+                  required={!editingUsuario}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="preceptor-form-section">
+            <h4>Estado de la cuenta</h4>
+            <div className="preceptor-form-row preceptor-form-row--status">
+              <div className="form-group-filter">
+                <label>Estado</label>
+                <label htmlFor="estado" className="preceptor-status-toggle">
+                  <input
+                    type="checkbox"
+                    id="estado"
+                    checked={formData.estado}
+                    onChange={(e) => setFormData({ ...formData, estado: e.target.checked })}
+                  />
+                  <span>{estadoLabel(formData.estado)}</span>
+                </label>
+              </div>
+
+              <div className="form-group-filter">
+                <label htmlFor="fecha_deshabilitacion_programada">Fecha deshabilitacion programada</label>
+                <input
+                  type="datetime-local"
+                  id="fecha_deshabilitacion_programada"
+                  value={formData.fecha_deshabilitacion_programada}
+                  onChange={(e) => setFormData({ ...formData, fecha_deshabilitacion_programada: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group-filter">
+                <label htmlFor="fecha_habilitacion_programada">Fecha habilitacion programada</label>
+                <input
+                  type="datetime-local"
+                  id="fecha_habilitacion_programada"
+                  value={formData.fecha_habilitacion_programada}
+                  onChange={(e) => setFormData({ ...formData, fecha_habilitacion_programada: e.target.value })}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="preceptor-form-section">
+            <h4>Datos personales</h4>
+            <div className="preceptor-form-row preceptor-form-row--two">
+              <div className="form-group-filter">
+                <label htmlFor="nombre">Nombre</label>
+                <input
+                  type="text"
+                  id="nombre"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group-filter">
+                <label htmlFor="apellido">Apellido</label>
+                <input
+                  type="text"
+                  id="apellido"
+                  value={formData.apellido}
+                  onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
+                  required
+                />
+              </div>
             </div>
 
-            <div className="form-group-filter">
-              <label htmlFor="fecha_deshabilitacion_programada">Fecha deshabilitacion programada</label>
-              <input
-                type="datetime-local"
-                id="fecha_deshabilitacion_programada"
-                value={formData.fecha_deshabilitacion_programada}
-                onChange={(e) => setFormData({ ...formData, fecha_deshabilitacion_programada: e.target.value })}
-              />
-            </div>
+            <div className="preceptor-form-row preceptor-form-row--two">
+              <div className="form-group-filter">
+                <label htmlFor="dni">DNI</label>
+                <input
+                  type="text"
+                  id="dni"
+                  value={formData.dni}
+                  onChange={(e) => setFormData({ ...formData, dni: formatDNI(e.target.value) })}
+                  required
+                />
+              </div>
 
-            <div className="form-group-filter">
-              <label htmlFor="fecha_habilitacion_programada">Fecha habilitacion programada</label>
-              <input
-                type="datetime-local"
-                id="fecha_habilitacion_programada"
-                value={formData.fecha_habilitacion_programada}
-                onChange={(e) => setFormData({ ...formData, fecha_habilitacion_programada: e.target.value })}
-              />
+              <div className="form-group-filter">
+                <label htmlFor="telefono">Telefono</label>
+                <input
+                  type="text"
+                  id="telefono"
+                  value={formData.telefono}
+                  onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="preceptor-form-section">
-          <h4>Datos personales</h4>
-          <div className="preceptor-form-row preceptor-form-row--two">
-            <div className="form-group-filter">
-              <label htmlFor="nombre">Nombre</label>
-              <input
-                type="text"
-                id="nombre"
-                value={formData.nombre}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                required
-              />
+          <section className="preceptor-form-section">
+            <h4>Datos administrativos</h4>
+            <div className="preceptor-form-row preceptor-form-row--two">
+              <div className="form-group-filter">
+                <label htmlFor="cargo">Cargo</label>
+                <input
+                  type="text"
+                  id="cargo"
+                  value={formData.cargo}
+                  onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
+                />
+              </div>
             </div>
-
-            <div className="form-group-filter">
-              <label htmlFor="apellido">Apellido</label>
-              <input
-                type="text"
-                id="apellido"
-                value={formData.apellido}
-                onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="preceptor-form-row preceptor-form-row--two">
-            <div className="form-group-filter">
-              <label htmlFor="dni">DNI</label>
-              <input
-                type="text"
-                id="dni"
-                value={formData.dni}
-                onChange={(e) => setFormData({ ...formData, dni: formatDNI(e.target.value) })}
-                required
-              />
-            </div>
-
-            <div className="form-group-filter">
-              <label htmlFor="telefono">Telefono</label>
-              <input
-                type="text"
-                id="telefono"
-                value={formData.telefono}
-                onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-              />
-            </div>
-          </div>
-        </section>
-
-        <section className="preceptor-form-section">
-          <h4>Datos administrativos</h4>
-          <div className="preceptor-form-row preceptor-form-row--two">
-            <div className="form-group-filter">
-              <label htmlFor="cargo">Cargo</label>
-              <input
-                type="text"
-                id="cargo"
-                value={formData.cargo}
-                onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
-              />
-            </div>
-          </div>
-        </section>
-
-        <div className="modal-footer">
+          </section>
+        </div>
+        <div className="standard-modal-footer">
           <button type="submit" className="btn btn-primary">
-            <i className="fas fa-save" aria-hidden="true" />{' '}
-            {editingUsuario ? 'Actualizar' : 'Crear'}
+            <i className="fas fa-save" aria-hidden="true" /> {editingUsuario ? 'Actualizar' : 'Crear'}
           </button>
-          <button type="button" className="btn btn-secondary" onClick={cerrarModal}>
-            Cancelar
-          </button>
+          <button type="button" className="btn btn-secondary" onClick={cerrarModal}>Cancelar</button>
         </div>
       </form>
-    </div>
+    </FormModal>
   );
 
   return (
@@ -367,9 +347,7 @@ function Administradores() {
         </button>
       </div>
 
-      {showModal && !editingUsuario && renderFormulario()}
-
-      <div className="empty-state-message" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+      <div className="empty-state-message flex-gap-16--wrap mb-12">
         <span><i className="fas fa-edit" aria-hidden="true" /> Editar</span>
         <span><i className="fas fa-toggle-on" aria-hidden="true" /> Habilitar / Deshabilitar</span>
         <span><i className="fas fa-trash" aria-hidden="true" /> Eliminar</span>
@@ -416,7 +394,7 @@ function Administradores() {
                       </span>
                     </td>
                     <td>{getNextAction(u)}</td>
-                    <td className="acciones-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <td className="acciones-cell flex-row--center">
                       <button
                         type="button"
                         className="btn btn-sm btn-secondary"
@@ -446,19 +424,14 @@ function Administradores() {
                       </button>
                     </td>
                   </tr>
-                  {showModal && editingUsuario?.id_usuario === u.id_usuario && (
-                    <tr className="acta-desplegable-row">
-                      <td colSpan={9}>
-                        {renderFormulario()}
-                      </td>
-                    </tr>
-                  )}
                 </Fragment>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {showModal && renderFormulario()}
 
     </div>
   );

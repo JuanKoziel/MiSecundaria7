@@ -6,6 +6,7 @@ import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
 import { formatDNI } from '../../utils/dni';
+import FormModal from '../../components/Shared/FormModal';
 
 const formVacio = {
   usuario_nombre: '',
@@ -128,15 +129,15 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
   const [borrador, setBorrador] = useState(nuevaAsignacion());
   const cursosBorrador = cursosPorAnio(borrador.anioLectivo, inscripciones, cursos, cursosObj);
 
-  // Filter materias based on selected course
+  // Filtrar materias según el curso seleccionado
   const materiasFiltradas = useMemo(() => {
     if (!borrador.curso || !borrador.anioLectivo) return [];
     
-    // Get materia names directly from cursoMateria for the selected course
+    // Obtener nombres de materias directamente de cursoMateria para el curso seleccionado
     const materiasCurso = cursoMateria
       .filter((cm) => cm.curso_nombre === borrador.curso)
       .map((cm) => cm.materia_nombre)
-      .filter((m) => m); // Remove null/undefined
+      .filter((m) => m); // Eliminar null/undefined
     
     return materiasCurso;
   }, [borrador.curso, borrador.anioLectivo, cursoMateria]);
@@ -167,7 +168,7 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
   const prefix = idPrefix || 'asig';
 
   return (
-    <>
+    <div>
       <h4 className="preceptor-section-title">Materias y asignaciones</h4>
       <p className="preceptor-modo-hint">
         Seleccioná el año lectivo y curso, luego elegí la materia asignada a ese curso. Podés agregar varias.
@@ -262,7 +263,7 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
           </table>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -562,7 +563,7 @@ function Docentes() {
                     <td>{asigTexto}</td>
                     <td>
                       {puedeCambiarEstado ? (
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="flex-row--center flex-gap-16">
                           <button
                             type="button"
                             className={`btn btn-sm ${d.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
@@ -586,7 +587,7 @@ function Docentes() {
                   </tr>
                   {programando === d.id && (
                     <tr>
-                      <td colSpan={6} style={{ padding: 0 }}>
+                      <td colSpan={6} className="p-0">
                         <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
                           <div className="preceptor-form-row preceptor-form-row--two">
                             <div className="form-group-filter">
@@ -606,7 +607,7 @@ function Docentes() {
                               />
                             </div>
                           </div>
-                          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                          <div className="flex-row flex-gap-16 mt-16">
                             <button type="button" className="btn btn-primary" onClick={guardarProgramar} disabled={guardando}>
                               {guardando ? 'Guardando...' : 'Guardar'}
                             </button>
@@ -744,7 +745,7 @@ function Docentes() {
 
     if (modo === 'modificar') {
       return (
-        <>
+        <div>
           <div className="filter-row">
             <div className="form-group-filter">
               <label htmlFor="doc-select-mod">Docente</label>
@@ -886,7 +887,7 @@ function Docentes() {
               />
             </div>
           )}
-        </>
+        </div>
       );
     }
 
@@ -925,8 +926,8 @@ function Docentes() {
     <div className="card">
       <SelectorModo modo={modo} onModoChange={resetModo} titulo="Docentes — ¿Qué deseás hacer?" />
 
-      {modo && (
-        <>
+      {modo && modo !== 'crear' && modo !== 'modificar' && (
+        <div>
           {necesitaFiltroVista && (
             <FiltrosDocentesVista
               anioLectivo={anioLectivo}
@@ -941,14 +942,9 @@ function Docentes() {
             />
           )}
 
-          <>
+          <div>
             <div className="card-header-flex">
               <h3>{tituloModo[modo]}</h3>
-              {modo !== 'vista' && (
-                <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
-                  <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
-                </button>
-              )}
             </div>
             {mensaje && (
               <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
@@ -956,8 +952,29 @@ function Docentes() {
               </p>
             )}
             {renderContenido()}
-          </>
-        </>
+          </div>
+        </div>
+      )}
+
+      {(modo === 'crear' || modo === 'modificar') && (
+        <FormModal title={tituloModo[modo]} onClose={() => resetModo('')}>
+          {mensaje && (
+            <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '0 0 8px' }}>
+              {mensaje}
+            </p>
+          )}
+          <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+            {renderContenido()}
+          </div>
+          <div className="standard-modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={() => resetModo('')}>
+              Cancelar
+            </button>
+            <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+              <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </FormModal>
       )}
     </div>
   );

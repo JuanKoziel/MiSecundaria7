@@ -9,6 +9,7 @@ import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
 import PanelAlumno from './PanelAlumno';
+import Sidebar from './Sidebar';
 
 function AlumnoDashboard({ user, onLogout }) {
   const {
@@ -48,11 +49,11 @@ function AlumnoDashboard({ user, onLogout }) {
   const calsPorMateria = useMemo(() => {
     if (!miAlumno) return [];
     
-    // Get all subjects for the student's course
+    // Obtener todas las materias del curso del alumno
     const cursoNombre = miAlumno.curso;
     const materiasDelCurso = materiasPorCurso[cursoNombre] || [];
     
-    // Build a map of existing grades by curso_materia ID
+    // Construir un mapa de calificaciones existentes por ID de curso_materia
     const gradesMap = {};
     misCalificaciones.forEach((c) => {
       const key = c.id_curso_materia;
@@ -75,18 +76,18 @@ function AlumnoDashboard({ user, onLogout }) {
       }
     });
     
-    // Build the final list from all course subjects
+    // Construir la lista final desde todas las materias del curso
     const result = materiasDelCurso.map((materiaNombre) => {
-      // Find if there's a grade for this subject
+      // Buscar si hay una calificación para esta materia
       const cursoMateriaEntry = cursoMateria.find(
         (cm) => cm.curso_nombre === cursoNombre && cm.materia_nombre === materiaNombre
       );
       
       if (cursoMateriaEntry && gradesMap[cursoMateriaEntry.id]) {
-        // Has grades
+        // Tiene calificaciones
         return gradesMap[cursoMateriaEntry.id];
       } else {
-        // No grades - show "Sin calificaciones"
+        // Sin calificaciones - mostrar "Sin calificaciones"
         return {
           materia: materiaNombre,
           curso: cursoNombre,
@@ -187,64 +188,7 @@ function AlumnoDashboard({ user, onLogout }) {
 
   return (
     <div className="dashboard-layout">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <i className="fas fa-user-graduate" aria-hidden="true" />
-          <span>Portal Alumno</span>
-        </div>
-
-        <ul className="sidebar-menu">
-          <li className={view === 'perfil' ? 'active' : ''}>
-            <button type="button" className="sidebar-menu-btn" onClick={() => setView('perfil')}>
-              <i className="fas fa-user-graduate" aria-hidden="true" />
-              <span>Mi Perfil</span>
-            </button>
-          </li>
-          <li className={view === 'calificaciones' ? 'active' : ''}>
-            <button type="button" className="sidebar-menu-btn" onClick={() => setView('calificaciones')}>
-              <i className="fas fa-book" aria-hidden="true" />
-              <span>Calificaciones</span>
-            </button>
-          </li>
-          <li className={view === 'asistencias' ? 'active' : ''}>
-            <button type="button" className="sidebar-menu-btn" onClick={() => setView('asistencias')}>
-              <i className="fas fa-clipboard-check" aria-hidden="true" />
-              <span>Asistencias</span>
-            </button>
-          </li>
-          <li className={view === 'actividades' ? 'active' : ''}>
-            <button type="button" className="sidebar-menu-btn" onClick={() => setView('actividades')}>
-              <i className="fas fa-tasks" aria-hidden="true" />
-              <span>Actividades</span>
-            </button>
-          </li>
-          <li className={view === 'horarios' ? 'active' : ''}>
-            <button type="button" className="sidebar-menu-btn" onClick={() => setView('horarios')}>
-              <i className="fas fa-calendar-alt" aria-hidden="true" />
-              <span>Horarios</span>
-            </button>
-          </li>
-          <li className={view === 'comunicados' ? 'active' : ''}>
-            <button type="button" className="sidebar-menu-btn" onClick={() => setView('comunicados')}>
-              <i className="fas fa-bullhorn" aria-hidden="true" />
-              <span>Comunicados</span>
-            </button>
-          </li>
-          <li className={view === 'notificaciones' ? 'active' : ''}>
-            <button type="button" className="sidebar-menu-btn" onClick={() => setView('notificaciones')}>
-              <i className="fas fa-bell" aria-hidden="true" />
-              <span>Notificaciones</span>
-            </button>
-          </li>
-
-          <li className="logout-li">
-            <button type="button" className="sidebar-menu-btn sidebar-logout-btn" onClick={onLogout}>
-              <i className="fas fa-sign-out-alt" aria-hidden="true" />
-              <span>Cerrar Sesión</span>
-            </button>
-          </li>
-        </ul>
-      </aside>
+      <Sidebar view={view} setView={setView} onLogout={onLogout} />
 
       <main className="main-content">
         <header className="main-header">
@@ -342,18 +286,18 @@ function AlumnoDashboard({ user, onLogout }) {
                   </div>
                 )}
 
-                <div style={{ marginTop: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                <div className="flex-gap-16--wrap mt-16">
                   <div className="card" style={{ flex: 1, minWidth: '140px', padding: '12px', textAlign: 'center' }}>
                     <strong style={{ fontSize: '24px', color: '#e53935' }}>{resumenAsistencia.ausencias}</strong>
-                    <p style={{ margin: '4px 0 0', color: '#666' }}>Inasistencias</p>
+                    <p className="text-muted" style={{ margin: '4px 0 0' }}>Inasistencias</p>
                   </div>
                   <div className="card" style={{ flex: 1, minWidth: '140px', padding: '12px', textAlign: 'center' }}>
                     <strong style={{ fontSize: '24px', color: '#ff9800' }}>{resumenAsistencia.tardanzas}</strong>
-                    <p style={{ margin: '4px 0 0', color: '#666' }}>Tardanzas</p>
+                    <p className="text-muted" style={{ margin: '4px 0 0' }}>Tardanzas</p>
                   </div>
                   <div className="card" style={{ flex: 1, minWidth: '140px', padding: '12px', textAlign: 'center' }}>
                     <strong style={{ fontSize: '24px', color: '#4caf50' }}>{resumenAsistencia.presentes}</strong>
-                    <p style={{ margin: '4px 0 0', color: '#666' }}>Presentes</p>
+                    <p className="text-muted" style={{ margin: '4px 0 0' }}>Presentes</p>
                   </div>
                 </div>
               </div>
@@ -383,19 +327,19 @@ function AlumnoDashboard({ user, onLogout }) {
                   </button>
                 </div>
 
-                <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                  <div style={{ padding: '8px 16px', borderRadius: '8px', background: '#ffebee' }}>
+                <div className="flex-gap-16--wrap mb-16">
+                  <div className="asistencia-badge ausencias">
                     <strong>{resumenAsistencia.ausencias}</strong> Inasistencias
                   </div>
-                  <div style={{ padding: '8px 16px', borderRadius: '8px', background: '#fff3e0' }}>
+                  <div className="asistencia-badge tardanzas">
                     <strong>{resumenAsistencia.tardanzas}</strong> Tardanzas
                   </div>
-                  <div style={{ padding: '8px 16px', borderRadius: '8px', background: '#e8f5e9' }}>
+                  <div className="asistencia-badge presentes">
                     <strong>{resumenAsistencia.presentes}</strong> Presentes
                   </div>
                 </div>
 
-                <div className="card" style={{ marginTop: '16px' }}>
+                <div className="card mt-16">
                   <div className="card-header-flex">
                     <h3>Historial</h3>
                   </div>

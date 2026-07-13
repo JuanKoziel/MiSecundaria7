@@ -62,7 +62,7 @@ function Asistencias({ hijo }) {
         </button>
       </div>
 
-      <div className="card" style={{ marginTop: '16px' }}>
+      <div className="card mt-16">
         <div className="card-header-flex">
           <h3>Historial</h3>
         </div>

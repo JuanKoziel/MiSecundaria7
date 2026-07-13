@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect, useCallback } from 'react';
 import { getPlanificaciones, createPlanificacion, updatePlanificacion, deletePlanificacion } from '../../services/api';
 import { useData } from '../../context/DataContext';
+import FormModal from '../../components/Shared/FormModal';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -14,61 +15,64 @@ function mensajeError(err) {
   return data?.detail || err.message || 'Error inesperado';
 }
 
-function FormProyecto({ formData, setFormData, editing, saving, onSubmit, onCancel }) {
+function FormProyecto({ formData, setFormData, editing, guardando, onSubmit, onCancel }) {
   return (
-    <form onSubmit={onSubmit} className="proyecto-form" style={{ padding: '20px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '12px 0' }}>
-      <style>{`.proyecto-form .form-group-filter label { color: #fff !important; }`}</style>
-      <div className="preceptor-form-row preceptor-form-row--two">
-        <div className="form-group-filter">
-          <label htmlFor="proy-contenido">Contenido</label>
-          <textarea
-            id="proy-contenido"
-            rows={5}
-            value={formData.contenido}
-            onChange={(e) => setFormData((p) => ({ ...p, contenido: e.target.value }))}
-            required
-          />
+    <FormModal title={editing ? 'Editar proyecto' : 'Nuevo proyecto'} onClose={onCancel}>
+      <form onSubmit={onSubmit}>
+        <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+          <div className="preceptor-form-row preceptor-form-row--two">
+            <div className="form-group-filter">
+              <label htmlFor="proy-contenido">Contenido</label>
+              <textarea
+                id="proy-contenido"
+                rows={5}
+                value={formData.contenido}
+                onChange={(e) => setFormData((p) => ({ ...p, contenido: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group-filter">
+              <label htmlFor="proy-objetivos">Objetivos</label>
+              <textarea
+                id="proy-objetivos"
+                rows={5}
+                value={formData.objetivos}
+                onChange={(e) => setFormData((p) => ({ ...p, objetivos: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+          <div className="preceptor-form-row preceptor-form-row--two">
+            <div className="form-group-filter">
+              <label htmlFor="proy-salidas">Salidas educativas</label>
+              <textarea
+                id="proy-salidas"
+                rows={5}
+                value={formData.salidas}
+                onChange={(e) => setFormData((p) => ({ ...p, salidas: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group-filter">
+              <label htmlFor="proy-fundamentacion">Fundamentación</label>
+              <textarea
+                id="proy-fundamentacion"
+                rows={5}
+                value={formData.fundamentacion}
+                onChange={(e) => setFormData((p) => ({ ...p, fundamentacion: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
         </div>
-        <div className="form-group-filter">
-          <label htmlFor="proy-objetivos">Objetivos</label>
-          <textarea
-            id="proy-objetivos"
-            rows={5}
-            value={formData.objetivos}
-            onChange={(e) => setFormData((p) => ({ ...p, objetivos: e.target.value }))}
-            required
-          />
+        <div className="standard-modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" disabled={guardando}>
+            {guardando ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
+          </button>
         </div>
-      </div>
-      <div className="preceptor-form-row preceptor-form-row--two">
-        <div className="form-group-filter">
-          <label htmlFor="proy-salidas">Salidas educativas</label>
-          <textarea
-            id="proy-salidas"
-            rows={5}
-            value={formData.salidas}
-            onChange={(e) => setFormData((p) => ({ ...p, salidas: e.target.value }))}
-            required
-          />
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="proy-fundamentacion">Fundamentación</label>
-          <textarea
-            id="proy-fundamentacion"
-            rows={5}
-            value={formData.fundamentacion}
-            onChange={(e) => setFormData((p) => ({ ...p, fundamentacion: e.target.value }))}
-            required
-          />
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
-        <button type="submit" className="btn btn-primary" disabled={saving}>
-          {saving ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
-      </div>
-    </form>
+      </form>
+    </FormModal>
   );
 }
 
@@ -80,7 +84,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
   const [formData, setFormData] = useState(formVacio);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
   const cargar = useCallback(async () => {
     if (!cursoMateriaId) return;
@@ -138,7 +142,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
     e.preventDefault();
     setError('');
     setSuccess('');
-    setSaving(true);
+    setGuardando(true);
     try {
       const payload = {
         id_docente: docenteId,
@@ -161,7 +165,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
     } catch (err) {
       setError(mensajeError(err));
     } finally {
-      setSaving(false);
+      setGuardando(false);
     }
   };
 
@@ -190,7 +194,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+      <div className="flex-row--end mb-16">
         <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
           <i className={`fas fa-${showNewForm ? 'minus' : 'plus'}`} aria-hidden="true" />{' '}
           {showNewForm ? 'Cerrar' : 'Crear proyecto'}
@@ -202,7 +206,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
           formData={formData}
           setFormData={setFormData}
           editing={null}
-          saving={saving}
+          guardando={guardando}
           onSubmit={(e) => handleSubmit(e, false)}
           onCancel={limpiar}
         />
@@ -241,7 +245,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
                     </td>
                     <td>{p.fecha_subida ? new Date(p.fecha_subida).toLocaleDateString() : '—'}</td>
                     <td>{p.docente_nombre || docenteDisplay || '—'}</td>
-                    <td className="acciones-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <td className="acciones-cell flex-row--center">
                       {p.ruta_archivo && (
                         <a
                           href={`${API_BASE}${p.ruta_archivo}`}
@@ -262,26 +266,23 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
                       </button>
                     </td>
                   </tr>
-                  {editing && editing.id_planificacion === p.id_planificacion && (
-                    <tr key={`${p.id_planificacion}-edit`}>
-                      <td colSpan={4} style={{ padding: 0 }}>
-                        <FormProyecto
-                          formData={formData}
-                          setFormData={setFormData}
-                          editing={editing}
-                          saving={saving}
-                          onSubmit={(e) => handleSubmit(e, true)}
-                          onCancel={limpiar}
-                        />
-                      </td>
-                    </tr>
-                  )}
                 </Fragment>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {editing && (
+        <FormProyecto
+          editing={editing}
+          formData={formData}
+          setFormData={setFormData}
+          guardando={guardando}
+          onSubmit={(e) => handleSubmit(e, true)}
+          onCancel={limpiar}
+        />
+      )}
     </div>
   );
 }

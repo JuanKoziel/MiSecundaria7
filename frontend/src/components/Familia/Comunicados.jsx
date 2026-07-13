@@ -30,7 +30,7 @@ function Comunicados({ hijo }) {
       </div>
 
       {comunicados.length === 0 ? (
-        <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+        <p className="empty-state-message empty-state-centered">
           No hay comunicados para este curso en este momento.
         </p>
       ) : (

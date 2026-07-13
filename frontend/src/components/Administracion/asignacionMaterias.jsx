@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { getDocentes, createCursoMateria, updateCursoMateria } from '../../services/api';
+import FormModal from '../../components/Shared/FormModal';
 
 const formVacio = { id_materia: '', id_docente: '' };
 
@@ -22,7 +23,7 @@ function AsignacionMaterias() {
   const [formData, setFormData] = useState(formVacio);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     refreshAdminCursos(false);
@@ -70,7 +71,7 @@ function AsignacionMaterias() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setSaving(true);
+    setGuardando(true);
     try {
       const payload = {
         id_curso: Number(cursoSeleccionado),
@@ -89,7 +90,7 @@ function AsignacionMaterias() {
     } catch (err) {
       setError(`Error al guardar: ${mensajeError(err)}`);
     } finally {
-      setSaving(false);
+      setGuardando(false);
     }
   };
 
@@ -141,55 +142,53 @@ function AsignacionMaterias() {
         </div>
 
         {cursoSeleccionado && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+          <div>
+            <div className="flex-row--end mb-16">
               <button type="button" className="btn btn-primary" onClick={abrirAgregar}>
                 <i className="fas fa-plus" aria-hidden="true" /> Agregar Materia
               </button>
             </div>
 
             {showModal && (
-              <div className="administradores-inline-form" style={{ marginBottom: '16px' }}>
-                <div className="modal-header administradores-inline-form-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ margin: 0 }}>
-                    {editando ? 'Editar Docente' : 'Agregar Materia al Curso'}
-                    {cursoObj ? ` — ${cursoObj.nombre_curso}` : ''}
-                  </h3>
-                  <button type="button" className="btn-close" onClick={cerrarFormulario} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', padding: '8px', color: 'var(--text-secondary)' }}><i className="fas fa-times" aria-hidden="true" /></button>
-                </div>
+              <FormModal
+                title={editando ? 'Editar Docente' : ('Agregar Materia' + (cursoObj ? ` — ${cursoObj.nombre_curso}` : ''))}
+                onClose={cerrarFormulario}
+              >
                 <form onSubmit={handleSubmit}>
-                  <div className="preceptor-form-row preceptor-form-row--two">
-                    {!editando && (
+                  <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+                    <div className="preceptor-form-row preceptor-form-row--two">
+                      {!editando && (
+                        <div className="form-group-filter">
+                          <label htmlFor="asig-materia">Materia</label>
+                          <select id="asig-materia" value={formData.id_materia} onChange={(e) => setFormData((p) => ({ ...p, id_materia: e.target.value }))} required>
+                            <option value="">Seleccionar...</option>
+                            {adminMaterias.filter((m) => m.activo).map((m) => (
+                              <option key={m.id_materia} value={m.id_materia}>
+                                {m.nombre_materia} {materiasAsignadasIds.includes(m.id_materia) ? '(ya asignada)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <div className="form-group-filter">
-                        <label htmlFor="asig-materia">Materia</label>
-                        <select id="asig-materia" value={formData.id_materia} onChange={(e) => setFormData((p) => ({ ...p, id_materia: e.target.value }))} required>
-                          <option value="">Seleccionar...</option>
-                          {adminMaterias.filter((m) => m.activo).map((m) => (
-                            <option key={m.id_materia} value={m.id_materia}>
-                              {m.nombre_materia} {materiasAsignadasIds.includes(m.id_materia) ? '(ya asignada)' : ''}
-                            </option>
+                        <label htmlFor="asig-docente">Docente</label>
+                        <select id="asig-docente" value={formData.id_docente} onChange={(e) => setFormData((p) => ({ ...p, id_docente: e.target.value }))}>
+                          <option value="">— Sin asignar —</option>
+                          {docentes.map((d) => (
+                            <option key={d.id_docente} value={d.id_docente}>{d.apellido}, {d.nombre}</option>
                           ))}
                         </select>
                       </div>
-                    )}
-                    <div className="form-group-filter">
-                      <label htmlFor="asig-docente">Docente</label>
-                      <select id="asig-docente" value={formData.id_docente} onChange={(e) => setFormData((p) => ({ ...p, id_docente: e.target.value }))}>
-                        <option value="">— Sin asignar —</option>
-                        {docentes.map((d) => (
-                          <option key={d.id_docente} value={d.id_docente}>{d.apellido}, {d.nombre}</option>
-                        ))}
-                      </select>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                    <button type="submit" className="btn btn-primary" disabled={saving}>
-                      {saving ? 'Guardando...' : (editando ? 'Actualizar' : 'Asignar')}
-                    </button>
+                  <div className="standard-modal-footer">
                     <button type="button" className="btn btn-secondary" onClick={cerrarFormulario}>Cancelar</button>
+                    <button type="submit" className="btn btn-primary" disabled={guardando}>
+                      {guardando ? 'Guardando...' : (editando ? 'Actualizar' : 'Asignar')}
+                    </button>
                   </div>
                 </form>
-              </div>
+              </FormModal>
             )}
 
             <div className="table-responsive">
@@ -217,16 +216,16 @@ function AsignacionMaterias() {
                             {cm.activo ? 'Activo' : 'Inactivo'}
                           </span>
                         </td>
-                        <td className="acciones-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <td className="acciones-cell flex-row--center">
                           {cm.activo ? (
-                            <>
+                            <div>
                               <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditarDocente(cm)} aria-label="Editar docente" title="Cambiar docente">
                                 <i className="fas fa-user-edit" aria-hidden="true" />
                               </button>
                               <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDesactivar(cm)} aria-label="Quitar materia" title="Quitar materia del curso">
                                 <i className="fas fa-ban" aria-hidden="true" />
                               </button>
-                            </>
+                            </div>
                           ) : (
                             <span className="text-muted" style={{ fontSize: '0.85em' }}>—</span>
                           )}
@@ -237,7 +236,7 @@ function AsignacionMaterias() {
                 </tbody>
               </table>
             </div>
-          </>
+          </div>
         )}
 
         {!cursoSeleccionado && (

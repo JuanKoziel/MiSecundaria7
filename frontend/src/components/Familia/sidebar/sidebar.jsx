@@ -1,14 +1,4 @@
-const menuItems = [
-  { id: 'perfil', label: 'Mi Perfil', icon: 'fa-user-tie' },
-  { id: 'resumen', label: 'Resumen', icon: 'fa-home' },
-  { id: 'calificaciones', label: 'Calificaciones', icon: 'fa-graduation-cap' },
-  { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },
-  { id: 'actas', label: 'Actas', icon: 'fa-file-pdf' },
-  { id: 'horarios', label: 'Horarios', icon: 'fa-calendar-alt' },
-  { id: 'actividades', label: 'Actividades', icon: 'fa-tasks' },
-  { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
-  { id: 'notificaciones', label: 'Notificaciones', icon: 'fa-bell' },
-];
+import { menuItems } from '../sidebarMenu';
 
 function Sidebar({ view, setView, onLogout }) {
   return (
@@ -18,23 +8,25 @@ function Sidebar({ view, setView, onLogout }) {
         <span>MiSecundaria 7</span>
       </div>
 
-      <ul className="sidebar-menu">
-        {menuItems.map((item) => (
-          <li key={item.id} className={view === item.id ? 'active' : ''}>
-            <button type="button" className="sidebar-menu-btn" onClick={() => setView(item.id)}>
-              <i className={`fas ${item.icon}`} aria-hidden="true" />
-              <span>{item.label}</span>
-            </button>
-          </li>
-        ))}
+      <div className="sidebar-menu-wrapper">
+        <ul className="sidebar-menu">
+          {menuItems.map((item) => (
+            <li key={item.id} className={view === item.id ? 'active' : ''}>
+              <button type="button" className="sidebar-menu-btn" onClick={() => setView(item.id)}>
+                <i className={`fas ${item.icon}`} aria-hidden="true" />
+                <span>{item.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-        <li className="logout-li">
-          <button type="button" className="sidebar-menu-btn sidebar-logout-btn" onClick={onLogout}>
-            <i className="fas fa-sign-out-alt" aria-hidden="true" />
-            <span>Cerrar Sesión</span>
-          </button>
-        </li>
-      </ul>
+      <div className="sidebar-logout">
+        <button type="button" className="sidebar-menu-btn sidebar-logout-btn" onClick={onLogout}>
+          <i className="fas fa-sign-out-alt" aria-hidden="true" />
+          <span>Cerrar Sesión</span>
+        </button>
+      </div>
     </aside>
   );
 }

@@ -5,17 +5,17 @@ import { useMemo } from 'react';
 function Calificaciones({ hijo }) {
   const { calificacionesFamilia, materiasPorCurso, cursoMateria, periodos, asistenciasAdmin, alumnos } = useData();
 
-  // Get the actual student object
+  // Obtener el objeto real del alumno
   const alumno = alumnos.find((a) => a.id === hijo.alumnoId);
 
-  // Get all subjects for the child's course
+  // Obtener todas las materias del curso del hijo
   const cursoNombre = hijo.curso;
   const materiasDelCurso = materiasPorCurso[cursoNombre] || [];
 
-  // Filter grades for this child by alumnoId (not hijoId)
+  // Filtrar calificaciones para este hijo por alumnoId (no hijoId)
   const calificacionesHijo = calificacionesFamilia.filter((c) => c.alumnoId === hijo.alumnoId);
 
-  // Build a map of existing grades by curso_materia ID
+  // Construir un mapa de calificaciones existentes por ID de curso_materia
   const gradesMap = {};
   calificacionesHijo.forEach((c) => {
     const key = c.id_curso_materia;
@@ -26,7 +26,7 @@ function Calificaciones({ hijo }) {
         prenota1: '', nota1: '', prenota2: '', nota2: '', diagnostico: '',
       };
     }
-    // Since calificacionesFamilia already has grouped grades, just use them directly
+    // Como calificacionesFamilia ya tiene calificaciones agrupadas, usarlas directamente
     gradesMap[key].prenota1 = c.prenota1 || '';
     gradesMap[key].nota1 = c.nota1 ?? '';
     gradesMap[key].prenota2 = c.prenota2 || '';
@@ -34,18 +34,18 @@ function Calificaciones({ hijo }) {
     gradesMap[key].diagnostico = c.diagnostico || '';
   });
 
-  // Build the final list from all course subjects
+  // Construir la lista final desde todas las materias del curso
   const calificacionesDisplay = materiasDelCurso.map((materiaNombre) => {
-    // Find if there's a grade for this subject
+    // Buscar si hay una calificación para esta materia
     const cursoMateriaEntry = cursoMateria.find(
       (cm) => cm.curso_nombre === cursoNombre && cm.materia_nombre === materiaNombre
     );
 
     if (cursoMateriaEntry && gradesMap[cursoMateriaEntry.id]) {
-      // Has grades
+      // Tiene calificaciones
       return gradesMap[cursoMateriaEntry.id];
     } else {
-      // No grades - show "Sin calificaciones"
+      // Sin calificaciones - mostrar "Sin calificaciones"
       return {
         materia: materiaNombre,
         curso: cursoNombre,
@@ -58,7 +58,7 @@ function Calificaciones({ hijo }) {
     }
   });
 
-  // Calculate absences per subject for the selected child
+  // Calcular inasistencias por materia para el hijo seleccionado
   const inasistenciasPorMateria = useMemo(() => {
     if (!alumno) return {};
     const misAsistencias = asistenciasAdmin.filter((a) => a.alumnoId === alumno.id);

@@ -76,7 +76,7 @@ function Alumnos() {
   }, []);
 
   return (
-    <>
+    <div>
       <div className="card">
         <div className="card-header-flex">
           <h3>Listado de Alumnos</h3>
@@ -196,7 +196,7 @@ function Alumnos() {
           })()}
         </div>
       )}
-    </>
+    </div>
   );
 }
 

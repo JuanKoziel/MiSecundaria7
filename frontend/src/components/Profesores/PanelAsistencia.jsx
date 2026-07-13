@@ -104,7 +104,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
     <div className="card">
       <div className="card-header-flex">
         <h3>Planilla de Asistencia — {cursoNombre}</h3>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="flex-row">
           <button
             type="button"
             className="btn btn-secondary"
@@ -146,8 +146,8 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
       </div>
 
       {serverInfo?.estado?.mensaje && (
-        <p className={`asist-info-banner ${enHorario ? 'asist-ok' : 'asist-bloqueado'}`}
-           style={{ padding: '8px 12px', borderRadius: '4px', marginBottom: '12px',
+        <p className={`asist-info-banner ${enHorario ? 'asist-ok' : 'asist-bloqueado'} mb-12`}
+           style={{ padding: '8px 12px', borderRadius: '4px',
                    backgroundColor: enHorario ? '#d4edda' : '#fff3cd',
                    color: enHorario ? '#155724' : '#856404' }}>
           <i className={`fas ${enHorario ? 'fa-check-circle' : 'fa-info-circle'}`} aria-hidden="true" />
@@ -156,7 +156,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
       )}
 
       {serverInfo?.horarios_hoy?.length > 0 && (
-        <div style={{ marginBottom: '12px', fontSize: '0.9em', color: '#666' }}>
+        <div className="mb-12 text-muted" style={{ fontSize: '0.9em' }}>
           <strong>Horarios de hoy:</strong>{' '}
           {serverInfo.horarios_hoy.map((h, i) => (
             <span key={i}>

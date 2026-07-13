@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { createDiagnosticoGrupal, deleteDiagnosticoGrupal } from '../../services/api';
+import FormModal from './FormModal';
 
 function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
   const {
@@ -20,7 +21,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
   const [selectedDiagnostico, setSelectedDiagnostico] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newDiagnostico, setNewDiagnostico] = useState({ id_curso: '', descripcion: '' });
-  const [saving, setSaving] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   const [saveError, setSaveError] = useState('');
 
   const diagnosticosFiltrados = useMemo(() => {
@@ -39,7 +40,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
       }
 
       case 'familia': {
-        // If a specific child is selected, filter only for that child
+        // Si un hijo específico está seleccionado, filtrar solo para ese hijo
         if (selectedChild && selectedChild.alumnoId) {
           const alumno = alumnos.find((a) => a.id === selectedChild.alumnoId);
           if (alumno) {
@@ -50,7 +51,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
           return [];
         }
 
-        // Fallback: show all children's diagnostics
+        // Fallback: mostrar todos los diagnósticos de los hijos
         const miTutor = padresTutores.find((pt) => pt.id_usuario === userId);
         if (!miTutor) return [];
         const misHijos = alumnos.filter((a) => a.id_tutor === miTutor.id_tutor);
@@ -66,10 +67,10 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
         const misAsignaciones = cursoMateria.filter((cm) => cm.id_docente === miDocente.id);
         const misCursos = new Set(misAsignaciones.map((cm) => cm.id_curso));
 
-        // Filter by permission: show diagnostics for courses where docente has assignments
+        // Filtrar por permiso: mostrar diagnósticos de cursos donde el docente tiene asignaciones
         const filteredByPermission = diagnosticos.filter((d) => misCursos.has(d.id_curso));
 
-        // Apply course filter if selected
+        // Aplicar filtro de curso si está seleccionado
         if (cursoSeleccionado) {
           return filteredByPermission.filter((d) => d.id_curso === Number(cursoSeleccionado));
         }
@@ -123,13 +124,13 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    setSaving(true);
+    setGuardando(true);
     setSaveError('');
 
     try {
       if (!miDocente) {
         setSaveError('No se encontró el perfil de docente');
-        setSaving(false);
+        setGuardando(false);
         return;
       }
 
@@ -149,7 +150,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
       console.error('Error creating diagnostico:', err);
       setSaveError('Error al crear el diagnóstico. Verificá que tengas permisos para este curso.');
     } finally {
-      setSaving(false);
+      setGuardando(false);
     }
   };
 
@@ -167,15 +168,15 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
           <h3>Detalle del Diagnóstico</h3>
         </div>
 
-        <div style={{ marginTop: '16px' }}>
+        <div className="mt-16">
           <h2>Diagnóstico Grupal</h2>
-          <div style={{ marginTop: '12px', color: '#666', fontSize: '14px' }}>
+          <div className="mt-12 text-muted" style={{ fontSize: '14px' }}>
             <p><strong>Docente:</strong> {selectedDiagnostico.docente}</p>
             <p><strong>Fecha:</strong> {selectedDiagnostico.fecha}</p>
             <p><strong>Curso:</strong> {getNombreCurso(selectedDiagnostico.id_curso)}</p>
           </div>
 
-          <div style={{ marginTop: '20px', padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
+          <div className="mt-20" style={{ padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
             <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{selectedDiagnostico.descripcion}</p>
           </div>
         </div>
@@ -184,83 +185,87 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
   }
 
   return (
-    <>
+    <div>
       {userRole === 'docente' && (
-        <div className="card" style={{ marginBottom: '16px' }}>
+        <div className="card mb-16">
           <div className="card-header-flex">
             <h3>Nuevo Diagnóstico Grupal</h3>
-            {!showCreateForm && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowCreateForm(true)}
+            >
+              <i className="fas fa-plus" aria-hidden="true" /> Crear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCreateForm && (
+        <FormModal title="Nuevo Diagnóstico Grupal" onClose={() => {
+          setShowCreateForm(false);
+          setNewDiagnostico({ id_curso: '', descripcion: '' });
+          setSaveError('');
+        }}>
+          <form onSubmit={handleCreate} className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+            <div className="form-group">
+              <label htmlFor="nuevo-curso">Curso</label>
+              <select
+                id="nuevo-curso"
+                value={newDiagnostico.id_curso}
+                onChange={(e) => setNewDiagnostico({ ...newDiagnostico, id_curso: e.target.value })}
+                required
+              >
+                <option value="">Seleccione un curso...</option>
+                {misCursos.map((c) => (
+                  <option key={c.id_curso} value={String(c.id_curso)}>
+                    {c.nombre_curso}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="nuevo-descripcion">Descripción</label>
+              <textarea
+                id="nuevo-descripcion"
+                value={newDiagnostico.descripcion}
+                onChange={(e) => setNewDiagnostico({ ...newDiagnostico, descripcion: e.target.value })}
+                required
+                rows={6}
+                style={{ width: '100%', resize: 'vertical' }}
+              />
+            </div>
+
+            {saveError && (
+              <div className="mb-12" style={{ color: '#dc3545', fontSize: '14px' }}>
+                {saveError}
+              </div>
+            )}
+
+            <div className="flex-row">
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={guardando}
+              >
+                {guardando ? 'Guardando...' : 'Guardar'}
+              </button>
               <button
                 type="button"
-                className="btn btn-primary"
-                onClick={() => setShowCreateForm(true)}
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setNewDiagnostico({ id_curso: '', descripcion: '' });
+                  setSaveError('');
+                }}
+                disabled={guardando}
               >
-                <i className="fas fa-plus" aria-hidden="true" /> Crear
+                Cancelar
               </button>
-            )}
-          </div>
-
-          {showCreateForm && (
-            <form onSubmit={handleCreate} style={{ marginTop: '16px' }}>
-              <div className="form-group">
-                <label htmlFor="nuevo-curso">Curso</label>
-                <select
-                  id="nuevo-curso"
-                  value={newDiagnostico.id_curso}
-                  onChange={(e) => setNewDiagnostico({ ...newDiagnostico, id_curso: e.target.value })}
-                  required
-                >
-                  <option value="">Seleccione un curso...</option>
-                  {misCursos.map((c) => (
-                    <option key={c.id_curso} value={String(c.id_curso)}>
-                      {c.nombre_curso}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="nuevo-descripcion">Descripción</label>
-                <textarea
-                  id="nuevo-descripcion"
-                  value={newDiagnostico.descripcion}
-                  onChange={(e) => setNewDiagnostico({ ...newDiagnostico, descripcion: e.target.value })}
-                  required
-                  rows={6}
-                  style={{ width: '100%', resize: 'vertical' }}
-                />
-              </div>
-
-              {saveError && (
-                <div style={{ color: '#dc3545', marginBottom: '12px', fontSize: '14px' }}>
-                  {saveError}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={saving}
-                >
-                  {saving ? 'Guardando...' : 'Guardar'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setNewDiagnostico({ id_curso: '', descripcion: '' });
-                    setSaveError('');
-                  }}
-                  disabled={saving}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
+            </div>
+          </form>
+        </FormModal>
       )}
 
       <div className="card">
@@ -272,7 +277,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
         </div>
 
         {diagnosticosOrdenados.length === 0 ? (
-          <p className="empty-state-message" style={{ textAlign: 'center', padding: '24px' }}>
+          <p className="empty-state-message empty-state-centered">
             No hay diagnósticos disponibles para visualizar.
           </p>
         ) : (
@@ -292,7 +297,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
                   <td className="table-cell-strong">{getNombreCurso(d.id_curso)}</td>
                   <td>{d.docente}</td>
                   <td>{d.fecha || '—'}</td>
-                  <td style={{ display: 'flex', gap: '8px' }}>
+                  <td className="flex-row">
                     <button
                       type="button"
                       className="btn btn-sm btn-primary"
@@ -317,7 +322,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
         </div>
       )}
     </div>
-    </>
+    </div>
   );
 }
 

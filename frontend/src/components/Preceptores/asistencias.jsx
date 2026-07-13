@@ -184,7 +184,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
   if (!filtrosCompletos(anioLectivo, curso)) {
     return (
-      <>
+      <div>
         <div className="card">
           <FiltrosAnioCurso
             anioLectivo={anioLectivo}
@@ -194,7 +194,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           />
         </div>
         <EmptyFiltros />
-      </>
+      </div>
     );
   }
 
@@ -269,7 +269,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
       )}
 
       {tipoAsist === 'materia' && (
-        <>
+        <div>
           <div className="filter-row">
             <div className="form-group-filter">
               <label htmlFor="materia-asist-prec">Materia</label>
@@ -313,7 +313,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                     return (
                       <tr key={r.id ?? `sin-reg-${idx}`}>
                         <td className="table-cell-strong">{r.alumno_nombre}</td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{r.horario}</td>
+                        <td className="nowrap">{r.horario}</td>
                         <td>{r.docente_nombre}</td>
                         <td>
                           <span className={`badge ${
@@ -361,7 +361,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
               </table>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {tipoAsist === 'general' && (
@@ -517,7 +517,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                       </label>
                     </td>
                     <td>
-                      <div className="field-row" style={{ margin: 0 }}>
+                      <div className="field-row m-0">
                         <select
                           className="select-table"
                           value={reg.ajusteTipo}
@@ -591,12 +591,12 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
       )}
 
       {tipoAsist === 'general' && (
-        <div className="card" style={{ marginTop: '24px' }}>
+        <div className="card mt-20">
           <div className="card-header-flex">
             <h3>Historial de Asistencias</h3>
           </div>
 
-          <div className="asist-tipo-selector" style={{ marginBottom: '16px' }}>
+          <div className="asist-tipo-selector mb-16">
             <button
               type="button"
               className={`btn btn-sm ${tipoAsist === 'general' ? 'btn-primary' : 'btn-secondary'}`}

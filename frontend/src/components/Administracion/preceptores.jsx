@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import FormModal from '../../components/Shared/FormModal';
 import {
   createPreceptor,
   deletePreceptor,
@@ -96,7 +97,7 @@ function Preceptores() {
   const [formData, setFormData] = useState(formVacio);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
   const filteredPreceptores = useMemo(() => {
     if (!searchTerm) return preceptores;
@@ -200,7 +201,7 @@ function Preceptores() {
     event.preventDefault();
     setError('');
     setSuccess('');
-    setSaving(true);
+    setGuardando(true);
 
     try {
       const payload = {
@@ -218,7 +219,7 @@ function Preceptores() {
 
       if (!editingPreceptor && !payload.contrasena) {
         setError('La contrasena es obligatoria para crear un preceptor');
-        setSaving(false);
+        setGuardando(false);
         return;
       }
 
@@ -236,7 +237,7 @@ function Preceptores() {
     } catch (err) {
       setError(`Error al guardar preceptor: ${mensajeError(err)}`);
     } finally {
-      setSaving(false);
+      setGuardando(false);
     }
   };
 
@@ -260,202 +261,184 @@ function Preceptores() {
   }
 
   const renderFormulario = () => (
-    <div className="administradores-inline-form">
-      <div className="modal-header administradores-inline-form-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0 }}>{editingPreceptor ? 'Editar Preceptor' : 'Nuevo Preceptor'}</h3>
-        <button
-          type="button"
-          className="btn-close"
-          onClick={cerrarFormulario}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '20px',
-            padding: '8px',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <i className="fas fa-times" aria-hidden="true" />
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit} className="preceptor-form">
-        <section className="preceptor-form-section">
-          <h4>Datos de acceso</h4>
-          <div className="preceptor-form-row preceptor-form-row--two">
-            <div className="form-group-filter">
-              <label htmlFor="preceptor-usuario">Usuario</label>
-              <input
-                id="preceptor-usuario"
-                type="text"
-                value={formData.usuario_nombre}
-                onChange={(e) => setFormData((prev) => ({ ...prev, usuario_nombre: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div className="form-group-filter">
-              <label htmlFor="preceptor-contrasena">
-                Contrasena {editingPreceptor ? '(dejar en blanco para mantener)' : ''}
-              </label>
-              <input
-                id="preceptor-contrasena"
-                type="password"
-                value={formData.contrasena}
-                onChange={(e) => setFormData((prev) => ({ ...prev, contrasena: e.target.value }))}
-                required={!editingPreceptor}
-              />
-            </div>
-          </div>
-        </section>
-
-        <section className="preceptor-form-section">
-          <h4>Estado de la cuenta</h4>
-          <div className="preceptor-form-row preceptor-form-row--status">
-            <div className="form-group-filter">
-              <label>Estado</label>
-              <label htmlFor="preceptor-estado" className="preceptor-status-toggle">
+    <FormModal title={editingPreceptor ? 'Editar Preceptor' : 'Nuevo Preceptor'} onClose={cerrarFormulario}>
+      <form onSubmit={handleSubmit}>
+        <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+          <section className="preceptor-form-section">
+            <h4>Datos de acceso</h4>
+            <div className="preceptor-form-row preceptor-form-row--two">
+              <div className="form-group-filter">
+                <label htmlFor="preceptor-usuario">Usuario</label>
                 <input
-                  id="preceptor-estado"
-                  type="checkbox"
-                  checked={formData.estado}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, estado: e.target.checked }))}
+                  id="preceptor-usuario"
+                  type="text"
+                  value={formData.usuario_nombre}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, usuario_nombre: e.target.value }))}
+                  required
                 />
-                <span>{estadoLabel(formData.estado)}</span>
-              </label>
+              </div>
+
+              <div className="form-group-filter">
+                <label htmlFor="preceptor-contrasena">
+                  Contrasena {editingPreceptor ? '(dejar en blanco para mantener)' : ''}
+                </label>
+                <input
+                  id="preceptor-contrasena"
+                  type="password"
+                  value={formData.contrasena}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, contrasena: e.target.value }))}
+                  required={!editingPreceptor}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="preceptor-form-section">
+            <h4>Estado de la cuenta</h4>
+            <div className="preceptor-form-row preceptor-form-row--status">
+              <div className="form-group-filter">
+                <label>Estado</label>
+                <label htmlFor="preceptor-estado" className="preceptor-status-toggle">
+                  <input
+                    id="preceptor-estado"
+                    type="checkbox"
+                    checked={formData.estado}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, estado: e.target.checked }))}
+                  />
+                  <span>{estadoLabel(formData.estado)}</span>
+                </label>
+              </div>
+
+              <div className="form-group-filter">
+                <label htmlFor="preceptor-fecha-deshabilitacion">Fecha deshabilitacion programada</label>
+                <input
+                  id="preceptor-fecha-deshabilitacion"
+                  type="datetime-local"
+                  value={formData.fecha_deshabilitacion_programada}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      fecha_deshabilitacion_programada: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="form-group-filter">
+                <label htmlFor="preceptor-fecha-habilitacion">Fecha habilitacion programada</label>
+                <input
+                  id="preceptor-fecha-habilitacion"
+                  type="datetime-local"
+                  value={formData.fecha_habilitacion_programada}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      fecha_habilitacion_programada: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="preceptor-form-section">
+            <h4>Datos personales</h4>
+            <div className="preceptor-form-row preceptor-form-row--two">
+              <div className="form-group-filter">
+                <label htmlFor="preceptor-nombre">Nombre</label>
+                <input
+                  id="preceptor-nombre"
+                  type="text"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, nombre: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <div className="form-group-filter">
+                <label htmlFor="preceptor-apellido">Apellido</label>
+                <input
+                  id="preceptor-apellido"
+                  type="text"
+                  value={formData.apellido}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, apellido: e.target.value }))}
+                  required
+                />
+              </div>
             </div>
 
-            <div className="form-group-filter">
-              <label htmlFor="preceptor-fecha-deshabilitacion">Fecha deshabilitacion programada</label>
-              <input
-                id="preceptor-fecha-deshabilitacion"
-                type="datetime-local"
-                value={formData.fecha_deshabilitacion_programada}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    fecha_deshabilitacion_programada: e.target.value,
-                  }))
-                }
-              />
-            </div>
+            <div className="preceptor-form-row preceptor-form-row--two">
+              <div className="form-group-filter">
+                <label htmlFor="preceptor-dni">DNI</label>
+                <input
+                  id="preceptor-dni"
+                  type="text"
+                  value={formData.dni}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, dni: formatDNI(e.target.value) }))}
+                  required
+                />
+              </div>
 
-            <div className="form-group-filter">
-              <label htmlFor="preceptor-fecha-habilitacion">Fecha habilitacion programada</label>
-              <input
-                id="preceptor-fecha-habilitacion"
-                type="datetime-local"
-                value={formData.fecha_habilitacion_programada}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    fecha_habilitacion_programada: e.target.value,
-                  }))
-                }
-              />
+              <div className="form-group-filter">
+                <label htmlFor="preceptor-telefono">Telefono</label>
+                <input
+                  id="preceptor-telefono"
+                  type="text"
+                  value={formData.telefono}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, telefono: e.target.value }))}
+                />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="preceptor-form-section">
-          <h4>Datos personales</h4>
-          <div className="preceptor-form-row preceptor-form-row--two">
-            <div className="form-group-filter">
-              <label htmlFor="preceptor-nombre">Nombre</label>
-              <input
-                id="preceptor-nombre"
-                type="text"
-                value={formData.nombre}
-                onChange={(e) => setFormData((prev) => ({ ...prev, nombre: e.target.value }))}
-                required
-              />
+          <section className="preceptor-form-section">
+            <div className="form-group-filter preceptor-form-full">
+              <div className="preceptor-cursos-header">
+                <h4 id="preceptor-cursos-label">Cursos asignados</h4>
+                <span className="badge badge-neutral">
+                  {formData.cursos_ids.length} seleccionados
+                </span>
+              </div>
+              <div
+                className="preceptor-cursos-multiselect"
+                role="group"
+                aria-labelledby="preceptor-cursos-label"
+              >
+                {cursosOrdenados.map((curso) => {
+                  const cursoId = Number(curso.id_curso);
+                  const checked = formData.cursos_ids.includes(cursoId);
+                  return (
+                    <label
+                      key={curso.id_curso}
+                      className={`preceptor-curso-option${checked ? ' preceptor-curso-option--selected' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCurso(cursoId)}
+                      />
+                      <span>
+                        {curso.nombre_curso}
+                        {curso.ciclo_anio ? ` (${curso.ciclo_anio})` : ''}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
-
-            <div className="form-group-filter">
-              <label htmlFor="preceptor-apellido">Apellido</label>
-              <input
-                id="preceptor-apellido"
-                type="text"
-                value={formData.apellido}
-                onChange={(e) => setFormData((prev) => ({ ...prev, apellido: e.target.value }))}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="preceptor-form-row preceptor-form-row--two">
-            <div className="form-group-filter">
-              <label htmlFor="preceptor-dni">DNI</label>
-              <input
-                id="preceptor-dni"
-                type="text"
-                value={formData.dni}
-                onChange={(e) => setFormData((prev) => ({ ...prev, dni: formatDNI(e.target.value) }))}
-                required
-              />
-            </div>
-
-            <div className="form-group-filter">
-              <label htmlFor="preceptor-telefono">Telefono</label>
-              <input
-                id="preceptor-telefono"
-                type="text"
-                value={formData.telefono}
-                onChange={(e) => setFormData((prev) => ({ ...prev, telefono: e.target.value }))}
-              />
-            </div>
-          </div>
-        </section>
-
-        <section className="preceptor-form-section">
-          <div className="form-group-filter preceptor-form-full">
-            <div className="preceptor-cursos-header">
-              <h4 id="preceptor-cursos-label">Cursos asignados</h4>
-              <span className="badge badge-neutral">
-                {formData.cursos_ids.length} seleccionados
-              </span>
-            </div>
-            <div
-              className="preceptor-cursos-multiselect"
-              role="group"
-              aria-labelledby="preceptor-cursos-label"
-            >
-              {cursosOrdenados.map((curso) => {
-                const cursoId = Number(curso.id_curso);
-                const checked = formData.cursos_ids.includes(cursoId);
-                return (
-                  <label
-                    key={curso.id_curso}
-                    className={`preceptor-curso-option${checked ? ' preceptor-curso-option--selected' : ''}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleCurso(cursoId)}
-                    />
-                    <span>
-                      {curso.nombre_curso}
-                      {curso.ciclo_anio ? ` (${curso.ciclo_anio})` : ''}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        <div className="modal-footer">
-          <button type="submit" className="btn btn-primary" disabled={saving}>
+          </section>
+        </div>
+        <div className="standard-modal-footer">
+          <button type="submit" className="btn btn-primary" disabled={guardando}>
             <i className="fas fa-save" aria-hidden="true" />{' '}
-            {saving ? 'Guardando...' : editingPreceptor ? 'Actualizar' : 'Crear'}
+            {guardando ? 'Guardando...' : editingPreceptor ? 'Actualizar' : 'Crear'}
           </button>
           <button type="button" className="btn btn-secondary" onClick={cerrarFormulario}>
             Cancelar
           </button>
         </div>
       </form>
-    </div>
+    </FormModal>
   );
 
   return (
@@ -467,9 +450,7 @@ function Preceptores() {
         </button>
       </div>
 
-      {showModal && !editingPreceptor && renderFormulario()}
-
-      <div className="empty-state-message" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+      <div className="empty-state-message flex-gap-16--wrap mb-12">
         <span><i className="fas fa-edit" aria-hidden="true" /> Editar</span>
         <span><i className="fas fa-toggle-on" aria-hidden="true" /> Habilitar / Deshabilitar</span>
         <span><i className="fas fa-trash" aria-hidden="true" /> Eliminar</span>
@@ -478,22 +459,13 @@ function Preceptores() {
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
-      <div style={{ marginBottom: '12px' }}>
+      <div className="mb-12">
         <input
           type="text"
           placeholder="Buscar por nombre, apellido o DNI..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            padding: '10px 14px',
-            border: '1px solid var(--table-border)',
-            borderRadius: '10px',
-            background: 'var(--table-row-bg)',
-            color: 'var(--text-dark)',
-            outline: 'none',
-          }}
+          className="search-input"
         />
       </div>
 
@@ -539,7 +511,7 @@ function Preceptores() {
                         ? p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
                         : '---'}
                     </td>
-                    <td className="acciones-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <td className="acciones-cell flex-row--center">
                       <button
                         type="button"
                         className="btn btn-sm btn-secondary"
@@ -570,19 +542,14 @@ function Preceptores() {
                       </button>
                     </td>
                   </tr>
-                  {showModal && editingPreceptor?.id_preceptor === p.id_preceptor && (
-                    <tr className="acta-desplegable-row">
-                      <td colSpan={9}>
-                        {renderFormulario()}
-                      </td>
-                    </tr>
-                  )}
                 </Fragment>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {showModal && renderFormulario()}
     </div>
   );
 }
