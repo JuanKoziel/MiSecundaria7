@@ -78,7 +78,7 @@ function PanelFamilia({ miTutor, user, hijos }) {
             Rol
           </label>
           <p className="profile-value">
-            Tutor
+            {miTutor.tipo || '—'}
           </p>
         </div>
       </div>
@@ -126,41 +126,6 @@ function PanelFamilia({ miTutor, user, hijos }) {
         Desde aquí puede realizar el seguimiento académico de sus hijos, visualizar comunicados, asistencias y calificaciones.
       </div>
 
-      <div className="card-header-flex">
-        <h4>Hijos Vinculados</h4>
-      </div>
-
-      <div className="table-responsive mt-10">
-        <table>
-          <thead>
-            <tr>
-              <th className="text-left" style={{ paddingLeft: '15px' }}>Alumno</th>
-              <th className="text-left" style={{ paddingLeft: '15px' }}>DNI</th>
-              <th>Curso</th>
-            </tr>
-          </thead>
-          <tbody>
-            {hijos.length === 0 ? (
-              <tr>
-                <td colSpan={3} className="empty-state-message">
-                  No hay hijos vinculados.
-                </td>
-              </tr>
-            ) : (
-              hijos.map((hijo) => (
-                <tr key={hijo.id}>
-                  <td className="text-left font-bold" style={{ paddingLeft: '15px' }}>
-                    <i className="fas fa-user-graduate" style={{ color: 'var(--primary-color)', marginRight: '8px' }} aria-hidden="true" />
-                    {hijo.nombre}
-                  </td>
-                  <td className="text-left" style={{ paddingLeft: '15px' }}>{hijo.dni}</td>
-                  <td>{hijo.curso}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
