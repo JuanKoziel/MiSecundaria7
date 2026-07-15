@@ -100,6 +100,31 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
     );
   }
 
+  if (serverInfo?.docente_ausente) {
+    return (
+      <div className="card" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', textAlign: 'center' }}>
+        <div style={{ maxWidth: '480px' }}>
+          <div style={{ fontSize: '3em', marginBottom: '16px' }}>&#128683;</div>
+          <h3 style={{ marginBottom: '12px', color: '#dc3545' }}>No puede registrar asistencias</h3>
+          <p style={{ color: '#555', lineHeight: '1.6', margin: 0 }}>
+            Fue marcado como <strong style={{ color: '#dc3545' }}>AUSENTE</strong> por el preceptor:
+          </p>
+          {serverInfo.preceptor && (
+            <p style={{ color: '#333', fontWeight: 600, fontSize: '1.1em', margin: '8px 0' }}>
+              {serverInfo.preceptor}
+            </p>
+          )}
+          <p style={{ color: '#555', lineHeight: '1.6', margin: 0 }}>
+            para este bloque horario.
+          </p>
+          <p style={{ color: '#555', lineHeight: '1.6', marginTop: '8px', marginBottom: 0 }}>
+            Por ese motivo no puede registrar la asistencia de los alumnos durante esta clase.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card">
       <div className="card-header-flex">

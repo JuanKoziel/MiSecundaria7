@@ -177,6 +177,78 @@ def _docente_ids_en_cursos(cursos_ids):
     )
 
 
+def _obtener_bloques_horario(cm_id, dia_semana):
+    horarios = list(Horario.objects.filter(
+        id_curso_materia=cm_id,
+        dia_semana=dia_semana,
+        id_modulo__isnull=False,
+    ).select_related('id_modulo').order_by('id_modulo__hora_inicio'))
+
+    horarios_esp = list(HorariosEspeciales.objects.filter(
+        id_curso_materia=cm_id,
+        dia_semana=dia_semana,
+    ).order_by('hora_inicio'))
+
+    times = []
+    for h in horarios:
+        times.append((h.id_modulo.hora_inicio, h.id_modulo.hora_fin))
+    for h in horarios_esp:
+        times.append((h.hora_inicio, h.hora_fin))
+
+    times.sort(key=lambda x: x[0])
+
+    bloques = []
+    i = 0
+    while i < len(times):
+        j = i
+        while j < len(times) - 1 and times[j][1] >= times[j + 1][0]:
+            j += 1
+        bloques.append((times[i][0], times[j][1]))
+        i = j + 1
+
+    return bloques
+
+
+def docente_puede_registrar_asistencia_alumnos(docente_id, curso_materia_id, fecha=None, hora=None):
+    ahora = datetime.now()
+    fecha = fecha or ahora.date()
+    hora = hora or ahora.time()
+    dia = _dia_semana_es(ahora)
+
+    bloques = _obtener_bloques_horario(curso_materia_id, dia)
+
+    bloque_encontrado = None
+    for inicio, fin in bloques:
+        if inicio <= hora < fin:
+            bloque_encontrado = (inicio, fin)
+            break
+
+    if not bloque_encontrado:
+        return True, None, None
+
+    inicio, fin = bloque_encontrado
+    registro = AsistenciaDocente.objects.select_related('id_usuario').filter(
+        id_docente_id=docente_id,
+        id_curso_materia_id=curso_materia_id,
+        fecha=fecha,
+        hora__gte=inicio,
+        hora__lt=fin,
+        id_estado_asistencia__nombre_estado='Ausente',
+    ).first()
+
+    if registro:
+        preceptor_nombre = None
+        if registro.id_usuario:
+            preceptor_obj = Preceptor.objects.filter(
+                id_usuario=registro.id_usuario,
+            ).only('nombre', 'apellido').first()
+            if preceptor_obj:
+                preceptor_nombre = f'{preceptor_obj.apellido}, {preceptor_obj.nombre}'
+        return False, 'No puede registrar asistencias porque fue marcado como AUSENTE para este bloque horario.', preceptor_nombre
+
+    return True, None, None
+
+
 def _resolve_course_id(value):
     if value is None:
         return None
@@ -1293,6 +1365,20 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             horarios_hoy = self._horarios_hoy(cm_id, dia)
             data['horarios_hoy'] = horarios_hoy
             data['estado'] = self._estado_horario(horarios_hoy, ahora)
+            roles = get_roles_for_usuario(request.user.username)
+            if 'docente' in roles:
+                try:
+                    cm = CursoMateria.objects.get(id_curso_materia=cm_id)
+                    if cm.id_docente:
+                        puede, mensaje, preceptor_nombre = docente_puede_registrar_asistencia_alumnos(
+                            cm.id_docente_id, cm_id, ahora.date(), ahora.time(),
+                        )
+                        data['docente_ausente'] = not puede
+                        if not puede:
+                            data['mensaje_restriccion'] = mensaje
+                            data['preceptor'] = preceptor_nombre
+                except CursoMateria.DoesNotExist:
+                    pass
         return Response(data)
 
     def _horarios_hoy(self, curso_materia_id, dia_semana):
@@ -1660,6 +1746,21 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         estado = self._estado_horario(horarios_hoy, ahora)
         if estado['codigo'] != 'en_horario':
             return Response({'error': estado['mensaje']}, status=status.HTTP_403_FORBIDDEN)
+
+        roles = get_roles_for_usuario(request.user.username)
+        if 'docente' in roles:
+            try:
+                cm = CursoMateria.objects.get(id_curso_materia=cm_id)
+            except CursoMateria.DoesNotExist:
+                return Response({'error': 'Curso materia no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+            if cm.id_docente:
+                puede, mensaje, _ = docente_puede_registrar_asistencia_alumnos(
+                    cm.id_docente_id, cm_id, ahora.date(), ahora.time(),
+                )
+                if not puede:
+                    return Response({'error': mensaje}, status=status.HTTP_403_FORBIDDEN)
+
         data = {
             'id_alumno': request.data.get('id_alumno'),
             'id_curso_materia': cm_id,
@@ -1902,35 +2003,7 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
         }, status=status.HTTP_201_CREATED)
 
     def _obtener_bloques_hoy(self, cm_id, dia_semana):
-        horarios = list(Horario.objects.filter(
-            id_curso_materia=cm_id,
-            dia_semana=dia_semana,
-            id_modulo__isnull=False,
-        ).select_related('id_modulo').order_by('id_modulo__hora_inicio'))
-
-        horarios_esp = list(HorariosEspeciales.objects.filter(
-            id_curso_materia=cm_id,
-            dia_semana=dia_semana,
-        ).order_by('hora_inicio'))
-
-        times = []
-        for h in horarios:
-            times.append((h.id_modulo.hora_inicio, h.id_modulo.hora_fin))
-        for h in horarios_esp:
-            times.append((h.hora_inicio, h.hora_fin))
-
-        times.sort(key=lambda x: x[0])
-
-        bloques = []
-        i = 0
-        while i < len(times):
-            j = i
-            while j < len(times) - 1 and times[j][1] >= times[j + 1][0]:
-                j += 1
-            bloques.append((times[i][0], times[j][1]))
-            i = j + 1
-
-        return bloques
+        return _obtener_bloques_horario(cm_id, dia_semana)
 
 
 class TipoActaViewSet(viewsets.ReadOnlyModelViewSet):
