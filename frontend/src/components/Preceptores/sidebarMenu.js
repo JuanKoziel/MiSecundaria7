@@ -8,5 +8,6 @@ export const menuItems = [
   { id: 'notas', label: 'Notas', icon: 'fa-clipboard-list' },
   { id: 'actas', label: 'Actas', icon: 'fa-file-alt' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
+  { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
   { id: 'notificaciones', label: 'Notificaciones', icon: 'fa-bell' },
 ];

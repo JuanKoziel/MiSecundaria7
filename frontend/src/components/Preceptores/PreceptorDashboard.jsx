@@ -12,6 +12,7 @@ import Docentes from './docentes';
 import Horarios from '../Administracion/horarios';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
+import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import PanelPreceptor from './PanelPreceptor';
 import { useData } from '../../context/DataContext';
 
@@ -113,6 +114,13 @@ function PreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <ComunicadosView userRole="preceptor" />
+          </div>
+        );
+
+      case 'calendario':
+        return (
+          <div className="view-section active">
+            <CalendarioInstitucional readOnly />
           </div>
         );
 

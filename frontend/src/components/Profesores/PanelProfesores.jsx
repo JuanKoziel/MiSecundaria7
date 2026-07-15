@@ -10,6 +10,7 @@ import PanelActividades from './PanelActividades';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
+import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import { useData } from '../../context/DataContext';
 
 function PanelProfesores({ user, onLogout }) {
@@ -84,7 +85,7 @@ function PanelProfesores({ user, onLogout }) {
           materiaSeleccionada={materiaSeleccionada}
         />
 
-        {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && seccionActiva !== 'comunicados' && seccionActiva !== 'info' && (
+        {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && seccionActiva !== 'comunicados' && seccionActiva !== 'info' && seccionActiva !== 'calendario' && (
           <div className="card">
             <div className="filter-row">
               <div className="form-group-filter">
@@ -175,6 +176,10 @@ function PanelProfesores({ user, onLogout }) {
               </div>
             </div>
             <DiagnosticosView userRole="docente" cursoSeleccionado={cursoDiagnosticos} />
+          </div>
+        ) : seccionActiva === 'calendario' ? (
+          <div className="view-section active">
+            <CalendarioInstitucional readOnly />
           </div>
         ) : seccionActiva === 'docente' ? (
           <div className="view-section active">

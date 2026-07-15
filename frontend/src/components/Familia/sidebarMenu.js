@@ -7,5 +7,6 @@ export const menuItems = [
   { id: 'horarios', label: 'Horarios', icon: 'fa-calendar-alt' },
   { id: 'actividades', label: 'Actividades', icon: 'fa-tasks' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
+  { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
   { id: 'notificaciones', label: 'Notificaciones', icon: 'fa-bell' },
 ];

@@ -13,6 +13,7 @@ import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
 import VistaHorarios from '../Administracion/VistaHorarios';
+import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import PanelFamilia from './PanelFamilia';
 import { useData } from '../../context/DataContext';
 
@@ -190,6 +191,14 @@ function FamiliaDashboard({ user, onLogout }) {
           <div className="dashboard-content">
             <div className="view-section active">
               <Notificaciones userRole="familia" selectedChild={hijoSeleccionado} />
+            </div>
+          </div>
+
+        ) : view === 'calendario' ? (
+
+          <div className="dashboard-content">
+            <div className="view-section active">
+              <CalendarioInstitucional readOnly />
             </div>
           </div>
 

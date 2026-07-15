@@ -48,7 +48,7 @@ function coloresUnicos(eventos) {
   return result;
 }
 
-function CalendarioInstitucional() {
+function CalendarioInstitucional({ readOnly = false }) {
   const hoy = new Date();
   const [anio, setAnio] = useState(hoy.getFullYear());
   const [mes, setMes] = useState(hoy.getMonth());
@@ -122,6 +122,7 @@ function CalendarioInstitucional() {
   };
 
   const abrirModalNuevo = (dia) => {
+    if (readOnly) return;
     const fechaStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
     setForm({ ...FORM_DEFAULT, fecha: fechaStr });
     setEventoEditar(null);
@@ -130,6 +131,7 @@ function CalendarioInstitucional() {
   };
 
   const abrirModalEditar = (ev) => {
+    if (readOnly) return;
     setForm({
       tipo_evento: ev.tipo_evento,
       descripcion: ev.descripcion,
@@ -242,9 +244,11 @@ function CalendarioInstitucional() {
     <div className="card">
       <div className="card-header-flex">
         <h3>Calendario Institucional</h3>
-        <button type="button" className="btn btn-primary" onClick={() => abrirModalNuevo(diaSeleccionado || 1)}>
-          <i className="fas fa-plus" aria-hidden="true" /> Nuevo Evento
-        </button>
+        {!readOnly && (
+          <button type="button" className="btn btn-primary" onClick={() => abrirModalNuevo(diaSeleccionado || 1)}>
+            <i className="fas fa-plus" aria-hidden="true" /> Nuevo Evento
+          </button>
+        )}
       </div>
 
       <div className="cal-nav">
@@ -291,9 +295,11 @@ function CalendarioInstitucional() {
         <div className="cal-dia-panel">
           <div className="cal-dia-panel-header">
             <h4>{diaSeleccionado} de {MESES[mes]} {anio}</h4>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => abrirModalNuevo(diaSeleccionado)}>
-              <i className="fas fa-plus" aria-hidden="true" /> Agregar
-            </button>
+            {!readOnly && (
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => abrirModalNuevo(diaSeleccionado)}>
+                <i className="fas fa-plus" aria-hidden="true" /> Agregar
+              </button>
+            )}
           </div>
           {eventosDelDiaSeleccionado.length === 0 ? (
             <p className="text-muted" style={{ padding: '8px 0' }}>Sin eventos para este día.</p>
@@ -347,14 +353,16 @@ function CalendarioInstitucional() {
             {eventoVer.fecha_modificacion && (
               <p><strong>Última modificación:</strong> {eventoVer.fecha_modificacion?.slice(0,16).replace('T',' ')}</p>
             )}
-            <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => abrirModalEditar(eventoVer)}>
-                <i className="fas fa-edit" aria-hidden="true" /> Editar
-              </button>
-              <button type="button" className="btn btn-danger btn-sm" onClick={() => handleEliminar(eventoVer)}>
-                <i className="fas fa-trash" aria-hidden="true" /> Eliminar
-              </button>
-            </div>
+            {!readOnly && (
+              <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => abrirModalEditar(eventoVer)}>
+                  <i className="fas fa-edit" aria-hidden="true" /> Editar
+                </button>
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => handleEliminar(eventoVer)}>
+                  <i className="fas fa-trash" aria-hidden="true" /> Eliminar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

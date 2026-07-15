@@ -7,6 +7,7 @@ import ActividadesView from '../Shared/ActividadesView';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 import VistaHorarios from '../Administracion/VistaHorarios';
+import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
 import PanelAlumno from './PanelAlumno';
 import Sidebar from './Sidebar';
@@ -169,6 +170,10 @@ function AlumnoDashboard({ user, onLogout }) {
         ) : view === 'info' ? (
           <div className="view-section active">
             <DiagnosticosView userRole="alumno" />
+          </div>
+        ) : view === 'calendario' ? (
+          <div className="view-section active">
+            <CalendarioInstitucional readOnly />
           </div>
         ) : !miAlumno ? (
           <div className="card">
