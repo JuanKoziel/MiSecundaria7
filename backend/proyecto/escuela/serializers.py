@@ -12,6 +12,7 @@ from escuela.models import (
     ActaDocente,
     Alumno,
     Asistencia,
+    AsistenciaDocente,
     Calificacion,
     CicloLectivo,
     ActividadDocente,
@@ -1456,6 +1457,31 @@ class AsistenciaSerializer(serializers.ModelSerializer):
     def get_alumno_nombre(self, obj):
         if obj.id_alumno:
             return f'{obj.id_alumno.apellido}, {obj.id_alumno.nombre}'
+        return None
+
+
+class AsistenciaDocenteSerializer(serializers.ModelSerializer):
+    docente_nombre = serializers.SerializerMethodField()
+    materia_nombre = serializers.CharField(
+        source='id_curso_materia.id_materia.nombre_materia',
+        read_only=True, default=None,
+    )
+    curso_nombre = serializers.CharField(
+        source='id_curso_materia.id_curso.nombre_curso',
+        read_only=True, default=None,
+    )
+    estado_nombre = serializers.CharField(
+        source='id_estado_asistencia.nombre_estado',
+        read_only=True, default=None,
+    )
+
+    class Meta:
+        model = AsistenciaDocente
+        fields = '__all__'
+
+    def get_docente_nombre(self, obj):
+        if obj.id_docente:
+            return f'{obj.id_docente.apellido}, {obj.id_docente.nombre}'
         return None
 
 

@@ -7,6 +7,8 @@ import {
   patchJustificar,
   getAsistenciaDiaria,
   getRegistroDiario,
+  getDocentesDisponibles,
+  registrarAsistenciaDocente,
 } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
@@ -50,6 +52,11 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const [regAlumno, setRegAlumno] = useState('');
   const [dataRegistro, setDataRegistro] = useState([]);
   const [cargandoRegistro, setCargandoRegistro] = useState(false);
+  const [docentesDisponibles, setDocentesDisponibles] = useState([]);
+  const [cargandoDocentes, setCargandoDocentes] = useState(false);
+  const [registrandoDocente, setRegistrandoDocente] = useState('');
+  const [mensajeDocentes, setMensajeDocentes] = useState('');
+  const [docentesEstados, setDocentesEstados] = useState({});
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
 
@@ -108,6 +115,50 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         .finally(() => setCargandoRegistro(false));
     }
   }, [tab, curso, regFecha, regAlumno]);
+
+  const cargarDocentes = useCallback(() => {
+    setCargandoDocentes(true);
+    setMensajeDocentes('');
+    getDocentesDisponibles(curso)
+      .then((data) => {
+        setDocentesDisponibles(data);
+        setDocentesEstados({});
+      })
+      .catch(() => {
+        setDocentesDisponibles([]);
+        setDocentesEstados({});
+      })
+      .finally(() => setCargandoDocentes(false));
+  }, [curso]);
+
+  useEffect(() => {
+    if (tab === 'docentes') cargarDocentes();
+  }, [tab, cargarDocentes]);
+
+  const handleRegistrarDocente = async (doc) => {
+    const estadoSeleccionado = docentesEstados[doc.docente_id] || '';
+    if (!estadoSeleccionado) {
+      setMensajeDocentes('Seleccioná un estado antes de registrar.');
+      return;
+    }
+    setRegistrandoDocente(doc.docente_id);
+    setMensajeDocentes('');
+    try {
+      await registrarAsistenciaDocente({
+        docente_id: doc.docente_id,
+        cm_id: doc.cm_id,
+        estado: estadoSeleccionado,
+      });
+      setMensajeDocentes('Asistencia registrada correctamente.');
+      cargarDocentes();
+    } catch (err) {
+      const detail = err.response?.data;
+      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
+      setMensajeDocentes(`Error: ${msg}`);
+    } finally {
+      setRegistrandoDocente('');
+    }
+  };
 
   const handleGuardar = async () => {
     setGuardando(true);
@@ -458,7 +509,115 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
       {tab === 'docentes' && (
         <div>
-          <p className="empty-state-message">Próximamente.</p>
+          <p className="asist-info-banner">
+            <i className="fas fa-info-circle" aria-hidden="true" /> Solo aparecen los docentes con
+            clase en este momento según el horario del servidor.
+          </p>
+
+          <div className="card-header-flex">
+            <h3>Asistencia de docentes</h3>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={cargarDocentes}>
+              <i className="fas fa-sync-alt" aria-hidden="true" /> Actualizar
+            </button>
+          </div>
+
+          {mensajeDocentes && (
+            <p style={{ color: mensajeDocentes.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+              {mensajeDocentes}
+            </p>
+          )}
+
+          {cargandoDocentes ? (
+            <p>Cargando docentes...</p>
+          ) : docentesDisponibles.length === 0 ? (
+            <p className="empty-state-message">No hay docentes con clase en este momento.</p>
+          ) : (
+            <div className="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Docente</th>
+                    <th>Materia</th>
+                    <th>Curso</th>
+                    <th>Horario</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {docentesDisponibles.map((doc) => (
+                    <tr key={`${doc.docente_id}-${doc.cm_id}`}>
+                      <td className="table-cell-strong">{doc.docente_nombre}</td>
+                      <td>{doc.materia_nombre}</td>
+                      <td>{doc.curso_nombre}</td>
+                      <td className="nowrap">{doc.horario}</td>
+                      <td>
+                        {doc.ya_registrada ? (
+                          <span className="badge badge-presente">Registrada</span>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            {['Presente', 'Ausente', 'Tarde', 'Retiro'].map((est) => {
+                              const seleccionado = docentesEstados[doc.docente_id] === est;
+                              const deshabilitado = docentesEstados[doc.docente_id] && !seleccionado;
+                              return (
+                                <button
+                                  key={est}
+                                  type="button"
+                                  onClick={() => {
+                                    if (deshabilitado) return;
+                                    setDocentesEstados((prev) => ({
+                                      ...prev,
+                                      [doc.docente_id]: seleccionado ? '' : est,
+                                    }));
+                                  }}
+                                  style={{
+                                    padding: '4px 14px',
+                                    borderRadius: '16px',
+                                    border: seleccionado ? '2px solid' : '1px solid #ccc',
+                                    borderColor: seleccionado
+                                      ? (est === 'Presente' ? '#28a745' : est === 'Ausente' ? '#dc3545' : est === 'Tarde' ? '#ffc107' : '#6f42c1')
+                                      : '#ccc',
+                                    backgroundColor: seleccionado
+                                      ? (est === 'Presente' ? '#d4edda' : est === 'Ausente' ? '#f8d7da' : est === 'Tarde' ? '#fff3cd' : '#e8d5f5')
+                                      : (deshabilitado ? '#f5f5f5' : '#fff'),
+                                    color: seleccionado
+                                      ? (est === 'Presente' ? '#155724' : est === 'Ausente' ? '#721c24' : est === 'Tarde' ? '#856404' : '#38315a')
+                                      : (deshabilitado ? '#bbb' : '#333'),
+                                    cursor: deshabilitado ? 'not-allowed' : 'pointer',
+                                    fontWeight: seleccionado ? 600 : 400,
+                                    fontSize: '0.85em',
+                                    opacity: deshabilitado ? 0.5 : 1,
+                                    transition: 'all 0.15s ease',
+                                    outline: 'none',
+                                  }}
+                                >
+                                  {seleccionado ? '✓ ' : ''}{est}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {doc.ya_registrada ? (
+                          <span style={{ color: '#888' }}>Ya registrada</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleRegistrarDocente(doc)}
+                            disabled={registrandoDocente === doc.docente_id || !docentesEstados[doc.docente_id]}
+                          >
+                            {registrandoDocente === doc.docente_id ? 'Registrando...' : 'Registrar'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

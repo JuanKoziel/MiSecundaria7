@@ -253,6 +253,18 @@ export async function getRegistroDiario(curso, params = {}) {
   return data;
 }
 
+export async function getDocentesDisponibles(curso) {
+  const params = {};
+  if (curso) params.curso = curso;
+  const { data } = await api.get('/asistencias-docentes/docentes-disponibles/', { params });
+  return data;
+}
+
+export async function registrarAsistenciaDocente(payload) {
+  const { data } = await api.post('/asistencias-docentes/registrar-asistencia-docente/', payload);
+  return data;
+}
+
 export async function getActas(params) {
   const { data } = await api.get('/actas/', { params });
   return data;

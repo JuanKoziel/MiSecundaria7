@@ -343,6 +343,32 @@ class EstadoAsistencia(models.Model):
         return self.nombre_estado
 
 
+class AsistenciaDocente(models.Model):
+    id_asistencia_docente = models.AutoField(primary_key=True)
+    id_docente = models.ForeignKey(
+        Docente, on_delete=models.CASCADE, db_column='id_docente',
+    )
+    id_curso_materia = models.ForeignKey(
+        CursoMateria, on_delete=models.CASCADE, db_column='id_curso_materia',
+    )
+    id_usuario = models.ForeignKey(
+        Usuario, on_delete=models.CASCADE, db_column='id_usuario',
+    )
+    id_estado_asistencia = models.ForeignKey(
+        EstadoAsistencia, on_delete=models.CASCADE,
+        db_column='id_estado_asistencia',
+    )
+    fecha = models.DateField()
+    hora = models.TimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'asistencias_docentes'
+
+    def __str__(self):
+        return f'{self.id_docente} - {self.fecha}'
+
+
 class Asistencia(models.Model):
     id_asistencia = models.AutoField(primary_key=True)
     id_alumno = models.ForeignKey(

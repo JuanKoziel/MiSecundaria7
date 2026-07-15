@@ -21,6 +21,7 @@ from escuela.models import (
     ActaDocente,
     Alumno,
     Asistencia,
+    AsistenciaDocente,
     ActividadDocente,
     ActividadDocenteArchivo,
     Calificacion,
@@ -64,6 +65,7 @@ from escuela.serializers import (
     ComunicadoSerializer,
     AlumnoSerializer,
     AsistenciaSerializer,
+    AsistenciaDocenteSerializer,
     CalificacionSerializer,
     CicloLectivoSerializer,
     CursoMateriaSerializer,
@@ -1680,6 +1682,255 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AsistenciaDocenteViewSet(viewsets.ViewSet):
+    permission_classes = [AllowAny]
+
+    @action(detail=False, methods=['get'], url_path='docentes-disponibles')
+    def docentes_disponibles(self, request):
+        roles = get_roles_for_usuario(request.user.username)
+        if 'preceptor' not in roles and 'admin' not in roles and 'director' not in roles:
+            return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
+
+        cursos_ids = _preceptor_cursos_ids(request) if 'preceptor' in roles else None
+        if 'preceptor' in roles and not cursos_ids:
+            return Response({'error': 'Preceptor sin cursos asignados.'}, status=status.HTTP_403_FORBIDDEN)
+
+        curso_nombre = request.query_params.get('curso')
+        curso_filtro_id = None
+        if curso_nombre:
+            curso_obj = Curso.objects.filter(nombre_curso=curso_nombre, activo=True).first()
+            if not curso_obj:
+                return Response([])
+            curso_filtro_id = curso_obj.id_curso
+
+        ahora = datetime.now()
+        dia = _dia_semana_es(ahora)
+        hora_actual = ahora.time()
+        fecha_hoy = ahora.date()
+
+        horarios_normales = Horario.objects.filter(
+            id_modulo__isnull=False,
+            dia_semana=dia,
+            id_curso_materia__id_curso__activo=True,
+        ).select_related(
+            'id_curso_materia__id_docente',
+            'id_curso_materia__id_materia',
+            'id_curso_materia__id_curso',
+            'id_modulo',
+        )
+
+        horarios_especiales = HorariosEspeciales.objects.filter(
+            dia_semana=dia,
+            id_curso_materia__id_curso__activo=True,
+        ).select_related(
+            'id_curso_materia__id_docente',
+            'id_curso_materia__id_materia',
+            'id_curso_materia__id_curso',
+        )
+
+        bloques_map = {}
+        for h in horarios_normales:
+            cm = h.id_curso_materia
+            if not cm.id_docente:
+                continue
+            if cursos_ids is not None and cm.id_curso_id not in cursos_ids:
+                continue
+            if curso_filtro_id is not None and cm.id_curso_id != curso_filtro_id:
+                continue
+            hi = h.id_modulo.hora_inicio
+            hf = h.id_modulo.hora_fin
+            key = (cm.id_docente_id, cm.id_curso_materia)
+            if key not in bloques_map:
+                bloques_map[key] = {
+                    'docente_id': cm.id_docente_id,
+                    'docente_nombre': f'{cm.id_docente.apellido}, {cm.id_docente.nombre}',
+                    'materia_nombre': cm.id_materia.nombre_materia if cm.id_materia else '-',
+                    'curso_nombre': cm.id_curso.nombre_curso,
+                    'cm_id': cm.id_curso_materia,
+                    'times': [],
+                }
+            bloques_map[key]['times'].append((hi, hf))
+
+        for h in horarios_especiales:
+            cm = h.id_curso_materia
+            if not cm.id_docente:
+                continue
+            if cursos_ids is not None and cm.id_curso_id not in cursos_ids:
+                continue
+            if curso_filtro_id is not None and cm.id_curso_id != curso_filtro_id:
+                continue
+            key = (cm.id_docente_id, cm.id_curso_materia)
+            if key not in bloques_map:
+                bloques_map[key] = {
+                    'docente_id': cm.id_docente_id,
+                    'docente_nombre': f'{cm.id_docente.apellido}, {cm.id_docente.nombre}',
+                    'materia_nombre': cm.id_materia.nombre_materia if cm.id_materia else '-',
+                    'curso_nombre': cm.id_curso.nombre_curso,
+                    'cm_id': cm.id_curso_materia,
+                    'times': [],
+                }
+            bloques_map[key]['times'].append((h.hora_inicio, h.hora_fin))
+
+        resultado = []
+        for key, info in bloques_map.items():
+            times = sorted(info['times'], key=lambda x: x[0])
+
+            s = 0
+            while s < len(times):
+                e = s
+                while e < len(times) - 1 and times[e][1] >= times[e + 1][0]:
+                    e += 1
+
+                inicio = times[s][0]
+                fin = times[e][1]
+
+                if inicio <= hora_actual < fin:
+                    ya_registrada = AsistenciaDocente.objects.filter(
+                        id_docente_id=info['docente_id'],
+                        id_curso_materia_id=info['cm_id'],
+                        fecha=fecha_hoy,
+                        hora__gte=inicio,
+                        hora__lt=fin,
+                    ).exists()
+
+                    resultado.append({
+                        'docente_id': info['docente_id'],
+                        'docente_nombre': info['docente_nombre'],
+                        'materia_nombre': info['materia_nombre'],
+                        'curso_nombre': info['curso_nombre'],
+                        'cm_id': info['cm_id'],
+                        'horario': f'{inicio.strftime("%H:%M")} - {fin.strftime("%H:%M")}',
+                        'ya_registrada': ya_registrada,
+                    })
+                    break
+
+                s = e + 1
+
+        resultado.sort(key=lambda r: r['docente_nombre'])
+        return Response(resultado)
+
+    @action(detail=False, methods=['post'], url_path='registrar-asistencia-docente')
+    def registrar_asistencia_docente(self, request):
+        roles = get_roles_for_usuario(request.user.username)
+        if 'preceptor' not in roles and 'admin' not in roles and 'director' not in roles:
+            return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
+
+        cursos_ids = _preceptor_cursos_ids(request) if 'preceptor' in roles else None
+        if 'preceptor' in roles and not cursos_ids:
+            return Response({'error': 'Preceptor sin cursos asignados.'}, status=status.HTTP_403_FORBIDDEN)
+
+        docente_id = request.data.get('docente_id')
+        cm_id = request.data.get('cm_id')
+        estado = request.data.get('estado')
+
+        if not docente_id or not cm_id or not estado:
+            return Response(
+                {'error': 'Se requieren docente_id, cm_id y estado.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ahora = datetime.now()
+        dia = _dia_semana_es(ahora)
+        hora_actual = ahora.time()
+        fecha_hoy = ahora.date()
+
+        try:
+            cm = CursoMateria.objects.get(id_curso_materia=cm_id)
+        except CursoMateria.DoesNotExist:
+            return Response({'error': 'Curso materia no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if cm.id_docente_id != int(docente_id):
+            return Response({'error': 'El docente no corresponde a esta materia.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if cursos_ids is not None and cm.id_curso_id not in cursos_ids:
+            return Response({'error': 'No autorizado para este curso.'}, status=status.HTTP_403_FORBIDDEN)
+
+        bloques = self._obtener_bloques_hoy(cm_id, dia)
+        bloque_encontrado = None
+        for inicio, fin in bloques:
+            if inicio <= hora_actual < fin:
+                bloque_encontrado = (inicio, fin)
+                break
+
+        if not bloque_encontrado:
+            return Response(
+                {'error': 'El docente no tiene clases programadas en este momento.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        inicio, fin = bloque_encontrado
+        duplicada = AsistenciaDocente.objects.filter(
+            id_docente_id=docente_id,
+            id_curso_materia_id=cm_id,
+            fecha=fecha_hoy,
+            hora__gte=inicio,
+            hora__lt=fin,
+        ).first()
+
+        if duplicada:
+            return Response(
+                {'error': 'Ya se registró asistencia para este docente en este bloque horario.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        estado_obj = EstadoAsistencia.objects.filter(nombre_estado=estado).first()
+        if not estado_obj:
+            return Response({'error': f'Estado de asistencia "{estado}" no encontrado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        usuario = Usuario.objects.filter(usuario=request.user.username).first()
+        if not usuario:
+            return Response({'error': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        asistencia = AsistenciaDocente.objects.create(
+            id_docente_id=docente_id,
+            id_curso_materia_id=cm_id,
+            id_usuario=usuario,
+            id_estado_asistencia=estado_obj,
+            fecha=fecha_hoy,
+            hora=ahora.time(),
+        )
+
+        return Response({
+            'id_asistencia_docente': asistencia.id_asistencia_docente,
+            'docente_id': docente_id,
+            'cm_id': cm_id,
+            'estado': estado,
+            'fecha': fecha_hoy.strftime('%Y-%m-%d'),
+            'mensaje': 'Asistencia registrada correctamente.',
+        }, status=status.HTTP_201_CREATED)
+
+    def _obtener_bloques_hoy(self, cm_id, dia_semana):
+        horarios = list(Horario.objects.filter(
+            id_curso_materia=cm_id,
+            dia_semana=dia_semana,
+            id_modulo__isnull=False,
+        ).select_related('id_modulo').order_by('id_modulo__hora_inicio'))
+
+        horarios_esp = list(HorariosEspeciales.objects.filter(
+            id_curso_materia=cm_id,
+            dia_semana=dia_semana,
+        ).order_by('hora_inicio'))
+
+        times = []
+        for h in horarios:
+            times.append((h.id_modulo.hora_inicio, h.id_modulo.hora_fin))
+        for h in horarios_esp:
+            times.append((h.hora_inicio, h.hora_fin))
+
+        times.sort(key=lambda x: x[0])
+
+        bloques = []
+        i = 0
+        while i < len(times):
+            j = i
+            while j < len(times) - 1 and times[j][1] >= times[j + 1][0]:
+                j += 1
+            bloques.append((times[i][0], times[j][1]))
+            i = j + 1
+
+        return bloques
 
 
 class TipoActaViewSet(viewsets.ReadOnlyModelViewSet):
