@@ -673,3 +673,46 @@ class ComunicadoArchivo(models.Model):
     class Meta:
         managed = False
         db_table = 'comunicado_archivo'
+
+
+class EventoInstitucional(models.Model):
+    TIPO_EVENTO_CHOICES = [
+        ('Feriado', 'Feriado'),
+        ('Suspension', 'Suspensión de clases'),
+        ('Jornada Institucional', 'Jornada Institucional'),
+        ('Otro', 'Otro'),
+    ]
+    ALCANCE_CHOICES = [
+        ('todo_dia', 'Todo el día'),
+        ('manana', 'Turno mañana'),
+        ('tarde', 'Turno tarde'),
+        ('franja', 'Franja horaria personalizada'),
+    ]
+    PRIORIDAD_MAP = {
+        'Feriado': 1,
+        'Suspension': 2,
+        'Jornada Institucional': 3,
+        'Otro': 4,
+    }
+
+    id_evento = models.AutoField(primary_key=True)
+    tipo_evento = models.CharField(max_length=30, choices=TIPO_EVENTO_CHOICES)
+    descripcion = models.CharField(max_length=255)
+    fecha = models.DateField()
+    permanente = models.BooleanField(default=False)
+    alcance = models.CharField(max_length=20, choices=ALCANCE_CHOICES, default='todo_dia')
+    hora_inicio = models.TimeField(blank=True, null=True)
+    hora_fin = models.TimeField(blank=True, null=True)
+    id_usuario_creador = models.ForeignKey(
+        Usuario, on_delete=models.SET_NULL, db_column='id_usuario_creador',
+        blank=True, null=True, related_name='eventos_institucionales_creados',
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'eventos_institucionales'
+
+    def __str__(self):
+        return f'{self.tipo_evento} - {self.fecha}'

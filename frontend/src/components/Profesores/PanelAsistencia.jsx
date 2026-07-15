@@ -125,6 +125,36 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
     );
   }
 
+  if (serverInfo?.evento_activo) {
+    return (
+      <div className="card" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', textAlign: 'center' }}>
+        <div style={{ maxWidth: '480px' }}>
+          <div style={{ fontSize: '3em', marginBottom: '16px' }}>&#128683;</div>
+          <h3 style={{ marginBottom: '12px', color: '#dc3545' }}>No es posible registrar asistencias</h3>
+          <p style={{ color: '#555', lineHeight: '1.6', margin: 0 }}>
+            Actualmente existe un evento institucional activo.
+          </p>
+          <p style={{ color: '#555', lineHeight: '1.6', marginTop: '8px', marginBottom: 0 }}>
+            Evento: <strong style={{ color: '#333' }}>{serverInfo.evento_tipo}</strong>
+          </p>
+          {serverInfo.evento_descripcion && (
+            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
+              Descripción: <strong style={{ color: '#333' }}>{serverInfo.evento_descripcion}</strong>
+            </p>
+          )}
+          {serverInfo.evento_horario && (
+            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
+              Horario afectado: <strong style={{ color: '#333' }}>{serverInfo.evento_horario}</strong>
+            </p>
+          )}
+          <p style={{ color: '#555', lineHeight: '1.6', marginTop: '12px', marginBottom: 0, fontStyle: 'italic' }}>
+            Las asistencias volverán a habilitarse automáticamente al finalizar el evento.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card">
       <div className="card-header-flex">

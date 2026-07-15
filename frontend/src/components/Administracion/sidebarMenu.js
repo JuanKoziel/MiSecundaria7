@@ -6,6 +6,7 @@ export const menuItems = [
   { id: 'administradores', label: 'Administradores', icon: 'fa-user-shield', directorOnly: true },
   { id: 'horarios', label: 'Horarios', icon: 'fa-clock' },
   { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },
+  { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
   { id: 'notas', label: 'Notas', icon: 'fa-clipboard-list' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
   { id: 'cursos', label: 'Cursos', icon: 'fa-school' },

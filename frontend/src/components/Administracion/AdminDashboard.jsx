@@ -13,6 +13,7 @@ import Administradores from './administradores';
 import Preceptores from './preceptores';
 import Cursos from './cursos';
 import Materias from './materias';
+import CalendarioInstitucional from './CalendarioInstitucional';
 import PanelAdmin from './PanelAdmin';
 import { getDirectivos } from '../../services/api';
 
@@ -42,6 +43,8 @@ function AdminDashboard({ user, onLogout }) {
         return <Horarios />;
       case 'asistencias':
         return <Asistencias />;
+      case 'calendario':
+        return <CalendarioInstitucional />;
       case 'notas':
         return <Notas />;
       case 'comunicados':

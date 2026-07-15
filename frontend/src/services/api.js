@@ -556,4 +556,23 @@ export async function deletePlanificacion(id) {
   await api.delete(`/planificaciones/${id}/`);
 }
 
+export async function getEventosInstitucionales(params) {
+  const { data } = await api.get('/eventos-institucionales/', { params });
+  return data;
+}
+
+export async function createEventoInstitucional(payload) {
+  const { data } = await api.post('/eventos-institucionales/', payload);
+  return data;
+}
+
+export async function updateEventoInstitucional(id, payload) {
+  const { data } = await api.patch(`/eventos-institucionales/${id}/`, payload);
+  return data;
+}
+
+export async function deleteEventoInstitucional(id) {
+  await api.delete(`/eventos-institucionales/${id}/`);
+}
+
 export default api;

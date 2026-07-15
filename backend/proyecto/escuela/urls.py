@@ -38,6 +38,7 @@ router.register(r'diagnosticos-grupales', views.DiagnosticoGrupalViewSet)
 router.register(r'notificaciones', views.NotificacionViewSet)
 router.register(r'tipos-accion', views.TipoAccionViewSet)
 router.register(r'historial', views.HistorialCambioViewSet)
+router.register(r'eventos-institucionales', views.EventoInstitucionalViewSet, basename='eventos-institucionales')
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),

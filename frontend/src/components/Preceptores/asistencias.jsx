@@ -9,6 +9,7 @@ import {
   getRegistroDiario,
   getDocentesDisponibles,
   registrarAsistenciaDocente,
+  getServerTime,
 } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
@@ -57,6 +58,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const [registrandoDocente, setRegistrandoDocente] = useState('');
   const [mensajeDocentes, setMensajeDocentes] = useState('');
   const [docentesEstados, setDocentesEstados] = useState({});
+  const [serverInfo, setServerInfo] = useState(null);
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
 
@@ -134,6 +136,10 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   useEffect(() => {
     if (tab === 'docentes') cargarDocentes();
   }, [tab, cargarDocentes]);
+
+  useEffect(() => {
+    getServerTime().then(setServerInfo).catch(() => setServerInfo(null));
+  }, []);
 
   const handleRegistrarDocente = async (doc) => {
     const estadoSeleccionado = docentesEstados[doc.docente_id] || '';
@@ -223,6 +229,36 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
   return (
     <div className="card">
+      {serverInfo?.evento_activo && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px', textAlign: 'center', padding: '24px' }}>
+          <div style={{ maxWidth: '480px' }}>
+            <div style={{ fontSize: '3em', marginBottom: '16px' }}>&#128683;</div>
+            <h3 style={{ marginBottom: '12px', color: '#dc3545' }}>No es posible registrar asistencias</h3>
+            <p style={{ color: '#555', lineHeight: '1.6', margin: 0 }}>
+              Actualmente existe un evento institucional activo.
+            </p>
+            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '8px', marginBottom: 0 }}>
+              Evento: <strong style={{ color: '#333' }}>{serverInfo.evento_tipo}</strong>
+            </p>
+            {serverInfo.evento_descripcion && (
+              <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
+                Descripción: <strong style={{ color: '#333' }}>{serverInfo.evento_descripcion}</strong>
+              </p>
+            )}
+            {serverInfo.evento_horario && (
+              <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
+                Horario afectado: <strong style={{ color: '#333' }}>{serverInfo.evento_horario}</strong>
+              </p>
+            )}
+            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '12px', marginBottom: 0, fontStyle: 'italic' }}>
+              Las asistencias volverán a habilitarse automáticamente al finalizar el evento.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!serverInfo?.evento_activo && (
+      <>
       <FiltrosAnioCurso
         anioLectivo={anioLectivo}
         curso={curso}
@@ -619,6 +655,8 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );

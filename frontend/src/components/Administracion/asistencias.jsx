@@ -5,6 +5,7 @@ import {
   patchJustificar,
   getAsistenciaDiaria,
   getRegistroDiario,
+  getServerTime,
 } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
 
@@ -36,6 +37,7 @@ function Asistencias() {
   const [regAlumno, setRegAlumno] = useState('');
   const [dataRegistro, setDataRegistro] = useState([]);
   const [cargandoRegistro, setCargandoRegistro] = useState(false);
+  const [serverInfo, setServerInfo] = useState(null);
 
   const cursoObjSel = useMemo(
     () => cursosObj.find((c) => c.nombre_curso === curso),
@@ -99,8 +101,42 @@ function Asistencias() {
     }
   }, [tab, curso, regFecha, regAlumno]);
 
+  useEffect(() => {
+    getServerTime().then(setServerInfo).catch(() => setServerInfo(null));
+  }, []);
+
   return (
     <div className="card">
+      {serverInfo?.evento_activo && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px', textAlign: 'center', padding: '24px' }}>
+          <div style={{ maxWidth: '480px' }}>
+            <div style={{ fontSize: '3em', marginBottom: '16px' }}>&#128683;</div>
+            <h3 style={{ marginBottom: '12px', color: '#dc3545' }}>No es posible registrar asistencias</h3>
+            <p style={{ color: '#555', lineHeight: '1.6', margin: 0 }}>
+              Actualmente existe un evento institucional activo.
+            </p>
+            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '8px', marginBottom: 0 }}>
+              Evento: <strong style={{ color: '#333' }}>{serverInfo.evento_tipo}</strong>
+            </p>
+            {serverInfo.evento_descripcion && (
+              <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
+                Descripción: <strong style={{ color: '#333' }}>{serverInfo.evento_descripcion}</strong>
+              </p>
+            )}
+            {serverInfo.evento_horario && (
+              <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
+                Horario afectado: <strong style={{ color: '#333' }}>{serverInfo.evento_horario}</strong>
+              </p>
+            )}
+            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '12px', marginBottom: 0, fontStyle: 'italic' }}>
+              Las asistencias volverán a habilitarse automáticamente al finalizar el evento.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!serverInfo?.evento_activo && (
+      <>
       <div className="card-header-flex">
         <h3>Control de Asistencia</h3>
         <span className="badge role-badge-display">Solo lectura</span>
@@ -365,6 +401,8 @@ function Asistencias() {
         <div>
           <p className="empty-state-message">Próximamente.</p>
         </div>
+      )}
+      </>
       )}
     </div>
   );

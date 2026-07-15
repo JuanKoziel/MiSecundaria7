@@ -36,6 +36,7 @@ from escuela.models import (
     Directivo,
     Docente,
     EstadoAsistencia,
+    EventoInstitucional,
     HistorialCambio,
     Horario,
     HorariosEspeciales,
@@ -74,6 +75,7 @@ from escuela.serializers import (
     DirectivoSerializer,
     DocenteSerializer,
     EstadoAsistenciaSerializer,
+    EventoInstitucionalSerializer,
     HistorialCambioSerializer,
     HorarioSerializer,
     HorarioEspecialSerializer,
@@ -247,6 +249,74 @@ def docente_puede_registrar_asistencia_alumnos(docente_id, curso_materia_id, fec
         return False, 'No puede registrar asistencias porque fue marcado como AUSENTE para este bloque horario.', preceptor_nombre
 
     return True, None, None
+
+
+def limpiar_eventos_temporales_vencidos():
+    """Elimina eventos temporales cuya fecha ya pasó.
+
+    Reutilizable desde:
+      - management commands
+      - cron jobs / Celery beat
+      - señales Django (post_save, etc.)
+      - cualquier proceso que necesite limpiar eventos vencidos
+
+    Uso:
+        from escuela.views import limpiar_eventos_temporales_vencidos
+        limpiar_eventos_temporales_vencidos()
+
+    Retorna la cantidad de eventos eliminados.
+    """
+    from datetime import date as date_cls
+    count, _ = EventoInstitucional.objects.filter(
+        permanente=False,
+        fecha__lt=date_cls.today(),
+    ).delete()
+    return count
+
+
+def evento_institucional_activo(fecha=None, hora=None):
+    from datetime import date as date_cls
+    ahora = datetime.now()
+    fecha = fecha or ahora.date()
+    hora = hora or ahora.time()
+
+    from django.db.models import Q
+    query = Q(fecha=fecha) | Q(fecha__month=fecha.month, fecha__day=fecha.day, permanente=True)
+    eventos = list(EventoInstitucional.objects.filter(query))
+
+    if not eventos:
+        return False, None, None, None, None, None
+
+    prioridad = EventoInstitucional.PRIORIDAD_MAP
+    eventos.sort(key=lambda e: prioridad.get(e.tipo_evento, 99))
+
+    modulos_manana = list(Modulos.objects.filter(hora_inicio__hour__lt=12).order_by('hora_inicio'))
+    modulos_tarde = list(Modulos.objects.filter(hora_inicio__hour__gte=12).order_by('hora_inicio'))
+
+    def _turno_rango(modulos):
+        if not modulos:
+            return None, None
+        return modulos[0].hora_inicio, modulos[-1].hora_fin
+
+    for ev in eventos:
+        if ev.alcance == 'todo_dia':
+            return True, ev.tipo_evento, ev.descripcion, 'Todo el día', None, None
+
+        elif ev.alcance == 'manana':
+            hi, hf = _turno_rango(modulos_manana)
+            if hi and hf and hi <= hora < hf:
+                return True, ev.tipo_evento, ev.descripcion, f'{hi.strftime("%H:%M")} a {hf.strftime("%H:%M")}', hi, hf
+
+        elif ev.alcance == 'tarde':
+            hi, hf = _turno_rango(modulos_tarde)
+            if hi and hf and hi <= hora < hf:
+                return True, ev.tipo_evento, ev.descripcion, f'{hi.strftime("%H:%M")} a {hf.strftime("%H:%M")}', hi, hf
+
+        elif ev.alcance == 'franja':
+            if ev.hora_inicio and ev.hora_fin and ev.hora_inicio <= hora < ev.hora_fin:
+                return True, ev.tipo_evento, ev.descripcion, f'{ev.hora_inicio.strftime("%H:%M")} a {ev.hora_fin.strftime("%H:%M")}', ev.hora_inicio, ev.hora_fin
+
+    return False, None, None, None, None, None
 
 
 def _resolve_course_id(value):
@@ -1379,6 +1449,14 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
                             data['preceptor'] = preceptor_nombre
                 except CursoMateria.DoesNotExist:
                     pass
+
+        activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(ahora.date(), ahora.time())
+        if activo:
+            data['evento_activo'] = True
+            data['evento_tipo'] = tipo_ev
+            data['evento_descripcion'] = desc_ev
+            data['evento_horario'] = horario_ev
+
         return Response(data)
 
     def _horarios_hoy(self, curso_materia_id, dia_semana):
@@ -1747,6 +1825,12 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         if estado['codigo'] != 'en_horario':
             return Response({'error': estado['mensaje']}, status=status.HTTP_403_FORBIDDEN)
 
+        activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(ahora.date(), ahora.time())
+        if activo:
+            return Response({
+                'error': f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". {desc_ev}. Horario afectado: {horario_ev}.',
+            }, status=status.HTTP_403_FORBIDDEN)
+
         roles = get_roles_for_usuario(request.user.username)
         if 'docente' in roles:
             try:
@@ -1961,6 +2045,12 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(fecha_hoy, hora_actual)
+        if activo:
+            return Response({
+                'error': f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". {desc_ev}. Horario afectado: {horario_ev}.',
+            }, status=status.HTTP_403_FORBIDDEN)
+
         inicio, fin = bloque_encontrado
         duplicada = AsistenciaDocente.objects.filter(
             id_docente_id=docente_id,
@@ -2004,6 +2094,188 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
 
     def _obtener_bloques_hoy(self, cm_id, dia_semana):
         return _obtener_bloques_horario(cm_id, dia_semana)
+
+
+def _verificar_solapamiento(nuevo_alcance, nueva_fecha, nueva_hora_inicio, nueva_hora_fin, nuevo_permanente, exclude_id=None):
+    """Verifica si un nuevo evento entra en conflicto con existentes.
+
+    Reglas de conflicto (bloquea la creación):
+      - todo_dia: NUNCA se bloquea (reemplaza todo).
+      - manana: se bloquea si existe un todo_dia en la misma fecha.
+      - tarde: se bloquea si existe un todo_dia en la misma fecha.
+      - franja: se bloquea si existe todo_dia, o si manana/tarde cubre la franja,
+                o si otra franja se superpone sin ser cubierta completamente.
+
+    Retorna string de error o None.
+    """
+    from django.db.models import Q
+    if not nueva_fecha:
+        return None
+
+    if nuevo_permanente:
+        query = Q(fecha__month=nueva_fecha.month, fecha__day=nueva_fecha.day, permanente=True)
+    else:
+        query = Q(Q(fecha=nueva_fecha, permanente=False) | Q(fecha=nueva_fecha, permanente=True))
+
+    if exclude_id:
+        query = query & ~Q(id_evento=exclude_id)
+
+    otros = list(EventoInstitucional.objects.filter(query))
+    if not otros:
+        return None
+
+    if nuevo_alcance == 'todo_dia':
+        return None
+
+    mod_manana = list(Modulos.objects.filter(hora_inicio__hour__lt=12).order_by('hora_inicio'))
+    mod_tarde = list(Modulos.objects.filter(hora_inicio__hour__gte=12).order_by('hora_inicio'))
+
+    def _rango_turno(modulos):
+        if not modulos:
+            return None, None
+        return modulos[0].hora_inicio, modulos[-1].hora_fin
+
+    m_hi, m_hf = _rango_turno(mod_manana)
+    t_hi, t_hf = _rango_turno(mod_tarde)
+
+    for ev in otros:
+        if nuevo_alcance == 'manana':
+            if ev.alcance == 'todo_dia':
+                return 'Existe un evento de todo el día para esa fecha.'
+
+        elif nuevo_alcance == 'tarde':
+            if ev.alcance == 'todo_dia':
+                return 'Existe un evento de todo el día para esa fecha.'
+
+        elif nuevo_alcance == 'franja':
+            if not (nueva_hora_inicio and nueva_hora_fin):
+                continue
+            if ev.alcance == 'todo_dia':
+                return 'Existe un evento de todo el día para esa fecha.'
+            if ev.alcance == 'manana' and m_hi and m_hf:
+                if nueva_hora_inicio < m_hf and nueva_hora_fin > m_hi:
+                    return 'La franja horaria se superpone con el turno mañana.'
+            if ev.alcance == 'tarde' and t_hi and t_hf:
+                if nueva_hora_inicio < t_hf and nueva_hora_fin > t_hi:
+                    return 'La franja horaria se superpone con el turno tarde.'
+            if ev.alcance == 'franja' and ev.hora_inicio and ev.hora_fin:
+                if nueva_hora_inicio < ev.hora_fin and nueva_hora_fin > ev.hora_inicio:
+                    cubre = nueva_hora_inicio <= ev.hora_inicio and nueva_hora_fin >= ev.hora_fin
+                    if not cubre:
+                        return 'Ya existe un evento con franja horaria superpuesta.'
+
+    return None
+
+
+def _alcance_cubre(nuevo_alcance, nueva_hora_inicio, nueva_hora_fin, alcance_existente, ev_hora_inicio, ev_hora_fin):
+    """Determina si el nuevo alcance cubre completamente al existente."""
+    if nuevo_alcance == 'todo_dia':
+        return True
+    if nuevo_alcance == 'manana' and alcance_existente == 'manana':
+        return True
+    if nuevo_alcance == 'tarde' and alcance_existente == 'tarde':
+        return True
+    if nuevo_alcance == 'franja' and alcance_existente == 'franja':
+        if nueva_hora_inicio and nueva_hora_fin and ev_hora_inicio and ev_hora_fin:
+            return nueva_hora_inicio <= ev_hora_inicio and nueva_hora_fin >= ev_hora_fin
+    return False
+
+
+def _eventos_a_reemplazar(nuevo_alcance, nueva_fecha, nueva_hora_inicio, nueva_hora_fin, nuevo_permanente, exclude_id=None):
+    """Retorna IDs de eventos que deben eliminarse porque el nuevo los cubre.
+
+    Reglas:
+      - todo_dia: reemplaza TODOS los eventos de esa fecha (misma permanencia).
+      - manana: reemplaza otros manana.
+      - tarde: reemplaza otros tarde.
+      - franja: reemplaza otra franja si la envuelve completamente.
+    """
+    from django.db.models import Q
+    if not nueva_fecha:
+        return []
+
+    if nuevo_permanente:
+        query = Q(fecha__month=nueva_fecha.month, fecha__day=nueva_fecha.day, permanente=True)
+    else:
+        query = Q(fecha=nueva_fecha, permanente=False)
+
+    if exclude_id:
+        query = query & ~Q(id_evento=exclude_id)
+
+    otros = EventoInstitucional.objects.filter(query)
+    ids_reemplazar = []
+
+    for ev in otros:
+        if _alcance_cubre(nuevo_alcance, nueva_hora_inicio, nueva_hora_fin, ev.alcance, ev.hora_inicio, ev.hora_fin):
+            ids_reemplazar.append(ev.id_evento)
+
+    return ids_reemplazar
+
+
+class EventoInstitucionalViewSet(viewsets.ModelViewSet):
+    queryset = EventoInstitucional.objects.all()
+    serializer_class = EventoInstitucionalSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+
+    def perform_create(self, serializer):
+        from rest_framework.exceptions import ValidationError
+        usuario = Usuario.objects.filter(usuario=self.request.user.username).first()
+        data = serializer.validated_data
+        err = _verificar_solapamiento(
+            data.get('alcance', 'todo_dia'),
+            data.get('fecha'),
+            data.get('hora_inicio'),
+            data.get('hora_fin'),
+            data.get('permanente', False),
+        )
+        if err:
+            raise ValidationError({'non_field_errors': [err]})
+        ids_reemplazar = _eventos_a_reemplazar(
+            data.get('alcance', 'todo_dia'),
+            data.get('fecha'),
+            data.get('hora_inicio'),
+            data.get('hora_fin'),
+            data.get('permanente', False),
+        )
+        if ids_reemplazar:
+            EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar).delete()
+        serializer.save(id_usuario_creador=usuario)
+
+    def perform_update(self, serializer):
+        from rest_framework.exceptions import ValidationError
+        from django.db.models import Q
+        instance = self.get_object()
+        data = serializer.validated_data
+        nueva_fecha = data.get('fecha', instance.fecha)
+        nuevo_alcance = data.get('alcance', instance.alcance)
+        nueva_hora_inicio = data.get('hora_inicio', instance.hora_inicio)
+        nueva_hora_fin = data.get('hora_fin', instance.hora_fin)
+
+        if nuevo_alcance == 'franja':
+            if nueva_hora_inicio and nueva_hora_fin and nueva_hora_inicio >= nueva_hora_fin:
+                raise ValidationError({'hora_fin': 'La hora de fin debe ser posterior a la hora de inicio.'})
+
+        err = _verificar_solapamiento(
+            nuevo_alcance,
+            nueva_fecha,
+            nueva_hora_inicio,
+            nueva_hora_fin,
+            data.get('permanente', instance.permanente),
+            exclude_id=instance.id_evento,
+        )
+        if err:
+            raise ValidationError({'non_field_errors': [err]})
+        ids_reemplazar = _eventos_a_reemplazar(
+            nuevo_alcance,
+            nueva_fecha,
+            nueva_hora_inicio,
+            nueva_hora_fin,
+            data.get('permanente', instance.permanente),
+            exclude_id=instance.id_evento,
+        )
+        if ids_reemplazar:
+            EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar).delete()
+        serializer.save(fecha_creacion=instance.fecha_creacion)
 
 
 class TipoActaViewSet(viewsets.ReadOnlyModelViewSet):

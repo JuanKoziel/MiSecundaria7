@@ -27,6 +27,7 @@ from escuela.models import (
     Directivo,
     Docente,
     EstadoAsistencia,
+    EventoInstitucional,
     HistorialCambio,
     Horario,
     HorariosEspeciales,
@@ -1709,5 +1710,26 @@ class HistorialCambioSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     usuario = serializers.CharField()
     contrasena = serializers.CharField(write_only=True)
+
+
+# ---------- Eventos Institucionales ----------
+
+class EventoInstitucionalSerializer(serializers.ModelSerializer):
+    creado_por_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EventoInstitucional
+        fields = '__all__'
+
+    def get_creado_por_nombre(self, obj):
+        if obj.id_usuario_creador:
+            preceptor = Preceptor.objects.filter(id_usuario=obj.id_usuario_creador).first()
+            if preceptor:
+                return f'{preceptor.apellido}, {preceptor.nombre}'
+            admin = Directivo.objects.filter(id_usuario=obj.id_usuario_creador).first()
+            if admin:
+                return f'{admin.apellido}, {admin.nombre}'
+            return obj.id_usuario_creador.usuario
+        return None
 
 
