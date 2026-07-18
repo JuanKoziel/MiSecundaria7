@@ -30,7 +30,7 @@ function estadoInicial() {
   return { estado: 'Presente', justificada: false };
 }
 
-function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
+function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly = false }) {
   const {
     inscripciones, alumnos, nombreCorto: nc,
     cursosObj, cursoMateria, estadosAsistencia,
@@ -268,6 +268,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
       <div className="card-header-flex">
         <h3>Control de Asistencia — {curso} ({anioLectivo})</h3>
+        {readOnly && <span className="badge role-badge-display">Solo lectura</span>}
       </div>
 
       <div className="asist-tipo-selector">
@@ -304,9 +305,11 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         <div>
           <div className="card-header-flex">
             <h3>Asistencias del día</h3>
-            <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
-              <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
-            </button>
+            {!readOnly && (
+              <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+                <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
+              </button>
+            )}
           </div>
 
           <p style={{ color: '#888', margin: '0 0 12px' }}>
@@ -552,9 +555,11 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
           <div className="card-header-flex">
             <h3>Asistencia de docentes</h3>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={cargarDocentes}>
-              <i className="fas fa-sync-alt" aria-hidden="true" /> Actualizar
-            </button>
+            {!readOnly && (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={cargarDocentes}>
+                <i className="fas fa-sync-alt" aria-hidden="true" /> Actualizar
+              </button>
+            )}
           </div>
 
           {mensajeDocentes && (
@@ -590,7 +595,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                       <td>
                         {doc.ya_registrada ? (
                           <span className="badge badge-presente">Registrada</span>
-                        ) : (
+                        ) : !readOnly ? (
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             {['Presente', 'Ausente', 'Tarde', 'Retiro'].map((est) => {
                               const seleccionado = docentesEstados[doc.docente_id] === est;
@@ -632,12 +637,14 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                               );
                             })}
                           </div>
+                        ) : (
+                          <span style={{ color: '#888' }}>No registrada</span>
                         )}
                       </td>
                       <td>
                         {doc.ya_registrada ? (
                           <span style={{ color: '#888' }}>Ya registrada</span>
-                        ) : (
+                        ) : !readOnly ? (
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
@@ -646,6 +653,8 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                           >
                             {registrandoDocente === doc.docente_id ? 'Registrando...' : 'Registrar'}
                           </button>
+                        ) : (
+                          <span style={{ color: '#888' }}>Pendiente</span>
                         )}
                       </td>
                     </tr>

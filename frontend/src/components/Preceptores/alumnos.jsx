@@ -71,9 +71,9 @@ function mensajeError(err) {
   return data?.detail || err.message || 'Error inesperado';
 }
 
-function Alumnos() {
+function Alumnos({ readOnly = false }) {
   const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto, cursosObj, refreshData } = useData();
-  const [modo, setModo] = useState('');
+  const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
   const [observaciones, setObservaciones] = useState({});
@@ -259,14 +259,14 @@ function Alumnos() {
                 <th>DNI</th>
                 <th>Nombre Completo</th>
                 <th>Usuario</th>
-                <th>Próxima acción</th>
-                <th>Acción</th>
+                {!readOnly && <th>Próxima acción</th>}
+                {!readOnly && <th>Acción</th>}
               </tr>
             </thead>
             <tbody>
               {lista.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="empty-state-message">
+                  <td colSpan={readOnly ? 3 : 5} className="empty-state-message">
                     No hay alumnos inscriptos en este curso.
                   </td>
                 </tr>
@@ -281,32 +281,34 @@ function Alumnos() {
                         </td>
                         <td>{nombreCompleto(a)}</td>
                         <td>{a.usuario || 'Sin usuario'}</td>
-                        <td>{proximaAccion(a)}</td>
-                        <td>
-                          {puedeCambiarEstado ? (
-                            <div className="flex-row--center flex-gap-16">
-                              <button
-                                type="button"
-                                className={`btn btn-sm ${a.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
-                                onClick={() => toggleEstado(a)}
-                                disabled={guardando}
-                              >
-                                <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
-                                {a.usuario_estado === false ? 'Deshabilitado' : 'Habilitado'}
-                              </button>
-                              <button
-                                type="button"
-                                className={`btn btn-sm btn-secondary${programando === a.id ? ' active' : ''}`}
-                                onClick={() => abrirProgramar(a)}
-                                title="Programar"
-                              >
-                                <i className="fas fa-calendar-alt" aria-hidden="true" />
-                              </button>
-                            </div>
-                          ) : '—'}
-                        </td>
+                        {!readOnly && <td>{proximaAccion(a)}</td>}
+                        {!readOnly && (
+                          <td>
+                            {puedeCambiarEstado ? (
+                              <div className="flex-row--center flex-gap-16">
+                                <button
+                                  type="button"
+                                  className={`btn btn-sm ${a.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
+                                  onClick={() => toggleEstado(a)}
+                                  disabled={guardando}
+                                >
+                                  <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
+                                  {a.usuario_estado === false ? 'Deshabilitado' : 'Habilitado'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`btn btn-sm btn-secondary${programando === a.id ? ' active' : ''}`}
+                                  onClick={() => abrirProgramar(a)}
+                                  title="Programar"
+                                >
+                                  <i className="fas fa-calendar-alt" aria-hidden="true" />
+                                </button>
+                              </div>
+                            ) : '—'}
+                          </td>
+                        )}
                       </tr>
-                      {programando === a.id && (
+                      {!readOnly && programando === a.id && (
                         <tr>
                           <td colSpan={5} style={{ padding: 0 }}>
                             <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
@@ -717,7 +719,13 @@ function Alumnos() {
 
   return (
     <div className="card">
-      <SelectorModo modo={modo} onModoChange={resetModo} titulo="Alumnos — ¿Qué deseás hacer?" />
+      {!readOnly && <SelectorModo modo={modo} onModoChange={resetModo} titulo="Alumnos — ¿Qué deseás hacer?" />}
+      {readOnly && (
+        <div className="card-header-flex card-header-flex--compact">
+          <h3>Alumnos</h3>
+          <span className="badge role-badge-display">Solo lectura</span>
+        </div>
+      )}
 
       {modo && modo !== 'crear' && modo !== 'modificar' && (
         <div>

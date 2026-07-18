@@ -121,6 +121,14 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
         return comunicados.filter((c) => misCursos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
       }
 
+      case 'jefe_preceptores': {
+        const miPreceptor = preceptores.find((p) => p.id_usuario === userId);
+        if (!miPreceptor) return comunicados;
+        const misCursos = cursosObj.filter((c) => c.id_preceptor === miPreceptor.id_preceptor);
+        if (misCursos.length === 0) return comunicados;
+        return comunicados.filter((c) => misCursos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
+      }
+
       case 'admin':
         return comunicados;
 

@@ -420,6 +420,17 @@ def _comunicado_visible_para_ctx(comunicado, ctx):
             for alcance in alcances
         )
 
+    if 'jefe_preceptores' in ctx['roles'] and ctx['preceptor']:
+        cursos = Curso.objects.filter(id_preceptor=ctx['preceptor'].id_preceptor).select_related('id_ciclo')
+        return any(
+            _curso_matches_alcance(curso, alcance)
+            for curso in cursos
+            for alcance in alcances
+        )
+
+    if 'jefe_preceptores' in ctx['roles'] and not ctx['preceptor']:
+        return True
+
     if 'docente' in ctx['roles'] and ctx['docente']:
         asignaciones = CursoMateria.objects.filter(
             id_docente=ctx['docente'].id_docente,
@@ -643,6 +654,8 @@ class AlumnoViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles:
+            raise PermissionDenied('No tenés permiso para crear alumnos.')
         if 'preceptor' in roles:
             self._require_preceptor_course_access(serializer.validated_data.get('id_curso'))
         serializer.save()
@@ -650,6 +663,8 @@ class AlumnoViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles:
+            raise PermissionDenied('No tenés permiso para modificar alumnos.')
         if 'preceptor' in roles:
             instance = serializer.instance
             self._require_preceptor_course_access(
@@ -660,6 +675,8 @@ class AlumnoViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles:
+            raise PermissionDenied('No tenés permiso para eliminar alumnos.')
         if 'preceptor' in roles:
             self._require_preceptor_course_access(instance.id_curso_id)
         instance.delete()
@@ -695,11 +712,26 @@ class DocenteViewSet(viewsets.ModelViewSet):
         if docente.id_docente not in docente_ids:
             raise PermissionDenied('No tienes permiso para gestionar este docente.')
 
+    def perform_create(self, serializer):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles:
+            raise PermissionDenied('No tenés permiso para crear docentes.')
+        serializer.save()
+
     def perform_update(self, serializer):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles:
+            raise PermissionDenied('No tenés permiso para modificar docentes.')
         self._require_preceptor_access(serializer.instance)
         serializer.save()
 
     def perform_destroy(self, instance):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles:
+            raise PermissionDenied('No tenés permiso para eliminar docentes.')
         self._require_preceptor_access(instance)
         instance.delete()
 
@@ -1003,7 +1035,7 @@ class PreceptorViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'admin' in roles or 'director' in roles:
+        if 'admin' in roles or 'director' in roles or 'jefe_preceptores' in roles:
             return qs
         if 'preceptor' in roles and username:
             return qs.filter(id_usuario__usuario=username)
@@ -1012,8 +1044,8 @@ class PreceptorViewSet(viewsets.ModelViewSet):
     def _require_admin_or_director(self):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'admin' not in roles and 'director' not in roles:
-            raise PermissionDenied("Solo administradores o directores pueden gestionar preceptores")
+        if 'admin' not in roles and 'director' not in roles and 'jefe_preceptores' not in roles:
+            raise PermissionDenied("Solo administradores, directores o jefes de preceptores pueden gestionar preceptores")
 
     def perform_create(self, serializer):
         self._require_admin_or_director()
@@ -1045,7 +1077,7 @@ class PadreTutorViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'admin' in roles or 'director' in roles:
+        if 'admin' in roles or 'director' in roles or 'jefe_preceptores' in roles:
             return qs
         if 'preceptor' in roles:
             cursos_ids = _preceptor_cursos_ids(self.request)
@@ -1080,12 +1112,14 @@ class PadreTutorViewSet(viewsets.ModelViewSet):
     def _require_admin_or_director(self):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'admin' not in roles and 'director' not in roles:
-            raise PermissionDenied("Solo administradores o directores pueden gestionar familias.")
+        if 'admin' not in roles and 'director' not in roles and 'jefe_preceptores' not in roles:
+            raise PermissionDenied("Solo administradores, directores o jefes de preceptores pueden gestionar familias.")
 
     def perform_create(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles:
+            raise PermissionDenied('Los jefes de preceptores no pueden crear tutores.')
         if 'preceptor' in roles:
             alumnos_ids = serializer.validated_data.get('alumnos_ids', [])
             self._require_preceptor_course_access(alumnos_ids)
@@ -1096,6 +1130,8 @@ class PadreTutorViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles:
+            raise PermissionDenied('Los jefes de preceptores no pueden modificar tutores.')
         if 'preceptor' in roles:
             alumnos_ids = serializer.validated_data.get('alumnos_ids')
             if alumnos_ids is not None:
@@ -1107,6 +1143,8 @@ class PadreTutorViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles:
+            raise PermissionDenied('Los jefes de preceptores no pueden eliminar tutores.')
         if 'preceptor' not in roles:
             self._require_admin_or_director()
         Alumno.objects.filter(id_tutor=instance).update(id_tutor=None)
@@ -1124,7 +1162,13 @@ class CicloLectivoViewSet(viewsets.ModelViewSet):
 class CursoViewSet(viewsets.ModelViewSet):
     queryset = Curso.objects.select_related('id_preceptor', 'id_ciclo').all()
     serializer_class = CursoSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    permission_classes = [IsAuthenticated]
+
+    def _require_write_permiso(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' not in roles and 'director' not in roles:
+            raise PermissionDenied("Solo administradores o directores pueden crear o eliminar cursos")
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1134,19 +1178,19 @@ class CursoViewSet(viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username) if username else []
         usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
 
-        if 'preceptor' in roles and usuario_obj:
+        if 'jefe_preceptores' in roles or 'admin' in roles or 'director' in roles:
+            pass
+        elif 'preceptor' in roles and usuario_obj:
             preceptor = Preceptor.objects.filter(id_usuario=usuario_obj).first()
             if not preceptor:
                 return qs.none()
             qs = qs.filter(id_preceptor=preceptor)
-
-        if 'alumno' in roles:
+        elif 'alumno' in roles:
             curso_id = _alumno_curso(self.request)
             if not curso_id:
                 return qs.none()
             qs = qs.filter(id_curso=curso_id)
-
-        if 'familia' in roles:
+        elif 'familia' in roles:
             cursos_ids = _familia_cursos_ids(self.request)
             if not cursos_ids:
                 return qs.none()
@@ -1157,7 +1201,12 @@ class CursoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_ciclo=ciclo)
         return qs
 
+    def perform_create(self, serializer):
+        self._require_write_permiso()
+        serializer.save()
+
     def perform_destroy(self, instance):
+        self._require_write_permiso()
         instance.activo = False
         instance.save(update_fields=['activo'])
 
@@ -1568,7 +1617,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='preceptor-materia')
     def preceptor_materia(self, request):
         roles = get_roles_for_usuario(request.user.username)
-        if 'preceptor' not in roles and 'admin' not in roles and 'director' not in roles:
+        if 'preceptor' not in roles and 'admin' not in roles and 'director' not in roles and 'jefe_preceptores' not in roles:
             return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
         cursos_ids = _preceptor_cursos_ids(request) if 'preceptor' in roles else None
         if 'preceptor' in roles and not cursos_ids:
@@ -1817,6 +1866,11 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         ahora = datetime.now()
         dia = _dia_semana_es(ahora)
+
+        roles = get_roles_for_usuario(request.user.username)
+        if 'jefe_preceptores' in roles:
+            return Response({'error': 'No tenés permiso para registrar asistencias.'}, status=status.HTTP_403_FORBIDDEN)
+
         cm_id = request.data.get('id_curso_materia')
         if not cm_id:
             return Response({'error': 'id_curso_materia es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1999,6 +2053,8 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'], url_path='registrar-asistencia-docente')
     def registrar_asistencia_docente(self, request):
         roles = get_roles_for_usuario(request.user.username)
+        if 'jefe_preceptores' in roles:
+            return Response({'error': 'No tenés permiso para registrar asistencia de docentes.'}, status=status.HTTP_403_FORBIDDEN)
         if 'preceptor' not in roles and 'admin' not in roles and 'director' not in roles:
             return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -2310,6 +2366,23 @@ class ActaViewSet(viewsets.ModelViewSet):
             ).values_list('id_acta', flat=True)
             qs = qs.filter(id_acta__in=acta_ids)
         return qs
+
+    def _check_acta_owner_permission(self, acta):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' in roles or 'director' in roles:
+            return
+        usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
+        if not usuario_obj or acta.id_usuario_creador_id != usuario_obj.id_usuario:
+            raise PermissionDenied("Solo puedes modificar o eliminar tus propias actas.")
+
+    def perform_update(self, serializer):
+        self._check_acta_owner_permission(serializer.instance)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_acta_owner_permission(instance)
+        instance.delete()
 
 
 class ActaAlumnoViewSet(viewsets.ModelViewSet):
@@ -2643,6 +2716,66 @@ class HistorialCambioViewSet(viewsets.ReadOnlyModelViewSet):
         'id_usuario', 'id_tipo_accion',
     ).all()
     serializer_class = HistorialCambioSerializer
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def estadisticas_preceptoria(request):
+    username = request.user.username
+    roles = get_roles_for_usuario(username)
+    if 'jefe_preceptores' not in roles and 'admin' not in roles and 'director' not in roles:
+        return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
+    hoy = date.today()
+    return Response({
+        'total_preceptores': Preceptor.objects.count(),
+        'cursos_con_preceptor': Curso.objects.filter(id_preceptor__isnull=False, activo=True).count(),
+        'cursos_sin_preceptor': Curso.objects.filter(id_preceptor__isnull=True, activo=True).count(),
+        'total_alumnos': Alumno.objects.count(),
+        'total_tutores': PadreTutor.objects.count(),
+        'docentes_ausentes_hoy': AsistenciaDocente.objects.filter(
+            fecha=hoy,
+            id_estado_asistencia__nombre_estado='Ausente',
+        ).values('id_docente').distinct().count(),
+        'alumnos_ausentes_hoy': Asistencia.objects.filter(
+            fecha=hoy,
+            id_estado_asistencia__nombre_estado='Ausente',
+        ).values('id_alumno').distinct().count(),
+        'actas_hoy': Acta.objects.filter(fecha__date=hoy).count(),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def supervision_preceptores(request):
+    username = request.user.username
+    roles = get_roles_for_usuario(username)
+    if 'jefe_preceptores' not in roles and 'admin' not in roles and 'director' not in roles:
+        return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
+    preceptores = Preceptor.objects.select_related('id_usuario').all()
+    result = []
+    for p in preceptores:
+        cursos = Curso.objects.filter(id_preceptor=p, activo=True)
+        cursos_ids = list(cursos.values_list('id_curso', flat=True))
+        cantidad_alumnos = Alumno.objects.filter(id_curso__in=cursos_ids).count()
+        tutores_ids = Alumno.objects.filter(
+            id_curso__in=cursos_ids,
+            id_tutor__isnull=False,
+        ).values_list('id_tutor', flat=True).distinct()
+        ultimo_acceso = p.id_usuario.ultimo_acceso if p.id_usuario else None
+        result.append({
+            'id_preceptor': p.id_preceptor,
+            'nombre': p.nombre,
+            'apellido': p.apellido,
+            'cursos_asignados': [
+                {'id_curso': c.id_curso, 'nombre_curso': c.nombre_curso}
+                for c in cursos
+            ],
+            'cantidad_cursos': len(cursos),
+            'cantidad_alumnos': cantidad_alumnos,
+            'cantidad_tutores': len(tutores_ids),
+            'ultimo_acceso': ultimo_acceso.isoformat() if ultimo_acceso else None,
+        })
+    return Response(result)
 
 
 @api_view(['POST'])

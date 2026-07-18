@@ -267,9 +267,9 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
   );
 }
 
-function Docentes() {
+function Docentes({ readOnly = false }) {
   const dataCtx = useData();
-  const [modo, setModo] = useState('');
+  const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
   const [materia, setMateria] = useState('');
@@ -534,15 +534,15 @@ function Docentes() {
             <th>DNI</th>
             <th>Nombre</th>
             <th>Usuario</th>
-            <th>Próxima acción</th>
+            {!readOnly && <th>Próxima acción</th>}
             <th>Asignaciones</th>
-            <th>Acción</th>
+            {!readOnly && <th>Acción</th>}
           </tr>
         </thead>
         <tbody>
           {lista.length === 0 ? (
             <tr>
-              <td colSpan={6} className="empty-state-message">
+              <td colSpan={readOnly ? 4 : 6} className="empty-state-message">
                 No hay docentes con los filtros seleccionados.
               </td>
             </tr>
@@ -559,8 +559,9 @@ function Docentes() {
                     <td>{formatDNI(d.dni)}</td>
                     <td>{nombreDocente(d)}</td>
                     <td>{d.usuario || 'Sin usuario'}</td>
-                    <td>{proximaAccion(d)}</td>
+                    {!readOnly && <td>{proximaAccion(d)}</td>}
                     <td>{asigTexto}</td>
+                    {!readOnly && (
                     <td>
                       {puedeCambiarEstado ? (
                         <div className="flex-row--center flex-gap-16">
@@ -584,8 +585,9 @@ function Docentes() {
                         </div>
                       ) : '—'}
                     </td>
+                    )}
                   </tr>
-                  {programando === d.id && (
+                  {!readOnly && programando === d.id && (
                     <tr>
                       <td colSpan={6} className="p-0">
                         <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
@@ -924,7 +926,13 @@ function Docentes() {
 
   return (
     <div className="card">
-      <SelectorModo modo={modo} onModoChange={resetModo} titulo="Docentes — ¿Qué deseás hacer?" />
+      {!readOnly && <SelectorModo modo={modo} onModoChange={resetModo} titulo="Docentes — ¿Qué deseás hacer?" />}
+      {readOnly && (
+        <div className="card-header-flex card-header-flex--compact">
+          <h3>Docentes</h3>
+          <span className="badge role-badge-display">Solo lectura</span>
+        </div>
+      )}
 
       {modo && modo !== 'crear' && modo !== 'modificar' && (
         <div>

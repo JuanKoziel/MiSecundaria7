@@ -44,5 +44,7 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('me/', views.me_view, name='me'),
     path('upload/', views.upload_file, name='upload_file'),
+    path('estadisticas-preceptoria/', views.estadisticas_preceptoria, name='estadisticas-preceptoria'),
+    path('supervision-preceptores/', views.supervision_preceptores, name='supervision-preceptores'),
     path('', include(router.urls)),
 ]

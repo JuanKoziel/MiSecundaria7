@@ -575,4 +575,14 @@ export async function deleteEventoInstitucional(id) {
   await api.delete(`/eventos-institucionales/${id}/`);
 }
 
+export async function getEstadisticasPreceptoria() {
+  const { data } = await api.get('/estadisticas-preceptoria/');
+  return data;
+}
+
+export async function getSupervisionPreceptores() {
+  const { data } = await api.get('/supervision-preceptores/');
+  return data;
+}
+
 export default api;

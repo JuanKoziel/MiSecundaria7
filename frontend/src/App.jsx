@@ -1,6 +1,7 @@
 import Login from './components/Login/login';
 import PanelProfesores from './components/Profesores/PanelProfesores';
 import PreceptorDashboard from './components/Preceptores/PreceptorDashboard';
+import JefePreceptorDashboard from './components/JefePreceptores/JefePreceptorDashboard';
 import FamiliaDashboard from './components/Familia/FamiliaDashboard';
 import AdminDashboard from './components/Administracion/AdminDashboard';
 import AlumnoDashboard from './components/Alumno/AlumnoDashboard';
@@ -13,6 +14,8 @@ function Dashboard({ user, logout }) {
   switch (role) {
     case 'preceptor':
       return <PreceptorDashboard user={user} onLogout={logout} />;
+    case 'jefe_preceptores':
+      return <JefePreceptorDashboard user={user} onLogout={logout} />;
     case 'admin':
     case 'director':
       return <AdminDashboard user={user} onLogout={logout} />;

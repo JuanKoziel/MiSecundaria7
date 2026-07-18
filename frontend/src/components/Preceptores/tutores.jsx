@@ -75,9 +75,9 @@ function nombreTutor(t) {
   return `${t.apellido}, ${t.nombre}`;
 }
 
-function Tutores() {
+function Tutores({ readOnly = false }) {
   const { aniosLectivos, inscripciones, cursos, cursosObj, alumnos, padresTutores, refreshData } = useData();
-  const [modo, setModo] = useState('');
+  const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [form, setForm] = useState(formVacio);
   const [seleccionado, setSeleccionado] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -92,7 +92,7 @@ function Tutores() {
   const esCrear = modo === 'crear';
 
   const resetModo = (m) => {
-    setModo(m);
+    setModo(readOnly ? 'vista' : m);
     setSeleccionado('');
     setForm(formVacio);
     setMensaje('');
@@ -257,7 +257,7 @@ function Tutores() {
             <th>Email</th>
             <th>Tipo</th>
             <th>Alumnos asignados</th>
-            <th>Acción</th>
+            {!readOnly && <th>Acción</th>}
           </tr>
         </thead>
         <tbody>
@@ -294,7 +294,7 @@ function Tutores() {
                       )}
                     </td>
                     <td>
-                      {puedeCambiarEstado ? (
+                      {!readOnly && puedeCambiarEstado ? (
                         <div className="flex-row--center flex-gap-16">
                           <button
                             type="button"
@@ -317,7 +317,7 @@ function Tutores() {
                       ) : '—'}
                     </td>
                   </tr>
-                  {programando === t.id_tutor && (
+                  {!readOnly && programando === t.id_tutor && (
                     <tr>
                       <td colSpan={8} style={{ padding: 0 }}>
                         <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
@@ -644,7 +644,7 @@ function Tutores() {
 
   return (
     <div className="card">
-      <SelectorModo modo={modo} onModoChange={resetModo} titulo="Tutores — ¿Qué deseás hacer?" />
+      {!readOnly && <SelectorModo modo={modo} onModoChange={resetModo} titulo="Tutores — ¿Qué deseás hacer?" />}
 
       {modo === 'vista' && (
         <div>

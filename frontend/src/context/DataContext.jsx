@@ -387,6 +387,7 @@ export function DataProvider({ children }) {
         tipo: a.tipo_acta_nombre || '',
         ruta_archivo: a.ruta_archivo || null,
         autor: a.creador_nombre || '',
+        id_usuario_creador: a.id_usuario_creador || null,
       }));
 
       const actaAlumnoArr = (Array.isArray(actaAlumnoRaw) ? actaAlumnoRaw : []);
@@ -404,8 +405,9 @@ export function DataProvider({ children }) {
           descripcion: acta?.descripcion || '',
           cargadoPor: '',
           autor: acta?.autor || '',
-          ruta_archivo: acta?.ruta_archivo || null,
-        };
+        ruta_archivo: acta?.ruta_archivo || null,
+        id_usuario_creador: acta?.id_usuario_creador || null,
+      };
       });
 
       const actaDocenteArr = (Array.isArray(actaDocenteRaw) ? actaDocenteRaw : []);
@@ -418,9 +420,10 @@ export function DataProvider({ children }) {
           titulo: acta?.titulo || '',
           fecha: acta?.fecha || '',
           descripcion: acta?.descripcion || '',
-          autor: acta?.autor || '',
-          ruta_archivo: acta?.ruta_archivo || null,
-        };
+        autor: acta?.autor || '',
+        ruta_archivo: acta?.ruta_archivo || null,
+        id_usuario_creador: acta?.id_usuario_creador || null,
+      };
       });
 
       const actasCurso = actaCursoArr.map((ac) => {
@@ -432,9 +435,10 @@ export function DataProvider({ children }) {
           curso: cursoObj?.nombre_curso || '',
           fecha: acta?.fecha || '',
           descripcion: acta?.descripcion || '',
-          titulo: acta?.titulo || '',
-          ruta_archivo: acta?.ruta_archivo || null,
-        };
+        titulo: acta?.titulo || '',
+        ruta_archivo: acta?.ruta_archivo || null,
+        id_usuario_creador: acta?.id_usuario_creador || null,
+      };
       });
 
       const padresTutores = (Array.isArray(padresTutoresRaw) ? padresTutoresRaw : []);

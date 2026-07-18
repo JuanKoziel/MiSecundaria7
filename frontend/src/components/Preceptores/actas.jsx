@@ -142,7 +142,7 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
   );
 }
 
-function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
+function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = false }) {
   const {
     actas: actasCurso,
     actasAlumno,
@@ -155,6 +155,11 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
     refreshData,
   } = useData();
   const { user } = useAuth();
+
+  const canEditActa = (acta) => {
+    if (!ownerOnly) return true;
+    return acta.id_usuario_creador != null && acta.id_usuario_creador === user?.id;
+  };
 
   const [showNewForm, setShowNewForm] = useState(false);
   const [formData, setFormData] = useState(formVacio);
@@ -442,13 +447,17 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                             ) : '—'}
                           </td>
                           <td>
-                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => startEdit(acta, 'alumno')}>
-                              <i className="fas fa-edit" aria-hidden="true" />
-                            </button>
-                            {' '}
-                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(acta, 'alumno')}>
-                              <i className="fas fa-trash" aria-hidden="true" />
-                            </button>
+                            {canEditActa(acta) && (
+                              <>
+                                <button type="button" className="btn btn-sm btn-secondary" onClick={() => startEdit(acta, 'alumno')}>
+                                  <i className="fas fa-edit" aria-hidden="true" />
+                                </button>
+                                {' '}
+                                <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(acta, 'alumno')}>
+                                  <i className="fas fa-trash" aria-hidden="true" />
+                                </button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       </Fragment>
@@ -504,13 +513,17 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                             ) : '—'}
                           </td>
                           <td>
-                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => startEdit(acta, 'docente')}>
-                              <i className="fas fa-edit" aria-hidden="true" />
-                            </button>
-                            {' '}
-                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(acta, 'docente')}>
-                              <i className="fas fa-trash" aria-hidden="true" />
-                            </button>
+                            {canEditActa(acta) && (
+                              <>
+                                <button type="button" className="btn btn-sm btn-secondary" onClick={() => startEdit(acta, 'docente')}>
+                                  <i className="fas fa-edit" aria-hidden="true" />
+                                </button>
+                                {' '}
+                                <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(acta, 'docente')}>
+                                  <i className="fas fa-trash" aria-hidden="true" />
+                                </button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       </Fragment>
@@ -561,15 +574,19 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                             </a>
                           ) : '—'}
                         </td>
-                        <td>
-                          <button type="button" className="btn btn-sm btn-secondary" onClick={() => startEdit(acta, 'curso')}>
-                            <i className="fas fa-edit" aria-hidden="true" />
-                          </button>
-                          {' '}
-                          <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(acta, 'curso')}>
-                            <i className="fas fa-trash" aria-hidden="true" />
-                          </button>
-                        </td>
+                          <td>
+                            {canEditActa(acta) && (
+                              <>
+                                <button type="button" className="btn btn-sm btn-secondary" onClick={() => startEdit(acta, 'curso')}>
+                                  <i className="fas fa-edit" aria-hidden="true" />
+                                </button>
+                                {' '}
+                                <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(acta, 'curso')}>
+                                  <i className="fas fa-trash" aria-hidden="true" />
+                                </button>
+                              </>
+                            )}
+                          </td>
                       </tr>
                       </Fragment>
                     );
