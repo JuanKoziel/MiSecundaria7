@@ -7,6 +7,7 @@ import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
 import FormModal from '../../components/Shared/FormModal';
 import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const formVacio = {
   usuario_nombre: '',
@@ -159,7 +160,7 @@ function Alumnos({ readOnly = false }) {
           setGuardando(false);
           return;
         }
-        if (!confirm('¿Estás seguro de que querés eliminar este alumno?')) {
+        if (!confirmarEliminacion('¿Estás seguro de que querés eliminar este alumno?\n\nEsta acción no se puede deshacer.')) {
           setGuardando(false);
           return;
         }
@@ -231,7 +232,7 @@ function Alumnos({ readOnly = false }) {
 
   const limpiarProgramar = async () => {
     if (!programando) return;
-    if (!confirm('¿Desea eliminar todas las fechas programadas para este usuario?')) return;
+    if (!confirmarEliminacion('¿Desea eliminar todas las fechas programadas para este usuario?\n\nEsta acción no se puede deshacer.')) return;
     setGuardando(true);
     setMensaje('');
     try {

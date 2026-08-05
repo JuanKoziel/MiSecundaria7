@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { deleteMiDdjjDocente } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const API_BASE = 'http://localhost:8000';
 const PREVIEWABLE_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp']);
@@ -256,7 +257,7 @@ function Docentes() {
   }, [docentes, searchTerm]);
 
   const handleEliminarDdjj = async (docente) => {
-    if (!window.confirm('¿Está seguro de eliminar esta D.D.J.J.?')) return;
+    if (!confirmarEliminacion('¿Está seguro de eliminar esta D.D.J.J.?\n\nEsta acción no se puede deshacer.')) return;
     try {
       await deleteMiDdjjDocente(docente.id);
       if (previewDocente?.id === docente.id) {

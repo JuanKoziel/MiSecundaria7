@@ -16,6 +16,7 @@ import {
   uploadFile,
 } from '../../services/api';
 import FiltrosAnioCurso from './FiltrosAnioCurso';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import FormModal from '../../components/Shared/FormModal';
@@ -339,7 +340,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
   };
 
   const handleEliminar = async (item, tipo) => {
-    if (!window.confirm('¿Seguro que querés eliminar esta acta?')) return;
+    if (!confirmarEliminacion('¿Seguro que querés eliminar esta acta?\n\nEsta acción no se puede deshacer.')) return;
     setMensaje('');
     try {
       if (tipo === 'alumno') await deleteActaAlumno(item.id);

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import FormModal from '../../components/Shared/FormModal';
 import { createUsuario, deleteUsuario, getUsuarios, updateUsuario } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 function toInputDateTime(value) {
   if (!value) return '';
@@ -126,7 +127,7 @@ function Administradores() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Eliminar este administrador?')) return;
+    if (!confirmarEliminacion()) return;
 
     try {
       await deleteUsuario(id);

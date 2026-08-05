@@ -2,6 +2,7 @@ import { Fragment, useState, useEffect, useCallback } from 'react';
 import { getPlanificaciones, createPlanificacion, updatePlanificacion, deletePlanificacion } from '../../services/api';
 import { useData } from '../../context/DataContext';
 import FormModal from '../../components/Shared/FormModal';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -170,7 +171,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
   };
 
   const handleEliminar = async (proyecto) => {
-    if (!window.confirm('¿Está seguro de eliminar este proyecto?')) return;
+    if (!confirmarEliminacion('¿Está seguro de eliminar este proyecto?\n\nEsta acción no se puede deshacer.')) return;
     setError('');
     setSuccess('');
     try {

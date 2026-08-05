@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { createCurso, updateCurso } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const formVacio = {
   anio: '',
@@ -149,7 +150,7 @@ function Cursos() {
   };
 
   const handleDesactivar = async (curso) => {
-    if (!window.confirm(
+    if (!confirmarEliminacion(
       'Este curso dejará de estar disponible para nuevas operaciones.\n\n' +
       'No se eliminará ningún dato histórico.\n\n' +
       'Se conservarán:\n' +

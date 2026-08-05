@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { updateCurso } from '../../services/api';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 function normalize(str) {
   if (!str) return '';
@@ -96,7 +97,7 @@ function AsignacionCursos() {
   };
 
   const handleQuitar = async (cursoId) => {
-    if (!window.confirm('¿Quitar este curso del preceptor?')) return;
+    if (!confirmarEliminacion('¿Quitar este curso del preceptor?\n\nEsta acción no se puede deshacer.')) return;
     setError('');
     setSuccess('');
     setGuardando(true);

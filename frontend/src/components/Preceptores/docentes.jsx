@@ -7,6 +7,7 @@ import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
 import { formatDNI } from '../../utils/dni';
 import FormModal from '../../components/Shared/FormModal';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const formVacio = {
   usuario_nombre: '',
@@ -419,7 +420,7 @@ function Docentes({ readOnly = false }) {
           setGuardando(false);
           return;
         }
-        if (!confirm('¿Estás seguro de que querés eliminar este docente y todas sus asignaciones?')) {
+        if (!confirmarEliminacion('¿Estás seguro de que querés eliminar este docente y todas sus asignaciones?\n\nEsta acción no se puede deshacer.')) {
           setGuardando(false);
           return;
         }
@@ -491,7 +492,7 @@ function Docentes({ readOnly = false }) {
 
   const limpiarProgramar = async () => {
     if (!programando) return;
-    if (!confirm('¿Desea eliminar todas las fechas programadas para este usuario?')) return;
+    if (!confirmarEliminacion('¿Desea eliminar todas las fechas programadas para este usuario?\n\nEsta acción no se puede deshacer.')) return;
     setGuardando(true);
     setMensaje('');
     try {

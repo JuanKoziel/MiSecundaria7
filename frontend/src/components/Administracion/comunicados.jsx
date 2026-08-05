@@ -10,6 +10,7 @@ import {
 } from '../../services/api';
 import { cursoConOrientacion, parseCurso } from '../../utils/orientacion';
 import { findCursoObj, getAniosCurso, getDivisiones } from './cursoFilters';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -228,7 +229,7 @@ function Comunicados() {
   };
 
   const handleBorrar = async (id) => {
-    if (!window.confirm('¿Estás seguro de borrar este comunicado?')) return;
+    if (!confirmarEliminacion()) return;
     setMensaje('');
     try {
       await deleteComunicado(id);

@@ -6,6 +6,7 @@ import {
   getActividades,
   updateActividad,
 } from '../../services/api';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const API_BASE = 'http://localhost:8000';
 const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif'];
@@ -419,7 +420,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
   };
 
   const handleEliminar = async (actividad) => {
-    if (!window.confirm('¿Estás seguro de que querés eliminar esta actividad?')) return;
+    if (!confirmarEliminacion('¿Estás seguro de que querés eliminar esta actividad?\n\nEsta acción no se puede deshacer.')) return;
     try {
       await deleteActividad(actividad.id_actividad);
       setMensaje('Actividad eliminada correctamente.');
@@ -435,7 +436,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
   const handleEliminarArchivo = async (archivo) => {
     const archivoId = archivo?.id_archivo;
     if (!actividadEditando || !archivoId) return;
-    if (!window.confirm('¿Estás seguro de que querés eliminar este archivo?')) return;
+    if (!confirmarEliminacion('¿Estás seguro de que querés eliminar este archivo?\n\nEsta acción no se puede deshacer.')) return;
 
     try {
       const actualizada = await deleteActividadArchivo(actividadEditando.id_actividad, archivoId);

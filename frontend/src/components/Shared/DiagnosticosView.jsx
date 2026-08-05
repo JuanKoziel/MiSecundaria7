@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { createDiagnosticoGrupal, deleteDiagnosticoGrupal } from '../../services/api';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FormModal from './FormModal';
 
 function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
@@ -110,7 +111,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
   }, [userRole, user, docentes, cursoMateria, cursosObj]);
 
   const handleDelete = async (d) => {
-    if (window.confirm('¿Está seguro de que desea eliminar este diagnóstico grupal?')) {
+    if (confirmarEliminacion()) {
       try {
         await deleteDiagnosticoGrupal(d.id);
         await refreshData();

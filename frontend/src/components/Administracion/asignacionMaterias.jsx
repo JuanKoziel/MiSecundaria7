@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { getDocentes, createCursoMateria, updateCursoMateria } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const formVacio = { id_materia: '', id_docente: '' };
 
@@ -95,7 +96,7 @@ function AsignacionMaterias() {
   };
 
   const handleDesactivar = async (cm) => {
-    if (!window.confirm('La materia dejará de estar asignada a este curso.\n\nNo se eliminará ningún historial existente.\n\n¿Desea continuar?')) return;
+    if (!confirmarEliminacion('La materia dejará de estar asignada a este curso.\n\nNo se eliminará ningún historial existente.\n\n¿Desea continuar?')) return;
     setError('');
     setSuccess('');
     try {

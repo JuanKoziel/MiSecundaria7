@@ -12,6 +12,7 @@ import {
   deleteHorarioEspecial,
 } from '../../services/api';
 import VistaHorarios from './VistaHorarios';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 const MATERIA_EF = 'Educación Física';
@@ -362,7 +363,7 @@ function EducacionFisica({ cursosOptions }) {
   };
 
   const handleEliminar = async (h) => {
-    if (!window.confirm('¿Eliminar este horario?')) return;
+    if (!confirmarEliminacion()) return;
     try {
       await deleteHorarioEspecial(h.id_horario_especial);
       const [heData] = await Promise.all([

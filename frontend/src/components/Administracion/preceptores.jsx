@@ -8,6 +8,7 @@ import {
   updatePreceptor,
 } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const formVacio = {
   usuario_nombre: '',
@@ -249,7 +250,7 @@ function Preceptores({ rol = 'preceptor' }) {
   };
 
   const handleDelete = async (preceptor) => {
-    if (!window.confirm(`Eliminar al ${entidad} ${preceptor.apellido}, ${preceptor.nombre}?`)) return;
+    if (!confirmarEliminacion(`Eliminar al ${entidad} ${preceptor.apellido}, ${preceptor.nombre}?\n\nEsta acción no se puede deshacer.`)) return;
 
     setError('');
     setSuccess('');

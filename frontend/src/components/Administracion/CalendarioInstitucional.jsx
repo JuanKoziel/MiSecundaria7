@@ -6,6 +6,7 @@ import {
   updateEventoInstitucional,
   deleteEventoInstitucional,
 } from '../../services/api';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_CAB = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -185,7 +186,7 @@ function CalendarioInstitucional({ readOnly = false }) {
   };
 
   const handleEliminar = async (ev) => {
-    if (!window.confirm(`¿Eliminar el evento "${ev.tipo_evento}" del ${ev.fecha}?`)) return;
+    if (!confirmarEliminacion(`¿Eliminar el evento "${ev.tipo_evento}" del ${ev.fecha}?\n\nEsta acción no se puede deshacer.`)) return;
     try {
       await deleteEventoInstitucional(ev.id_evento);
       setModalAbierto(false);

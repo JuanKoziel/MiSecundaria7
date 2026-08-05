@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import { createMateria, updateMateria } from '../../services/api';
 import AsignacionMaterias from './asignacionMaterias';
 import FormModal from '../../components/Shared/FormModal';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const formVacio = { nombre_materia: '' };
 
@@ -92,7 +93,7 @@ function GestionMaterias() {
   };
 
   const handleDesactivar = async (materia) => {
-    if (!window.confirm(
+    if (!confirmarEliminacion(
       'Esta materia dejará de estar disponible para nuevas operaciones.\n\n' +
       'No se eliminará ningún dato histórico.\n\n' +
       'Se conservarán:\n' +
