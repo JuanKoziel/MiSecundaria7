@@ -263,7 +263,7 @@ function Tutores({ readOnly = false }) {
         <tbody>
           {lista.length === 0 ? (
             <tr>
-              <td colSpan={8} className="empty-state-message">
+              <td colSpan={readOnly ? 7 : 8} className="empty-state-message">
                 No hay tutores registrados.
               </td>
             </tr>
@@ -293,29 +293,31 @@ function Tutores({ readOnly = false }) {
                         </div>
                       )}
                     </td>
-                    <td>
-                      {!readOnly && puedeCambiarEstado ? (
-                        <div className="flex-row--center flex-gap-16">
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${t.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
-                            onClick={() => toggleEstado(t)}
-                            disabled={guardando}
-                          >
-                            <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
-                            {t.usuario_estado === false ? 'Deshabilitado' : 'Habilitado'}
-                          </button>
-                          <button
-                            type="button"
-                            className={`btn btn-sm btn-secondary${programando === t.id_tutor ? ' active' : ''}`}
-                            onClick={() => abrirProgramar(t)}
-                            title="Programar"
-                          >
-                            <i className="fas fa-calendar-alt" aria-hidden="true" />
-                          </button>
-                        </div>
-                      ) : '—'}
-                    </td>
+                    {!readOnly && (
+                      <td>
+                        {puedeCambiarEstado ? (
+                          <div className="flex-row--center flex-gap-16">
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${t.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
+                              onClick={() => toggleEstado(t)}
+                              disabled={guardando}
+                            >
+                              <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
+                              {t.usuario_estado === false ? 'Deshabilitado' : 'Habilitado'}
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn btn-sm btn-secondary${programando === t.id_tutor ? ' active' : ''}`}
+                              onClick={() => abrirProgramar(t)}
+                              title="Programar"
+                            >
+                              <i className="fas fa-calendar-alt" aria-hidden="true" />
+                            </button>
+                          </div>
+                        ) : '—'}
+                      </td>
+                    )}
                   </tr>
                   {!readOnly && programando === t.id_tutor && (
                     <tr>
