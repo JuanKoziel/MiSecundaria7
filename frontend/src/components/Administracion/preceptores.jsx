@@ -87,7 +87,12 @@ function normalize(str) {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-function Preceptores() {
+function Preceptores({ rol = 'preceptor' }) {
+  const esJefe = rol === 'jefe_preceptores';
+  const etiquetaSingular = esJefe ? 'Jefe de Preceptores' : 'Preceptor';
+  const etiquetaPlural = esJefe ? 'Jefes de Preceptores' : 'Preceptores';
+  const entidad = esJefe ? 'jefe de preceptores' : 'preceptor';
+
   const { cursosObj, refreshData } = useData();
   const [preceptores, setPreceptores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -125,10 +130,10 @@ function Preceptores() {
     setLoading(true);
     setError('');
     try {
-      const data = await getPreceptores();
+      const data = await getPreceptores(rol);
       setPreceptores(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(`Error al cargar preceptores: ${mensajeError(err)}`);
+      setError(`Error al cargar ${etiquetaPlural.toLowerCase()}: ${mensajeError(err)}`);
     } finally {
       setLoading(false);
     }
@@ -136,7 +141,7 @@ function Preceptores() {
 
   useEffect(() => {
     fetchPreceptores();
-  }, []);
+  }, [rol]);
 
   const abrirCrear = () => {
     setEditingPreceptor(null);
@@ -177,8 +182,10 @@ function Preceptores() {
     try {
       await updatePreceptor(preceptor.id_preceptor, {
         estado: !(preceptor.usuario_estado !== false),
-      });
-      setSuccess(preceptor.usuario_estado !== false ? 'Preceptor deshabilitado correctamente' : 'Preceptor habilitado correctamente');
+      }, rol);
+      setSuccess(preceptor.usuario_estado !== false
+        ? `${etiquetaSingular} deshabilitado correctamente`
+        : `${etiquetaSingular} habilitado correctamente`);
       await fetchPreceptores();
       await refreshData();
     } catch (err) {
@@ -218,17 +225,17 @@ function Preceptores() {
       }
 
       if (!editingPreceptor && !payload.contrasena) {
-        setError('La contrasena es obligatoria para crear un preceptor');
+        setError(`La contrasena es obligatoria para crear un ${entidad}`);
         setGuardando(false);
         return;
       }
 
       if (editingPreceptor) {
-        await updatePreceptor(editingPreceptor.id_preceptor, payload);
-        setSuccess('Preceptor actualizado correctamente');
+        await updatePreceptor(editingPreceptor.id_preceptor, payload, rol);
+        setSuccess(`${etiquetaSingular} actualizado correctamente`);
       } else {
-        await createPreceptor(payload);
-        setSuccess('Preceptor creado correctamente');
+        await createPreceptor(payload, rol);
+        setSuccess(`${etiquetaSingular} creado correctamente`);
       }
 
       cerrarFormulario();
@@ -242,17 +249,17 @@ function Preceptores() {
   };
 
   const handleDelete = async (preceptor) => {
-    if (!window.confirm(`Eliminar al preceptor ${preceptor.apellido}, ${preceptor.nombre}?`)) return;
+    if (!window.confirm(`Eliminar al ${entidad} ${preceptor.apellido}, ${preceptor.nombre}?`)) return;
 
     setError('');
     setSuccess('');
     try {
-      await deletePreceptor(preceptor.id_preceptor);
-      setSuccess('Preceptor eliminado correctamente');
+      await deletePreceptor(preceptor.id_preceptor, rol);
+      setSuccess(`${etiquetaSingular} eliminado correctamente`);
       await fetchPreceptores();
       await refreshData();
     } catch (err) {
-      setError(`Error al eliminar preceptor: ${mensajeError(err)}`);
+      setError(`Error al eliminar ${entidad}: ${mensajeError(err)}`);
     }
   };
 
@@ -261,7 +268,7 @@ function Preceptores() {
   }
 
   const renderFormulario = () => (
-    <FormModal title={editingPreceptor ? 'Editar Preceptor' : 'Nuevo Preceptor'} onClose={cerrarFormulario}>
+    <FormModal title={editingPreceptor ? `Editar ${etiquetaSingular}` : `Nuevo ${etiquetaSingular}`} onClose={cerrarFormulario}>
       <form onSubmit={handleSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <section className="preceptor-form-section">
@@ -444,9 +451,9 @@ function Preceptores() {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Preceptores</h3>
+        <h3>{etiquetaPlural}</h3>
         <button type="button" className="btn btn-primary" onClick={abrirCrear}>
-          <i className="fas fa-plus" aria-hidden="true" /> Nuevo Preceptor
+          <i className="fas fa-plus" aria-hidden="true" /> Nuevo {etiquetaSingular}
         </button>
       </div>
 
@@ -488,7 +495,9 @@ function Preceptores() {
             {filteredPreceptores.length === 0 ? (
               <tr>
                 <td colSpan={9} className="empty-state-message">
-                  {searchTerm ? 'No se encontraron preceptores con ese criterio.' : 'No hay preceptores registrados.'}
+                  {searchTerm
+                    ? `No se encontraron ${etiquetaPlural.toLowerCase()} con ese criterio.`
+                    : `No hay ${etiquetaPlural.toLowerCase()} registrados.`}
                 </td>
               </tr>
             ) : (
@@ -516,7 +525,7 @@ function Preceptores() {
                         type="button"
                         className="btn btn-sm btn-secondary"
                         onClick={() => abrirEditar(p)}
-                        aria-label="Editar preceptor"
+                        aria-label={`Editar ${entidad}`}
                         title="Editar"
                       >
                         <i className="fas fa-edit" aria-hidden="true" />
@@ -525,7 +534,7 @@ function Preceptores() {
                         type="button"
                         className={`btn btn-sm ${p.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
                         onClick={() => toggleEstado(p)}
-                        aria-label={p.usuario_estado === false ? 'Habilitar preceptor' : 'Deshabilitar preceptor'}
+                        aria-label={p.usuario_estado === false ? `Habilitar ${entidad}` : `Deshabilitar ${entidad}`}
                         title={p.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
                         disabled={p.usuario_estado === null || p.usuario_estado === undefined}
                       >
@@ -535,7 +544,7 @@ function Preceptores() {
                         type="button"
                         className="btn btn-sm btn-danger"
                         onClick={() => handleDelete(p)}
-                        aria-label="Eliminar preceptor"
+                        aria-label={`Eliminar ${entidad}`}
                         title="Eliminar"
                       >
                         <i className="fas fa-trash" aria-hidden="true" />

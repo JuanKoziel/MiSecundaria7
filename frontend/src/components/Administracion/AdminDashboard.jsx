@@ -39,6 +39,8 @@ function AdminDashboard({ user, onLogout }) {
         return <Docentes />;
       case 'preceptores':
         return <Preceptores />;
+      case 'jefes-preceptores':
+        return <Preceptores rol="jefe_preceptores" />;
       case 'horarios':
         return <Horarios />;
       case 'asistencias':

@@ -618,13 +618,21 @@ class PreceptorSerializer(serializers.ModelSerializer):
         value = obj.id_usuario.fecha_habilitacion_programada
         return value.isoformat() if value else None
 
+    def _role_name_from_context(self):
+        return 'jefe_preceptores' if self.context.get('rol') == 'jefe_preceptores' else 'preceptor'
+
+    def _role_name_for_update(self, instance):
+        if not getattr(instance, 'id_usuario_id', None):
+            return self._role_name_from_context()
+        return None
+
     def create(self, validated_data):
         cursos_ids = validated_data.pop('cursos_ids', [])
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or Preceptor(),
             validated_data=validated_data,
             username_key='usuario_nombre',
-            role_name='preceptor',
+            role_name=self._role_name_from_context(),
         )
 
         preceptor = Preceptor.objects.create(id_usuario=usuario, **validated_data)
@@ -637,7 +645,7 @@ class PreceptorSerializer(serializers.ModelSerializer):
             instance=instance,
             validated_data=validated_data,
             username_key='usuario_nombre',
-            role_name='preceptor',
+            role_name=self._role_name_for_update(instance),
         )
 
         for attr, value in validated_data.items():

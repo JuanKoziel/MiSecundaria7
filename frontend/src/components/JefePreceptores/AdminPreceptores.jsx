@@ -125,7 +125,7 @@ function AdminPreceptores() {
     setLoading(true);
     setError('');
     try {
-      const data = await getPreceptores();
+      const data = await getPreceptores('preceptor');
       setPreceptores(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(`Error al cargar preceptores: ${mensajeError(err)}`);
@@ -177,7 +177,7 @@ function AdminPreceptores() {
     try {
       await updatePreceptor(preceptor.id_preceptor, {
         estado: !(preceptor.usuario_estado !== false),
-      });
+      }, 'preceptor');
       setSuccess(preceptor.usuario_estado !== false ? 'Preceptor deshabilitado correctamente' : 'Preceptor habilitado correctamente');
       await fetchPreceptores();
       await refreshData();
@@ -224,10 +224,10 @@ function AdminPreceptores() {
       }
 
       if (editingPreceptor) {
-        await updatePreceptor(editingPreceptor.id_preceptor, payload);
+        await updatePreceptor(editingPreceptor.id_preceptor, payload, 'preceptor');
         setSuccess('Preceptor actualizado correctamente');
       } else {
-        await createPreceptor(payload);
+        await createPreceptor(payload, 'preceptor');
         setSuccess('Preceptor creado correctamente');
       }
 
@@ -247,7 +247,7 @@ function AdminPreceptores() {
     setError('');
     setSuccess('');
     try {
-      await deletePreceptor(preceptor.id_preceptor);
+      await deletePreceptor(preceptor.id_preceptor, 'preceptor');
       setSuccess('Preceptor eliminado correctamente');
       await fetchPreceptores();
       await refreshData();

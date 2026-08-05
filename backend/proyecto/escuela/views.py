@@ -1035,11 +1035,22 @@ class PreceptorViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
+        rol_param = self.request.query_params.get('rol')
+        if rol_param in ('preceptor', 'jefe_preceptores'):
+            qs = qs.filter(id_usuario__usuariorol__id_rol__nombre_rol=rol_param)
         if 'admin' in roles or 'director' in roles or 'jefe_preceptores' in roles:
             return qs
         if 'preceptor' in roles and username:
             return qs.filter(id_usuario__usuario=username)
         return qs.none()
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['rol'] = self.request.query_params.get('rol', 'preceptor')
+        return context
+
+    def _is_jefe_target(self):
+        return self.request.query_params.get('rol') == 'jefe_preceptores'
 
     def _require_admin_or_director(self):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -1047,16 +1058,31 @@ class PreceptorViewSet(viewsets.ModelViewSet):
         if 'admin' not in roles and 'director' not in roles and 'jefe_preceptores' not in roles:
             raise PermissionDenied("Solo administradores, directores o jefes de preceptores pueden gestionar preceptores")
 
+    def _require_admin_or_director_only(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' not in roles and 'director' not in roles:
+            raise PermissionDenied('Solo administradores o directores pueden gestionar jefes de preceptores')
+
     def perform_create(self, serializer):
-        self._require_admin_or_director()
+        if self._is_jefe_target():
+            self._require_admin_or_director_only()
+        else:
+            self._require_admin_or_director()
         serializer.save()
 
     def perform_update(self, serializer):
-        self._require_admin_or_director()
+        if self._is_jefe_target():
+            self._require_admin_or_director_only()
+        else:
+            self._require_admin_or_director()
         serializer.save()
 
     def perform_destroy(self, instance):
-        self._require_admin_or_director()
+        if self._is_jefe_target():
+            self._require_admin_or_director_only()
+        else:
+            self._require_admin_or_director()
         usuario = instance.id_usuario
         Curso.objects.filter(id_preceptor=instance).update(id_preceptor=None)
         if usuario:
@@ -2727,7 +2753,9 @@ def estadisticas_preceptoria(request):
         return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
     hoy = date.today()
     return Response({
-        'total_preceptores': Preceptor.objects.count(),
+        'total_preceptores': Preceptor.objects.filter(
+            id_usuario__usuariorol__id_rol__nombre_rol='preceptor',
+        ).count(),
         'cursos_con_preceptor': Curso.objects.filter(id_preceptor__isnull=False, activo=True).count(),
         'cursos_sin_preceptor': Curso.objects.filter(id_preceptor__isnull=True, activo=True).count(),
         'total_alumnos': Alumno.objects.count(),
@@ -2751,7 +2779,9 @@ def supervision_preceptores(request):
     roles = get_roles_for_usuario(username)
     if 'jefe_preceptores' not in roles and 'admin' not in roles and 'director' not in roles:
         return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
-    preceptores = Preceptor.objects.select_related('id_usuario').all()
+    preceptores = Preceptor.objects.filter(
+        id_usuario__usuariorol__id_rol__nombre_rol='preceptor',
+    ).select_related('id_usuario')
     result = []
     for p in preceptores:
         cursos = Curso.objects.filter(id_preceptor=p, activo=True)

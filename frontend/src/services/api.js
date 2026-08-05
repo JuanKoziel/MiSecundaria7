@@ -119,8 +119,10 @@ export async function deleteMiDdjjDocente(idDocente) {
   });
 }
 
-export async function getPreceptores() {
-  const { data } = await api.get('/preceptores/');
+export async function getPreceptores(rol) {
+  const { data } = await api.get('/preceptores/', {
+    params: rol ? { rol } : {},
+  });
   return data;
 }
 
@@ -129,18 +131,24 @@ export async function getDirectivos() {
   return data;
 }
 
-export async function createPreceptor(payload) {
-  const { data } = await api.post('/preceptores/', payload);
+export async function createPreceptor(payload, rol) {
+  const { data } = await api.post('/preceptores/', payload, {
+    params: rol ? { rol } : {},
+  });
   return data;
 }
 
-export async function updatePreceptor(id, payload) {
-  const { data } = await api.patch(`/preceptores/${id}/`, payload);
+export async function updatePreceptor(id, payload, rol) {
+  const { data } = await api.patch(`/preceptores/${id}/`, payload, {
+    params: rol ? { rol } : {},
+  });
   return data;
 }
 
-export async function deletePreceptor(id) {
-  await api.delete(`/preceptores/${id}/`);
+export async function deletePreceptor(id, rol) {
+  await api.delete(`/preceptores/${id}/`, {
+    params: rol ? { rol } : {},
+  });
 }
 
 export async function getCursos(params) {
