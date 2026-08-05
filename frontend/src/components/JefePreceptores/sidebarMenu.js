@@ -8,6 +8,7 @@ export const menuItems = [
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
   { id: 'admin-preceptores', label: 'Administración de Preceptores', icon: 'fa-cogs' },
   { id: 'estadisticas', label: 'Estadísticas', icon: 'fa-chart-bar' },
+  { id: 'historial', label: 'Historial de Cambios', icon: 'fa-history' },
   { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
   { id: 'notificaciones', label: 'Notificaciones', icon: 'fa-bell' },
 ];

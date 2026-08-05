@@ -14,6 +14,7 @@ import Preceptores from './preceptores';
 import Cursos from './cursos';
 import Materias from './materias';
 import CalendarioInstitucional from './CalendarioInstitucional';
+import Historial from './historial';
 import PanelAdmin from './PanelAdmin';
 import { getDirectivos } from '../../services/api';
 
@@ -55,6 +56,8 @@ function AdminDashboard({ user, onLogout }) {
         return <Cursos />;
       case 'materias':
         return <Materias />;
+      case 'historial':
+        return <Historial />;
       case 'info':
         return <DiagnosticosView userRole={user.role === 'director' ? 'director' : 'admin'} />;
       case 'administradores':

@@ -14,6 +14,7 @@ import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import Notificaciones from '../Notificaciones';
 import AdministracionPreceptores from './AdministracionPreceptores';
 import EstadisticasPreceptoria from './EstadisticasPreceptoria';
+import Historial from '../Administracion/historial';
 import { useData } from '../../context/DataContext';
 
 function JefePreceptorDashboard({ user, onLogout }) {
@@ -101,6 +102,13 @@ function JefePreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <EstadisticasPreceptoria />
+          </div>
+        );
+
+      case 'historial':
+        return (
+          <div className="view-section active">
+            <Historial />
           </div>
         );
 

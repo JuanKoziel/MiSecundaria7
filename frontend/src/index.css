@@ -614,6 +614,35 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     font-family: inherit;
 }
 
+.filtros-historial {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+    padding: 14px;
+    margin-bottom: 16px;
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+}
+
+.filtros-historial .form-group-filter {
+    margin-bottom: 0;
+}
+
+.filtros-historial-acciones {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.historial-valor {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    white-space: pre-line;
+    max-width: 280px;
+}
+
 .empty-state-card {
     padding: 60px;
     text-align: center;

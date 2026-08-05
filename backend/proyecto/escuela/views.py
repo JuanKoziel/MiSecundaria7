@@ -13,7 +13,18 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from escuela.auth_backend import get_roles_for_usuario
-from escuela.permissions import IsAdminOrDirectorForWrite
+from escuela.permissions import IsAdminOrDirectorForWrite, PuedeVerHistorial
+from escuela.utils import (
+    ACCION_CAMBIO_CONTRASENA,
+    ACCION_CAMBIO_ROL,
+    ACCION_CREAR,
+    ACCION_DESHABILITAR,
+    ACCION_ELIMINAR,
+    ACCION_HABILITAR,
+    ACCION_MODIFICAR,
+    registrar_historial,
+    resumen_registro,
+)
 from escuela.models import (
     Acta,
     ActaAlumno,
@@ -525,10 +536,135 @@ def me_view(request):
 # ViewSets CRUD
 # ============================================================
 
-class UsuarioViewSet(viewsets.ModelViewSet):
+class HistorialMixin:
+    """Mixin de auditoría: registra automáticamente altas, bajas y
+    modificaciones en la tabla existente `historial_cambios`."""
+
+    historial_tabla = None
+    historial_soft_delete = False
+    historial_campo_baja = 'activo'
+
+    def get_historial_tabla(self):
+        return self.historial_tabla
+
+    def _historial_usuario_actual(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            return None
+        return Usuario.objects.filter(usuario=username).first()
+
+    def _historial_usuario_registro(self, instance):
+        if isinstance(instance, Usuario):
+            return instance
+        if getattr(instance, 'id_usuario_id', None):
+            return instance.id_usuario
+        return None
+
+    def _historial_registrar(self, accion, tabla, id_registro, valor_anterior=None, valor_nuevo=None):
+        registrar_historial(
+            usuario=self._historial_usuario_actual(),
+            accion=accion,
+            tabla=tabla,
+            id_registro=id_registro,
+            valor_anterior=valor_anterior,
+            valor_nuevo=valor_nuevo,
+        )
+
+    def _historial_alta(self, serializer):
+        instancia = serializer.instance
+        self._historial_registrar(
+            ACCION_CREAR,
+            self.get_historial_tabla(),
+            instancia.pk,
+            None,
+            resumen_registro(instancia),
+        )
+
+    def _historial_modificacion(self, serializer, valor_anterior):
+        instancia = serializer.instance
+        self._historial_registrar(
+            ACCION_MODIFICAR,
+            self.get_historial_tabla(),
+            instancia.pk,
+            valor_anterior,
+            resumen_registro(instancia),
+        )
+
+    def _historial_baja(self, instance, valor_anterior):
+        self._historial_registrar(
+            ACCION_ELIMINAR,
+            self.get_historial_tabla(),
+            instance.pk,
+            valor_anterior,
+            'Registro dado de baja' if self.historial_soft_delete else 'Registro eliminado',
+        )
+
+    def _historial_eventos_usuario(self, usuario, datos_previos):
+        if not usuario:
+            return
+        if datos_previos.get('nueva_contrasena'):
+            self._historial_registrar(
+                ACCION_CAMBIO_CONTRASENA, 'usuarios', usuario.pk,
+                None, 'Contraseña actualizada',
+            )
+        estado_previo = datos_previos.get('estado_previo')
+        if estado_previo is not None and bool(usuario.estado) != bool(estado_previo):
+            habilitado = bool(usuario.estado)
+            self._historial_registrar(
+                ACCION_HABILITAR if habilitado else ACCION_DESHABILITAR,
+                'usuarios', usuario.pk,
+                'Habilitado' if estado_previo else 'Deshabilitado',
+                'Habilitado' if habilitado else 'Deshabilitado',
+            )
+        roles_nuevos = set(
+            UsuarioRol.objects.filter(id_usuario=usuario)
+            .values_list('id_rol__nombre_rol', flat=True)
+        )
+        roles_previos = datos_previos.get('roles_previos')
+        if roles_previos is not None and set(roles_previos) != roles_nuevos:
+            self._historial_registrar(
+                ACCION_CAMBIO_ROL, 'usuarios', usuario.pk,
+                ', '.join(sorted(roles_previos)) or 'Sin rol',
+                ', '.join(sorted(roles_nuevos)) or 'Sin rol',
+            )
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        self._historial_alta(serializer)
+
+    def perform_update(self, serializer):
+        instancia = serializer.instance
+        valor_anterior = resumen_registro(instancia)
+        usuario = self._historial_usuario_registro(instancia)
+        datos_previos = {}
+        if usuario:
+            datos_previos = {
+                'nueva_contrasena': 'contrasena' in serializer.validated_data,
+                'estado_previo': usuario.estado,
+                'roles_previos': set(
+                    UsuarioRol.objects.filter(id_usuario=usuario)
+                    .values_list('id_rol__nombre_rol', flat=True)
+                ),
+            }
+        super().perform_update(serializer)
+        self._historial_modificacion(serializer, valor_anterior)
+        self._historial_eventos_usuario(usuario, datos_previos)
+
+    def perform_destroy(self, instance):
+        valor_anterior = resumen_registro(instance)
+        if self.historial_soft_delete:
+            setattr(instance, self.historial_campo_baja, False)
+            instance.save(update_fields=[self.historial_campo_baja])
+        else:
+            super().perform_destroy(instance)
+        self._historial_baja(instance, valor_anterior)
+
+
+class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated]
+    historial_tabla = 'usuarios'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -569,7 +705,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         if 'admin' in requested_roles and 'director' not in roles:
             raise PermissionDenied("Solo directores pueden crear usuarios con rol administrador")
 
-        serializer.save()
+        super().perform_create(serializer)
 
     def perform_update(self, serializer):
         from escuela.auth_backend import get_roles_for_usuario
@@ -588,7 +724,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         if 'admin' in requested_roles and 'director' not in roles:
             raise PermissionDenied("Solo directores pueden asignar rol administrador")
 
-        serializer.save()
+        super().perform_update(serializer)
 
     def perform_destroy(self, instance):
         from escuela.auth_backend import get_roles_for_usuario
@@ -609,7 +745,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         if has_admin_role and 'director' not in roles:
             raise PermissionDenied("Solo directores pueden eliminar administradores")
 
-        instance.delete()
+        super().perform_destroy(instance)
 
 
 class RolViewSet(viewsets.ReadOnlyModelViewSet):
@@ -617,12 +753,13 @@ class RolViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = RolSerializer
 
 
-class AlumnoViewSet(viewsets.ModelViewSet):
+class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Alumno.objects.select_related(
         'id_curso', 'id_tutor', 'id_usuario',
     ).all()
     serializer_class = AlumnoSerializer
     filterset_fields = ['id_curso', 'dni']
+    historial_tabla = 'alumnos'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -658,7 +795,7 @@ class AlumnoViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('No tenés permiso para crear alumnos.')
         if 'preceptor' in roles:
             self._require_preceptor_course_access(serializer.validated_data.get('id_curso'))
-        serializer.save()
+        super().perform_create(serializer)
 
     def perform_update(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -670,7 +807,7 @@ class AlumnoViewSet(viewsets.ModelViewSet):
             self._require_preceptor_course_access(
                 serializer.validated_data.get('id_curso', instance.id_curso_id if instance else None),
             )
-        serializer.save()
+        super().perform_update(serializer)
 
     def perform_destroy(self, instance):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -679,12 +816,13 @@ class AlumnoViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('No tenés permiso para eliminar alumnos.')
         if 'preceptor' in roles:
             self._require_preceptor_course_access(instance.id_curso_id)
-        instance.delete()
+        super().perform_destroy(instance)
 
 
-class DocenteViewSet(viewsets.ModelViewSet):
+class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Docente.objects.select_related('id_usuario').all()
     serializer_class = DocenteSerializer
+    historial_tabla = 'docentes'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -717,7 +855,7 @@ class DocenteViewSet(viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username) if username else []
         if 'jefe_preceptores' in roles:
             raise PermissionDenied('No tenés permiso para crear docentes.')
-        serializer.save()
+        super().perform_create(serializer)
 
     def perform_update(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -725,7 +863,7 @@ class DocenteViewSet(viewsets.ModelViewSet):
         if 'jefe_preceptores' in roles:
             raise PermissionDenied('No tenés permiso para modificar docentes.')
         self._require_preceptor_access(serializer.instance)
-        serializer.save()
+        super().perform_update(serializer)
 
     def perform_destroy(self, instance):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -733,7 +871,7 @@ class DocenteViewSet(viewsets.ModelViewSet):
         if 'jefe_preceptores' in roles:
             raise PermissionDenied('No tenés permiso para eliminar docentes.')
         self._require_preceptor_access(instance)
-        instance.delete()
+        super().perform_destroy(instance)
 
 
 class DdjjDocenteViewSet(viewsets.ModelViewSet):
@@ -1027,9 +1165,13 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class PreceptorViewSet(viewsets.ModelViewSet):
+class PreceptorViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Preceptor.objects.select_related('id_usuario').all()
     serializer_class = PreceptorSerializer
+    historial_tabla = 'preceptores'
+
+    def get_historial_tabla(self):
+        return 'jefes_preceptores' if self._is_jefe_target() else 'preceptores'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1069,14 +1211,14 @@ class PreceptorViewSet(viewsets.ModelViewSet):
             self._require_admin_or_director_only()
         else:
             self._require_admin_or_director()
-        serializer.save()
+        super().perform_create(serializer)
 
     def perform_update(self, serializer):
         if self._is_jefe_target():
             self._require_admin_or_director_only()
         else:
             self._require_admin_or_director()
-        serializer.save()
+        super().perform_update(serializer)
 
     def perform_destroy(self, instance):
         if self._is_jefe_target():
@@ -1087,17 +1229,19 @@ class PreceptorViewSet(viewsets.ModelViewSet):
         Curso.objects.filter(id_preceptor=instance).update(id_preceptor=None)
         if usuario:
             UsuarioRol.objects.filter(id_usuario=usuario).delete()
-        instance.delete()
+        super().perform_destroy(instance)
 
 
-class DirectivoViewSet(viewsets.ModelViewSet):
+class DirectivoViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Directivo.objects.select_related('id_usuario').all()
     serializer_class = DirectivoSerializer
+    historial_tabla = 'directores'
 
 
-class PadreTutorViewSet(viewsets.ModelViewSet):
+class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = PadreTutor.objects.select_related('id_usuario').all()
     serializer_class = PadreTutorSerializer
+    historial_tabla = 'tutores'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1151,7 +1295,7 @@ class PadreTutorViewSet(viewsets.ModelViewSet):
             self._require_preceptor_course_access(alumnos_ids)
         else:
             self._require_admin_or_director()
-        serializer.save()
+        super().perform_create(serializer)
 
     def perform_update(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -1164,7 +1308,7 @@ class PadreTutorViewSet(viewsets.ModelViewSet):
                 self._require_preceptor_course_access(alumnos_ids)
         else:
             self._require_admin_or_director()
-        serializer.save()
+        super().perform_update(serializer)
 
     def perform_destroy(self, instance):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -1177,7 +1321,7 @@ class PadreTutorViewSet(viewsets.ModelViewSet):
         usuario = instance.id_usuario
         if usuario:
             UsuarioRol.objects.filter(id_usuario=usuario).delete()
-        instance.delete()
+        super().perform_destroy(instance)
 
 
 class CicloLectivoViewSet(viewsets.ModelViewSet):
@@ -1185,10 +1329,12 @@ class CicloLectivoViewSet(viewsets.ModelViewSet):
     serializer_class = CicloLectivoSerializer
 
 
-class CursoViewSet(viewsets.ModelViewSet):
+class CursoViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Curso.objects.select_related('id_preceptor', 'id_ciclo').all()
     serializer_class = CursoSerializer
     permission_classes = [IsAuthenticated]
+    historial_tabla = 'cursos'
+    historial_soft_delete = True
 
     def _require_write_permiso(self):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -1229,18 +1375,19 @@ class CursoViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         self._require_write_permiso()
-        serializer.save()
+        super().perform_create(serializer)
 
     def perform_destroy(self, instance):
         self._require_write_permiso()
-        instance.activo = False
-        instance.save(update_fields=['activo'])
+        super().perform_destroy(instance)
 
 
-class MateriaViewSet(viewsets.ModelViewSet):
+class MateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Materia.objects.all()
     serializer_class = MateriaSerializer
     permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    historial_tabla = 'materias'
+    historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1249,16 +1396,17 @@ class MateriaViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_destroy(self, instance):
-        instance.activo = False
-        instance.save(update_fields=['activo'])
+        super().perform_destroy(instance)
 
 
-class CursoMateriaViewSet(viewsets.ModelViewSet):
+class CursoMateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = CursoMateria.objects.select_related(
         'id_curso', 'id_materia',
     ).prefetch_related('id_docente').all()
     serializer_class = CursoMateriaSerializer
     permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    historial_tabla = 'asignaciones_cursos'
+    historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1292,8 +1440,7 @@ class CursoMateriaViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_destroy(self, instance):
-        instance.activo = False
-        instance.save(update_fields=['activo'])
+        super().perform_destroy(instance)
 
 
 class ModuloViewSet(viewsets.ModelViewSet):
@@ -2294,10 +2441,11 @@ def _eventos_a_reemplazar(nuevo_alcance, nueva_fecha, nueva_hora_inicio, nueva_h
     return ids_reemplazar
 
 
-class EventoInstitucionalViewSet(viewsets.ModelViewSet):
+class EventoInstitucionalViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = EventoInstitucional.objects.all()
     serializer_class = EventoInstitucionalSerializer
     permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    historial_tabla = 'eventos_institucionales'
 
     def perform_create(self, serializer):
         from rest_framework.exceptions import ValidationError
@@ -2320,8 +2468,16 @@ class EventoInstitucionalViewSet(viewsets.ModelViewSet):
             data.get('permanente', False),
         )
         if ids_reemplazar:
+            reemplazados = list(EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar))
+            resumenes = [(ev.pk, resumen_registro(ev)) for ev in reemplazados]
             EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar).delete()
+            for pk, resumen in resumenes:
+                self._historial_registrar(
+                    ACCION_ELIMINAR, self.get_historial_tabla(), pk,
+                    resumen, 'Evento reemplazado',
+                )
         serializer.save(id_usuario_creador=usuario)
+        self._historial_alta(serializer)
 
     def perform_update(self, serializer):
         from rest_framework.exceptions import ValidationError
@@ -2356,8 +2512,17 @@ class EventoInstitucionalViewSet(viewsets.ModelViewSet):
             exclude_id=instance.id_evento,
         )
         if ids_reemplazar:
+            reemplazados = list(EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar))
+            resumenes = [(ev.pk, resumen_registro(ev)) for ev in reemplazados]
             EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar).delete()
+            for pk, resumen in resumenes:
+                self._historial_registrar(
+                    ACCION_ELIMINAR, self.get_historial_tabla(), pk,
+                    resumen, 'Evento reemplazado',
+                )
+        valor_anterior = resumen_registro(instance)
         serializer.save(fecha_creacion=instance.fecha_creacion)
+        self._historial_modificacion(serializer, valor_anterior)
 
 
 class TipoActaViewSet(viewsets.ReadOnlyModelViewSet):
@@ -2365,11 +2530,12 @@ class TipoActaViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TipoActaSerializer
 
 
-class ActaViewSet(viewsets.ModelViewSet):
+class ActaViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Acta.objects.select_related(
         'id_usuario_creador', 'id_tipo_acta',
     ).all()
     serializer_class = ActaSerializer
+    historial_tabla = 'actas'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2404,11 +2570,11 @@ class ActaViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         self._check_acta_owner_permission(serializer.instance)
-        serializer.save()
+        super().perform_update(serializer)
 
     def perform_destroy(self, instance):
         self._check_acta_owner_permission(instance)
-        instance.delete()
+        super().perform_destroy(instance)
 
 
 class ActaAlumnoViewSet(viewsets.ModelViewSet):
@@ -2426,12 +2592,13 @@ class ActaDocenteViewSet(viewsets.ModelViewSet):
     serializer_class = ActaDocenteSerializer
 
 
-class ComunicadoViewSet(viewsets.ModelViewSet):
+class ComunicadoViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Comunicado.objects.select_related(
         'id_usuario_creador', 'id_curso__id_ciclo', 'id_materia',
     ).prefetch_related('archivos', 'alcances').all()
     serializer_class = ComunicadoSerializer
     permission_classes = [IsAuthenticated]
+    historial_tabla = 'comunicados'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2598,12 +2765,13 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         return Response(PlanificacionSerializer(planificacion).data, status=status.HTTP_200_OK)
 
 
-class DiagnosticoGrupalViewSet(viewsets.ModelViewSet):
+class DiagnosticoGrupalViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = DiagnosticoGrupal.objects.select_related(
         'id_curso', 'id_docente',
     ).all()
     serializer_class = DiagnosticoGrupalSerializer
     permission_classes = [IsAuthenticated]
+    historial_tabla = 'diagnosticos'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2711,6 +2879,7 @@ class DiagnosticoGrupalViewSet(viewsets.ModelViewSet):
         else:
             # Admin can create for any course
             serializer.save()
+        self._historial_alta(serializer)
 
 
 class NotificacionViewSet(viewsets.ModelViewSet):
@@ -2742,6 +2911,47 @@ class HistorialCambioViewSet(viewsets.ReadOnlyModelViewSet):
         'id_usuario', 'id_tipo_accion',
     ).all()
     serializer_class = HistorialCambioSerializer
+    permission_classes = [IsAuthenticated, PuedeVerHistorial]
+
+    def get_queryset(self):
+        qs = super().get_queryset().order_by('-fecha')
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' not in roles and 'director' not in roles:
+            if 'jefe_preceptores' in roles:
+                qs = qs.filter(
+                    id_usuario__usuariorol__id_rol__nombre_rol__in=[
+                        'preceptor', 'jefe_preceptores',
+                    ],
+                ).distinct()
+            else:
+                return qs.none()
+        fecha = self.request.query_params.get('fecha')
+        fecha_desde = self.request.query_params.get('fecha_desde')
+        fecha_hasta = self.request.query_params.get('fecha_hasta')
+        usuario_id = self.request.query_params.get('usuario_id')
+        rol = self.request.query_params.get('rol')
+        accion = self.request.query_params.get('accion')
+        tabla = self.request.query_params.get('tabla')
+
+        if fecha:
+            qs = qs.filter(fecha__date=fecha)
+        if fecha_desde:
+            qs = qs.filter(fecha__date__gte=fecha_desde)
+        if fecha_hasta:
+            qs = qs.filter(fecha__date__lte=fecha_hasta)
+        if usuario_id:
+            qs = qs.filter(id_usuario_id=usuario_id)
+        if rol:
+            qs = qs.filter(
+                id_usuario__usuariorol__id_rol__nombre_rol=rol,
+            ).distinct()
+        if accion:
+            qs = qs.filter(id_tipo_accion__nombre_accion__iexact=accion)
+        if tabla:
+            qs = qs.filter(tabla_modificada=tabla)
+
+        return qs
 
 
 @api_view(['GET'])

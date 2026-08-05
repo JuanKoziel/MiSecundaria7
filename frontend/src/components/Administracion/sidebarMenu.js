@@ -12,6 +12,7 @@ export const menuItems = [
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
   { id: 'cursos', label: 'Cursos', icon: 'fa-school' },
   { id: 'materias', label: 'Materias', icon: 'fa-book' },
+  { id: 'historial', label: 'Historial de Cambios', icon: 'fa-history', roles: ['admin', 'director'] },
 
   { id: 'info', label: 'Información General', icon: 'fa-info-circle' },
   { id: 'notificaciones', label: 'Notificaciones', icon: 'fa-bell' },

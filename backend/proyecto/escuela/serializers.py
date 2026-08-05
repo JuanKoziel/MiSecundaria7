@@ -1707,10 +1707,60 @@ class NotificacionSerializer(serializers.ModelSerializer):
 
 # ---------- Historial ----------
 
+TABLAS_MODIFICADAS_LABEL = {
+    'alumnos': 'Alumnos',
+    'tutores': 'Tutores',
+    'docentes': 'Docentes',
+    'preceptores': 'Preceptores',
+    'jefes_preceptores': 'Jefes de Preceptores',
+    'directores': 'Directores',
+    'usuarios': 'Usuarios',
+    'comunicados': 'Comunicados',
+    'actas': 'Actas',
+    'diagnosticos': 'Diagnósticos',
+    'cursos': 'Cursos',
+    'materias': 'Materias',
+    'asignaciones_cursos': 'Asignaciones de Cursos',
+    'eventos_institucionales': 'Eventos Institucionales',
+}
+
+
 class HistorialCambioSerializer(serializers.ModelSerializer):
+    usuario_nombre = serializers.CharField(source='id_usuario.usuario', read_only=True)
+    accion = serializers.CharField(source='id_tipo_accion.nombre_accion', read_only=True)
+    roles_usuario = serializers.SerializerMethodField()
+    tabla_label = serializers.SerializerMethodField()
+    fecha_formateada = serializers.SerializerMethodField()
+
     class Meta:
         model = HistorialCambio
-        fields = '__all__'
+        fields = [
+            'id_historial',
+            'id_usuario',
+            'usuario_nombre',
+            'roles_usuario',
+            'id_tipo_accion',
+            'accion',
+            'tabla_modificada',
+            'tabla_label',
+            'id_registro',
+            'valor_anterior',
+            'valor_nuevo',
+            'fecha',
+            'fecha_formateada',
+        ]
+
+    def get_roles_usuario(self, obj):
+        roles = UsuarioRol.objects.filter(id_usuario=obj.id_usuario).select_related('id_rol')
+        return [ur.id_rol.nombre_rol for ur in roles]
+
+    def get_tabla_label(self, obj):
+        return TABLAS_MODIFICADAS_LABEL.get(obj.tabla_modificada, obj.tabla_modificada or '')
+
+    def get_fecha_formateada(self, obj):
+        if not obj.fecha:
+            return None
+        return obj.fecha.strftime('%d/%m/%Y %H:%M')
 
 
 # ---------- Login ----------

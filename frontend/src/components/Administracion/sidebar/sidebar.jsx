@@ -8,6 +8,9 @@ function Sidebar({ setView, onLogout, view }) {
     if (item.directorOnly) {
       return user?.role === 'director';
     }
+    if (item.roles) {
+      return item.roles.includes(user?.role);
+    }
     return true;
   });
 

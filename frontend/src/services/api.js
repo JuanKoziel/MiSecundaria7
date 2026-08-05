@@ -593,4 +593,14 @@ export async function getSupervisionPreceptores() {
   return data;
 }
 
+export async function getHistorialCambios(params) {
+  const { data } = await api.get('/historial/', { params });
+  return data;
+}
+
+export async function getTiposAccion() {
+  const { data } = await api.get('/tipos-accion/');
+  return data;
+}
+
 export default api;
