@@ -20,6 +20,7 @@ import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import FormModal from '../../components/Shared/FormModal';
+import { useToast } from '../../context/ToastContext';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -156,6 +157,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
     refreshData,
   } = useData();
   const { user } = useAuth();
+  const toast = useToast();
 
   const canEditActa = (acta) => {
     if (!ownerOnly) return true;
@@ -255,25 +257,25 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!formData.tipo || !formData.titulo || !formData.fecha) {
-      setMensaje('Completá tipo, título y fecha.');
+      toast.warning('Completá tipo, título y fecha.');
       return;
     }
     if ((formData.tipo === 'alumno' && !formData.alumnoId) ||
         (formData.tipo === 'docente' && !formData.docenteId)) {
-      setMensaje('Seleccioná el destinatario correspondiente.');
+      toast.warning('Seleccioná el destinatario correspondiente.');
       return;
     }
     setGuardando(true);
     setMensaje('');
     try {
       await guardarActa(formData);
-      setMensaje('Acta creada exitosamente.');
+      toast.success('Acta creada correctamente.');
       limpiar();
       await refreshData();
     } catch (err) {
       const data = err.response?.data;
       const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-      setMensaje(`Error: ${msg}`);
+      toast.error(msg);
     } finally {
       setGuardando(false);
     }
@@ -301,7 +303,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
   const handleUpdate = async (e) => {
     e.preventDefault();
     if (!formData.titulo || !formData.fecha) {
-      setMensaje('Completá título y fecha.');
+      toast.warning('Completá título y fecha.');
       return;
     }
     setGuardando(true);
@@ -327,13 +329,13 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
       if (editando.tipo === 'docente' && formData.docenteId && String(formData.docenteId) !== String(editando.docenteId)) {
         await updateActaDocente(editando.id, { id_docente: Number(formData.docenteId) });
       }
-      setMensaje('Acta actualizada exitosamente.');
+      toast.success('Acta actualizada correctamente.');
       limpiar();
       await refreshData();
     } catch (err) {
       const data = err.response?.data;
       const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-      setMensaje(`Error: ${msg}`);
+      toast.error(msg);
     } finally {
       setGuardando(false);
     }
@@ -347,12 +349,12 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
       else if (tipo === 'docente') await deleteActaDocente(item.id);
       else if (tipo === 'curso') await deleteActaCurso(item.id);
       if (item.actaId) await deleteActa(item.actaId);
-      setMensaje('Acta eliminada.');
+      toast.success('Acta eliminada correctamente.');
       await refreshData();
     } catch (err) {
       const data = err.response?.data;
       const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-      setMensaje(`Error: ${msg}`);
+      toast.error(msg);
     }
   };
 

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
 import { createUsuario, deleteUsuario, getUsuarios, updateUsuario } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
@@ -43,6 +44,7 @@ function getNextAction(usuario) {
 }
 
 function Administradores() {
+  const toast = useToast();
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -83,7 +85,7 @@ function Administradores() {
       );
       setUsuarios(adminUsers);
     } catch (err) {
-      setError('Error al cargar administradores');
+      toast.error('Error al cargar administradores');
     } finally {
       setLoading(false);
     }
@@ -131,10 +133,10 @@ function Administradores() {
 
     try {
       await deleteUsuario(id);
-      setSuccess('Administrador eliminado correctamente');
+      toast.success('Administrador eliminado correctamente.');
       fetchUsuarios();
     } catch (err) {
-      setError('Error al eliminar administrador');
+      toast.error('Error al eliminar administrador');
     }
   };
 
@@ -143,10 +145,10 @@ function Administradores() {
       await updateUsuario(usuario.id_usuario, {
         estado: !usuario.estado,
       });
-      setSuccess(usuario.estado ? 'Administrador deshabilitado correctamente' : 'Administrador habilitado correctamente');
+      toast.success(usuario.estado ? 'Administrador deshabilitado correctamente.' : 'Administrador habilitado correctamente.');
       fetchUsuarios();
     } catch (err) {
-      setError('Error al actualizar el estado del administrador');
+      toast.error('Error al actualizar el estado del administrador');
     }
   };
 
@@ -171,20 +173,20 @@ function Administradores() {
           delete payload.contrasena;
         }
         await updateUsuario(editingUsuario.id_usuario, payload);
-        setSuccess('Administrador actualizado correctamente');
+        toast.success('Administrador actualizado correctamente.');
       } else {
         if (!formData.contrasena) {
-          setError('La contrasena es obligatoria para crear un administrador');
+          toast.warning('La contrasena es obligatoria para crear un administrador.');
           return;
         }
         await createUsuario(payload);
-        setSuccess('Administrador creado correctamente');
+        toast.success('Administrador creado correctamente.');
       }
 
       cerrarModal();
       fetchUsuarios();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al guardar administrador');
+      toast.error(err.response?.data?.detail || 'Error al guardar administrador');
     }
   };
 

@@ -2,6 +2,7 @@ import { useRef, useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { uploadMiDdjjDocente } from '../../services/api';
 import { formatDNI } from '../../utils/dni';
+import { useToast } from '../../context/ToastContext';
 
 function StatCard({ icon, value, label, color }) {
   return (
@@ -50,6 +51,7 @@ function obtenerMensajeApi(err) {
 
 function PanelDocente({ miDocente }) {
   const { cursoMateria, cursosObj, alumnos, planificaciones, actasDocente, refreshData } = useData();
+  const toast = useToast();
   const fileInputRef = useRef(null);
   const [mensaje, setMensaje] = useState('');
   const [subiendo, setSubiendo] = useState(false);
@@ -111,10 +113,10 @@ function PanelDocente({ miDocente }) {
     setSubiendo(true);
     try {
       await uploadMiDdjjDocente(file);
-      setMensaje('DDJJ cargada correctamente.');
+      toast.success('DDJJ cargada correctamente.');
       await refreshData();
     } catch (err) {
-      setMensaje(obtenerMensajeApi(err));
+      toast.error(obtenerMensajeApi(err));
     } finally {
       setSubiendo(false);
     }

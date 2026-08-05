@@ -9,6 +9,7 @@ import {
 } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { useToast } from '../../context/ToastContext';
 
 const formVacio = {
   usuario_nombre: '',
@@ -90,6 +91,7 @@ function normalize(str) {
 
 function AdminPreceptores() {
   const { cursosObj, refreshData } = useData();
+  const toast = useToast();
   const [preceptores, setPreceptores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -129,7 +131,7 @@ function AdminPreceptores() {
       const data = await getPreceptores('preceptor');
       setPreceptores(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(`Error al cargar preceptores: ${mensajeError(err)}`);
+      toast.error(`Error al cargar preceptores: ${mensajeError(err)}`);
     } finally {
       setLoading(false);
     }
@@ -179,11 +181,11 @@ function AdminPreceptores() {
       await updatePreceptor(preceptor.id_preceptor, {
         estado: !(preceptor.usuario_estado !== false),
       }, 'preceptor');
-      setSuccess(preceptor.usuario_estado !== false ? 'Preceptor deshabilitado correctamente' : 'Preceptor habilitado correctamente');
+      toast.success(preceptor.usuario_estado !== false ? 'Preceptor deshabilitado correctamente' : 'Preceptor habilitado correctamente');
       await fetchPreceptores();
       await refreshData();
     } catch (err) {
-      setError(`Error al actualizar estado: ${mensajeError(err)}`);
+      toast.error(`Error al actualizar estado: ${mensajeError(err)}`);
     }
   };
 
@@ -219,24 +221,24 @@ function AdminPreceptores() {
       }
 
       if (!editingPreceptor && !payload.contrasena) {
-        setError('La contrasena es obligatoria para crear un preceptor');
+        toast.warning('La contrasena es obligatoria para crear un preceptor');
         setGuardando(false);
         return;
       }
 
       if (editingPreceptor) {
         await updatePreceptor(editingPreceptor.id_preceptor, payload, 'preceptor');
-        setSuccess('Preceptor actualizado correctamente');
+        toast.success('Preceptor actualizado correctamente');
       } else {
         await createPreceptor(payload, 'preceptor');
-        setSuccess('Preceptor creado correctamente');
+        toast.success('Preceptor creado correctamente');
       }
 
       cerrarFormulario();
       await fetchPreceptores();
       await refreshData();
     } catch (err) {
-      setError(`Error al guardar preceptor: ${mensajeError(err)}`);
+      toast.error(`Error al guardar preceptor: ${mensajeError(err)}`);
     } finally {
       setGuardando(false);
     }
@@ -249,11 +251,11 @@ function AdminPreceptores() {
     setSuccess('');
     try {
       await deletePreceptor(preceptor.id_preceptor, 'preceptor');
-      setSuccess('Preceptor eliminado correctamente');
+      toast.success('Preceptor eliminado correctamente');
       await fetchPreceptores();
       await refreshData();
     } catch (err) {
-      setError(`Error al eliminar preceptor: ${mensajeError(err)}`);
+      toast.error(`Error al eliminar preceptor: ${mensajeError(err)}`);
     }
   };
 

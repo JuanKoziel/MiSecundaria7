@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import { createCurso, updateCurso } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
@@ -75,6 +76,7 @@ function FormCurso({ formData, setFormData, editing, guardando, onSubmit, onCanc
 
 function Cursos() {
   const { adminCursos, refreshAdminCursos, ciclosLectivos, preceptores } = useData();
+  const toast = useToast();
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -135,15 +137,15 @@ function Cursos() {
       };
       if (esEdicion) {
         await updateCurso(editing.id_curso, payload);
-        setSuccess('Curso actualizado correctamente');
+        toast.success('Curso actualizado correctamente.');
       } else {
         await createCurso(payload);
-        setSuccess('Curso creado correctamente');
+        toast.success('Curso creado correctamente.');
       }
       limpiar();
       await refreshAdminCursos(mostrarInactivos);
     } catch (err) {
-      setError(mensajeError(err));
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -162,10 +164,10 @@ function Cursos() {
     setSuccess('');
     try {
       await updateCurso(curso.id_curso, { activo: false });
-      setSuccess('Curso desactivado correctamente');
+      toast.success('Curso desactivado correctamente.');
       await refreshAdminCursos(mostrarInactivos);
     } catch (err) {
-      setError(mensajeError(err));
+      toast.error(mensajeError(err));
     }
   };
 

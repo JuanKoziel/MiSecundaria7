@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
 import {
   createPreceptor,
@@ -95,6 +96,7 @@ function Preceptores({ rol = 'preceptor' }) {
   const entidad = esJefe ? 'jefe de preceptores' : 'preceptor';
 
   const { cursosObj, refreshData } = useData();
+  const toast = useToast();
   const [preceptores, setPreceptores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -134,7 +136,7 @@ function Preceptores({ rol = 'preceptor' }) {
       const data = await getPreceptores(rol);
       setPreceptores(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(`Error al cargar ${etiquetaPlural.toLowerCase()}: ${mensajeError(err)}`);
+      toast.error(`Error al cargar ${etiquetaPlural.toLowerCase()}: ${mensajeError(err)}`);
     } finally {
       setLoading(false);
     }
@@ -184,13 +186,13 @@ function Preceptores({ rol = 'preceptor' }) {
       await updatePreceptor(preceptor.id_preceptor, {
         estado: !(preceptor.usuario_estado !== false),
       }, rol);
-      setSuccess(preceptor.usuario_estado !== false
-        ? `${etiquetaSingular} deshabilitado correctamente`
-        : `${etiquetaSingular} habilitado correctamente`);
+      toast.success(preceptor.usuario_estado !== false
+        ? `${etiquetaSingular} deshabilitado correctamente.`
+        : `${etiquetaSingular} habilitado correctamente.`);
       await fetchPreceptores();
       await refreshData();
     } catch (err) {
-      setError(`Error al actualizar estado: ${mensajeError(err)}`);
+      toast.error(`Error al actualizar estado: ${mensajeError(err)}`);
     }
   };
 
@@ -226,24 +228,24 @@ function Preceptores({ rol = 'preceptor' }) {
       }
 
       if (!editingPreceptor && !payload.contrasena) {
-        setError(`La contrasena es obligatoria para crear un ${entidad}`);
+        toast.warning(`La contrasena es obligatoria para crear un ${entidad}.`);
         setGuardando(false);
         return;
       }
 
       if (editingPreceptor) {
         await updatePreceptor(editingPreceptor.id_preceptor, payload, rol);
-        setSuccess(`${etiquetaSingular} actualizado correctamente`);
+        toast.success(`${etiquetaSingular} actualizado correctamente.`);
       } else {
         await createPreceptor(payload, rol);
-        setSuccess(`${etiquetaSingular} creado correctamente`);
+        toast.success(`${etiquetaSingular} creado correctamente.`);
       }
 
       cerrarFormulario();
       await fetchPreceptores();
       await refreshData();
     } catch (err) {
-      setError(`Error al guardar preceptor: ${mensajeError(err)}`);
+      toast.error(`Error al guardar preceptor: ${mensajeError(err)}`);
     } finally {
       setGuardando(false);
     }
@@ -256,11 +258,11 @@ function Preceptores({ rol = 'preceptor' }) {
     setSuccess('');
     try {
       await deletePreceptor(preceptor.id_preceptor, rol);
-      setSuccess(`${etiquetaSingular} eliminado correctamente`);
+      toast.success(`${etiquetaSingular} eliminado correctamente.`);
       await fetchPreceptores();
       await refreshData();
     } catch (err) {
-      setError(`Error al eliminar ${entidad}: ${mensajeError(err)}`);
+      toast.error(`Error al eliminar ${entidad}: ${mensajeError(err)}`);
     }
   };
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import { getDocentes, createCursoMateria, updateCursoMateria } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
@@ -16,6 +17,7 @@ function mensajeError(err) {
 
 function AsignacionMaterias() {
   const { adminCursoMateria, refreshAdminCursoMateria, adminCursos, refreshAdminCursos, adminMaterias, refreshAdminMaterias } = useData();
+  const toast = useToast();
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const [docentes, setDocentes] = useState([]);
@@ -81,15 +83,15 @@ function AsignacionMaterias() {
       };
       if (editando) {
         await updateCursoMateria(editando.id_curso_materia, payload);
-        setSuccess('Docente actualizado correctamente');
+        toast.success('Docente actualizado correctamente.');
       } else {
         await createCursoMateria(payload);
-        setSuccess('Materia asignada correctamente');
+        toast.success('Materia asignada correctamente.');
       }
       cerrarFormulario();
       cargarAsignaciones();
     } catch (err) {
-      setError(`Error al guardar: ${mensajeError(err)}`);
+      toast.error(`Error al guardar: ${mensajeError(err)}`);
     } finally {
       setGuardando(false);
     }
@@ -101,10 +103,10 @@ function AsignacionMaterias() {
     setSuccess('');
     try {
       await updateCursoMateria(cm.id_curso_materia, { activo: false });
-      setSuccess('Asignación desactivada correctamente');
+      toast.success('Asignación desactivada correctamente.');
       cargarAsignaciones();
     } catch (err) {
-      setError(`Error al quitar: ${mensajeError(err)}`);
+      toast.error(`Error al quitar: ${mensajeError(err)}`);
     }
   };
 

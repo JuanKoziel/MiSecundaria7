@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useToast } from '../../context/ToastContext';
 import FormModal from '../Shared/FormModal';
 import {
   getEventosInstitucionales,
@@ -51,6 +52,7 @@ function coloresUnicos(eventos) {
 
 function CalendarioInstitucional({ readOnly = false }) {
   const hoy = new Date();
+  const toast = useToast();
   const [anio, setAnio] = useState(hoy.getFullYear());
   const [mes, setMes] = useState(hoy.getMonth());
   const [eventos, setEventos] = useState([]);
@@ -150,15 +152,15 @@ function CalendarioInstitucional({ readOnly = false }) {
 
   const handleGuardar = async () => {
     if (!form.descripcion || !form.fecha) {
-      setMensaje('Error: La descripción y la fecha son obligatorias.');
+      toast.warning('La descripción y la fecha son obligatorias.');
       return;
     }
     if (form.alcance === 'franja' && (!form.hora_inicio || !form.hora_fin)) {
-      setMensaje('Error: Para franja horaria se requiere hora inicio y fin.');
+      toast.warning('Para franja horaria se requiere hora inicio y fin.');
       return;
     }
     if (form.alcance === 'franja' && form.hora_inicio && form.hora_fin && form.hora_inicio >= form.hora_fin) {
-      setMensaje('Error: La hora de fin debe ser posterior a la hora de inicio.');
+      toast.warning('La hora de fin debe ser posterior a la hora de inicio.');
       return;
     }
     setGuardando(true);
@@ -171,15 +173,17 @@ function CalendarioInstitucional({ readOnly = false }) {
       }
       if (eventoEditar) {
         await updateEventoInstitucional(eventoEditar.id_evento, payload);
+        toast.success('Evento institucional actualizado correctamente.');
       } else {
         await createEventoInstitucional(payload);
+        toast.success('Evento institucional creado correctamente.');
       }
       setModalAbierto(false);
       await cargarEventos();
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      setMensaje(`Error: ${msg}`);
+      toast.error(`Error: ${msg}`);
     } finally {
       setGuardando(false);
     }
@@ -189,11 +193,12 @@ function CalendarioInstitucional({ readOnly = false }) {
     if (!confirmarEliminacion(`¿Eliminar el evento "${ev.tipo_evento}" del ${ev.fecha}?\n\nEsta acción no se puede deshacer.`)) return;
     try {
       await deleteEventoInstitucional(ev.id_evento);
+      toast.success('Evento institucional eliminado correctamente.');
       setModalAbierto(false);
       setEventoVer(null);
       await cargarEventos();
     } catch (err) {
-      setMensaje(`Error al eliminar: ${err.message}`);
+      toast.error(`Error al eliminar: ${err.message}`);
     }
   };
 

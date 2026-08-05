@@ -2875,3 +2875,113 @@ tbody tr:last-child td {
     .cal-dia-num { font-size: 0.8em; }
     .cal-nav-titulo { font-size: 1em; min-width: 140px; }
 }
+
+/* ==========================================================================
+   NOTIFICACIONES TOAST / SNACKBAR
+   ========================================================================== */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: min(400px, calc(100vw - 40px));
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--white);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    border-left: 5px solid var(--text-light);
+    color: var(--text-dark);
+    font-size: 0.92rem;
+    font-weight: 500;
+    cursor: pointer;
+    pointer-events: auto;
+    animation: toast-entrada 0.3s ease forwards;
+}
+
+.toast--saliendo {
+    animation: toast-salida 0.25s ease forwards;
+}
+
+.toast > i {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.toast__mensaje {
+    flex: 1;
+    line-height: 1.4;
+}
+
+.toast__cerrar {
+    background: transparent;
+    border: none;
+    color: inherit;
+    opacity: 0.6;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease;
+}
+
+.toast__cerrar:hover {
+    opacity: 1;
+}
+
+.toast--success {
+    border-left-color: #28a745;
+    color: #1d7032;
+}
+.toast--success > i { color: #28a745; }
+
+.toast--error {
+    border-left-color: #dc3545;
+    color: #a52835;
+}
+.toast--error > i { color: #dc3545; }
+
+.toast--warning {
+    border-left-color: #f0ad4e;
+    color: #8a5a12;
+}
+.toast--warning > i { color: #f0ad4e; }
+
+.toast--info {
+    border-left-color: #0d6efd;
+    color: #0b5ed7;
+}
+.toast--info > i { color: #0d6efd; }
+
+@keyframes toast-entrada {
+    from {
+        opacity: 0;
+        transform: translateX(110%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes toast-salida {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(110%);
+    }
+}

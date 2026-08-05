@@ -6,6 +6,7 @@ import SelectorModo from './SelectorModo';
 import FormModal from '../../components/Shared/FormModal';
 import { cursosPorAnio, alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { useToast } from '../../context/ToastContext';
 
 const TIPOS_TUTOR = ['Padre', 'Madre', 'Tutor'];
 
@@ -78,6 +79,7 @@ function nombreTutor(t) {
 
 function Tutores({ readOnly = false }) {
   const { aniosLectivos, inscripciones, cursos, cursosObj, alumnos, padresTutores, refreshData } = useData();
+  const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [form, setForm] = useState(formVacio);
   const [seleccionado, setSeleccionado] = useState('');
@@ -107,7 +109,7 @@ function Tutores({ readOnly = false }) {
     try {
       if (modo === 'crear') {
         if (!form.usuario_nombre || !form.contrasena || !form.dni || !form.nombre || !form.apellido) {
-          setMensaje('Completá usuario, contraseña, DNI, nombre y apellido.');
+          toast.warning('Completá usuario, contraseña, DNI, nombre y apellido.');
           setGuardando(false);
           return;
         }
@@ -126,11 +128,11 @@ function Tutores({ readOnly = false }) {
           direccion: form.direccion || null,
           alumnos_ids: form.alumnos_ids,
         });
-        setMensaje('Tutor creado exitosamente.');
+        toast.success('Tutor creado correctamente.');
         setForm(formVacio);
       } else if (modo === 'modificar') {
         if (!seleccionado) {
-          setMensaje('Seleccioná un tutor para modificar.');
+          toast.warning('Seleccioná un tutor para modificar.');
           setGuardando(false);
           return;
         }
@@ -149,10 +151,10 @@ function Tutores({ readOnly = false }) {
           direccion: form.direccion || null,
           alumnos_ids: form.alumnos_ids,
         });
-        setMensaje('Tutor modificado exitosamente.');
+        toast.success('Tutor actualizado correctamente.');
       } else if (modo === 'borrar') {
         if (!seleccionado) {
-          setMensaje('Seleccioná un tutor para eliminar.');
+          toast.warning('Seleccioná un tutor para eliminar.');
           setGuardando(false);
           return;
         }
@@ -161,12 +163,12 @@ function Tutores({ readOnly = false }) {
           return;
         }
         await deletePadreTutor(seleccionado);
-        setMensaje('Tutor eliminado exitosamente.');
+        toast.success('Tutor eliminado correctamente.');
         setSeleccionado('');
       }
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -179,10 +181,10 @@ function Tutores({ readOnly = false }) {
       await updatePadreTutor(t.id_tutor, {
         estado: !(t.usuario_estado !== false),
       });
-      setMensaje(t.usuario_estado !== false ? 'Tutor deshabilitado correctamente.' : 'Tutor habilitado correctamente.');
+      toast.success(t.usuario_estado !== false ? 'Tutor deshabilitado correctamente.' : 'Tutor habilitado correctamente.');
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -206,7 +208,7 @@ function Tutores({ readOnly = false }) {
     const deshab = progForm.fecha_deshabilitacion_programada;
     const hab = progForm.fecha_habilitacion_programada;
     if (deshab && hab && new Date(hab) > new Date(deshab)) {
-      setMensaje('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
+      toast.warning('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
       return;
     }
     setGuardando(true);
@@ -216,11 +218,11 @@ function Tutores({ readOnly = false }) {
         fecha_deshabilitacion_programada: deshab || null,
         fecha_habilitacion_programada: hab || null,
       });
-      setMensaje('Fechas actualizadas correctamente.');
+      toast.success('Fechas actualizadas correctamente.');
       setProgramando(null);
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -236,11 +238,11 @@ function Tutores({ readOnly = false }) {
         fecha_deshabilitacion_programada: null,
         fecha_habilitacion_programada: null,
       });
-      setMensaje('Fechas eliminadas correctamente.');
+      toast.success('Fechas eliminadas correctamente.');
       setProgramando(null);
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }

@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import { createMateria, updateMateria } from '../../services/api';
 import AsignacionMaterias from './asignacionMaterias';
 import FormModal from '../../components/Shared/FormModal';
@@ -38,6 +39,7 @@ function FormMateria({ formData, setFormData, editing, guardando, onSubmit, onCa
 
 function GestionMaterias() {
   const { adminMaterias, refreshAdminMaterias } = useData();
+  const toast = useToast();
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -78,15 +80,15 @@ function GestionMaterias() {
       const payload = { nombre_materia: formData.nombre_materia };
       if (esEdicion) {
         await updateMateria(editing.id_materia, payload);
-        setSuccess('Materia actualizada correctamente');
+        toast.success('Materia actualizada correctamente.');
       } else {
         await createMateria(payload);
-        setSuccess('Materia creada correctamente');
+        toast.success('Materia creada correctamente.');
       }
       limpiar();
       await refreshAdminMaterias(mostrarInactivos);
     } catch (err) {
-      setError(mensajeError(err));
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -105,10 +107,10 @@ function GestionMaterias() {
     setSuccess('');
     try {
       await updateMateria(materia.id_materia, { activo: false });
-      setSuccess('Materia desactivada correctamente');
+      toast.success('Materia desactivada correctamente.');
       await refreshAdminMaterias(mostrarInactivos);
     } catch (err) {
-      setError(mensajeError(err));
+      toast.error(mensajeError(err));
     }
   };
 

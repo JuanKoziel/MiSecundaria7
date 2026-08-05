@@ -8,6 +8,7 @@ import SelectorModo from './SelectorModo';
 import { formatDNI } from '../../utils/dni';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { useToast } from '../../context/ToastContext';
 
 const formVacio = {
   usuario_nombre: '',
@@ -127,6 +128,7 @@ function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, on
 
 function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
   const { aniosLectivos, inscripciones, cursos, materias, cursosObj, cursoMateria, materiasObj } = useData();
+  const toast = useToast();
   const [borrador, setBorrador] = useState(nuevaAsignacion());
   const cursosBorrador = cursosPorAnio(borrador.anioLectivo, inscripciones, cursos, cursosObj);
 
@@ -145,7 +147,7 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
 
   const agregarAsignacion = () => {
     if (!borrador.materia || !borrador.anioLectivo || !borrador.curso) {
-      alert('Completá año, curso y materia antes de agregar.');
+      toast.warning('Completá año, curso y materia antes de agregar.');
       return;
     }
     const duplicada = asignaciones.some(
@@ -155,7 +157,7 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
         a.curso === borrador.curso,
     );
     if (duplicada) {
-      alert('Esa combinación de materia, año y curso ya fue agregada.');
+      toast.warning('Esa combinación de materia, año y curso ya fue agregada.');
       return;
     }
     setAsignaciones((prev) => [...prev, { ...borrador, id: Date.now(), isNew: true }]);
@@ -270,6 +272,7 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
 
 function Docentes({ readOnly = false }) {
   const dataCtx = useData();
+  const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
@@ -325,7 +328,7 @@ function Docentes({ readOnly = false }) {
     try {
       if (esCrear) {
         if (!form.usuario_nombre || !form.contrasena || !form.dni || !form.nombre || !form.apellido) {
-          setMensaje('Completá usuario, contraseña, DNI, nombre y apellido.');
+          toast.warning('Completá usuario, contraseña, DNI, nombre y apellido.');
           setGuardando(false);
           return;
         }
@@ -369,15 +372,15 @@ function Docentes({ readOnly = false }) {
           }
         }
         if (errores.length > 0) {
-          setMensaje(`Docente creado. ${asigOk} asignación(es) guardadas. Errores: ${errores.join('; ')}`);
+          toast.error(`Docente creado. ${asigOk} asignación(es) guardadas. Errores: ${errores.join('; ')}`);
         } else {
-          setMensaje(`Docente creado exitosamente con ${asigOk} asignación(es).`);
+          toast.success(`Docente creado correctamente con ${asigOk} asignación(es).`);
         }
         setForm(formVacio);
         setAsignaciones([]);
       } else if (modo === 'modificar') {
         if (!seleccionado) {
-          setMensaje('Seleccioná un docente para modificar.');
+          toast.warning('Seleccioná un docente para modificar.');
           setGuardando(false);
           return;
         }
@@ -413,10 +416,10 @@ function Docentes({ readOnly = false }) {
             }
           }
         }
-        setMensaje('Docente modificado exitosamente.');
+        toast.success('Docente actualizado correctamente.');
       } else if (modo === 'borrar') {
         if (!seleccionado) {
-          setMensaje('Seleccioná un docente para eliminar.');
+          toast.warning('Seleccioná un docente para eliminar.');
           setGuardando(false);
           return;
         }
@@ -425,12 +428,12 @@ function Docentes({ readOnly = false }) {
           return;
         }
         await deleteDocente(seleccionado);
-        setMensaje('Docente eliminado exitosamente.');
+        toast.success('Docente eliminado correctamente.');
         setSeleccionado('');
       }
       await dataCtx.refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -443,10 +446,10 @@ function Docentes({ readOnly = false }) {
       await updateDocente(docente.id, {
         estado: !(docente.usuario_estado !== false),
       });
-      setMensaje(docente.usuario_estado !== false ? 'Docente deshabilitado correctamente.' : 'Docente habilitado correctamente.');
+      toast.success(docente.usuario_estado !== false ? 'Docente deshabilitado correctamente.' : 'Docente habilitado correctamente.');
       await dataCtx.refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -470,7 +473,7 @@ function Docentes({ readOnly = false }) {
     const deshab = progForm.fecha_deshabilitacion_programada;
     const hab = progForm.fecha_habilitacion_programada;
     if (deshab && hab && new Date(hab) > new Date(deshab)) {
-      setMensaje('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
+      toast.warning('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
       return;
     }
     setGuardando(true);
@@ -480,11 +483,11 @@ function Docentes({ readOnly = false }) {
         fecha_deshabilitacion_programada: deshab || null,
         fecha_habilitacion_programada: hab || null,
       });
-      setMensaje('Fechas actualizadas correctamente.');
+      toast.success('Fechas actualizadas correctamente.');
       setProgramando(null);
       await dataCtx.refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -500,11 +503,11 @@ function Docentes({ readOnly = false }) {
         fecha_deshabilitacion_programada: null,
         fecha_habilitacion_programada: null,
       });
-      setMensaje('Fechas eliminadas correctamente.');
+      toast.success('Fechas eliminadas correctamente.');
       setProgramando(null);
       await dataCtx.refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }

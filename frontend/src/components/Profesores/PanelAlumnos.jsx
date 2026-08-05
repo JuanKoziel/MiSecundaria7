@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import { createCalificacion, updateCalificacion } from '../../services/api';
 
 function clampNota(value) {
@@ -11,6 +12,7 @@ function clampNota(value) {
 
 function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, docenteId }) {
   const { alumnos, calificacionesCompletas, periodos, refreshData } = useData();
+  const toast = useToast();
   const [filas, setFilas] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -67,7 +69,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
     setMensaje('');
     try {
       if (!periodo1) {
-        setMensaje('No hay periodos de evaluación configurados.');
+        toast.info('No hay periodos de evaluación configurados.');
         setGuardando(false);
         return;
       }
@@ -110,18 +112,18 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
       }
 
       if (promises.length === 0) {
-        setMensaje('No hay notas para guardar.');
+        toast.info('No hay notas para guardar.');
         setGuardando(false);
         return;
       }
 
       await Promise.all(promises);
-      setMensaje('Notas guardadas exitosamente.');
+      toast.success('Notas guardadas exitosamente.');
       await refreshData();
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      setMensaje(`Error: ${msg}`);
+      toast.error(msg);
     } finally {
       setGuardando(false);
     }

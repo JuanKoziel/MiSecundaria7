@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { updateCurso } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { useToast } from '../../context/ToastContext';
 
 function normalize(str) {
   if (!str) return '';
@@ -20,6 +21,7 @@ function mensajeError(err) {
 
 function AsignacionCursos() {
   const { cursosObj, preceptores, refreshData } = useData();
+  const toast = useToast();
   const [selectedPreceptorId, setSelectedPreceptorId] = useState('');
   const [searchAsignados, setSearchAsignados] = useState('');
   const [searchDisponibles, setSearchDisponibles] = useState('');
@@ -87,10 +89,10 @@ function AsignacionCursos() {
     setGuardando(true);
     try {
       await updateCurso(cursoId, { id_preceptor: selectedPreceptorId });
-      setSuccess('Curso asignado correctamente');
+      toast.success('Curso asignado correctamente.');
       await refreshData();
     } catch (err) {
-      setError(`Error al asignar curso: ${mensajeError(err)}`);
+      toast.error(`Error al asignar curso: ${mensajeError(err)}`);
     } finally {
       setGuardando(false);
     }
@@ -103,10 +105,10 @@ function AsignacionCursos() {
     setGuardando(true);
     try {
       await updateCurso(cursoId, { id_preceptor: null });
-      setSuccess('Curso removido correctamente');
+      toast.success('Curso quitado correctamente.');
       await refreshData();
     } catch (err) {
-      setError(`Error al quitar curso: ${mensajeError(err)}`);
+      toast.error(`Error al quitar curso: ${mensajeError(err)}`);
     } finally {
       setGuardando(false);
     }

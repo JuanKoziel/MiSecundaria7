@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 const REMEMBER_KEY = 'remembered_user';
 
 function Login() {
   const { login } = useAuth();
+  const toast = useToast();
   const [username, setUsername] = useState(() => localStorage.getItem(REMEMBER_KEY) || '');
   const [password, setPassword] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
@@ -27,8 +29,8 @@ function Login() {
       const msg =
         err.response?.data?.error ||
         err.response?.data?.detail ||
-        'Error de conexión con el servidor';
-      setError(msg);
+        'Credenciales incorrectas.';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

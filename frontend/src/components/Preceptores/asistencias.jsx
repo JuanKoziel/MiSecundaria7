@@ -18,6 +18,7 @@ import {
   fechaHoy,
   filtrosCompletos,
 } from './preceptorUtils';
+import { useToast } from '../../context/ToastContext';
 
 function getBadgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
@@ -37,6 +38,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
     refreshData,
   } = useData();
   const { user } = useAuth();
+  const toast = useToast();
 
   const [tab, setTab] = useState('dia');
   const [materiaCmId, setMateriaCmId] = useState('');
@@ -144,7 +146,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   const handleRegistrarDocente = async (doc) => {
     const estadoSeleccionado = docentesEstados[doc.docente_id] || '';
     if (!estadoSeleccionado) {
-      setMensajeDocentes('Seleccioná un estado antes de registrar.');
+      toast.warning('Seleccioná un estado antes de registrar.');
       return;
     }
     setRegistrandoDocente(doc.docente_id);
@@ -155,12 +157,12 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
         cm_id: doc.cm_id,
         estado: estadoSeleccionado,
       });
-      setMensajeDocentes('Asistencia registrada correctamente.');
+      toast.success('Asistencia docente registrada correctamente.');
       cargarDocentes();
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      setMensajeDocentes(`Error: ${msg}`);
+      toast.error(msg);
     } finally {
       setRegistrandoDocente('');
     }
@@ -173,14 +175,14 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
       const anio = Number(anioLectivo);
       const cursoObj = cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === anio);
       if (!cursoObj) {
-        setMensaje('No se encontró el curso seleccionado para ese año lectivo.');
+        toast.warning('No se encontró el curso seleccionado para ese año lectivo.');
         setGuardando(false);
         return;
       }
       const cmList = cursoMateria.filter((cm) => cm.id_curso === cursoObj.id_curso);
       const primerCm = cmList[0];
       if (!primerCm) {
-        setMensaje('No hay materias asignadas a este curso.');
+        toast.warning('No hay materias asignadas a este curso.');
         setGuardando(false);
         return;
       }
@@ -199,13 +201,13 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
         });
       });
       await Promise.all(promises);
-      setMensaje('Asistencias guardadas exitosamente.');
+      toast.success('Asistencias guardadas correctamente.');
       await refreshData();
       cargarDiaria();
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      setMensaje(`Error: ${msg}`);
+      toast.error(msg);
     } finally {
       setGuardando(false);
     }

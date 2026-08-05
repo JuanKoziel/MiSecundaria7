@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect, useCallback } from 'react';
 import { getPlanificaciones, createPlanificacion, updatePlanificacion, deletePlanificacion } from '../../services/api';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
@@ -79,6 +80,7 @@ function FormProyecto({ formData, setFormData, editing, guardando, onSubmit, onC
 
 function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, miDocente }) {
   const { refreshData } = useData();
+  const toast = useToast();
   const [proyectos, setProyectos] = useState([]);
   const [showNewForm, setShowNewForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -155,16 +157,16 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
       };
       if (esEdicion) {
         await updatePlanificacion(editing.id_planificacion, payload);
-        setSuccess('Proyecto actualizado correctamente');
+        toast.success('Proyecto actualizado correctamente.');
       } else {
         await createPlanificacion(payload);
-        setSuccess('Proyecto creado correctamente');
+        toast.success('Proyecto creado correctamente.');
       }
       limpiar();
       await cargar();
       await refreshData();
     } catch (err) {
-      setError(mensajeError(err));
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -176,11 +178,11 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
     setSuccess('');
     try {
       await deletePlanificacion(proyecto.id_planificacion);
-      setSuccess('Proyecto eliminado correctamente');
+      toast.success('Proyecto eliminado correctamente.');
       await cargar();
       await refreshData();
     } catch (err) {
-      setError(mensajeError(err));
+      toast.error(mensajeError(err));
     }
   };
 

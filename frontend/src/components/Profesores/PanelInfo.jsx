@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { createDiagnosticoGrupal } from '../../services/api';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 
 function PanelInfo({ cursoId, docenteId, cursoNombre }) {
   const { refreshData } = useData();
+  const toast = useToast();
   const [diagnostico, setDiagnostico] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
 
   const handleSubir = async () => {
     if (!diagnostico.trim()) {
-      setMensaje('Escribí un diagnóstico antes de guardar.');
+      toast.warning('Escribí un diagnóstico antes de guardar.');
       return;
     }
     setGuardando(true);
@@ -22,13 +24,13 @@ function PanelInfo({ cursoId, docenteId, cursoNombre }) {
         descripcion: diagnostico,
         fecha: new Date().toISOString().slice(0, 10),
       });
-      setMensaje('Diagnóstico guardado exitosamente.');
+      toast.success('Diagnóstico guardado exitosamente.');
       setDiagnostico('');
       await refreshData();
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      setMensaje(`Error: ${msg}`);
+      toast.error(msg);
     } finally {
       setGuardando(false);
     }

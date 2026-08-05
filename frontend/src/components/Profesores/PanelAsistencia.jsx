@@ -2,12 +2,14 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
 import { getServerTime, createAsistencia } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 const ESTADOS = ['Presente', 'Ausente', 'Tarde', 'Retiro'];
 
 function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
   const { alumnos, estadosAsistencia, refreshData } = useData();
   const { user } = useAuth();
+  const toast = useToast();
   const [serverInfo, setServerInfo] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [filas, setFilas] = useState([]);
@@ -26,7 +28,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
       const info = await getServerTime(cursoMateriaId);
       setServerInfo(info);
     } catch (err) {
-      setMensaje(`Error al obtener hora del servidor: ${err.message}`);
+      toast.error(`Error al obtener hora del servidor: ${err.message}`);
     } finally {
       setCargando(false);
     }
@@ -79,13 +81,13 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
         });
       });
       await Promise.all(promises);
-      setMensaje('Asistencia guardada exitosamente.');
+      toast.success('Asistencia guardada exitosamente.');
       await refreshData();
       await cargarServerTime();
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      setMensaje(`Error: ${msg}`);
+      toast.error(msg);
     } finally {
       setGuardando(false);
     }

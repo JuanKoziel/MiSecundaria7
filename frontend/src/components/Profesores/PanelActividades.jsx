@@ -7,6 +7,7 @@ import {
   updateActividad,
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { useToast } from '../../context/ToastContext';
 
 const API_BASE = 'http://localhost:8000';
 const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif'];
@@ -318,6 +319,7 @@ function ModalFormularioActividad({
 }
 
 function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombre }) {
+  const toast = useToast();
   const [actividades, setActividades] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -337,7 +339,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
       setActividades(lista);
       return lista;
     } catch (err) {
-      setMensaje(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
       setActividades([]);
       return [];
     } finally {
@@ -380,15 +382,15 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
   const handleGuardar = async (e) => {
     e.preventDefault();
     if (!cursoMateriaId || !docenteId) {
-      setMensaje('No se pudo identificar la asignación actual.');
+      toast.warning('No se pudo identificar la asignación actual.');
       return;
     }
     if (!form.titulo.trim()) {
-      setMensaje('El título es obligatorio.');
+      toast.warning('El título es obligatorio.');
       return;
     }
     if (!actividadEditando && nuevosArchivos.length === 0) {
-      setMensaje('Debes adjuntar al menos un archivo para la actividad.');
+      toast.warning('Debes adjuntar al menos un archivo para la actividad.');
       return;
     }
 
@@ -404,16 +406,16 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
 
       if (actividadEditando) {
         await updateActividad(actividadEditando.id_actividad, payload);
-        setMensaje('Actividad actualizada correctamente.');
+        toast.success('Actividad actualizada correctamente.');
       } else {
         await createActividad(payload);
-        setMensaje('Actividad creada correctamente.');
+        toast.success('Actividad creada correctamente.');
       }
 
       await cargaLista();
       cerrarFormulario();
     } catch (err) {
-      setMensaje(`Error: ${getErrorMessage(err)}`);
+      toast.error(getErrorMessage(err));
     } finally {
       setGuardando(false);
     }
@@ -423,13 +425,13 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
     if (!confirmarEliminacion('¿Estás seguro de que querés eliminar esta actividad?\n\nEsta acción no se puede deshacer.')) return;
     try {
       await deleteActividad(actividad.id_actividad);
-      setMensaje('Actividad eliminada correctamente.');
+      toast.success('Actividad eliminada correctamente.');
       await cargaLista();
       if (actividadVista?.id_actividad === actividad.id_actividad) {
         setActividadVista(null);
       }
     } catch (err) {
-      setMensaje(`Error: ${getErrorMessage(err)}`);
+      toast.error(getErrorMessage(err));
     }
   };
 
@@ -440,7 +442,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
 
     try {
       const actualizada = await deleteActividadArchivo(actividadEditando.id_actividad, archivoId);
-      setMensaje('Archivo eliminado correctamente.');
+      toast.success('Archivo eliminado correctamente.');
       const fresh = await cargaLista();
       const actividadFresh =
         fresh.find((item) => item.id_actividad === actividadEditando.id_actividad) ||
@@ -450,7 +452,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
         setActividadEditando(actividadFresh);
       }
     } catch (err) {
-      setMensaje(`Error: ${getErrorMessage(err)}`);
+      toast.error(getErrorMessage(err));
     }
   };
 

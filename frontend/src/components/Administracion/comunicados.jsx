@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
@@ -38,6 +39,7 @@ function Comunicados() {
     refreshData,
   } = useData();
   const { user } = useAuth();
+  const toast = useToast();
 
   const [form, setForm] = useState({
     titulo: '',
@@ -163,17 +165,17 @@ function Comunicados() {
 
   const handleGuardar = async () => {
     if (!form.titulo || !form.cuerpo) {
-      setMensaje('Completa título y cuerpo.');
+      toast.warning('Completa título y cuerpo.');
       return;
     }
 
     if (form.materiaId && (destinosSeleccionados.length !== 1 || destinosSeleccionados[0]?.tipo !== 'division')) {
-      setMensaje('La materia solo puede seleccionarse para un destino con división específica.');
+      toast.warning('La materia solo puede seleccionarse para un destino con división específica.');
       return;
     }
 
     if (!form.cicloId) {
-      setMensaje('Selecciona un año lectivo.');
+      toast.info('Selecciona un año lectivo.');
       return;
     }
 
@@ -207,7 +209,7 @@ function Comunicados() {
         }
       }
 
-      setMensaje('Comunicado enviado exitosamente.');
+      toast.success('Comunicado publicado correctamente.');
       setForm({
         titulo: '',
         cuerpo: '',
@@ -222,7 +224,7 @@ function Comunicados() {
       console.error('Error al crear comunicado:', err);
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      setMensaje(`Error: ${msg}`);
+      toast.error(`Error: ${msg}`);
     } finally {
       setGuardando(false);
     }
@@ -233,12 +235,12 @@ function Comunicados() {
     setMensaje('');
     try {
       await deleteComunicado(id);
-      setMensaje('Comunicado borrado.');
+      toast.success('Comunicado eliminado correctamente.');
       await refreshData();
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      setMensaje(`Error: ${msg}`);
+      toast.error(`Error: ${msg}`);
     }
   };
 

@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import {
   getCursoMateria,
   getHorarios,
@@ -25,6 +26,7 @@ function timeStr(value) {
 
 function HorarioSemanal({ cursosOptions }) {
   const { modulos } = useData();
+  const toast = useToast();
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
   const [materiasCurso, setMateriasCurso] = useState([]);
   const [celdas, setCeldas] = useState({});
@@ -82,7 +84,7 @@ function HorarioSemanal({ cursosOptions }) {
         setCeldas(celdasInit);
         setOriginalCeldas(JSON.parse(JSON.stringify(celdasInit)));
       })
-      .catch(() => setMensaje('Error al cargar datos del curso.'))
+      .catch(() => toast.error('Error al cargar datos del curso.'))
       .finally(() => setCargandoGrilla(false));
   }, [cursoSeleccionado]);
 
@@ -142,7 +144,7 @@ function HorarioSemanal({ cursosOptions }) {
         }
       }
 
-      setMensaje('Horarios guardados correctamente.');
+      toast.success('Horarios guardados correctamente.');
 
       const [horData] = await Promise.all([
         getHorarios({ curso: cursoSeleccionado }),
@@ -159,7 +161,7 @@ function HorarioSemanal({ cursosOptions }) {
       setCeldas(newCeldas);
       setOriginalCeldas(JSON.parse(JSON.stringify(newCeldas)));
     } catch {
-      setMensaje('Error al guardar horarios.');
+      toast.error('Error al guardar horarios.');
     } finally {
       setGuardando(false);
     }
@@ -261,6 +263,7 @@ function HorarioSemanal({ cursosOptions }) {
 }
 
 function EducacionFisica({ cursosOptions }) {
+  const toast = useToast();
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
   const [horarios, setHorarios] = useState([]);
   const [cmEf, setCmEf] = useState(null);
@@ -298,7 +301,7 @@ function EducacionFisica({ cursosOptions }) {
         });
         setHorarios(heList);
       })
-      .catch(() => setMensaje('Error al cargar datos.'))
+      .catch(() => toast.error('Error al cargar datos.'))
       .finally(() => setCargando(false));
   }, [cursoSeleccionado]);
 
@@ -310,11 +313,11 @@ function EducacionFisica({ cursosOptions }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.dia_semana || !form.hora_inicio || !form.hora_fin) {
-      setMensaje('Completá día, hora inicio y hora fin.');
+      toast.warning('Completá día, hora inicio y hora fin.');
       return;
     }
     if (!cmEf) {
-      setMensaje('El curso no tiene Educación Física asignada.');
+      toast.warning('El curso no tiene Educación Física asignada.');
       return;
     }
     setGuardando(true);
@@ -345,7 +348,7 @@ function EducacionFisica({ cursosOptions }) {
       });
       setHorarios(heList);
     } catch {
-      setMensaje('Error al guardar.');
+      toast.error('Error al guardar.');
     } finally {
       setGuardando(false);
     }
@@ -378,7 +381,7 @@ function EducacionFisica({ cursosOptions }) {
       });
       setHorarios(heList);
     } catch {
-      setMensaje('Error al eliminar.');
+      toast.error('Error al eliminar.');
     }
   };
 

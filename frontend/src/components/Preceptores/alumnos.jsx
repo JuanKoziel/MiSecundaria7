@@ -8,6 +8,7 @@ import SelectorModo from './SelectorModo';
 import FormModal from '../../components/Shared/FormModal';
 import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { useToast } from '../../context/ToastContext';
 
 const formVacio = {
   usuario_nombre: '',
@@ -74,6 +75,7 @@ function mensajeError(err) {
 
 function Alumnos({ readOnly = false }) {
   const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto, cursosObj, refreshData } = useData();
+  const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
@@ -113,7 +115,7 @@ function Alumnos({ readOnly = false }) {
     try {
       if (modo === 'crear') {
         if (!form.usuario_nombre || !form.contrasena || !form.dni || !form.nombre || !form.apellido) {
-          setMensaje('Completá usuario, contraseña, DNI, nombre y apellido.');
+          toast.warning('Completá usuario, contraseña, DNI, nombre y apellido.');
           setGuardando(false);
           return;
         }
@@ -132,11 +134,11 @@ function Alumnos({ readOnly = false }) {
           telefono: form.telefono || null,
           id_curso: cursoObj?.id_curso || null,
         });
-        setMensaje('Alumno creado exitosamente.');
+        toast.success('Alumno creado correctamente.');
         setForm(formVacio);
       } else if (modo === 'modificar') {
         if (!seleccionado) {
-          setMensaje('Seleccioná un alumno para modificar.');
+          toast.warning('Seleccioná un alumno para modificar.');
           setGuardando(false);
           return;
         }
@@ -153,10 +155,10 @@ function Alumnos({ readOnly = false }) {
           fecha_nacimiento: form.fechaNacimiento || null,
           telefono: form.telefono || null,
         });
-        setMensaje('Alumno modificado exitosamente.');
+        toast.success('Alumno actualizado correctamente.');
       } else if (modo === 'borrar') {
         if (!seleccionado) {
-          setMensaje('Seleccioná un alumno para eliminar.');
+          toast.warning('Seleccioná un alumno para eliminar.');
           setGuardando(false);
           return;
         }
@@ -165,12 +167,12 @@ function Alumnos({ readOnly = false }) {
           return;
         }
         await deleteAlumno(seleccionado);
-        setMensaje('Alumno eliminado exitosamente.');
+        toast.success('Alumno eliminado correctamente.');
         setSeleccionado('');
       }
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -183,10 +185,10 @@ function Alumnos({ readOnly = false }) {
       await updateAlumno(alumno.id, {
         estado: !(alumno.usuario_estado !== false),
       });
-      setMensaje(alumno.usuario_estado !== false ? 'Alumno deshabilitado correctamente.' : 'Alumno habilitado correctamente.');
+      toast.success(alumno.usuario_estado !== false ? 'Alumno deshabilitado correctamente.' : 'Alumno habilitado correctamente.');
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -210,7 +212,7 @@ function Alumnos({ readOnly = false }) {
     const deshab = progForm.fecha_deshabilitacion_programada;
     const hab = progForm.fecha_habilitacion_programada;
     if (deshab && hab && new Date(hab) > new Date(deshab)) {
-      setMensaje('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
+      toast.warning('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
       return;
     }
     setGuardando(true);
@@ -220,11 +222,11 @@ function Alumnos({ readOnly = false }) {
         fecha_deshabilitacion_programada: deshab || null,
         fecha_habilitacion_programada: hab || null,
       });
-      setMensaje('Fechas actualizadas correctamente.');
+      toast.success('Fechas actualizadas correctamente.');
       setProgramando(null);
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }
@@ -240,11 +242,11 @@ function Alumnos({ readOnly = false }) {
         fecha_deshabilitacion_programada: null,
         fecha_habilitacion_programada: null,
       });
-      setMensaje('Fechas eliminadas correctamente.');
+      toast.success('Fechas eliminadas correctamente.');
       setProgramando(null);
       await refreshData();
     } catch (err) {
-      setMensaje(`Error: ${mensajeError(err)}`);
+      toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
     }

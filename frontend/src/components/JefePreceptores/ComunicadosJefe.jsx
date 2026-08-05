@@ -9,6 +9,7 @@ import {
   uploadFile,
 } from '../../services/api';
 import { parseCurso } from '../../utils/orientacion';
+import { useToast } from '../../context/ToastContext';
 
 function getDestinoKey(destino) {
   if (!destino) return '';
@@ -27,6 +28,7 @@ function getDestinoLabel(destino) {
 function ComunicadosJefe() {
   const { user } = useAuth();
   const { cursosObj, ciclosLectivos, refreshData } = useData();
+  const toast = useToast();
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [form, setForm] = useState({
@@ -109,11 +111,11 @@ function ComunicadosJefe() {
 
   const handleGuardar = async () => {
     if (!form.titulo || !form.cuerpo) {
-      setMensaje('Completa título y cuerpo.');
+      toast.warning('Completa título y cuerpo.');
       return;
     }
     if (!form.cicloId) {
-      setMensaje('Seleccioná un año lectivo.');
+      toast.warning('Seleccioná un año lectivo.');
       return;
     }
 
@@ -149,7 +151,7 @@ function ComunicadosJefe() {
         }
       }
 
-      setMensaje('Comunicado enviado exitosamente.');
+      toast.success('Comunicado publicado correctamente.');
       setForm({ titulo: '', cuerpo: '', cicloId: '', destinos: [] });
       if (filesRef.current) filesRef.current.value = '';
       await refreshData();
@@ -160,7 +162,7 @@ function ComunicadosJefe() {
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      setMensaje(`Error: ${msg}`);
+      toast.error(msg);
     } finally {
       setGuardando(false);
     }

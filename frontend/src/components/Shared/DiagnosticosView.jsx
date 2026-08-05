@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { createDiagnosticoGrupal, deleteDiagnosticoGrupal } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FormModal from './FormModal';
@@ -16,7 +17,8 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
     refreshData,
   } = useData();
   const { user } = useAuth();
-  
+  const toast = useToast();
+
   const miDocente = useMemo(() => docentes.find((d) => d.id_usuario === (user?.id || user?.id_usuario)), [docentes, user]);
 
   const [selectedDiagnostico, setSelectedDiagnostico] = useState(null);
@@ -115,10 +117,10 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
       try {
         await deleteDiagnosticoGrupal(d.id);
         await refreshData();
-        alert('Diagnóstico eliminado correctamente.');
+        toast.success('Diagnóstico eliminado correctamente.');
       } catch (err) {
         console.error('Error deleting diagnostico:', err);
-        alert('Error al eliminar el diagnóstico.');
+        toast.error('Error al eliminar el diagnóstico.');
       }
     }
   };
@@ -130,7 +132,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
 
     try {
       if (!miDocente) {
-        setSaveError('No se encontró el perfil de docente');
+        toast.warning('No se encontró el perfil de docente.');
         setGuardando(false);
         return;
       }
@@ -146,10 +148,10 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
       setNewDiagnostico({ id_curso: '', descripcion: '' });
       setShowCreateForm(false);
       await refreshData();
-      alert('Diagnóstico creado correctamente.');
+      toast.success('Diagnóstico creado correctamente.');
     } catch (err) {
       console.error('Error creating diagnostico:', err);
-      setSaveError('Error al crear el diagnóstico. Verificá que tengas permisos para este curso.');
+      toast.error('Error al crear el diagnóstico. Verificá que tengas permisos para este curso.');
     } finally {
       setGuardando(false);
     }

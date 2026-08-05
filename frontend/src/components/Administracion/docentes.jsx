@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { deleteMiDdjjDocente } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
@@ -239,6 +240,7 @@ function normalize(str) {
 
 function Docentes() {
   const { docentes, actasDocente, cursoMateria, planificaciones, refreshData } = useData();
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [actasAbierto, setActasAbierto] = useState(null);
   const [cursosAbierto, setCursosAbierto] = useState(null);
@@ -265,7 +267,7 @@ function Docentes() {
       }
       await refreshData();
     } catch (error) {
-      alert(error.response?.data?.error || error.response?.data?.detail || 'No se pudo eliminar la DDJJ.');
+      toast.error(error.response?.data?.error || error.response?.data?.detail || 'No se pudo eliminar la DDJJ.');
     }
   };
 
