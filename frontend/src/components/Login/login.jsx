@@ -7,6 +7,7 @@ function Login() {
   const { login } = useAuth();
   const [username, setUsername] = useState(() => localStorage.getItem(REMEMBER_KEY) || '');
   const [password, setPassword] = useState('');
+  const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [recordar, setRecordar] = useState(() => !!localStorage.getItem(REMEMBER_KEY));
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,14 +63,25 @@ function Login() {
 
           <div className="form-group">
             <label htmlFor="password">Contraseña</label>
-            <input
-              id="password"
-              type="password"
-              placeholder="Ingrese su contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="password-input-wrap">
+              <input
+                id="password"
+                type={mostrarContrasena ? 'text' : 'password'}
+                placeholder="Ingrese su contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                aria-label={mostrarContrasena ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                title={mostrarContrasena ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onClick={() => setMostrarContrasena((prev) => !prev)}
+              >
+                <i className={`fas ${mostrarContrasena ? 'fa-eye-slash' : 'fa-eye'}`} aria-hidden="true" />
+              </button>
+            </div>
           </div>
 
           <div className="login-remember">
