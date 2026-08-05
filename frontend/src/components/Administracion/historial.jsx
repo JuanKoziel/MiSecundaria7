@@ -37,7 +37,7 @@ const FILTROS_VACIOS = {
   tabla: '',
 };
 
-function Historial() {
+function Historial({ ocultarRegistro = false }) {
   const [registros, setRegistros] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [acciones, setAcciones] = useState([]);
@@ -168,16 +168,16 @@ function Historial() {
               <th>Rol</th>
               <th>Acción</th>
               <th>Módulo</th>
-              <th>Registro</th>
+              {!ocultarRegistro && <th>Registro</th>}
               <th>Valor anterior</th>
               <th>Valor nuevo</th>
             </tr>
           </thead>
           <tbody>
             {cargando ? (
-              <tr><td colSpan={8} className="empty-state-message">Cargando historial...</td></tr>
+              <tr><td colSpan={ocultarRegistro ? 7 : 8} className="empty-state-message">Cargando historial...</td></tr>
             ) : registros.length === 0 ? (
-              <tr><td colSpan={8} className="empty-state-message">No hay registros de historial.</td></tr>
+              <tr><td colSpan={ocultarRegistro ? 7 : 8} className="empty-state-message">No hay registros de historial.</td></tr>
             ) : (
               registros.map((h) => (
                 <tr key={h.id_historial}>
@@ -193,7 +193,7 @@ function Historial() {
                   </td>
                   <td><span className="badge badge-neutral">{h.accion}</span></td>
                   <td>{h.tabla_label || h.tabla_modificada}</td>
-                  <td>{h.id_registro}</td>
+                  {!ocultarRegistro && <td>{h.id_registro}</td>}
                   <td className="historial-valor">{h.valor_anterior || '-'}</td>
                   <td className="historial-valor">{h.valor_nuevo || '-'}</td>
                 </tr>

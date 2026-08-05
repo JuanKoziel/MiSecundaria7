@@ -108,7 +108,7 @@ function JefePreceptorDashboard({ user, onLogout }) {
       case 'historial':
         return (
           <div className="view-section active">
-            <Historial />
+            <Historial ocultarRegistro />
           </div>
         );
 
