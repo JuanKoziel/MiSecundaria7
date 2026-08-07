@@ -29,6 +29,8 @@ ACCIONES_POR_DEFECTO = [
 
 _CAMPOS_SENSIBLES = {'contrasena', 'password', 'pass', 'hash', 'token'}
 
+_CAMPOS_TECNICOS = {'fecha_eliminacion', 'eliminado'}
+
 _ETIQUETAS_CAMPOS = {
     'usuario': 'Usuario',
     'nombre': 'Nombre',
@@ -103,7 +105,7 @@ def resumen_registro(instance):
     lineas = []
     for field in instance._meta.fields:
         nombre = field.name
-        if field.primary_key or field.auto_created or nombre in _CAMPOS_SENSIBLES:
+        if field.primary_key or field.auto_created or nombre in _CAMPOS_SENSIBLES or nombre in _CAMPOS_TECNICOS:
             continue
         try:
             if getattr(field, 'is_relation', False) and field.many_to_one:
@@ -186,3 +188,33 @@ def activar_o_crear(model_class, lookup, defaults):
     except AttributeError:
         pass
     return model_class.objects.create(**lookup, **defaults, activo=True), False
+
+
+def _campos_borrado(instance):
+    """Devuelve la lista de campos que identifican el borrado lógico."""
+    if hasattr(instance, 'eliminado'):
+        return ['eliminado', 'fecha_eliminacion']
+    return ['estado', 'fecha_eliminacion']
+
+
+def marcar_eliminado(instance, commit=True):
+    """Aplica borrado lógico sobre una instancia de entidad.
+
+    Reglas comunes reutilizadas por todos los CRUD:
+      - Planificacion usa `eliminado = True` (su campo `estado` es
+        Borrador/Publicado y no se toca).
+      - El resto de las entidades usan `estado = False`.
+      - `fecha_eliminacion` se setea con la fecha/hora actual si el
+        modelo tiene esa columna (por ej. `usuarios` no la tiene).
+
+    Devuelve la instancia con los cambios aplicados.
+    """
+    if hasattr(instance, 'eliminado'):
+        instance.eliminado = True
+    else:
+        instance.estado = False
+    if hasattr(instance, 'fecha_eliminacion'):
+        instance.fecha_eliminacion = timezone.now()
+    if commit:
+        instance.save(update_fields=_campos_borrado(instance))
+    return instance

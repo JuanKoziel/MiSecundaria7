@@ -3,6 +3,7 @@ from datetime import datetime, date, time
 from django.contrib.auth import authenticate
 from django.db import models
 from django.http import FileResponse
+from django.utils import timezone
 import re
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
@@ -22,6 +23,7 @@ from escuela.utils import (
     ACCION_ELIMINAR,
     ACCION_HABILITAR,
     ACCION_MODIFICAR,
+    marcar_eliminado,
     registrar_historial,
     resumen_registro,
 )
@@ -278,10 +280,10 @@ def limpiar_eventos_temporales_vencidos():
     Retorna la cantidad de eventos eliminados.
     """
     from datetime import date as date_cls
-    count, _ = EventoInstitucional.objects.filter(
+    count = EventoInstitucional.objects.filter(
         permanente=False,
         fecha__lt=date_cls.today(),
-    ).delete()
+    ).update(estado=False, fecha_eliminacion=timezone.now())
     return count
 
 
@@ -542,7 +544,6 @@ class HistorialMixin:
 
     historial_tabla = None
     historial_soft_delete = False
-    historial_campo_baja = 'activo'
 
     def get_historial_tabla(self):
         return self.historial_tabla
@@ -653,8 +654,7 @@ class HistorialMixin:
     def perform_destroy(self, instance):
         valor_anterior = resumen_registro(instance)
         if self.historial_soft_delete:
-            setattr(instance, self.historial_campo_baja, False)
-            instance.save(update_fields=[self.historial_campo_baja])
+            marcar_eliminado(instance)
         else:
             super().perform_destroy(instance)
         self._historial_baja(instance, valor_anterior)
@@ -665,6 +665,7 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated]
     historial_tabla = 'usuarios'
+    historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -676,6 +677,7 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username)
         if 'director' in roles or 'admin' in roles:
             return qs.filter(
+                estado=True,
                 usuariorol__id_rol__nombre_rol='admin',
             ).distinct()
 
@@ -683,6 +685,7 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
         if usuario:
             return qs.filter(
                 id_usuario=usuario.id_usuario,
+                estado=True,
                 usuariorol__id_rol__nombre_rol='admin',
             ).distinct()
 
@@ -760,6 +763,7 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
     serializer_class = AlumnoSerializer
     filterset_fields = ['id_curso', 'dni']
     historial_tabla = 'alumnos'
+    historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -823,6 +827,7 @@ class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Docente.objects.select_related('id_usuario').all()
     serializer_class = DocenteSerializer
     historial_tabla = 'docentes'
+    historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1136,14 +1141,7 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         docente = self._docente_actual()
         if not docente or instance.id_docente_id != docente.id_docente:
             raise PermissionDenied('No tienes permiso para eliminar esta actividad.')
-        archivos = list(instance.archivos_adjuntos.all().order_by('id_archivo'))
-        if archivos:
-            for archivo in archivos:
-                self._delete_file_object(archivo)
-        elif instance.ruta_archivo and instance.ruta_archivo.name:
-            if instance.ruta_archivo.storage.exists(instance.ruta_archivo.name):
-                instance.ruta_archivo.storage.delete(instance.ruta_archivo.name)
-        instance.delete()
+        marcar_eliminado(instance)
 
     @action(detail=True, methods=['delete'], url_path=r'archivos/(?P<archivo_id>[^/.]+)')
     def borrar_archivo(self, request, pk=None, archivo_id=None):
@@ -1169,6 +1167,7 @@ class PreceptorViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Preceptor.objects.select_related('id_usuario').all()
     serializer_class = PreceptorSerializer
     historial_tabla = 'preceptores'
+    historial_soft_delete = True
 
     def get_historial_tabla(self):
         return 'jefes_preceptores' if self._is_jefe_target() else 'preceptores'
@@ -1236,12 +1235,14 @@ class DirectivoViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Directivo.objects.select_related('id_usuario').all()
     serializer_class = DirectivoSerializer
     historial_tabla = 'directores'
+    historial_soft_delete = True
 
 
 class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = PadreTutor.objects.select_related('id_usuario').all()
     serializer_class = PadreTutorSerializer
     historial_tabla = 'tutores'
+    historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1327,6 +1328,9 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
 class CicloLectivoViewSet(viewsets.ModelViewSet):
     queryset = CicloLectivo.objects.all()
     serializer_class = CicloLectivoSerializer
+
+    def perform_destroy(self, instance):
+        marcar_eliminado(instance)
 
 
 class CursoViewSet(HistorialMixin, viewsets.ModelViewSet):
@@ -1576,6 +1580,9 @@ class InscripcionMateriaViewSet(viewsets.ModelViewSet):
 class PeriodoEvaluacionViewSet(viewsets.ModelViewSet):
     queryset = PeriodoEvaluacion.objects.all()
     serializer_class = PeriodoEvaluacionSerializer
+
+    def perform_destroy(self, instance):
+        marcar_eliminado(instance)
 
 
 class CalificacionViewSet(viewsets.ModelViewSet):
@@ -2446,6 +2453,7 @@ class EventoInstitucionalViewSet(HistorialMixin, viewsets.ModelViewSet):
     serializer_class = EventoInstitucionalSerializer
     permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
     historial_tabla = 'eventos_institucionales'
+    historial_soft_delete = True
 
     def perform_create(self, serializer):
         from rest_framework.exceptions import ValidationError
@@ -2470,7 +2478,10 @@ class EventoInstitucionalViewSet(HistorialMixin, viewsets.ModelViewSet):
         if ids_reemplazar:
             reemplazados = list(EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar))
             resumenes = [(ev.pk, resumen_registro(ev)) for ev in reemplazados]
-            EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar).delete()
+            EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar).update(
+                estado=False,
+                fecha_eliminacion=timezone.now(),
+            )
             for pk, resumen in resumenes:
                 self._historial_registrar(
                     ACCION_ELIMINAR, self.get_historial_tabla(), pk,
@@ -2514,7 +2525,10 @@ class EventoInstitucionalViewSet(HistorialMixin, viewsets.ModelViewSet):
         if ids_reemplazar:
             reemplazados = list(EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar))
             resumenes = [(ev.pk, resumen_registro(ev)) for ev in reemplazados]
-            EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar).delete()
+            EventoInstitucional.objects.filter(id_evento__in=ids_reemplazar).update(
+                estado=False,
+                fecha_eliminacion=timezone.now(),
+            )
             for pk, resumen in resumenes:
                 self._historial_registrar(
                     ACCION_ELIMINAR, self.get_historial_tabla(), pk,
@@ -2536,6 +2550,7 @@ class ActaViewSet(HistorialMixin, viewsets.ModelViewSet):
     ).all()
     serializer_class = ActaSerializer
     historial_tabla = 'actas'
+    historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2599,6 +2614,7 @@ class ComunicadoViewSet(HistorialMixin, viewsets.ModelViewSet):
     serializer_class = ComunicadoSerializer
     permission_classes = [IsAuthenticated]
     historial_tabla = 'comunicados'
+    historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2633,6 +2649,9 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)
         return qs
+
+    def perform_destroy(self, instance):
+        marcar_eliminado(instance)
 
     def _generar_pdf(self, planificacion, contenido, objetivos, salidas, fundamentacion):
         from reportlab.lib.pagesizes import A4
@@ -2772,6 +2791,7 @@ class DiagnosticoGrupalViewSet(HistorialMixin, viewsets.ModelViewSet):
     serializer_class = DiagnosticoGrupalSerializer
     permission_classes = [IsAuthenticated]
     historial_tabla = 'diagnosticos'
+    historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()

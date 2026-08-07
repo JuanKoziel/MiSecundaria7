@@ -1,6 +1,30 @@
 from django.db import models
 
 
+class ActivoManager(models.Manager):
+    """Manager por defecto que excluye registros eliminados lógicamente.
+
+    Las entidades con borrado lógico usan la columna `estado`
+    (1 = activo, 0 = eliminado). El manager aplica el filtro en todas
+    las consultas (listados, selectores, relaciones y dashboards).
+    """
+
+    campo_activo = 'estado'
+    valor_activo = True
+
+    def get_queryset(self):
+        return super().get_queryset().filter(**{self.campo_activo: self.valor_activo})
+
+
+class PlanificacionManager(ActivoManager):
+    """Manager de Planificacion: el borrado lógico usa `eliminado`
+    (no `estado`, que es Borrador/Publicado). Los registros activos
+    tienen `eliminado = False`."""
+
+    campo_activo = 'eliminado'
+    valor_activo = False
+
+
 class Usuario(models.Model):
     id_usuario = models.AutoField(primary_key=True)
     usuario = models.CharField(max_length=50, unique=True)
@@ -63,6 +87,11 @@ class PadreTutor(models.Model):
     direccion = models.CharField(max_length=255, blank=True, null=True)
     correo = models.CharField(max_length=100, blank=True, null=True)
     tipo = models.CharField(max_length=30, blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -78,6 +107,10 @@ class CicloLectivo(models.Model):
     fecha_inicio = models.DateField(blank=True, null=True)
     fecha_fin = models.DateField(blank=True, null=True)
     estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -98,6 +131,11 @@ class Preceptor(models.Model):
     dni = models.CharField(max_length=20, unique=True)
     correo = models.CharField(max_length=100, blank=True, null=True)
     telefono = models.CharField(max_length=30, blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -120,6 +158,11 @@ class Curso(models.Model):
     nombre_curso = models.CharField(max_length=50)
     orientacion = models.CharField(max_length=50, blank=True, null=True)
     activo = models.BooleanField(default=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -150,6 +193,11 @@ class Alumno(models.Model):
     direccion = models.CharField(max_length=255, blank=True, null=True)
     telefono = models.CharField(max_length=30, blank=True, null=True)
     procedencia = models.CharField(max_length=100, blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -170,6 +218,11 @@ class Docente(models.Model):
     dni = models.CharField(max_length=20, unique=True)
     correo = models.CharField(max_length=100, blank=True, null=True)
     telefono = models.CharField(max_length=30, blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -210,6 +263,11 @@ class ActividadDocente(models.Model):
     descripcion = models.TextField(blank=True, null=True)
     ruta_archivo = models.FileField(upload_to='actividades_docentes/', max_length=255, blank=True, null=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -247,6 +305,11 @@ class Directivo(models.Model):
     dni = models.CharField(max_length=20, unique=True)
     telefono = models.CharField(max_length=30, blank=True, null=True)
     cargo = models.CharField(max_length=100, blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -261,6 +324,11 @@ class Materia(models.Model):
     nombre_materia = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, null=True)
     activo = models.BooleanField(default=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -283,6 +351,11 @@ class CursoMateria(models.Model):
         blank=True, null=True,
     )
     activo = models.BooleanField(default=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -296,6 +369,11 @@ class PeriodoEvaluacion(models.Model):
     id_periodo = models.AutoField(primary_key=True)
     nombre_periodo = models.CharField(max_length=100, blank=True, null=True)
     orden_periodo = models.IntegerField(blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -417,6 +495,11 @@ class Acta(models.Model):
     descripcion = models.TextField(blank=True, null=True)
     fecha = models.DateTimeField(blank=True, null=True)
     ruta_archivo = models.CharField(max_length=255, blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -546,6 +629,11 @@ class Planificacion(models.Model):
     ruta_archivo = models.CharField(max_length=255, blank=True, null=True)
     fecha_subida = models.DateTimeField(blank=True, null=True)
     fecha_ultima_modificacion = models.DateTimeField(blank=True, null=True)
+    eliminado = models.BooleanField(default=False)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = PlanificacionManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -565,6 +653,11 @@ class DiagnosticoGrupal(models.Model):
     )
     fecha = models.DateField(blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -634,6 +727,11 @@ class Comunicado(models.Model):
     titulo = models.CharField(max_length=255)
     cuerpo = models.TextField(blank=True, null=True)
     fecha = models.DateTimeField(blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
@@ -709,6 +807,11 @@ class EventoInstitucional(models.Model):
     )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_modificacion = models.DateTimeField(auto_now=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
 
     class Meta:
         managed = False
