@@ -2535,6 +2535,26 @@ tbody tr:last-child td {
   margin-top: 2px;
 }
 
+.vista-horarios-suplentes {
+  margin-top: 6px;
+  border-top: 1px dashed #bfd7f5;
+  padding-top: 4px;
+}
+
+.vista-horarios-suplente {
+  font-size: 0.72rem;
+  font-style: italic;
+  color: #3498db;
+  line-height: 1.35;
+  margin-top: 1px;
+}
+
+.vista-horarios-suplente-label {
+  font-weight: 600;
+  font-style: normal;
+  color: #2b7dbd;
+}
+
 .vista-horarios-especial {
   background-color: #fff8f0 !important;
 }

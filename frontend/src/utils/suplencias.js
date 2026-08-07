@@ -13,13 +13,19 @@ export function hoyYmd(fecha = new Date()) {
   return aFechaYmd(fecha);
 }
 
-export function suplenciasActivasEnFecha(suplencias, fecha = new Date()) {
+export function suplenciasActivasLista(suplencias, fecha = new Date()) {
   const ref = aFechaYmd(fecha);
+  return (suplencias ?? []).filter((s) => {
+    if (!s || s.estado === false || !s.id_curso_materia || !ref) return false;
+    if (s.fecha_inicio && s.fecha_inicio > ref) return false;
+    if (s.fecha_fin && s.fecha_fin < ref) return false;
+    return true;
+  });
+}
+
+export function suplenciasActivasEnFecha(suplencias, fecha = new Date()) {
   const mapa = {};
-  (suplencias ?? []).forEach((s) => {
-    if (!s || s.estado === false || !s.id_curso_materia || !ref) return;
-    if (s.fecha_inicio && s.fecha_inicio > ref) return;
-    if (s.fecha_fin && s.fecha_fin < ref) return;
+  suplenciasActivasLista(suplencias, fecha).forEach((s) => {
     const actual = mapa[s.id_curso_materia];
     if (!actual || (s.nivel ?? 1) > (actual.nivel ?? 1)) {
       mapa[s.id_curso_materia] = s;

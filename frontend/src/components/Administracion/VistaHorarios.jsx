@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
-import { getCursoMateria, getHorarios, getHorariosEspeciales } from '../../services/api';
+import { getCursoMateria, getHorarios, getHorariosEspeciales, getSuplencias } from '../../services/api';
+import { suplenciasActivasLista } from '../../utils/suplencias';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
@@ -44,12 +45,27 @@ function formatearDocenteNombre(valor) {
   return valor;
 }
 
-function buildTimeSlots(modulosSorted, horariosEspeciales, horarios, materiasLookup, docentesLookup) {
+function buildTimeSlots(modulosSorted, horariosEspeciales, horarios, materiasLookup, docentesLookup, suplenciasActivas) {
   const horariosLookup = {};
   horarios.forEach((h) => {
     const key = `${h.dia_semana}_${h.id_modulo}`;
     horariosLookup[key] = h;
   });
+
+  const suplentesByCm = {};
+  (suplenciasActivas || []).forEach((s) => {
+    if (!s || !s.id_curso_materia) return;
+    if (!suplentesByCm[s.id_curso_materia]) suplentesByCm[s.id_curso_materia] = [];
+    suplentesByCm[s.id_curso_materia].push(s);
+  });
+  Object.keys(suplentesByCm).forEach((cmId) => {
+    suplentesByCm[cmId].sort((a, b) => (a.nivel ?? 1) - (b.nivel ?? 1));
+  });
+  const suplentesDe = (cmId) => (suplentesByCm[cmId] || []).map((s) => ({
+    key: s.id_suplencia ?? `${cmId}_${s.nivel ?? 1}`,
+    nivel: s.nivel ?? 1,
+    nombre: formatearDocenteNombre(s.suplente_nombre),
+  }));
 
   const especialesByDay = {};
   horariosEspeciales.forEach((h) => {
@@ -74,6 +90,7 @@ function buildTimeSlots(modulosSorted, horariosEspeciales, horarios, materiasLoo
           docente_nombre: formatearDocenteNombre(docentesLookup[horariosLookup[key].id_curso_materia]),
           id_curso_materia: horariosLookup[key].id_curso_materia,
           aula: horariosLookup[key].aula || null,
+          suplentes: suplentesDe(horariosLookup[key].id_curso_materia),
         });
       }
     });
@@ -92,6 +109,7 @@ function buildTimeSlots(modulosSorted, horariosEspeciales, horarios, materiasLoo
           docente_nombre: formatearDocenteNombre(docentesLookup[h.id_curso_materia]),
           id_curso_materia: h.id_curso_materia,
         aula: h.aula || null,
+        suplentes: suplentesDe(h.id_curso_materia),
       });
     });
   });
@@ -204,6 +222,9 @@ function buildRowsHtml(daySlots, timeKeys, rowspans, nombreCursoDisplay, turno, 
         if (slot.aula) {
           rowsHtml += `<div class="aula">${slot.aula}</div>`;
         }
+        (slot.suplentes || []).forEach((sp) => {
+          rowsHtml += `<div class="suplente"><span class="suplente-label">${sp.nivel > 1 ? `Suplente nivel ${sp.nivel}` : 'Suplente'}</span> ${sp.nombre || '-'}</div>`;
+        });
       }
       rowsHtml += '</td>';
     });
@@ -281,6 +302,18 @@ function ScheduleTable({ timeKeys, daySlots, rowspans, nombreCursoDisplay, turno
                           {slot.aula && (
                             <div className="vista-horarios-aula">{slot.aula}</div>
                           )}
+                          {slot.suplentes?.length > 0 && (
+                            <div className="vista-horarios-suplentes">
+                              {slot.suplentes.map((sp) => (
+                                <div key={sp.key} className="vista-horarios-suplente">
+                                  <span className="vista-horarios-suplente-label">
+                                    {sp.nivel > 1 ? `Suplente nivel ${sp.nivel}` : 'Suplente'}
+                                  </span>
+                                  {sp.nombre ? ` ${sp.nombre}` : ' —'}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ) : null}
                     </td>
@@ -339,11 +372,13 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
       getCursoMateria({ curso: cursoSeleccionado }),
       getHorarios({ curso: cursoSeleccionado }),
       getHorariosEspeciales({ curso: cursoSeleccionado }),
+      getSuplencias({ curso: cursoSeleccionado }),
     ])
-      .then(([cmData, horData, heData]) => {
+      .then(([cmData, horData, heData, spData]) => {
         const cmList = Array.isArray(cmData) ? cmData : cmData.results || [];
         const horList = Array.isArray(horData) ? horData : horData.results || [];
         const heList = Array.isArray(heData) ? heData : heData.results || [];
+        const spList = Array.isArray(spData) ? spData : spData.results || [];
 
         const materiasLookup = {};
         const docentesLookup = {};
@@ -358,7 +393,14 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
 
         setTurno(calcularTurno(horList));
 
-        const { daySlots: ds, allTimes } = buildTimeSlots(modulosSorted, heList, horList, materiasLookup, docentesLookup);
+        const { daySlots: ds, allTimes } = buildTimeSlots(
+          modulosSorted,
+          heList,
+          horList,
+          materiasLookup,
+          docentesLookup,
+          suplenciasActivasLista(spList),
+        );
         setDaySlots(ds);
         setTimeKeys(allTimes);
         setRowspans(computeRowspans(ds));
@@ -386,6 +428,8 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
   .materia { font-weight: 600; }
   .docente { font-size: 10px; color: #666; margin-top: 2px; }
   .aula { font-size: 10px; color: #666; margin-top: 2px; }
+  .suplente { font-size: 10px; color: #3498db; font-style: italic; margin-top: 2px; }
+  .suplente-label { font-weight: 600; }
   .especial { background: #fff8f0; }
   .info-row th { background: #f5f5f5; color: #333; font-weight: 600; padding: 10px 16px; }
   .info-row-inner { display: flex; justify-content: space-between; width: 100%; }
