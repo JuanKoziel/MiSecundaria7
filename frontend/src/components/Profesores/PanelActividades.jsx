@@ -318,7 +318,7 @@ function ModalFormularioActividad({
   );
 }
 
-function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombre }) {
+function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, puedeEditar = true }) {
   const toast = useToast();
   const [actividades, setActividades] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -465,10 +465,29 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
             Gestioná actividades para esta materia y curso.
           </p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={abrirNueva}>
-          <i className="fas fa-plus" aria-hidden="true" /> Nueva actividad
-        </button>
+        {puedeEditar && (
+          <button type="button" className="btn btn-primary" onClick={abrirNueva}>
+            <i className="fas fa-plus" aria-hidden="true" /> Nueva actividad
+          </button>
+        )}
       </div>
+
+      {!puedeEditar && (
+        <p
+          style={{
+            background: '#fff4cf',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '0.9rem',
+            color: '#854d0e',
+            lineHeight: '1.6',
+          }}
+        >
+          <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+          Esta materia está asignada temporalmente a un docente suplente. Las actividades son de solo lectura hasta que finalice la suplencia.
+        </p>
+      )}
 
       {mensaje && (
         <p style={{ color: mensaje.startsWith('Error') ? '#b91c1c' : '#15803d', margin: '8px 0' }}>
@@ -516,20 +535,24 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
                         >
                           <i className="fas fa-eye" aria-hidden="true" /> Ver
                         </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => abrirEdicion(actividad)}
-                        >
-                          <i className="fas fa-edit" aria-hidden="true" /> Editar
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleEliminar(actividad)}
-                        >
-                          <i className="fas fa-trash-alt" aria-hidden="true" /> Eliminar
-                        </button>
+                        {puedeEditar && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => abrirEdicion(actividad)}
+                            >
+                              <i className="fas fa-edit" aria-hidden="true" /> Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleEliminar(actividad)}
+                            >
+                              <i className="fas fa-trash-alt" aria-hidden="true" /> Eliminar
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

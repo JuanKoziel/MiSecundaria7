@@ -10,7 +10,7 @@ function clampNota(value) {
   return Math.min(10, Math.max(1, num));
 }
 
-function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, docenteId }) {
+function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, docenteId, puedeEditar = true }) {
   const { alumnos, calificacionesCompletas, periodos, refreshData } = useData();
   const toast = useToast();
   const [filas, setFilas] = useState([]);
@@ -133,10 +133,29 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
     <div className="card">
       <div className="card-header-flex">
         <h3>Planilla de Calificaciones — {cursoNombre} &gt; {materiaNombre}</h3>
-        <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
-          <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Notas'}
-        </button>
+        {puedeEditar && (
+          <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
+            <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Notas'}
+          </button>
+        )}
       </div>
+
+      {!puedeEditar && (
+        <p
+          style={{
+            background: '#fff4cf',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '0.9rem',
+            color: '#854d0e',
+            lineHeight: '1.6',
+          }}
+        >
+          <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+          Esta materia está asignada temporalmente a un docente suplente. La planilla es de solo lectura hasta que finalice la suplencia.
+        </p>
+      )}
 
       {mensaje && (
         <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
@@ -172,6 +191,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
                       value={fila.prenota1}
                       onChange={(e) => handleInputChange(fila.id, 'prenota1', e.target.value)}
                       className="select-table"
+                      disabled={!puedeEditar}
                     >
                       <option value="">--</option>
                       <option value="TEA">TEA</option>
@@ -189,6 +209,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
                       onChange={(e) =>
                         handleInputChange(fila.id, 'nota1', clampNota(e.target.value))
                       }
+                      disabled={!puedeEditar}
                     />
                   </td>
                   <td>
@@ -196,6 +217,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
                       value={fila.prenota2}
                       onChange={(e) => handleInputChange(fila.id, 'prenota2', e.target.value)}
                       className="select-table"
+                      disabled={!puedeEditar}
                     >
                       <option value="">--</option>
                       <option value="TEA">TEA</option>
@@ -213,6 +235,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
                         handleInputChange(fila.id, 'nota2', clampNota(e.target.value))
                       }
                       className="input-table"
+                      disabled={!puedeEditar}
                     />
                   </td>
                   <td>
@@ -220,6 +243,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
                       type="text"
                       value={fila.diag}
                       onChange={(e) => handleInputChange(fila.id, 'diag', e.target.value)}
+                      disabled={!puedeEditar}
                     />
                   </td>
                 </tr>

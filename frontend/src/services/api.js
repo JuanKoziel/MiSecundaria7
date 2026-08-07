@@ -603,4 +603,28 @@ export async function getTiposAccion() {
   return data;
 }
 
+export async function getSuplencias(params) {
+  const { data } = await api.get('/suplencias/', { params });
+  return data;
+}
+
+export async function createSuplencia(payload) {
+  const { data } = await api.post('/suplencias/', payload);
+  return data;
+}
+
+export async function updateSuplencia(id, payload) {
+  const { data } = await api.patch(`/suplencias/${id}/`, payload);
+  return data;
+}
+
+export async function deleteSuplencia(id) {
+  await api.delete(`/suplencias/${id}/`);
+}
+
+export async function finalizarSuplencia(id) {
+  const { data } = await api.post(`/suplencias/${id}/finalizar/`);
+  return data;
+}
+
 export default api;

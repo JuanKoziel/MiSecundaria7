@@ -6,7 +6,7 @@ import { createDiagnosticoGrupal, deleteDiagnosticoGrupal } from '../../services
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FormModal from './FormModal';
 
-function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
+function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEditables }) {
   const {
     diagnosticos,
     alumnos,
@@ -112,6 +112,17 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
     return cursosObj.filter((c) => cursosSet.has(c.id_curso));
   }, [userRole, user, docentes, cursoMateria, cursosObj]);
 
+  const puedeCrear = useMemo(() => {
+    if (userRole !== 'docente') return false;
+    if (!cursosEditables || cursosEditables.size === 0) return true;
+    return misCursos.some((c) => cursosEditables.has(c.id_curso));
+  }, [userRole, cursosEditables, misCursos]);
+
+  const cursoEsEditable = (cursoId) => {
+    if (!cursosEditables || cursosEditables.size === 0) return true;
+    return cursosEditables.has(cursoId);
+  };
+
   const handleDelete = async (d) => {
     if (confirmarEliminacion()) {
       try {
@@ -193,14 +204,33 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
         <div className="card mb-16">
           <div className="card-header-flex">
             <h3>Nuevo Diagnóstico Grupal</h3>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setShowCreateForm(true)}
-            >
-              <i className="fas fa-plus" aria-hidden="true" /> Crear
-            </button>
+            {puedeCrear && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowCreateForm(true)}
+              >
+                <i className="fas fa-plus" aria-hidden="true" /> Crear
+              </button>
+            )}
           </div>
+          {!puedeCrear && (
+            <p
+              style={{
+                background: '#fff4cf',
+                borderLeft: '4px solid #d97706',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                fontSize: '0.9rem',
+                color: '#854d0e',
+                lineHeight: '1.6',
+                margin: '0 0 12px',
+              }}
+            >
+              <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+              No podés crear diagnósticos para estos cursos mientras existan suplencias activas.
+            </p>
+          )}
         </div>
       )}
 
@@ -220,7 +250,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
                 required
               >
                 <option value="">Seleccione un curso...</option>
-                {misCursos.map((c) => (
+                {misCursos.filter((c) => cursoEsEditable(c.id_curso)).map((c) => (
                   <option key={c.id_curso} value={String(c.id_curso)}>
                     {c.nombre_curso}
                   </option>
@@ -308,7 +338,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado }) {
                     >
                       <i className="fas fa-eye" aria-hidden="true" /> Ver
                     </button>
-                    {userRole === 'docente' && miDocente && miDocente.id === d.id_docente && (
+                    {userRole === 'docente' && miDocente && miDocente.id === d.id_docente && cursoEsEditable(d.id_curso) && (
                       <button
                         type="button"
                         className="btn btn-sm btn-danger"

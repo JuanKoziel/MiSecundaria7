@@ -78,7 +78,7 @@ function FormProyecto({ formData, setFormData, editing, guardando, onSubmit, onC
   );
 }
 
-function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, miDocente }) {
+function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, miDocente, puedeEditar = true }) {
   const { refreshData } = useData();
   const toast = useToast();
   const [proyectos, setProyectos] = useState([]);
@@ -197,12 +197,31 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
-      <div className="flex-row--end mb-16">
-        <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
-          <i className={`fas fa-${showNewForm ? 'minus' : 'plus'}`} aria-hidden="true" />{' '}
-          {showNewForm ? 'Cerrar' : 'Crear proyecto'}
-        </button>
-      </div>
+      {!puedeEditar && (
+        <p
+          style={{
+            background: '#fff4cf',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '0.9rem',
+            color: '#854d0e',
+            lineHeight: '1.6',
+          }}
+        >
+          <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+          Esta materia está asignada temporalmente a un docente suplente. Los proyectos son de solo lectura hasta que finalice la suplencia.
+        </p>
+      )}
+
+      {puedeEditar && (
+        <div className="flex-row--end mb-16">
+          <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
+            <i className={`fas fa-${showNewForm ? 'minus' : 'plus'}`} aria-hidden="true" />{' '}
+            {showNewForm ? 'Cerrar' : 'Crear proyecto'}
+          </button>
+        </div>
+      )}
 
       {showNewForm && (
         <FormProyecto
@@ -261,12 +280,16 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
                           <i className="fas fa-download" aria-hidden="true" />
                         </a>
                       )}
-                      <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(p)} title="Editar" aria-label="Editar">
-                        <i className="fas fa-edit" aria-hidden="true" />
-                      </button>
-                      <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(p)} title="Eliminar" aria-label="Eliminar">
-                        <i className="fas fa-trash-alt" aria-hidden="true" />
-                      </button>
+                      {puedeEditar && (
+                        <>
+                          <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(p)} title="Editar" aria-label="Editar">
+                            <i className="fas fa-edit" aria-hidden="true" />
+                          </button>
+                          <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(p)} title="Eliminar" aria-label="Eliminar">
+                            <i className="fas fa-trash-alt" aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 </Fragment>

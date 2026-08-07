@@ -2,7 +2,7 @@ import unicodedata
 
 from rest_framework import serializers
 
-from escuela.utils import normalizar_dni
+from escuela.utils import normalizar_dni, obtener_docente_activo
 
 from escuela.models import (
 
@@ -40,6 +40,7 @@ from escuela.models import (
     Planificacion,
     Preceptor,
     Rol,
+    SuplenciaDocente,
     TipoAccion,
     TipoActa,
     Usuario,
@@ -861,7 +862,8 @@ class ActividadDocenteSerializer(serializers.ModelSerializer):
         if not curso_materia:
             raise serializers.ValidationError({'id_curso_materia': 'Debes seleccionar un curso y una materia v?lidos.'})
 
-        if curso_materia.id_docente_id != docente_actual.id_docente:
+        resultado = obtener_docente_activo(curso_materia.id_curso_materia)
+        if not resultado.docente or resultado.docente.id_docente != docente_actual.id_docente:
             raise serializers.ValidationError({'id_curso_materia': 'No tienes permiso para usar esa asignaci?n.'})
 
         archivos = list(self.context.get('uploaded_files') or [])
@@ -1344,6 +1346,181 @@ class CursoMateriaSerializer(serializers.ModelSerializer):
             except:
                 data['materia_nombre'] = None
         return data
+
+
+# ---------- Suplencias docentes ----------
+
+class SuplenciaDocenteSerializer(serializers.ModelSerializer):
+    curso_nombre = serializers.CharField(
+        source='id_curso_materia.id_curso.nombre_curso', read_only=True, default=None,
+    )
+    materia_nombre = serializers.CharField(
+        source='id_curso_materia.id_materia.nombre_materia', read_only=True, default=None,
+    )
+    id_docente_suplente = serializers.PrimaryKeyRelatedField(
+        queryset=Docente.objects.all(), required=False, allow_null=True,
+    )
+    suplente_nombre = serializers.SerializerMethodField()
+    titular_id = serializers.SerializerMethodField()
+    titular_nombre = serializers.SerializerMethodField()
+    docente_activo_hoy = serializers.SerializerMethodField()
+    estado_label = serializers.SerializerMethodField()
+    nuevo_docente = serializers.DictField(write_only=True, required=False, allow_null=True)
+
+    class Meta:
+        model = SuplenciaDocente
+        fields = [
+            'id_suplencia',
+            'id_curso_materia',
+            'curso_nombre',
+            'materia_nombre',
+            'id_docente_suplente',
+            'suplente_nombre',
+            'titular_id',
+            'titular_nombre',
+            'docente_activo_hoy',
+            'nivel',
+            'motivo',
+            'fecha_inicio',
+            'fecha_fin',
+            'estado',
+            'estado_label',
+            'fecha_creacion',
+            'fecha_modificacion',
+            'nuevo_docente',
+        ]
+        extra_kwargs = {
+            'fecha_creacion': {'read_only': True},
+            'fecha_modificacion': {'read_only': True},
+        }
+
+    def get_suplente_nombre(self, obj):
+        if obj.id_docente_suplente_id:
+            return f'{obj.id_docente_suplente.apellido}, {obj.id_docente_suplente.nombre}'
+        return None
+
+    def get_titular_id(self, obj):
+        try:
+            return obj.id_curso_materia.id_docente_id
+        except Exception:
+            return None
+
+    def get_titular_nombre(self, obj):
+        try:
+            cm = obj.id_curso_materia
+        except Exception:
+            return None
+        if cm and cm.id_docente_id:
+            return f'{cm.id_docente.apellido}, {cm.id_docente.nombre}'
+        return None
+
+    def get_docente_activo_hoy(self, obj):
+        cm_id = getattr(obj, 'id_curso_materia_id', None)
+        if not cm_id:
+            return None
+        resultado = obtener_docente_activo(cm_id)
+        if not resultado.docente:
+            return None
+        return {
+            'id_docente': resultado.docente.id_docente,
+            'nombre': f'{resultado.docente.apellido}, {resultado.docente.nombre}',
+            'es_suplencia': resultado.es_suplencia,
+        }
+
+    def get_estado_label(self, obj):
+        return 'Activa' if obj.estado else 'Finalizada'
+
+    def validate(self, attrs):
+        cm = attrs.get('id_curso_materia') or (self.instance.id_curso_materia if self.instance else None)
+        if cm is None:
+            raise serializers.ValidationError(
+                {'id_curso_materia': 'Debe indicar la materia asignada.'}
+            )
+
+        suplente = attrs.get('id_docente_suplente') or (
+            self.instance.id_docente_suplente if self.instance else None
+        )
+        nuevo_docente = attrs.get('nuevo_docente') or {}
+
+        if suplente is None and not nuevo_docente:
+            raise serializers.ValidationError(
+                'Debe indicar el docente suplente (existente) o cargar los datos de un nuevo docente.'
+            )
+
+        fi = attrs.get('fecha_inicio') or (self.instance.fecha_inicio if self.instance else None)
+        ff = attrs.get('fecha_fin') or (self.instance.fecha_fin if self.instance else None)
+        if fi and ff and fi > ff:
+            raise serializers.ValidationError(
+                {'fecha_fin': 'La fecha de fin no puede ser anterior a la fecha de inicio.'}
+            )
+
+        if cm.id_docente_id and suplente is not None and suplente.id_docente == cm.id_docente_id:
+            raise serializers.ValidationError(
+                'El docente suplente no puede ser el mismo que el docente titular de la materia.'
+            )
+
+        if not (fi and ff):
+            return attrs
+
+        nivel = attrs.get('nivel') or (self.instance.nivel if self.instance else None) or 1
+
+        exclude = None
+        if self.instance:
+            exclude = SuplenciaDocente.all_objects.filter(pk=self.instance.pk).first()
+
+        if suplente is not None:
+            duplicada = SuplenciaDocente.objects.filter(
+                id_curso_materia=cm,
+                id_docente_suplente=suplente,
+                nivel=nivel,
+                fecha_inicio=fi,
+                fecha_fin=ff,
+            )
+            if exclude is not None:
+                duplicada = duplicada.exclude(pk=exclude.pk)
+            if duplicada.exists():
+                raise serializers.ValidationError(
+                    'Ya existe una suplencia idéntica para ese docente, materia y período.'
+                )
+
+        solapada = SuplenciaDocente.objects.filter(
+            id_curso_materia=cm,
+            nivel=nivel,
+            estado=True,
+            fecha_inicio__lte=ff,
+            fecha_fin__gte=fi,
+        )
+        if exclude is not None:
+            solapada = solapada.exclude(pk=exclude.pk)
+        if solapada.exists():
+            raise serializers.ValidationError(
+                'Ya existe una suplencia activa de ese nivel para esa materia en el período indicado.'
+            )
+
+        return attrs
+
+    def create(self, validated_data):
+        suplente = validated_data.get('id_docente_suplente')
+        if suplente is None:
+            nuevo = validated_data.pop('nuevo_docente', None) or {}
+            if not nuevo:
+                raise serializers.ValidationError(
+                    {'nuevo_docente': 'Debe indicar el docente suplente o sus datos de alta.'}
+                )
+            docente_serializer = DocenteSerializer(data=nuevo)
+            docente_serializer.is_valid(raise_exception=True)
+            validated_data['id_docente_suplente'] = docente_serializer.save()
+        else:
+            validated_data.pop('nuevo_docente', None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        nuevo = validated_data.pop('nuevo_docente', None) or {}
+        if nuevo:
+            docente_serializer = DocenteSerializer(data=nuevo)
+            docente_serializer.is_valid(raise_exception=True)
+            validated_data['id_docente_suplente'] = docente_serializer.save()
+        return super().update(instance, validated_data)
 
 
 class ModuloSerializer(serializers.ModelSerializer):

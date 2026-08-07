@@ -3,7 +3,7 @@ import { createDiagnosticoGrupal } from '../../services/api';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 
-function PanelInfo({ cursoId, docenteId, cursoNombre }) {
+function PanelInfo({ cursoId, docenteId, cursoNombre, puedeEditar = true }) {
   const { refreshData } = useData();
   const toast = useToast();
   const [diagnostico, setDiagnostico] = useState('');
@@ -42,6 +42,23 @@ function PanelInfo({ cursoId, docenteId, cursoNombre }) {
         <h3>Información y Diagnóstico General — {cursoNombre}</h3>
       </div>
 
+      {!puedeEditar && (
+        <p
+          style={{
+            background: '#fff4cf',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '0.9rem',
+            color: '#854d0e',
+            lineHeight: '1.6',
+          }}
+        >
+          <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+          El diagnóstico del grupo es de solo lectura mientras exista una suplencia activa en las materias de este curso.
+        </p>
+      )}
+
       {mensaje && (
         <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
           {mensaje}
@@ -62,6 +79,7 @@ function PanelInfo({ cursoId, docenteId, cursoNombre }) {
                   placeholder="Escriba aquí los detalles observados del comportamiento y rendimiento del grupo..."
                   value={diagnostico}
                   onChange={(e) => setDiagnostico(e.target.value)}
+                  disabled={!puedeEditar}
                   style={{
                     width: '100%',
                     height: '110px',
@@ -78,11 +96,13 @@ function PanelInfo({ cursoId, docenteId, cursoNombre }) {
         </table>
       </div>
 
-      <div className="action-footer-btn">
-        <button type="button" className="btn btn-primary" onClick={handleSubir} disabled={guardando}>
-          <i className="fas fa-upload" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Diagnóstico'}
-        </button>
-      </div>
+      {puedeEditar && (
+        <div className="action-footer-btn">
+          <button type="button" className="btn btn-primary" onClick={handleSubir} disabled={guardando}>
+            <i className="fas fa-upload" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Diagnóstico'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

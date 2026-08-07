@@ -6,7 +6,7 @@ import { useToast } from '../../context/ToastContext';
 
 const ESTADOS = ['Presente', 'Ausente', 'Tarde', 'Retiro'];
 
-function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
+function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = true }) {
   const { alumnos, estadosAsistencia, refreshData } = useData();
   const { user } = useAuth();
   const toast = useToast();
@@ -170,16 +170,35 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
           >
             <i className="fas fa-sync" aria-hidden="true" /> Actualizar
           </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleGuardar}
-            disabled={guardando || !enHorario || filas.length === 0}
-          >
-            <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Asistencia'}
-          </button>
+          {puedeEditar && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleGuardar}
+              disabled={guardando || !enHorario || filas.length === 0}
+            >
+              <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Asistencia'}
+            </button>
+          )}
         </div>
       </div>
+
+      {!puedeEditar && (
+        <p
+          style={{
+            background: '#fff4cf',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '0.9rem',
+            color: '#854d0e',
+            lineHeight: '1.6',
+          }}
+        >
+          <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+          Esta materia está asignada temporalmente a un docente suplente. La asistencia es de solo lectura hasta que finalice la suplencia.
+        </p>
+      )}
 
       {mensaje && (
         <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
@@ -254,12 +273,13 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
                       {ESTADOS.map((est) => {
                         const seleccionado = fila.estado === est;
                         const deshabilitado = fila.estado !== '' && !seleccionado;
+                        const bloq = !puedeEditar;
                         return (
                           <button
                             key={est}
                             type="button"
                             onClick={() => {
-                              if (deshabilitado) return;
+                              if (bloq || deshabilitado) return;
                               handleEstadoChange(fila.id, seleccionado ? '' : est);
                             }}
                             style={{
@@ -275,7 +295,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre }) {
                               color: seleccionado
                                 ? (est === 'Presente' ? '#155724' : est === 'Ausente' ? '#721c24' : est === 'Tarde' ? '#856404' : '#38315a')
                                 : (deshabilitado ? '#bbb' : '#333'),
-                              cursor: deshabilitado ? 'not-allowed' : 'pointer',
+                              cursor: bloq || deshabilitado ? 'not-allowed' : 'pointer',
                               fontWeight: seleccionado ? 600 : 400,
                               fontSize: '0.85em',
                               opacity: deshabilitado ? 0.5 : 1,

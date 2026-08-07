@@ -12,6 +12,7 @@ from escuela.models import HistorialCambio, TipoAccion
 ACCION_CREAR = 'Crear'
 ACCION_MODIFICAR = 'Modificar'
 ACCION_ELIMINAR = 'Eliminar'
+ACCION_FINALIZAR = 'Finalizar'
 ACCION_CAMBIO_CONTRASENA = 'Cambio de contraseña'
 ACCION_CAMBIO_ROL = 'Cambio de rol'
 ACCION_HABILITAR = 'Habilitar'
@@ -25,6 +26,7 @@ ACCIONES_POR_DEFECTO = [
     ACCION_CAMBIO_ROL,
     ACCION_HABILITAR,
     ACCION_DESHABILITAR,
+    ACCION_FINALIZAR,
 ]
 
 _CAMPOS_SENSIBLES = {'contrasena', 'password', 'pass', 'hash', 'token'}
@@ -218,3 +220,64 @@ def marcar_eliminado(instance, commit=True):
     if commit:
         instance.save(update_fields=_campos_borrado(instance))
     return instance
+
+
+# ---------- Suplencias docentes ----------
+
+class ResultadoDocenteActivo:
+    """Resultado de `obtener_docente_activo`."""
+
+    __slots__ = ('docente', 'es_suplencia', 'suplencia', 'titular')
+
+    def __init__(self, docente, es_suplencia, suplencia, titular):
+        self.docente = docente
+        self.es_suplencia = es_suplencia
+        self.suplencia = suplencia
+        self.titular = titular
+
+
+def obtener_docente_activo(id_curso_materia, fecha=None):
+    """Devuelve el docente activo de una materia para una fecha.
+
+    Reglas (única fuente de verdad para todo el sistema):
+      - El docente titular SIEMPRE proviene de `curso_materia.id_docente`;
+        nunca se guarda ni se repite en las suplencias.
+      - Si hay suplencias activas (estado=1 y fecha_inicio <= fecha <=
+        fecha_fin) gana la de mayor `nivel`: nivel 1 reemplaza al titular,
+        nivel 2 reemplaza a la de nivel 1, y así sucesivamente.
+      - Si no hay suplencias activas, el docente activo es el titular.
+
+    Devuelve `ResultadoDocenteActivo`.
+    """
+    from escuela.models import CursoMateria, SuplenciaDocente
+
+    if fecha is None:
+        fecha = timezone.localdate()
+    cm = CursoMateria.objects.filter(pk=id_curso_materia).first()
+    if cm is None:
+        return ResultadoDocenteActivo(
+            docente=None, es_suplencia=False, suplencia=None, titular=None,
+        )
+    titular = cm.id_docente
+    suplencia = (
+        SuplenciaDocente.objects
+        .filter(
+            id_curso_materia_id=id_curso_materia,
+            estado=True,
+            fecha_inicio__lte=fecha,
+            fecha_fin__gte=fecha,
+        )
+        .order_by('-nivel', '-fecha_inicio')
+        .select_related('id_docente_suplente', 'id_curso_materia')
+        .first()
+    )
+    if suplencia:
+        return ResultadoDocenteActivo(
+            docente=suplencia.id_docente_suplente,
+            es_suplencia=True,
+            suplencia=suplencia,
+            titular=titular,
+        )
+    return ResultadoDocenteActivo(
+        docente=titular, es_suplencia=False, suplencia=None, titular=titular,
+    )

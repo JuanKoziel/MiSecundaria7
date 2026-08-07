@@ -49,7 +49,7 @@ function obtenerMensajeApi(err) {
   return 'Error al cargar DDJJ.';
 }
 
-function PanelDocente({ miDocente }) {
+function PanelDocente({ miDocente, mapSuplencias }) {
   const { cursoMateria, cursosObj, alumnos, planificaciones, actasDocente, refreshData } = useData();
   const toast = useToast();
   const fileInputRef = useRef(null);
@@ -63,7 +63,11 @@ function PanelDocente({ miDocente }) {
     const safeAlumnos = alumnos ?? [];
     const safePlanificaciones = planificaciones ?? [];
     const safeActasDocente = actasDocente ?? [];
-    const misAsigs = safeCursoMateria.filter((cm) => cm.id_docente === miDocente.id);
+    const misAsigs = safeCursoMateria.filter((cm) => {
+      const s = mapSuplencias?.[cm.id];
+      if (cm.id_docente === miDocente.id) return true;
+      return Boolean(s && s.id_docente_suplente === miDocente.id);
+    });
     const cursoIds = [...new Set(misAsigs.map((cm) => cm.id_curso).filter(Boolean))];
     return {
       materias: [...new Set(misAsigs.map((cm) => cm.materia_nombre).filter(Boolean))].length,
@@ -73,7 +77,7 @@ function PanelDocente({ miDocente }) {
       actas: safeActasDocente.filter((ad) => ad.docenteId === miDocente.id).length,
       estado: miDocente.usuario_estado === false ? 'Inactivo' : 'Activo',
     };
-  }, [miDocente, cursoMateria, alumnos, planificaciones, actasDocente]);
+  }, [miDocente, cursoMateria, alumnos, planificaciones, actasDocente, mapSuplencias]);
 
   if (!miDocente) {
     return (
@@ -86,14 +90,21 @@ function PanelDocente({ miDocente }) {
   }
 
   const misAsignaciones = cursoMateria
-    .filter((cm) => cm.id_docente === miDocente.id)
+    .filter((cm) => {
+      const s = mapSuplencias?.[cm.id];
+      if (cm.id_docente === miDocente.id) return true;
+      return Boolean(s && s.id_docente_suplente === miDocente.id);
+    })
     .map((cm) => {
+      const s = mapSuplencias?.[cm.id];
       const cObj = cursosObj.find((c) => c.id_curso === cm.id_curso);
       return {
         id: cm.id,
         curso: cm.curso_nombre || '',
         materia: cm.materia_nombre || '',
         anio: cObj?.ciclo_anio || '',
+        esSuplente: Boolean(s && s.id_docente_suplente === miDocente.id),
+        suplenteNombre: s?.suplente_nombre || null,
       };
     });
 
@@ -282,6 +293,9 @@ function PanelDocente({ miDocente }) {
                   <td style={{ textAlign: 'left', paddingLeft: '15px' }}>
                     <i className="fas fa-book icon-primary" aria-hidden="true" />
                     {item.materia}
+                    {item.esSuplente && (
+                      <span className="badge badge-warning" style={{ marginLeft: '8px' }}>Suplencia</span>
+                    )}
                   </td>
                   <td style={{ color: '#555' }}>{item.anio}</td>
                 </tr>

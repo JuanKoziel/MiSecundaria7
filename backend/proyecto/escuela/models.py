@@ -365,6 +365,43 @@ class CursoMateria(models.Model):
         return f'{self.id_curso} - {self.id_materia}'
 
 
+class SuplenciaDocente(models.Model):
+    """Suplencias docentes por materia (tabla existente en la base).
+
+    El docente titular NUNCA se guarda aquí: se resuelve siempre a través
+    de `curso_materia.id_docente`. El docente activo de una materia se
+    obtiene con `utils.obtener_docente_activo()`.
+    """
+
+    id_suplencia = models.AutoField(primary_key=True)
+    id_curso_materia = models.ForeignKey(
+        CursoMateria, on_delete=models.CASCADE, db_column='id_curso_materia',
+        related_name='suplencias',
+    )
+    id_docente_suplente = models.ForeignKey(
+        Docente, on_delete=models.CASCADE, db_column='id_docente_suplente',
+        related_name='suplencias_docente',
+    )
+    nivel = models.SmallIntegerField(default=1)
+    motivo = models.CharField(max_length=255, blank=True, null=True)
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField()
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
+
+    class Meta:
+        managed = False
+        db_table = 'suplencias_docentes'
+
+    def __str__(self):
+        return f'Suplencia {self.id_suplencia}'
+
+
 class PeriodoEvaluacion(models.Model):
     id_periodo = models.AutoField(primary_key=True)
     nombre_periodo = models.CharField(max_length=100, blank=True, null=True)

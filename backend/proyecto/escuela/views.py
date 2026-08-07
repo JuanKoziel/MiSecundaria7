@@ -21,9 +21,11 @@ from escuela.utils import (
     ACCION_CREAR,
     ACCION_DESHABILITAR,
     ACCION_ELIMINAR,
+    ACCION_FINALIZAR,
     ACCION_HABILITAR,
     ACCION_MODIFICAR,
     marcar_eliminado,
+    obtener_docente_activo,
     registrar_historial,
     resumen_registro,
 )
@@ -62,6 +64,7 @@ from escuela.models import (
     Planificacion,
     Preceptor,
     Rol,
+    SuplenciaDocente,
     TipoAccion,
     TipoActa,
     Usuario,
@@ -103,6 +106,7 @@ from escuela.serializers import (
     DdjjDocenteSerializer,
     PreceptorSerializer,
     RolSerializer,
+    SuplenciaDocenteSerializer,
     TipoAccionSerializer,
     TipoActaSerializer,
     UsuarioSerializer,
@@ -532,6 +536,101 @@ def me_view(request):
         'usuario': username,
         'roles': roles,
     })
+
+
+# ---------- Suplencias docentes: helpers compartidos ----------
+
+def _materias_docente_ids(docente, fecha=None):
+    """Devuelve los id_curso_materia asociados a un docente en `fecha`.
+
+    Incluye las materias donde es titular (de `curso_materia`) y las
+    materias donde es el docente activo por una suplencia vigente.
+    La fuente de verdad del docente activo es `obtener_docente_activo`.
+    """
+    if docente is None:
+        return set()
+    if fecha is None:
+        fecha = timezone.localdate()
+    cm_ids = set(
+        CursoMateria.objects.filter(id_docente=docente)
+        .values_list('id_curso_materia', flat=True)
+    )
+    ganadoras = {}
+    suplencias_activas = SuplenciaDocente.objects.filter(
+        estado=True,
+        fecha_inicio__lte=fecha,
+        fecha_fin__gte=fecha,
+    )
+    for suplencia in suplencias_activas:
+        prev = ganadoras.get(suplencia.id_curso_materia_id)
+        if prev is None or suplencia.nivel > prev.nivel:
+            ganadoras[suplencia.id_curso_materia_id] = suplencia
+    for suplencia in ganadoras.values():
+        cm_ids.add(suplencia.id_curso_materia_id)
+    return cm_ids
+
+
+def _verificar_docente_activo_materia(request, id_curso_materia, fecha=None):
+    """Verifica que el docente autenticado sea el activo de la materia.
+
+    Mientras una suplencia esté vigente el suplente adquiere los permisos
+    de escritura del titular, y el titular pierde la capacidad de escribir
+    (puede ver la materia, con el mensaje correspondiente en el frontend).
+    Administradores y directores siempre pueden.
+    """
+    username = request.user.username if request.user.is_authenticated else None
+    if not username:
+        raise PermissionDenied('Usuario no autenticado.')
+    roles = get_roles_for_usuario(username)
+    if 'admin' in roles or 'director' in roles:
+        return
+    if 'docente' not in roles:
+        return
+    docente = Docente.objects.filter(id_usuario__usuario=username).first()
+    if not docente:
+        raise PermissionDenied('No se encontró un perfil de docente asociado al usuario.')
+    activo = obtener_docente_activo(id_curso_materia, fecha)
+    if activo.docente and activo.docente.id_docente == docente.id_docente:
+        return
+    if activo.es_suplencia and activo.titular and activo.titular.id_docente == docente.id_docente:
+        raise PermissionDenied(
+            'La materia se encuentra asignada temporalmente a un docente suplente.'
+        )
+    raise PermissionDenied('No tienes permiso para realizar esta operación en esta materia.')
+
+
+def _verificar_docente_activo_curso(request, id_curso, fecha=None):
+    """Verifica que el docente autenticado sea el activo en al menos una
+    materia del curso (operaciones a nivel curso, p. ej. diagnósticos).
+
+    Si todas sus materias del curso tienen una suplencia vigente de otro
+    docente, el titular no puede escribir a nivel curso. La fuente de
+    verdad es `obtener_docente_activo`. Administradores y directores
+    siempre pueden.
+    """
+    username = request.user.username if request.user.is_authenticated else None
+    if not username:
+        raise PermissionDenied('Usuario no autenticado.')
+    roles = get_roles_for_usuario(username)
+    if 'admin' in roles or 'director' in roles:
+        return
+    if 'docente' not in roles:
+        return
+    docente = Docente.objects.filter(id_usuario__usuario=username).first()
+    if not docente:
+        raise PermissionDenied('No se encontró un perfil de docente asociado al usuario.')
+    if fecha is None:
+        fecha = timezone.localdate()
+    materias_del_curso = CursoMateria.objects.filter(id_curso=id_curso).values_list(
+        'id_curso_materia', flat=True,
+    )
+    for cm_id in materias_del_curso:
+        activo = obtener_docente_activo(cm_id, fecha)
+        if activo.docente and activo.docente.id_docente == docente.id_docente:
+            return
+    raise PermissionDenied(
+        'No tienes permiso para realizar esta operación en este curso.'
+    )
 
 
 # ============================================================
@@ -1055,7 +1154,7 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         if 'docente' in roles:
             docente = self._docente_actual()
             if docente:
-                qs = qs.filter(id_docente=docente)
+                qs = qs.filter(id_curso_materia__in=_materias_docente_ids(docente))
             else:
                 return qs.none()
         elif 'alumno' in roles and usuario_obj:
@@ -1125,30 +1224,55 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
             actividad.ruta_archivo = ''
         actividad.save(update_fields=['ruta_archivo'])
 
+    def create(self, request, *args, **kwargs):
+        cm_id = request.data.get('id_curso_materia')
+        if cm_id:
+            _verificar_docente_activo_materia(request, cm_id)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        cm_id = instance.id_curso_materia_id
+        if cm_id:
+            _verificar_docente_activo_materia(request, cm_id)
+        return super().update(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         docente = self._docente_actual()
         if not docente:
             raise PermissionDenied('No se pudo identificar el docente autenticado.')
+        cm = serializer.validated_data.get('id_curso_materia')
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
         serializer.save(id_docente=docente)
 
     def perform_update(self, serializer):
         docente = self._docente_actual()
-        if not docente or serializer.instance.id_docente_id != docente.id_docente:
+        if not docente:
             raise PermissionDenied('No tienes permiso para modificar esta actividad.')
+        cm = serializer.instance.id_curso_materia
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
         serializer.save()
 
     def perform_destroy(self, instance):
         docente = self._docente_actual()
-        if not docente or instance.id_docente_id != docente.id_docente:
+        if not docente:
             raise PermissionDenied('No tienes permiso para eliminar esta actividad.')
+        cm = instance.id_curso_materia
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
         marcar_eliminado(instance)
 
     @action(detail=True, methods=['delete'], url_path=r'archivos/(?P<archivo_id>[^/.]+)')
     def borrar_archivo(self, request, pk=None, archivo_id=None):
         actividad = self.get_object()
         docente = self._docente_actual()
-        if not docente or actividad.id_docente_id != docente.id_docente:
+        if not docente:
             raise PermissionDenied('No tienes permiso para modificar esta actividad.')
+        cm = actividad.id_curso_materia
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
 
         archivo = actividad.archivos_adjuntos.filter(id_archivo=archivo_id).first()
         if not archivo:
@@ -1447,6 +1571,55 @@ class CursoMateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
         super().perform_destroy(instance)
 
 
+class SuplenciaDocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
+    queryset = SuplenciaDocente.objects.select_related(
+        'id_curso_materia__id_curso',
+        'id_curso_materia__id_materia',
+        'id_curso_materia__id_docente',
+        'id_docente_suplente',
+    ).all()
+    serializer_class = SuplenciaDocenteSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    historial_tabla = 'suplencias_docentes'
+    historial_soft_delete = True
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        curso = self.request.query_params.get('curso')
+        curso_materia = self.request.query_params.get('curso_materia')
+        docente = self.request.query_params.get('docente')
+        estado = self.request.query_params.get('estado')
+        if curso:
+            qs = qs.filter(id_curso_materia__id_curso=curso)
+        if curso_materia:
+            qs = qs.filter(id_curso_materia=curso_materia)
+        if docente:
+            qs = qs.filter(id_docente_suplente=docente)
+        if estado not in (None, ''):
+            qs = qs.filter(estado=estado)
+        return qs
+
+    @action(detail=True, methods=['post'], url_path='finalizar')
+    def finalizar(self, request, pk=None):
+        suplencia = self.get_object()
+        if not suplencia.estado:
+            return Response(
+                {'error': 'La suplencia ya se encuentra finalizada.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        valor_anterior = resumen_registro(suplencia)
+        suplencia.estado = False
+        suplencia.save(update_fields=['estado', 'fecha_modificacion'])
+        self._historial_registrar(
+            ACCION_FINALIZAR,
+            self.get_historial_tabla(),
+            suplencia.pk,
+            valor_anterior,
+            'Suplencia finalizada',
+        )
+        return Response(self.get_serializer(suplencia).data)
+
+
 class ModuloViewSet(viewsets.ModelViewSet):
     queryset = Modulos.objects.all()
     serializer_class = ModuloSerializer
@@ -1611,6 +1784,24 @@ class CalificacionViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_curso_materia=curso_materia)
         return qs
 
+    def perform_create(self, serializer):
+        cm = serializer.validated_data.get('id_curso_materia')
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        cm = serializer.validated_data.get('id_curso_materia') or serializer.instance.id_curso_materia
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        cm = instance.id_curso_materia
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
+        super().perform_destroy(instance)
+
 
 class EstadoAsistenciaViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = EstadoAsistencia.objects.all()
@@ -1650,6 +1841,18 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_curso_materia__id_materia__nombre_materia=materia)
         return qs
 
+    def perform_update(self, serializer):
+        cm = serializer.instance.id_curso_materia
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        cm = instance.id_curso_materia
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
+        super().perform_destroy(instance)
+
     @action(detail=False, methods=['get'], url_path='server-time')
     def server_time(self, request):
         ahora = datetime.now()
@@ -1668,9 +1871,10 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             if 'docente' in roles:
                 try:
                     cm = CursoMateria.objects.get(id_curso_materia=cm_id)
-                    if cm.id_docente:
+                    activo = obtener_docente_activo(cm_id, ahora.date())
+                    if activo.docente:
                         puede, mensaje, preceptor_nombre = docente_puede_registrar_asistencia_alumnos(
-                            cm.id_docente_id, cm_id, ahora.date(), ahora.time(),
+                            activo.docente.id_docente, cm_id, ahora.date(), ahora.time(),
                         )
                         data['docente_ausente'] = not puede
                         if not puede:
@@ -2072,9 +2276,12 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             except CursoMateria.DoesNotExist:
                 return Response({'error': 'Curso materia no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
-            if cm.id_docente:
+            _verificar_docente_activo_materia(request, cm_id, ahora.date())
+
+            activo = obtener_docente_activo(cm_id, ahora.date())
+            if activo.docente:
                 puede, mensaje, _ = docente_puede_registrar_asistencia_alumnos(
-                    cm.id_docente_id, cm_id, ahora.date(), ahora.time(),
+                    activo.docente.id_docente, cm_id, ahora.date(), ahora.time(),
                 )
                 if not puede:
                     return Response({'error': mensaje}, status=status.HTTP_403_FORBIDDEN)
@@ -2152,19 +2359,21 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
         bloques_map = {}
         for h in horarios_normales:
             cm = h.id_curso_materia
-            if not cm.id_docente:
-                continue
             if cursos_ids is not None and cm.id_curso_id not in cursos_ids:
                 continue
             if curso_filtro_id is not None and cm.id_curso_id != curso_filtro_id:
                 continue
+            activo = obtener_docente_activo(cm.id_curso_materia, fecha_hoy)
+            docente_activo = activo.docente
+            if not docente_activo:
+                continue
             hi = h.id_modulo.hora_inicio
             hf = h.id_modulo.hora_fin
-            key = (cm.id_docente_id, cm.id_curso_materia)
+            key = (docente_activo.id_docente, cm.id_curso_materia)
             if key not in bloques_map:
                 bloques_map[key] = {
-                    'docente_id': cm.id_docente_id,
-                    'docente_nombre': f'{cm.id_docente.apellido}, {cm.id_docente.nombre}',
+                    'docente_id': docente_activo.id_docente,
+                    'docente_nombre': f'{docente_activo.apellido}, {docente_activo.nombre}',
                     'materia_nombre': cm.id_materia.nombre_materia if cm.id_materia else '-',
                     'curso_nombre': cm.id_curso.nombre_curso,
                     'cm_id': cm.id_curso_materia,
@@ -2174,17 +2383,19 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
 
         for h in horarios_especiales:
             cm = h.id_curso_materia
-            if not cm.id_docente:
-                continue
             if cursos_ids is not None and cm.id_curso_id not in cursos_ids:
                 continue
             if curso_filtro_id is not None and cm.id_curso_id != curso_filtro_id:
                 continue
-            key = (cm.id_docente_id, cm.id_curso_materia)
+            activo = obtener_docente_activo(cm.id_curso_materia, fecha_hoy)
+            docente_activo = activo.docente
+            if not docente_activo:
+                continue
+            key = (docente_activo.id_docente, cm.id_curso_materia)
             if key not in bloques_map:
                 bloques_map[key] = {
-                    'docente_id': cm.id_docente_id,
-                    'docente_nombre': f'{cm.id_docente.apellido}, {cm.id_docente.nombre}',
+                    'docente_id': docente_activo.id_docente,
+                    'docente_nombre': f'{docente_activo.apellido}, {docente_activo.nombre}',
                     'materia_nombre': cm.id_materia.nombre_materia if cm.id_materia else '-',
                     'curso_nombre': cm.id_curso.nombre_curso,
                     'cm_id': cm.id_curso_materia,
@@ -2262,7 +2473,8 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
         except CursoMateria.DoesNotExist:
             return Response({'error': 'Curso materia no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
-        if cm.id_docente_id != int(docente_id):
+        activo = obtener_docente_activo(cm.id_curso_materia, fecha_hoy)
+        if not activo.docente or activo.docente.id_docente != int(docente_id):
             return Response({'error': 'El docente no corresponde a esta materia.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if cursos_ids is not None and cm.id_curso_id not in cursos_ids:
@@ -2651,6 +2863,9 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_destroy(self, instance):
+        cm = instance.id_curso_materia
+        if cm is not None:
+            _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
         marcar_eliminado(instance)
 
     def _generar_pdf(self, planificacion, contenido, objetivos, salidas, fundamentacion):
@@ -2730,7 +2945,16 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(data=mutable)
         serializer.is_valid(raise_exception=True)
-        planificacion = serializer.save()
+        save_kwargs = {}
+        cm = serializer.validated_data.get('id_curso_materia')
+        if cm is not None:
+            _verificar_docente_activo_materia(request, cm.id_curso_materia)
+            roles = get_roles_for_usuario(request.user.username)
+            if 'docente' in roles:
+                activo = obtener_docente_activo(cm.id_curso_materia)
+                if activo.docente:
+                    save_kwargs['id_docente'] = activo.docente
+        planificacion = serializer.save(**save_kwargs)
 
         pdf_url = self._generar_pdf(
             planificacion,
@@ -2757,7 +2981,16 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(instance, data=mutable, partial=partial)
         serializer.is_valid(raise_exception=True)
-        planificacion = serializer.save()
+        save_kwargs = {}
+        cm = serializer.validated_data.get('id_curso_materia') or instance.id_curso_materia
+        if cm is not None:
+            _verificar_docente_activo_materia(request, cm.id_curso_materia)
+            roles = get_roles_for_usuario(request.user.username)
+            if 'docente' in roles:
+                activo = obtener_docente_activo(cm.id_curso_materia)
+                if activo.docente:
+                    save_kwargs['id_docente'] = activo.docente
+        planificacion = serializer.save(**save_kwargs)
 
         # Remove old PDF file if it exists
         if planificacion.ruta_archivo:
@@ -2838,8 +3071,10 @@ class DiagnosticoGrupalViewSet(HistorialMixin, viewsets.ModelViewSet):
             # Teachers can only see diagnostics for courses where they have assignments
             docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
             if docente:
-                # Get all courses where this docente has assignments (via CursoMateria)
-                cursos_asignados = CursoMateria.objects.filter(id_docente=docente.id_docente).values_list('id_curso', flat=True)
+                # Cursos de las materias donde el docente es activo (titular o suplente vigente)
+                cursos_asignados = CursoMateria.objects.filter(
+                    id_curso_materia__in=_materias_docente_ids(docente),
+                ).values_list('id_curso', flat=True)
                 qs = qs.filter(id_curso__in=cursos_asignados)
             else:
                 qs = qs.none()
@@ -2848,56 +3083,41 @@ class DiagnosticoGrupalViewSet(HistorialMixin, viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        from escuela.models import Docente, Usuario
-        username = request.user.username
-        usuario_obj = Usuario.objects.filter(usuario=username).first()
-        if not usuario_obj:
-            return Response({'error': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-        
-        docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-        
-        # Verify the author
-        if not docente or instance.id_docente != docente:
-            return Response({'error': 'No tienes permiso para eliminar este diagnóstico.'}, status=status.HTTP_403_FORBIDDEN)
-        
+        username = request.user.username if request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' not in roles and 'director' not in roles and 'docente' not in roles:
+            return Response(
+                {'error': 'No tienes permiso para eliminar este diagnóstico.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            _verificar_docente_activo_curso(request, instance.id_curso_id)
+        except PermissionDenied as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        # Validate that the docente can only create diagnostics for courses they have assignments in
-        from escuela.auth_backend import get_roles_for_usuario
         username = self.request.user.username if self.request.user.is_authenticated else None
         if not username:
-            raise PermissionError("Usuario no autenticado")
+            raise PermissionDenied('Usuario no autenticado.')
 
         roles = get_roles_for_usuario(username)
-        usuario_obj = Usuario.objects.filter(usuario=username).first()
-
         if 'admin' not in roles and 'director' not in roles and 'docente' not in roles:
-            raise PermissionError("Solo docentes, administradores y directores pueden crear diagnÃ³sticos")
+            raise PermissionDenied('Solo docentes, administradores y directores pueden crear diagnósticos.')
 
-        if 'docente' in roles and usuario_obj:
-            docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if not docente:
-                raise PermissionError("No se encontrÃ³ el perfil de docente")
-
-            # Get the course from the request data
+        if 'docente' in roles:
             id_curso = self.request.data.get('id_curso')
             if not id_curso:
-                raise PermissionError("Se debe especificar un curso")
+                raise PermissionDenied('Se debe especificar un curso.')
 
-            # Check if docente has assignments in this course
-            has_assignment = CursoMateria.objects.filter(
-                id_docente=docente.id_docente,
-                id_curso=id_curso
-            ).exists()
+            _verificar_docente_activo_curso(self.request, id_curso)
 
-            if not has_assignment:
-                raise PermissionError("No tenÃ©s asignaciones en este curso. No podÃ©s crear diagnÃ³sticos para Ã©l.")
-
-            # Set the docente to the current user
+            usuario_obj = Usuario.objects.filter(usuario=username).first()
+            docente = Docente.objects.filter(id_usuario=usuario_obj).first() if usuario_obj else None
+            if not docente:
+                raise PermissionDenied('No se encontró el perfil de docente.')
             serializer.save(id_docente=docente)
         else:
-            # Admin can create for any course
             serializer.save()
         self._historial_alta(serializer)
 

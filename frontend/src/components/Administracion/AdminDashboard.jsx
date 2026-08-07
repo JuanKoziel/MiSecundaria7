@@ -13,6 +13,7 @@ import Administradores from './administradores';
 import Preceptores from './preceptores';
 import Cursos from './cursos';
 import Materias from './materias';
+import Suplencias from './suplencias';
 import CalendarioInstitucional from './CalendarioInstitucional';
 import Historial from './historial';
 import PanelAdmin from './PanelAdmin';
@@ -56,6 +57,8 @@ function AdminDashboard({ user, onLogout }) {
         return <Cursos />;
       case 'materias':
         return <Materias />;
+      case 'suplencias':
+        return <Suplencias />;
       case 'historial':
         return <Historial />;
       case 'info':
