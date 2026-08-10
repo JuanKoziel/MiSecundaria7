@@ -5,6 +5,7 @@ import TopHeader from './TopHeader';
 import PanelAlumnos from './PanelAlumnos';
 import PanelInfo from './PanelInfo';
 import PanelPlanif from './PanelPlanif';
+import PanelLibroTemas from './PanelLibroTemas';
 import PanelAsistencia from './PanelAsistencia';
 import PanelActividades from './PanelActividades';
 import Notificaciones from '../Notificaciones';
@@ -286,6 +287,17 @@ function PanelProfesores({ user, onLogout }) {
                 <PanelPlanif
                   cursoMateriaId={cursoMateriaActivo.id}
                   docenteId={miDocente?.id}
+                  materiaNombre={materiaSeleccionada}
+                  cursoNombre={cursoNombre}
+                  miDocente={miDocente}
+                  puedeEditar={cursoMateriaActivo.puedeEditar}
+                />
+              )}
+            </div>
+            <div className={`view-section ${seccionActiva === 'libro-temas' ? 'active' : ''}`}>
+              {seccionActiva === 'libro-temas' && (
+                <PanelLibroTemas
+                  cursoMateriaId={cursoMateriaActivo.id}
                   materiaNombre={materiaSeleccionada}
                   cursoNombre={cursoNombre}
                   miDocente={miDocente}

@@ -3,6 +3,7 @@ export const menuItems = [
   { id: 'alumnos', label: 'Calificaciones', icon: 'fa-graduation-cap' },
   { id: 'info', label: 'Diagnósticos grupales', icon: 'fa-info-circle' },
   { id: 'planif', label: 'Proyectos', icon: 'fa-folder-open' },
+  { id: 'libro-temas', label: 'Libro de Temas', icon: 'fa-book-open' },
   { id: 'actividades', label: 'Actividades', icon: 'fa-tasks' },
   { id: 'asistencia', label: 'Asistencia', icon: 'fa-user-check' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },

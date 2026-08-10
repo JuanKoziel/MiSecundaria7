@@ -627,4 +627,23 @@ export async function finalizarSuplencia(id) {
   return data;
 }
 
+export async function getLibroTemas(params) {
+  const { data } = await api.get('/libro-temas/', { params });
+  return data;
+}
+
+export async function createLibroTema(payload) {
+  const { data } = await api.post('/libro-temas/', payload);
+  return data;
+}
+
+export async function updateLibroTema(id, payload) {
+  const { data } = await api.patch(`/libro-temas/${id}/`, payload);
+  return data;
+}
+
+export async function deleteLibroTema(id) {
+  await api.delete(`/libro-temas/${id}/`);
+}
+
 export default api;

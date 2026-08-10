@@ -856,3 +856,41 @@ class EventoInstitucional(models.Model):
 
     def __str__(self):
         return f'{self.tipo_evento} - {self.fecha}'
+
+
+class LibroTema(models.Model):
+    """Registro del Libro de Temas por materia (tabla existente en la base).
+
+    El `id_docente` guarda siempre el docente que efectivamente cargó el
+    registro (el activo de la materia, sea titular o suplente); nunca se
+    guarda el titular separado, se resuelve con `utils.obtener_docente_activo`.
+    """
+
+    id_libro_tema = models.AutoField(primary_key=True)
+    id_curso_materia = models.ForeignKey(
+        CursoMateria, on_delete=models.CASCADE, db_column='id_curso_materia',
+        related_name='libro_temas',
+    )
+    id_docente = models.ForeignKey(
+        Docente, on_delete=models.CASCADE, db_column='id_docente',
+        related_name='libro_temas',
+    )
+    fecha = models.DateField()
+    hora_inicio = models.TimeField()
+    hora_fin = models.TimeField()
+    descripcion = models.TextField()
+    ruta_archivo = models.CharField(max_length=255, blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
+
+    class Meta:
+        managed = False
+        db_table = 'libro_temas'
+
+    def __str__(self):
+        return f'Libro de Temas {self.id_libro_tema}'

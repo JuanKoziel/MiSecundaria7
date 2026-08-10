@@ -56,6 +56,7 @@ from escuela.models import (
     Horario,
     HorariosEspeciales,
     InscripcionMateria,
+    LibroTema,
     Materia,
     Modulos,
     Notificacion,
@@ -96,6 +97,7 @@ from escuela.serializers import (
     HorarioSerializer,
     HorarioEspecialSerializer,
     InscripcionMateriaSerializer,
+    LibroTemaSerializer,
     ModuloSerializer,
     LoginSerializer,
     MateriaSerializer,
@@ -226,6 +228,23 @@ def _obtener_bloques_horario(cm_id, dia_semana):
         i = j + 1
 
     return bloques
+
+
+def puede_modificar_libro_tema(libro_tema, fecha_hora_actual=None):
+    """Indica si un Libro de Temas admite modificaciones o eliminación.
+
+    Un Libro de Temas queda bloqueado en cuanto la fecha/hora actual alcanza
+    la hora de fin de la clase correspondiente:
+      - días anteriores a la clase: bloqueado (solo lectura);
+      - el mismo día, si la hora actual es >= hora_fin: bloqueado.
+
+    Reutilizable para PUT, PATCH, DELETE y para el frontend; es la única
+    fuente de verdad de la comparación de horarios del Libro de Temas.
+    """
+    if fecha_hora_actual is None:
+        fecha_hora_actual = datetime.now()
+    fin_clase = datetime.combine(libro_tema.fecha, libro_tema.hora_fin)
+    return fecha_hora_actual < fin_clase
 
 
 def docente_puede_registrar_asistencia_alumnos(docente_id, curso_materia_id, fecha=None, hora=None):
@@ -3015,6 +3034,195 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         planificacion.ruta_archivo = pdf_url
 
         return Response(PlanificacionSerializer(planificacion).data, status=status.HTTP_200_OK)
+
+
+class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
+    queryset = LibroTema.objects.select_related(
+        'id_docente',
+        'id_curso_materia__id_curso',
+        'id_curso_materia__id_materia',
+    ).all()
+    serializer_class = LibroTemaSerializer
+    permission_classes = [IsAuthenticated]
+    historial_tabla = 'libro_temas'
+    historial_soft_delete = True
+
+    def _docente_actual(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            return None
+        usuario_obj = Usuario.objects.filter(usuario=username).first()
+        if not usuario_obj:
+            return None
+        return Docente.objects.filter(id_usuario=usuario_obj).first()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+
+        if 'docente' in roles:
+            docente = self._docente_actual()
+            if not docente:
+                return qs.none()
+            qs = qs.filter(id_docente=docente)
+        elif not roles:
+            return qs.none()
+
+        curso = self.request.query_params.get('curso')
+        if curso:
+            qs = qs.filter(id_curso_materia__id_curso=curso)
+        curso_materia = self.request.query_params.get('curso_materia')
+        if curso_materia:
+            qs = qs.filter(id_curso_materia=curso_materia)
+        return qs.order_by('-fecha', '-hora_inicio')
+
+    def _verificar_dueño(self, instance):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            raise PermissionDenied('Usuario no autenticado.')
+        roles = get_roles_for_usuario(username)
+        if 'admin' in roles or 'director' in roles:
+            return
+        docente = self._docente_actual()
+        if not docente:
+            raise PermissionDenied('No se encontró un perfil de docente asociado al usuario.')
+        if instance.id_docente_id != docente.id_docente:
+            raise PermissionDenied(
+                'No tienes permiso para realizar esta operación sobre este registro del Libro de Temas.'
+            )
+        activo = obtener_docente_activo(instance.id_curso_materia_id, instance.fecha)
+        if activo.es_suplencia and activo.titular and activo.titular.id_docente == docente.id_docente:
+            raise PermissionDenied('Esta materia se encuentra actualmente a cargo de un docente suplente.')
+        if not (activo.docente and activo.docente.id_docente == docente.id_docente):
+            raise PermissionDenied(
+                'No tienes permiso para realizar esta operación sobre este registro del Libro de Temas.'
+            )
+
+    def _verificar_puede_modificar(self, instance):
+        """Bloquea modificaciones/eliminación cuando el horario ya finalizó.
+
+        Debe ejecutarse antes de `perform_update`/`perform_destroy` para que
+        los intentos fallidos no generen registros en `historial_cambios`.
+        """
+        if not puede_modificar_libro_tema(instance):
+            raise PermissionDenied(
+                'No puede modificar este Libro de Temas porque el horario de la clase ya finalizó.'
+            )
+
+    def _validar_puede_cargar(self, cm_id):
+        """Valida que se pueda cargar el Libro de Temas en el momento actual.
+
+        Reglas (reutilizando la lógica existente del sistema):
+          - Solo se puede cargar si hay una clase activa ahora para la materia
+            (horarios normales, horarios especiales y módulos), si no hay un
+            evento institucional activo y si el docente autenticado es el
+            docente activo (titular o suplente según `obtener_docente_activo`).
+          - El titular no puede cargar mientras una suplencia esté vigente.
+          - Fuera de horario / evento activo: HTTP 403.
+        """
+        ahora = datetime.now()
+        fecha_hoy = ahora.date()
+        hora_ahora = ahora.time()
+        dia = _dia_semana_es(ahora)
+
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            raise PermissionDenied('Usuario no autenticado.')
+        roles = get_roles_for_usuario(username)
+        if 'admin' in roles or 'director' in roles:
+            activo = None
+        else:
+            if 'docente' not in roles:
+                raise PermissionDenied('No tienes permiso para cargar el Libro de Temas.')
+            docente = self._docente_actual()
+            if not docente:
+                raise PermissionDenied('No se encontró un perfil de docente asociado al usuario.')
+            activo = obtener_docente_activo(cm_id, fecha_hoy)
+            if activo.es_suplencia and activo.titular and activo.titular.id_docente == docente.id_docente:
+                raise PermissionDenied('Esta materia se encuentra actualmente a cargo de un docente suplente.')
+            if not (activo.docente and activo.docente.id_docente == docente.id_docente):
+                raise PermissionDenied('No tienes permiso para cargar el Libro de Temas en esta materia.')
+
+        evento_activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(fecha_hoy, hora_ahora)
+        if evento_activo:
+            raise PermissionDenied(
+                f'No puede cargar el Libro de Temas porque hay un evento institucional activo ({tipo_ev}).'
+            )
+
+        bloques = _obtener_bloques_horario(cm_id, dia)
+        bloque = None
+        for inicio, fin in bloques:
+            if inicio <= hora_ahora < fin:
+                bloque = (inicio, fin)
+                break
+        if not bloque:
+            raise PermissionDenied(
+                'No puede cargar el Libro de Temas porque actualmente no tiene una clase asignada para esta materia.'
+            )
+
+        return {
+            'fecha': fecha_hoy,
+            'hora_inicio': bloque[0],
+            'hora_fin': bloque[1],
+            'activo': activo,
+        }
+
+    def perform_create(self, serializer, **kwargs):
+        serializer.save(**kwargs)
+        self._historial_alta(serializer)
+
+    def create(self, request, *args, **kwargs):
+        cm_id = request.data.get('id_curso_materia')
+        if not cm_id:
+            return Response(
+                {'id_curso_materia': ['Debe indicar la asignación curso/materia.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        info = self._validar_puede_cargar(cm_id)
+
+        mutable = request.data.copy()
+        mutable['fecha'] = info['fecha']
+        mutable['hora_inicio'] = info['hora_inicio']
+        mutable['hora_fin'] = info['hora_fin']
+
+        serializer = self.get_serializer(data=mutable)
+        serializer.is_valid(raise_exception=True)
+
+        save_kwargs = {}
+        activo = info.get('activo')
+        if activo is not None and activo.docente:
+            save_kwargs['id_docente'] = activo.docente
+        else:
+            cm = CursoMateria.objects.filter(pk=cm_id).first()
+            if cm and cm.id_docente_id:
+                save_kwargs['id_docente'] = cm.id_docente
+            else:
+                raise PermissionDenied('No se puede determinar el docente a cargo de la materia.')
+
+        self.perform_create(serializer, **save_kwargs)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        self._verificar_dueño(instance)
+        self._verificar_puede_modificar(instance)
+
+        mutable = request.data.copy()
+        for campo in ('id_curso_materia', 'id_docente', 'fecha', 'hora_inicio', 'hora_fin', 'fecha_creacion'):
+            mutable.pop(campo, None)
+
+        serializer = self.get_serializer(instance, data=mutable, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def perform_destroy(self, instance):
+        self._verificar_dueño(instance)
+        self._verificar_puede_modificar(instance)
+        super().perform_destroy(instance)
 
 
 class DiagnosticoGrupalViewSet(HistorialMixin, viewsets.ModelViewSet):

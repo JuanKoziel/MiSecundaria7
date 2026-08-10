@@ -32,6 +32,7 @@ from escuela.models import (
     Horario,
     HorariosEspeciales,
     InscripcionMateria,
+    LibroTema,
     Materia,
     Modulos,
     Notificacion,
@@ -1899,6 +1900,7 @@ TABLAS_MODIFICADAS_LABEL = {
     'materias': 'Materias',
     'asignaciones_cursos': 'Asignaciones de Cursos',
     'eventos_institucionales': 'Eventos Institucionales',
+    'libro_temas': 'Libro de Temas',
 }
 
 
@@ -1966,5 +1968,49 @@ class EventoInstitucionalSerializer(serializers.ModelSerializer):
                 return f'{admin.apellido}, {admin.nombre}'
             return obj.id_usuario_creador.usuario
         return None
+
+
+# ---------- Libro de Temas ----------
+
+class LibroTemaSerializer(serializers.ModelSerializer):
+    curso_nombre = serializers.CharField(
+        source='id_curso_materia.id_curso.nombre_curso', read_only=True, default=None,
+    )
+    materia_nombre = serializers.CharField(
+        source='id_curso_materia.id_materia.nombre_materia', read_only=True, default=None,
+    )
+    id_docente = serializers.PrimaryKeyRelatedField(
+        queryset=Docente.objects.all(), required=False, allow_null=True,
+    )
+    docente_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LibroTema
+        fields = '__all__'
+
+    def get_docente_nombre(self, obj):
+        if obj.id_docente_id:
+            return f'{obj.id_docente.apellido}, {obj.id_docente.nombre}'
+        return None
+
+    def validate(self, attrs):
+        cm = attrs.get('id_curso_materia') or (self.instance.id_curso_materia if self.instance else None)
+        fecha = attrs.get('fecha') or (self.instance.fecha if self.instance else None)
+        hora_inicio = attrs.get('hora_inicio') or (self.instance.hora_inicio if self.instance else None)
+        hora_fin = attrs.get('hora_fin') or (self.instance.hora_fin if self.instance else None)
+        if cm is not None and fecha is not None and hora_inicio is not None and hora_fin is not None:
+            qs = LibroTema.objects.filter(
+                id_curso_materia=cm,
+                fecha=fecha,
+                hora_inicio=hora_inicio,
+                hora_fin=hora_fin,
+            )
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    'Ya existe un registro del Libro de Temas para esta materia, fecha y horario.'
+                )
+        return attrs
 
 
