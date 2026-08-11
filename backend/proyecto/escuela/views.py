@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from escuela.auth_backend import get_roles_for_usuario
-from escuela.permissions import IsAdminOrDirectorForWrite, PuedeVerHistorial
+from escuela.permissions import IsAdminOrDirectorForWrite, PuedeVerHistorial, PuedeGestionarAdelantos
 from escuela.utils import (
     ACCION_CAMBIO_CONTRASENA,
     ACCION_CAMBIO_ROL,
@@ -34,6 +34,7 @@ from escuela.models import (
     ActaAlumno,
     ActaCurso,
     ActaDocente,
+    AdelantoHoras,
     Alumno,
     Asistencia,
     AsistenciaDocente,
@@ -78,6 +79,7 @@ from escuela.serializers import (
     ActaSerializer,
     ActividadDocenteSerializer,
     ActividadDocenteArchivoSerializer,
+    AdelantoHorasSerializer,
     ComunicadoArchivoSerializer,
     ComunicadoAlcanceSerializer,
     ComunicadoSerializer,
@@ -353,6 +355,149 @@ def evento_institucional_activo(fecha=None, hora=None):
                 return True, ev.tipo_evento, ev.descripcion, f'{ev.hora_inicio.strftime("%H:%M")} a {ev.hora_fin.strftime("%H:%M")}', ev.hora_inicio, ev.hora_fin
 
     return False, None, None, None, None, None
+
+
+# ---------- Adelantos de horas ----------
+
+def _franjas_se_solapan(hora_inicio_a, hora_fin_a, hora_inicio_b, hora_fin_b):
+    """Indica si dos franjas 'HH:MM' se superponen (extremos excluidos)."""
+    def _a_tiempo(valor):
+        if isinstance(valor, time):
+            return valor
+        return datetime.strptime(str(valor)[:5], '%H:%M').time()
+
+    ini_a, fin_a = _a_tiempo(hora_inicio_a), _a_tiempo(hora_fin_a)
+    ini_b, fin_b = _a_tiempo(hora_inicio_b), _a_tiempo(hora_fin_b)
+    return ini_a < fin_b and fin_a > ini_b
+
+
+def adelanto_activo_para_clase(curso_id, materia_id, fecha, hora=None, hora_inicio=None, hora_fin=None):
+    """Retorna el adelanto de horas activo (estado=1) que cubre una clase.
+
+    - Si se pasa `hora`, devuelve el adelanto cuya franja contiene esa hora.
+    - Si se pasan `hora_inicio`/`hora_fin`, devuelve el adelanto que se
+      solapa con esa franja (para saber si el horario original fue cubierto
+      o cancelado por un adelanto).
+    - Si no se pasa ninguna franja, devuelve el primer adelanto activo
+      del curso/materia/fecha.
+    """
+    qs = AdelantoHoras.objects.filter(
+        id_curso_id=curso_id,
+        id_materia_id=materia_id,
+        fecha_adelanto=fecha,
+        estado=True,
+    ).select_related('id_docente').order_by('hora_inicio')
+
+    if hora is not None:
+        for adelanto in qs:
+            if adelanto.hora_inicio <= hora < adelanto.hora_fin:
+                return adelanto
+        return None
+
+    if hora_inicio is not None and hora_fin is not None:
+        for adelanto in qs:
+            if adelanto.hora_inicio < hora_fin and adelanto.hora_fin > hora_inicio:
+                return adelanto
+        return None
+
+    return qs.first()
+
+
+def clase_original_cancelada_por_adelanto(curso_id, materia_id, fecha, hora_inicio, hora_fin):
+    """Indica si un bloque del horario original queda cancelado por un
+    adelanto de horas que no mantiene el horario original."""
+    adelanto = adelanto_activo_para_clase(
+        curso_id, materia_id, fecha,
+        hora_inicio=hora_inicio, hora_fin=hora_fin,
+    )
+    return adelanto is not None and not adelanto.mantener_horario_original
+
+
+def obtener_contexto_docente_para_clase(cm_id, fecha, hora):
+    """Determina quién está autorizado a dictar una clase en una fecha/hora.
+
+    Única fuente de verdad para asistencia y Libro de Temas. Prioridad:
+      1. Evento institucional activo: nadie dicta (tipo='evento_institucional').
+      2. Adelanto de horas activo: lo dicta el docente del adelanto, aunque
+         la franja no coincida con el horario normal (tipo='adelanto').
+      3. Suplencia activa / horario normal: lo dicta el docente activo según
+         `obtener_docente_activo` dentro del bloque horario vigente
+         (tipo='suplencia' | 'normal' | 'sin_clase').
+
+    Devuelve un dict con: autorizado, tipo, docente, adelanto, suplencia,
+    es_suplencia, titular, hora_inicio, hora_fin, clase_original_cancelada,
+    mensaje y evento.
+    """
+    cm = CursoMateria.objects.filter(pk=cm_id).select_related('id_curso', 'id_materia').first()
+    base = {
+        'autorizado': False,
+        'tipo': 'sin_clase',
+        'docente': None,
+        'adelanto': None,
+        'suplencia': None,
+        'es_suplencia': False,
+        'titular': None,
+        'hora_inicio': None,
+        'hora_fin': None,
+        'clase_original_cancelada': False,
+        'mensaje': None,
+        'evento': None,
+    }
+    if cm is None:
+        return base
+
+    evento_activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(fecha, hora)
+    if evento_activo:
+        base.update({
+            'tipo': 'evento_institucional',
+            'mensaje': f'Evento institucional activo ({tipo_ev}).',
+            'evento': (tipo_ev, desc_ev, horario_ev),
+        })
+        return base
+
+    adelanto = adelanto_activo_para_clase(cm.id_curso_id, cm.id_materia_id, fecha, hora=hora)
+    if adelanto is not None:
+        base.update({
+            'autorizado': True,
+            'tipo': 'adelanto',
+            'docente': adelanto.id_docente,
+            'adelanto': adelanto,
+            'hora_inicio': adelanto.hora_inicio,
+            'hora_fin': adelanto.hora_fin,
+            'clase_original_cancelada': not adelanto.mantener_horario_original,
+        })
+        return base
+
+    activo = obtener_docente_activo(cm_id, fecha)
+    dia = _dia_semana_es(datetime.combine(fecha, hora))
+    bloques = _obtener_bloques_horario(cm_id, dia)
+    bloque = None
+    for inicio, fin in bloques:
+        if inicio <= hora < fin:
+            bloque = (inicio, fin)
+            break
+    if not bloque:
+        base.update({
+            'tipo': 'sin_clase',
+            'mensaje': 'Fuera del horario de clase para esta materia.',
+            'docente': activo.docente,
+            'suplencia': activo.suplencia,
+            'es_suplencia': activo.es_suplencia,
+            'titular': activo.titular,
+        })
+        return base
+
+    base.update({
+        'autorizado': True,
+        'tipo': 'suplencia' if activo.es_suplencia else 'normal',
+        'docente': activo.docente,
+        'suplencia': activo.suplencia,
+        'es_suplencia': activo.es_suplencia,
+        'titular': activo.titular,
+        'hora_inicio': bloque[0],
+        'hora_fin': bloque[1],
+    })
+    return base
 
 
 def _resolve_course_id(value):
@@ -1639,6 +1784,84 @@ class SuplenciaDocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
         return Response(self.get_serializer(suplencia).data)
 
 
+class AdelantoHorasViewSet(HistorialMixin, viewsets.ModelViewSet):
+    queryset = AdelantoHoras.all_objects.select_related(
+        'id_curso',
+        'id_materia',
+        'id_docente',
+        'id_usuario_autorizador',
+    ).all()
+    serializer_class = AdelantoHorasSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarAdelantos]
+    historial_tabla = 'adelantos_horas'
+    historial_soft_delete = True
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+
+        es_directivo = bool(
+            roles and ('admin' in roles or 'director' in roles or 'jefe_preceptores' in roles)
+        )
+        if 'preceptor' in roles and not es_directivo:
+            cursos_ids = _preceptor_cursos_ids(self.request)
+            if not cursos_ids:
+                return qs.none()
+            qs = qs.filter(id_curso_id__in=cursos_ids)
+
+        curso = self.request.query_params.get('curso')
+        materia = self.request.query_params.get('materia')
+        docente = self.request.query_params.get('docente')
+        fecha = self.request.query_params.get('fecha')
+        desde = self.request.query_params.get('desde')
+        hasta = self.request.query_params.get('hasta')
+        estado = self.request.query_params.get('estado')
+        if curso:
+            qs = qs.filter(id_curso_id=curso)
+        if materia:
+            qs = qs.filter(id_materia_id=materia)
+        if docente:
+            qs = qs.filter(id_docente_id=docente)
+        if fecha:
+            qs = qs.filter(fecha_adelanto=fecha)
+        if desde:
+            qs = qs.filter(fecha_adelanto__gte=desde)
+        if hasta:
+            qs = qs.filter(fecha_adelanto__lte=hasta)
+        if estado not in (None, ''):
+            qs = qs.filter(estado=estado)
+        return qs.order_by('-fecha_adelanto', '-fecha_creacion')
+
+    def _check_curso_acceso(self, curso_id):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' in roles or 'director' in roles or 'jefe_preceptores' in roles:
+            return
+        if 'preceptor' not in roles:
+            raise PermissionDenied('No tienes permiso para gestionar adelantos de horas.')
+        cursos_ids = _preceptor_cursos_ids(self.request)
+        if not cursos_ids or int(curso_id) not in {int(c) for c in cursos_ids}:
+            raise PermissionDenied('No tienes permiso para gestionar adelantos de este curso.')
+
+    def perform_create(self, serializer):
+        curso = serializer.validated_data.get('id_curso')
+        if curso is not None:
+            self._check_curso_acceso(curso.pk)
+        usuario = self._historial_usuario_actual()
+        serializer.save(id_usuario_autorizador=usuario)
+        self._historial_alta(serializer)
+
+    def perform_update(self, serializer):
+        instancia = serializer.instance
+        self._check_curso_acceso(instancia.id_curso_id)
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        self._check_curso_acceso(instance.id_curso_id)
+        super().perform_destroy(instance)
+
+
 class ModuloViewSet(viewsets.ModelViewSet):
     queryset = Modulos.objects.all()
     serializer_class = ModuloSerializer
@@ -1883,17 +2106,34 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         }
         cm_id = request.query_params.get('curso_materia')
         if cm_id:
-            horarios_hoy = self._horarios_hoy(cm_id, dia)
+            horarios_hoy = self._horarios_hoy(cm_id, dia, ahora.date())
             data['horarios_hoy'] = horarios_hoy
             data['estado'] = self._estado_horario(horarios_hoy, ahora)
+
+            contexto = obtener_contexto_docente_para_clase(cm_id, ahora.date(), ahora.time())
+            data['contexto_clase'] = {
+                'tipo': contexto['tipo'],
+                'autorizado': contexto['autorizado'],
+                'es_adelanto': contexto['tipo'] == 'adelanto',
+                'clase_original_cancelada': contexto['clase_original_cancelada'],
+                'hora_inicio': contexto['hora_inicio'].strftime('%H:%M') if contexto['hora_inicio'] else None,
+                'hora_fin': contexto['hora_fin'].strftime('%H:%M') if contexto['hora_fin'] else None,
+                'docente': f"{contexto['docente'].apellido}, {contexto['docente'].nombre}"
+                if contexto['docente'] else None,
+                'motivo_adelanto': contexto['adelanto'].motivo if contexto['adelanto'] else None,
+                'docente_adelanto': f"{contexto['adelanto'].id_docente.apellido}, {contexto['adelanto'].id_docente.nombre}"
+                if contexto['adelanto'] else None,
+            }
+
             roles = get_roles_for_usuario(request.user.username)
             if 'docente' in roles:
                 try:
                     cm = CursoMateria.objects.get(id_curso_materia=cm_id)
                     activo = obtener_docente_activo(cm_id, ahora.date())
-                    if activo.docente:
+                    activo_docente = contexto['docente'] or activo.docente
+                    if activo_docente:
                         puede, mensaje, preceptor_nombre = docente_puede_registrar_asistencia_alumnos(
-                            activo.docente.id_docente, cm_id, ahora.date(), ahora.time(),
+                            activo_docente.id_docente, cm_id, ahora.date(), ahora.time(),
                         )
                         data['docente_ausente'] = not puede
                         if not puede:
@@ -1911,8 +2151,13 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
 
         return Response(data)
 
-    def _horarios_hoy(self, curso_materia_id, dia_semana):
-        """Retorna lista de dicts con hora_inicio y hora_fin para hoy."""
+    def _horarios_hoy(self, curso_materia_id, dia_semana, fecha=None):
+        """Retorna lista de dicts con hora_inicio y hora_fin para hoy.
+
+        Incluye los adelantos de horas activos para la fecha. Cuando un
+        adelanto no mantiene el horario original (mantener_horario_original=0),
+        reemplaza los bloques normales con los que se solapa.
+        """
         horarios = []
         qs = Horario.objects.filter(
             id_curso_materia=curso_materia_id,
@@ -1923,6 +2168,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
                 horarios.append({
                     'hora_inicio': h.id_modulo.hora_inicio.strftime('%H:%M'),
                     'hora_fin': h.id_modulo.hora_fin.strftime('%H:%M'),
+                    'tipo': 'normal',
                 })
         qs_esp = HorariosEspeciales.objects.filter(
             id_curso_materia=curso_materia_id,
@@ -1932,7 +2178,33 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             horarios.append({
                 'hora_inicio': h.hora_inicio.strftime('%H:%M'),
                 'hora_fin': h.hora_fin.strftime('%H:%M'),
+                'tipo': 'normal',
             })
+        if fecha is not None:
+            cm = CursoMateria.objects.filter(pk=curso_materia_id).select_related('id_curso', 'id_materia').first()
+            if cm is not None:
+                adelantos = AdelantoHoras.objects.filter(
+                    id_curso_id=cm.id_curso_id,
+                    id_materia_id=cm.id_materia_id,
+                    fecha_adelanto=fecha,
+                    estado=True,
+                ).order_by('hora_inicio')
+                for a in adelantos:
+                    if not a.mantener_horario_original:
+                        horarios = [
+                            h for h in horarios
+                            if not _franjas_se_solapan(
+                                h['hora_inicio'], h['hora_fin'],
+                                a.hora_inicio.strftime('%H:%M'), a.hora_fin.strftime('%H:%M'),
+                            )
+                        ]
+                    horarios.append({
+                        'hora_inicio': a.hora_inicio.strftime('%H:%M'),
+                        'hora_fin': a.hora_fin.strftime('%H:%M'),
+                        'tipo': 'adelanto',
+                        'id_adelanto': a.id_adelanto,
+                        'motivo': a.motivo,
+                    })
         horarios.sort(key=lambda x: x['hora_inicio'])
         return horarios
 
@@ -3091,6 +3363,18 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
             raise PermissionDenied(
                 'No tienes permiso para realizar esta operación sobre este registro del Libro de Temas.'
             )
+        cm = instance.id_curso_materia
+        if cm is not None and instance.fecha:
+            adelanto = adelanto_activo_para_clase(
+                cm.id_curso_id, cm.id_materia_id, instance.fecha,
+                hora_inicio=instance.hora_inicio, hora_fin=instance.hora_fin,
+            )
+            if adelanto is not None:
+                if adelanto.id_docente_id != docente.id_docente:
+                    raise PermissionDenied(
+                        'Esta clase fue cubierta por un adelanto de horas autorizado a otro docente.'
+                    )
+                return
         activo = obtener_docente_activo(instance.id_curso_materia_id, instance.fecha)
         if activo.es_suplencia and activo.titular and activo.titular.id_docente == docente.id_docente:
             raise PermissionDenied('Esta materia se encuentra actualmente a cargo de un docente suplente.')
@@ -3115,57 +3399,62 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
 
         Reglas (reutilizando la lógica existente del sistema):
           - Solo se puede cargar si hay una clase activa ahora para la materia
-            (horarios normales, horarios especiales y módulos), si no hay un
-            evento institucional activo y si el docente autenticado es el
-            docente activo (titular o suplente según `obtener_docente_activo`).
+            y si no hay un evento institucional activo. El contexto lo define
+            `obtener_contexto_docente_para_clase`: evento institucional →
+            adelanto de horas → suplencia/horario normal.
+          - El docente autenticado debe ser el docente activo de la clase
+            (docente del adelanto, suplente o titular según corresponda).
           - El titular no puede cargar mientras una suplencia esté vigente.
           - Fuera de horario / evento activo: HTTP 403.
         """
         ahora = datetime.now()
         fecha_hoy = ahora.date()
         hora_ahora = ahora.time()
-        dia = _dia_semana_es(ahora)
 
         username = self.request.user.username if self.request.user.is_authenticated else None
         if not username:
             raise PermissionDenied('Usuario no autenticado.')
         roles = get_roles_for_usuario(username)
-        if 'admin' in roles or 'director' in roles:
-            activo = None
-        else:
+        es_directivo = 'admin' in roles or 'director' in roles
+
+        contexto = obtener_contexto_docente_para_clase(cm_id, fecha_hoy, hora_ahora)
+
+        if contexto['tipo'] == 'evento_institucional':
+            tipo_ev, desc_ev, horario_ev = contexto['evento']
+            raise PermissionDenied(
+                f'No puede cargar el Libro de Temas porque hay un evento institucional activo ({tipo_ev}).'
+            )
+
+        if not contexto['autorizado']:
+            raise PermissionDenied(
+                'No puede cargar el Libro de Temas porque actualmente no tiene una clase asignada para esta materia.'
+            )
+
+        if not es_directivo:
             if 'docente' not in roles:
                 raise PermissionDenied('No tienes permiso para cargar el Libro de Temas.')
             docente = self._docente_actual()
             if not docente:
                 raise PermissionDenied('No se encontró un perfil de docente asociado al usuario.')
-            activo = obtener_docente_activo(cm_id, fecha_hoy)
-            if activo.es_suplencia and activo.titular and activo.titular.id_docente == docente.id_docente:
-                raise PermissionDenied('Esta materia se encuentra actualmente a cargo de un docente suplente.')
-            if not (activo.docente and activo.docente.id_docente == docente.id_docente):
+            docente_activo = contexto['docente']
+            if not (docente_activo and docente_activo.id_docente == docente.id_docente):
+                if contexto['tipo'] == 'adelanto':
+                    raise PermissionDenied(
+                        'Esta clase está cubierta por un adelanto de horas autorizado a otro docente.'
+                    )
+                if (
+                    contexto['es_suplencia']
+                    and contexto['titular']
+                    and contexto['titular'].id_docente == docente.id_docente
+                ):
+                    raise PermissionDenied('Esta materia se encuentra actualmente a cargo de un docente suplente.')
                 raise PermissionDenied('No tienes permiso para cargar el Libro de Temas en esta materia.')
-
-        evento_activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(fecha_hoy, hora_ahora)
-        if evento_activo:
-            raise PermissionDenied(
-                f'No puede cargar el Libro de Temas porque hay un evento institucional activo ({tipo_ev}).'
-            )
-
-        bloques = _obtener_bloques_horario(cm_id, dia)
-        bloque = None
-        for inicio, fin in bloques:
-            if inicio <= hora_ahora < fin:
-                bloque = (inicio, fin)
-                break
-        if not bloque:
-            raise PermissionDenied(
-                'No puede cargar el Libro de Temas porque actualmente no tiene una clase asignada para esta materia.'
-            )
 
         return {
             'fecha': fecha_hoy,
-            'hora_inicio': bloque[0],
-            'hora_fin': bloque[1],
-            'activo': activo,
+            'hora_inicio': contexto['hora_inicio'],
+            'hora_fin': contexto['hora_fin'],
+            'activo': contexto,
         }
 
     def perform_create(self, serializer, **kwargs):
@@ -3191,8 +3480,12 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
 
         save_kwargs = {}
         activo = info.get('activo')
-        if activo is not None and activo.docente:
-            save_kwargs['id_docente'] = activo.docente
+        if isinstance(activo, dict):
+            docente_activo = activo.get('docente')
+        else:
+            docente_activo = getattr(activo, 'docente', None)
+        if docente_activo:
+            save_kwargs['id_docente'] = docente_activo
         else:
             cm = CursoMateria.objects.filter(pk=cm_id).first()
             if cm and cm.id_docente_id:

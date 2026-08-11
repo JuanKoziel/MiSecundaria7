@@ -16,6 +16,7 @@ import Materias from './materias';
 import Suplencias from './suplencias';
 import CalendarioInstitucional from './CalendarioInstitucional';
 import Historial from './historial';
+import AdelantosHoras from '../Shared/AdelantosHoras';
 import PanelAdmin from './PanelAdmin';
 import { getDirectivos } from '../../services/api';
 
@@ -45,6 +46,8 @@ function AdminDashboard({ user, onLogout }) {
         return <Preceptores rol="jefe_preceptores" />;
       case 'horarios':
         return <Horarios />;
+      case 'adelantos-horas':
+        return <AdelantosHoras />;
       case 'asistencias':
         return <Asistencias />;
       case 'calendario':

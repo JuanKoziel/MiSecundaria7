@@ -627,6 +627,25 @@ export async function finalizarSuplencia(id) {
   return data;
 }
 
+export async function getAdelantosHoras(params) {
+  const { data } = await api.get('/adelantos-horas/', { params });
+  return data;
+}
+
+export async function createAdelantoHoras(payload) {
+  const { data } = await api.post('/adelantos-horas/', payload);
+  return data;
+}
+
+export async function updateAdelantoHoras(id, payload) {
+  const { data } = await api.patch(`/adelantos-horas/${id}/`, payload);
+  return data;
+}
+
+export async function deleteAdelantoHoras(id) {
+  await api.delete(`/adelantos-horas/${id}/`);
+}
+
 export async function getLibroTemas(params) {
   const { data } = await api.get('/libro-temas/', { params });
   return data;

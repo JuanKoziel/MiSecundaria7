@@ -5,7 +5,7 @@ from rest_framework import serializers
 from escuela.utils import normalizar_dni, obtener_docente_activo
 
 from escuela.models import (
-
+    AdelantoHoras,
     Acta,
     ActaAlumno,
     ActaCurso,
@@ -2010,6 +2010,160 @@ class LibroTemaSerializer(serializers.ModelSerializer):
             if qs.exists():
                 raise serializers.ValidationError(
                     'Ya existe un registro del Libro de Temas para esta materia, fecha y horario.'
+                )
+        return attrs
+
+
+# ---------- Adelantos de horas ----------
+
+class AdelantoHorasSerializer(serializers.ModelSerializer):
+    curso_nombre = serializers.CharField(
+        source='id_curso.nombre_curso', read_only=True, default=None,
+    )
+    materia_nombre = serializers.CharField(
+        source='id_materia.nombre_materia', read_only=True, default=None,
+    )
+    id_curso = serializers.PrimaryKeyRelatedField(queryset=Curso.objects.all())
+    id_materia = serializers.PrimaryKeyRelatedField(queryset=Materia.objects.all())
+    id_docente = serializers.PrimaryKeyRelatedField(queryset=Docente.objects.all())
+    docente_nombre = serializers.SerializerMethodField()
+    autorizador_nombre = serializers.SerializerMethodField()
+    estado_label = serializers.SerializerMethodField()
+    finalizado = serializers.SerializerMethodField()
+    modulos = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False, allow_empty=False, write_only=True,
+    )
+    modulos_detalle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AdelantoHoras
+        fields = '__all__'
+        extra_kwargs = {
+            'fecha_creacion': {'read_only': True},
+            'fecha_modificacion': {'read_only': True},
+            'id_usuario_autorizador': {'read_only': True},
+            'hora_inicio': {'required': False},
+            'hora_fin': {'required': False},
+        }
+
+    def get_docente_nombre(self, obj):
+        if obj.id_docente_id:
+            return f'{obj.id_docente.apellido}, {obj.id_docente.nombre}'
+        return None
+
+    def get_autorizador_nombre(self, obj):
+        if obj.id_usuario_autorizador_id:
+            return obj.id_usuario_autorizador.usuario
+        return None
+
+    def get_estado_label(self, obj):
+        if not obj.estado:
+            return 'Eliminado'
+        return 'Activo'
+
+    def get_finalizado(self, obj):
+        """Un adelanto se considera finalizado cuando su horario ya pasó."""
+        from datetime import datetime
+        if not obj.estado:
+            return True
+        fin = datetime.combine(obj.fecha_adelanto, obj.hora_fin)
+        return datetime.now() >= fin
+
+    def get_modulos_detalle(self, obj):
+        """Módulos completos contenidos en la franja horaria del adelanto."""
+        if not obj.hora_inicio or not obj.hora_fin:
+            return []
+        return [
+            {
+                'id_modulo': m.id_modulo,
+                'nombre': m.nombre,
+                'hora_inicio': str(m.hora_inicio)[:5],
+                'hora_fin': str(m.hora_fin)[:5],
+            }
+            for m in Modulos.objects.filter(
+                hora_inicio__gte=obj.hora_inicio,
+                hora_fin__lte=obj.hora_fin,
+            ).order_by('hora_inicio')
+        ]
+
+    def validate(self, attrs):
+        from datetime import datetime
+        from django.db.models import Q
+
+        id_curso = attrs.get('id_curso') or (self.instance.id_curso if self.instance else None)
+        id_materia = attrs.get('id_materia') or (self.instance.id_materia if self.instance else None)
+        id_docente = attrs.get('id_docente') or (self.instance.id_docente if self.instance else None)
+        fecha = attrs.get('fecha_adelanto') or (self.instance.fecha_adelanto if self.instance else None)
+
+        # --- Módulos seleccionados → hora_inicio / hora_fin calculados ---
+        modulos_ids = attrs.pop('modulos', None)
+        if modulos_ids is not None:
+            mods = sorted(
+                Modulos.objects.filter(id_modulo__in=modulos_ids),
+                key=lambda m: m.hora_inicio,
+            )
+            if len(mods) != len(set(modulos_ids)):
+                raise serializers.ValidationError(
+                    {'modulos': 'Uno o más módulos seleccionados no existen.'}
+                )
+            if not mods:
+                raise serializers.ValidationError(
+                    {'modulos': 'Debe seleccionar al menos un módulo.'}
+                )
+            for anterior, siguiente in zip(mods, mods[1:]):
+                if siguiente.hora_inicio != anterior.hora_fin:
+                    raise serializers.ValidationError(
+                        {'modulos': 'Los módulos seleccionados deben ser consecutivos.'}
+                    )
+            attrs['hora_inicio'] = mods[0].hora_inicio
+            attrs['hora_fin'] = mods[-1].hora_fin
+
+        hora_inicio = attrs.get('hora_inicio') or (self.instance.hora_inicio if self.instance else None)
+        hora_fin = attrs.get('hora_fin') or (self.instance.hora_fin if self.instance else None)
+
+        # --- Relación docente + curso + materia (asignación real) ---
+        if id_docente is not None and id_curso is not None and id_materia is not None:
+            if not CursoMateria.objects.filter(
+                id_curso=id_curso,
+                id_materia=id_materia,
+                id_docente=id_docente,
+                estado=True,
+            ).exists():
+                raise serializers.ValidationError(
+                    {'non_field_errors': [
+                        'El docente no tiene asignada esa materia en ese curso.'
+                    ]}
+                )
+
+        if hora_inicio is not None and hora_fin is not None:
+            if isinstance(hora_inicio, str):
+                hora_inicio = datetime.strptime(hora_inicio, '%H:%M').time()
+            if isinstance(hora_fin, str):
+                hora_fin = datetime.strptime(hora_fin, '%H:%M').time()
+            if hora_inicio >= hora_fin:
+                raise serializers.ValidationError(
+                    {'hora_fin': 'La hora de fin debe ser posterior a la hora de inicio.'}
+                )
+            attrs['hora_inicio'] = hora_inicio
+            attrs['hora_fin'] = hora_fin
+
+        # --- Solapamiento: mismo curso, misma fecha, franja que se superpone ---
+        if id_curso is not None and fecha is not None and hora_inicio is not None and hora_fin is not None:
+            qs = AdelantoHoras.objects.filter(
+                id_curso=id_curso,
+                fecha_adelanto=fecha,
+                estado=True,
+            ).filter(
+                Q(hora_inicio__lt=hora_fin) & Q(hora_fin__gt=hora_inicio)
+            )
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {'non_field_errors': [
+                        'Los módulos seleccionados se superponen con otro adelanto existente para este curso.'
+                    ]}
                 )
         return attrs
 

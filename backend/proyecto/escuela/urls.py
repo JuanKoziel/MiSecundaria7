@@ -41,6 +41,7 @@ router.register(r'tipos-accion', views.TipoAccionViewSet)
 router.register(r'historial', views.HistorialCambioViewSet)
 router.register(r'eventos-institucionales', views.EventoInstitucionalViewSet, basename='eventos-institucionales')
 router.register(r'libro-temas', views.LibroTemaViewSet)
+router.register(r'adelantos-horas', views.AdelantoHorasViewSet)
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),

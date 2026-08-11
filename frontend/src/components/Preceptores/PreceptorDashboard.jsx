@@ -13,6 +13,7 @@ import Horarios from '../Administracion/horarios';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
+import AdelantosHoras from '../Shared/AdelantosHoras';
 import PanelPreceptor from './PanelPreceptor';
 import { useData } from '../../context/DataContext';
 
@@ -79,6 +80,13 @@ function PreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Horarios />
+          </div>
+        );
+
+      case 'adelantos-horas':
+        return (
+          <div className="view-section active">
+            <AdelantosHoras />
           </div>
         );
 

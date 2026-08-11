@@ -6,6 +6,7 @@ export const menuItems = [
   { id: 'jefes-preceptores', label: 'Jefes de Preceptores', icon: 'fa-user-shield' },
   { id: 'administradores', label: 'Administradores', icon: 'fa-user-shield', directorOnly: true },
   { id: 'horarios', label: 'Horarios', icon: 'fa-clock' },
+  { id: 'adelantos-horas', label: 'Adelantos de Horas', icon: 'fa-forward' },
   { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },
   { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
   { id: 'notas', label: 'Notas', icon: 'fa-clipboard-list' },

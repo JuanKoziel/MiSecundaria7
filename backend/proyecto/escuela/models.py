@@ -858,6 +858,52 @@ class EventoInstitucional(models.Model):
         return f'{self.tipo_evento} - {self.fecha}'
 
 
+class AdelantoHoras(models.Model):
+    """Autorización excepcional de un preceptor para adelantar una clase.
+
+    Tabla existente `adelantos_horas`. Un adelanto habilita a un docente a
+    dictar una materia (curso + materia) en una fecha y franja horaria
+    determinadas, sin modificar el horario original (`horarios`).
+    """
+
+    id_adelanto = models.AutoField(primary_key=True)
+    id_curso = models.ForeignKey(
+        Curso, on_delete=models.CASCADE, db_column='id_curso',
+        related_name='adelantos_horas',
+    )
+    id_materia = models.ForeignKey(
+        Materia, on_delete=models.CASCADE, db_column='id_materia',
+        related_name='adelantos_horas',
+    )
+    id_docente = models.ForeignKey(
+        Docente, on_delete=models.CASCADE, db_column='id_docente',
+        related_name='adelantos_horas',
+    )
+    fecha_adelanto = models.DateField()
+    hora_inicio = models.TimeField()
+    hora_fin = models.TimeField()
+    mantener_horario_original = models.BooleanField(default=False)
+    motivo = models.CharField(max_length=255, blank=True, null=True)
+    estado = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(blank=True, null=True)
+    id_usuario_autorizador = models.ForeignKey(
+        Usuario, on_delete=models.CASCADE, db_column='id_usuario_autorizador',
+        related_name='adelantos_autorizados',
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+
+    objects = ActivoManager()
+    all_objects = models.Manager()
+
+    class Meta:
+        managed = False
+        db_table = 'adelantos_horas'
+
+    def __str__(self):
+        return f'Adelanto {self.id_adelanto} - {self.id_materia}'
+
+
 class LibroTema(models.Model):
     """Registro del Libro de Temas por materia (tabla existente en la base).
 

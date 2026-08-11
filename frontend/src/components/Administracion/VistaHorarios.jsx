@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
-import { getCursoMateria, getHorarios, getHorariosEspeciales, getSuplencias } from '../../services/api';
+import { getCursoMateria, getHorarios, getHorariosEspeciales, getSuplencias, getAdelantosHoras } from '../../services/api';
 import { suplenciasActivasLista } from '../../utils/suplencias';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -339,6 +339,7 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
   const [nombreCursoDisplay, setNombreCursoDisplay] = useState('');
   const [turno, setTurno] = useState('');
   const [preceptorNombre, setPreceptorNombre] = useState(null);
+  const [adelantos, setAdelantos] = useState([]);
 
   const modulosSorted = useMemo(() => {
     if (!Array.isArray(modulos)) return [];
@@ -360,6 +361,7 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
       setNombreCursoDisplay('');
       setTurno('');
       setPreceptorNombre(null);
+      setAdelantos([]);
       return;
     }
     setCargando(true);
@@ -373,12 +375,15 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
       getHorarios({ curso: cursoSeleccionado }),
       getHorariosEspeciales({ curso: cursoSeleccionado }),
       getSuplencias({ curso: cursoSeleccionado }),
+      getAdelantosHoras({ curso: cursoSeleccionado, estado: 1 }),
     ])
-      .then(([cmData, horData, heData, spData]) => {
+      .then(([cmData, horData, heData, spData, adData]) => {
         const cmList = Array.isArray(cmData) ? cmData : cmData.results || [];
         const horList = Array.isArray(horData) ? horData : horData.results || [];
         const heList = Array.isArray(heData) ? heData : heData.results || [];
         const spList = Array.isArray(spData) ? spData : spData.results || [];
+        const adList = Array.isArray(adData) ? adData : adData.results || [];
+        setAdelantos(adList);
 
         const materiasLookup = {};
         const docentesLookup = {};
@@ -515,6 +520,61 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
             turno={turno}
             preceptorNombre={preceptorNombre}
           />
+
+          {adelantos.length > 0 && (
+            <div className="card" style={{ marginTop: '20px' }}>
+              <div className="card-header">
+                <h3 className="m-0">Adelantos de horas del curso</h3>
+              </div>
+              <div className="card-body">
+                <div className="table-responsive">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Materia</th>
+                        <th>Docente</th>
+                        <th>Fecha</th>
+                        <th>Horario</th>
+                        <th>Horario original</th>
+                        <th>Motivo</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adelantos.map((a) => (
+                        <tr key={a.id_adelanto}>
+                          <td>
+                            <span className="badge badge-warning" style={{ marginRight: '6px' }}>Adelanto de horas</span>
+                            {a.materia_nombre || '—'}
+                          </td>
+                          <td>{a.docente_nombre || '—'}</td>
+                          <td>{a.fecha_adelanto || '—'}</td>
+                          <td>
+                            {a.hora_inicio ? `${String(a.hora_inicio).slice(0, 5)} a ${String(a.hora_fin).slice(0, 5)}` : '—'}
+                          </td>
+                          <td>
+                            <span className={`badge ${a.mantener_horario_original ? 'badge-success' : 'badge-warning'}`}>
+                              {a.mantener_horario_original ? 'Se mantiene' : 'Cancelado'}
+                            </span>
+                          </td>
+                          <td>{a.motivo || '—'}</td>
+                          <td>
+                            {!a.estado ? (
+                              <span className="badge badge-neutral">Eliminado</span>
+                            ) : a.finalizado ? (
+                              <span className="badge badge-neutral">Finalizado</span>
+                            ) : (
+                              <span className="badge badge-success">Activo</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

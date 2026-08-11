@@ -3005,3 +3005,161 @@ tbody tr:last-child td {
         transform: translateX(110%);
     }
 }
+
+/* ===== Formulario de adelantos de horas ===== */
+.filtro-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid var(--table-border);
+    border-radius: 10px;
+    background: var(--table-row-bg);
+    color: var(--text-light);
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
+    width: fit-content;
+    transition: var(--transition);
+}
+.filtro-checkbox:hover {
+    border-color: var(--primary-color);
+}
+.filtro-checkbox input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--primary-color);
+}
+
+.modulos-grilla {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+@media (max-width: 992px) {
+    .modulos-grilla { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+    .modulos-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+    .modulos-grilla { grid-template-columns: 1fr; }
+}
+
+.modulo-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.modulo-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+.modulo-card input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+    flex-shrink: 0;
+    accent-color: var(--primary-color);
+}
+.modulo-card--checked,
+.modulo-card--checked:hover {
+    background: rgba(79, 70, 229, 0.28);
+    border-color: #4f46e5;
+    box-shadow: inset 0 0 0 1px #4f46e5;
+}
+.modulo-card__info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.modulo-card__nombre {
+    color: #f1f5f9;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.modulo-card__horario {
+    color: #cbd5e1;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.opcion-radio {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.opcion-radio:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+.opcion-radio input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0 0;
+    padding: 0;
+    flex-shrink: 0;
+    accent-color: var(--primary-color);
+}
+.opcion-radio--checked,
+.opcion-radio--checked:hover {
+    background: rgba(79, 70, 229, 0.28);
+    border-color: #4f46e5;
+    box-shadow: inset 0 0 0 1px #4f46e5;
+}
+.opcion-radio__contenido {
+    display: block;
+    flex: 1;
+    min-width: 0;
+}
+.opcion-radio__titulo {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #f1f5f9;
+}
+.opcion-radio__descripcion {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #cbd5e1;
+}
+.adelanto-aviso {
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+.adelanto-aviso--ok {
+    background: #e6f7e6;
+    color: #1a7f37;
+}
+.adelanto-aviso--warn {
+    background: #fff3cd;
+    color: #856404;
+}
+.adelanto-etiqueta {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #cbd5e1;
+}

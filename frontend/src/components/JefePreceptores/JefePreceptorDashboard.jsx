@@ -15,6 +15,7 @@ import Notificaciones from '../Notificaciones';
 import AdministracionPreceptores from './AdministracionPreceptores';
 import EstadisticasPreceptoria from './EstadisticasPreceptoria';
 import Historial from '../Administracion/historial';
+import AdelantosHoras from '../Shared/AdelantosHoras';
 import { useData } from '../../context/DataContext';
 
 function JefePreceptorDashboard({ user, onLogout }) {
@@ -74,6 +75,13 @@ function JefePreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Asistencias {...filtrosProps} readOnly />
+          </div>
+        );
+
+      case 'adelantos-horas':
+        return (
+          <div className="view-section active">
+            <AdelantosHoras />
           </div>
         );
 
