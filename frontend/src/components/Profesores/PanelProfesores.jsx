@@ -8,6 +8,7 @@ import PanelPlanif from './PanelPlanif';
 import PanelLibroTemas from './PanelLibroTemas';
 import PanelAsistencia from './PanelAsistencia';
 import PanelActividades from './PanelActividades';
+import Actas from '../Preceptores/actas';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
@@ -23,7 +24,21 @@ function PanelProfesores({ user, onLogout }) {
   const [seccionActiva, setSeccionActiva] = useState('docente');
   const [cursoComunicados, setCursoComunicados] = useState('');
   const [cursoDiagnosticos, setCursoDiagnosticos] = useState('');
+  const [anioActas, setAnioActas] = useState('');
+  const [cursoActas, setCursoActas] = useState('');
   const [suplencias, setSuplencias] = useState([]);
+
+  const handleAnioActasChange = (nuevoAnio) => {
+    setAnioActas(nuevoAnio);
+    setCursoActas('');
+  };
+
+  const actasFiltrosProps = {
+    anioLectivo: anioActas,
+    curso: cursoActas,
+    onAnioChange: handleAnioActasChange,
+    onCursoChange: setCursoActas,
+  };
 
   useEffect(() => {
     let activo = true;
@@ -132,7 +147,7 @@ function PanelProfesores({ user, onLogout }) {
           materiaSeleccionada={materiaSeleccionada}
         />
 
-        {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && seccionActiva !== 'comunicados' && seccionActiva !== 'info' && seccionActiva !== 'calendario' && (
+        {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && seccionActiva !== 'comunicados' && seccionActiva !== 'info' && seccionActiva !== 'calendario' && seccionActiva !== 'actas' && (
           <div className="card">
             <div className="filter-row">
               <div className="form-group-filter">
@@ -257,6 +272,10 @@ function PanelProfesores({ user, onLogout }) {
         ) : seccionActiva === 'docente' ? (
           <div className="view-section active">
             <PanelDocente miDocente={miDocente} mapSuplencias={mapSuplencias} />
+          </div>
+        ) : seccionActiva === 'actas' ? (
+          <div className="view-section active">
+            <Actas {...actasFiltrosProps} />
           </div>
         ) : cursoId && materiaSeleccionada && cursoMateriaActivo ? (
           <div>

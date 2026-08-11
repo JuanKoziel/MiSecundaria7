@@ -1684,6 +1684,10 @@ class ActaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Acta
         fields = '__all__'
+        # El creador NO es editable por el cliente: el backend lo asigna en
+        # `perform_create` con el usuario autenticado real. Evita suplantar
+        # a otro usuario como autor del acta.
+        read_only_fields = ('id_usuario_creador',)
 
     def get_creador_nombre(self, obj):
         if obj.id_usuario_creador:

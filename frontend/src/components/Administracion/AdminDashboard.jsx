@@ -18,11 +18,27 @@ import CalendarioInstitucional from './CalendarioInstitucional';
 import Historial from './historial';
 import AdelantosHoras from '../Shared/AdelantosHoras';
 import PanelAdmin from './PanelAdmin';
+import Actas from '../Preceptores/actas';
 import { getDirectivos } from '../../services/api';
 
 function AdminDashboard({ user, onLogout }) {
   const [view, setView] = useState('perfil');
   const [directivos, setDirectivos] = useState([]);
+
+  const [anioLectivo, setAnioLectivo] = useState('');
+  const [curso, setCurso] = useState('');
+
+  const handleAnioChange = (nuevoAnio) => {
+    setAnioLectivo(nuevoAnio);
+    setCurso('');
+  };
+
+  const filtrosProps = {
+    anioLectivo,
+    curso,
+    onAnioChange: handleAnioChange,
+    onCursoChange: setCurso,
+  };
 
   useEffect(() => {
     getDirectivos()
@@ -64,6 +80,8 @@ function AdminDashboard({ user, onLogout }) {
         return <Suplencias />;
       case 'historial':
         return <Historial />;
+      case 'actas':
+        return <Actas {...filtrosProps} />;
       case 'info':
         return <DiagnosticosView userRole={user.role === 'director' ? 'director' : 'admin'} />;
       case 'administradores':

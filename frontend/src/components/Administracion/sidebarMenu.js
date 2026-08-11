@@ -15,6 +15,7 @@ export const menuItems = [
   { id: 'materias', label: 'Materias', icon: 'fa-book' },
   { id: 'suplencias', label: 'Suplencias Docentes', icon: 'fa-user-clock', roles: ['admin', 'director'] },
   { id: 'historial', label: 'Historial de Cambios', icon: 'fa-history', roles: ['admin', 'director'] },
+  { id: 'actas', label: 'Actas', icon: 'fa-file-signature' },
 
   { id: 'info', label: 'Información General', icon: 'fa-info-circle' },
   { id: 'notificaciones', label: 'Notificaciones', icon: 'fa-bell' },

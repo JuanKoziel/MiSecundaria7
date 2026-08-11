@@ -3101,7 +3101,39 @@ class TipoActaViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TipoActaSerializer
 
 
-class ActaViewSet(HistorialMixin, viewsets.ModelViewSet):
+# Roles autorizados para crear actas (y sus relaciones). Admin y Director
+# no crean actas desde el sistema: solo visualizan y gestionan las
+# existentes. Familia y Alumno solo tienen acceso de lectura.
+ROLES_CREAR_ACTA = ('docente', 'preceptor', 'jefe_preceptores')
+
+
+class ActaPropiedadMixin:
+    """Helpers de roles/propiedad compartidos por `ActaViewSet` y sus
+    relaciones (acta_alumno, acta_curso, acta_docente)."""
+
+    def _roles_usuario(self):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        return get_roles_for_usuario(username) if username else []
+
+    def _usuario_actual(self):
+        """Usuario del sistema (`usuarios`) correspondiente al usuario
+        autenticado (request.user). No se asume que `request.user.id`
+        coincida con `usuarios.id_usuario`."""
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        if not username:
+            return None
+        return Usuario.objects.filter(usuario=username).first()
+
+    def _check_acta_owner_permission(self, acta):
+        roles = self._roles_usuario()
+        if 'admin' in roles or 'director' in roles:
+            return
+        usuario_obj = self._usuario_actual()
+        if not usuario_obj or acta.id_usuario_creador_id != usuario_obj.id_usuario:
+            raise PermissionDenied("Solo puedes modificar o eliminar tus propias actas.")
+
+
+class ActaViewSet(HistorialMixin, ActaPropiedadMixin, viewsets.ModelViewSet):
     queryset = Acta.objects.select_related(
         'id_usuario_creador', 'id_tipo_acta',
     ).all()
@@ -3131,14 +3163,19 @@ class ActaViewSet(HistorialMixin, viewsets.ModelViewSet):
             qs = qs.filter(id_acta__in=acta_ids)
         return qs
 
-    def _check_acta_owner_permission(self, acta):
-        username = self.request.user.username if self.request.user.is_authenticated else None
-        roles = get_roles_for_usuario(username) if username else []
+    def perform_create(self, serializer):
+        roles = self._roles_usuario()
         if 'admin' in roles or 'director' in roles:
-            return
-        usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
-        if not usuario_obj or acta.id_usuario_creador_id != usuario_obj.id_usuario:
-            raise PermissionDenied("Solo puedes modificar o eliminar tus propias actas.")
+            raise PermissionDenied("Admin y Director no crean actas desde el sistema.")
+        if not any(r in roles for r in ROLES_CREAR_ACTA):
+            raise PermissionDenied("Tu rol no tiene permiso para crear actas.")
+        usuario = self._usuario_actual()
+        if not usuario:
+            raise PermissionDenied("No se pudo identificar tu usuario en el sistema.")
+        # El creador real es el usuario autenticado; se ignora cualquier
+        # valor de `id_usuario_creador` enviado por el cliente.
+        serializer.save(id_usuario_creador=usuario)
+        self._historial_alta(serializer)
 
     def perform_update(self, serializer):
         self._check_acta_owner_permission(serializer.instance)
@@ -3149,17 +3186,55 @@ class ActaViewSet(HistorialMixin, viewsets.ModelViewSet):
         super().perform_destroy(instance)
 
 
-class ActaAlumnoViewSet(viewsets.ModelViewSet):
+class ActaRelacionMixin(ActaPropiedadMixin):
+    """Controles para las relaciones acta-alumno/curso/docente.
+
+    Estas relaciones no deben servir como vía alternativa para modificar un
+    acta ajena: crear, modificar o eliminar una relación exige los mismos
+    permisos que la acta de la que cuelga (Admin/Director → cualquier acta;
+    propietario → sus propias actas; el resto → rechazado)."""
+
+    def _acta_destino(self, serializer):
+        acta = serializer.validated_data.get('id_acta')
+        if acta is None:
+            acta = getattr(serializer.instance, 'id_acta', None)
+        return acta
+
+    def perform_create(self, serializer):
+        roles = self._roles_usuario()
+        if 'admin' in roles or 'director' in roles:
+            raise PermissionDenied("Admin y Director no crean actas desde el sistema.")
+        if not any(r in roles for r in ROLES_CREAR_ACTA):
+            raise PermissionDenied("Tu rol no tiene permiso para crear relaciones de actas.")
+        acta = self._acta_destino(serializer)
+        if acta is None:
+            raise PermissionDenied("La relación debe estar asociada a una acta.")
+        self._check_acta_owner_permission(acta)
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        acta = self._acta_destino(serializer)
+        if acta is None:
+            raise PermissionDenied("No se pudo identificar el acta asociada.")
+        self._check_acta_owner_permission(acta)
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        self._check_acta_owner_permission(instance.id_acta)
+        super().perform_destroy(instance)
+
+
+class ActaAlumnoViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     queryset = ActaAlumno.objects.select_related('id_acta', 'id_alumno').all()
     serializer_class = ActaAlumnoSerializer
 
 
-class ActaCursoViewSet(viewsets.ModelViewSet):
+class ActaCursoViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     queryset = ActaCurso.objects.select_related('id_acta', 'id_curso').all()
     serializer_class = ActaCursoSerializer
 
 
-class ActaDocenteViewSet(viewsets.ModelViewSet):
+class ActaDocenteViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     queryset = ActaDocente.objects.select_related('id_acta', 'id_docente').all()
     serializer_class = ActaDocenteSerializer
 

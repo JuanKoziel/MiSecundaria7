@@ -144,7 +144,7 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
   );
 }
 
-function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = false }) {
+function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   const {
     actas: actasCurso,
     actasAlumno,
@@ -159,8 +159,17 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
   const { user } = useAuth();
   const toast = useToast();
 
+  const esAdminODirector = Array.isArray(user?.roles) &&
+    (user.roles.includes('admin') || user.roles.includes('director'));
+
+  const puedeCrearActa = Array.isArray(user?.roles) &&
+    !esAdminODirector &&
+    (user.roles.includes('docente') ||
+      user.roles.includes('preceptor') ||
+      user.roles.includes('jefe_preceptores'));
+
   const canEditActa = (acta) => {
-    if (!ownerOnly) return true;
+    if (esAdminODirector) return true;
     return acta.id_usuario_creador != null && acta.id_usuario_creador === user?.id;
   };
 
@@ -237,7 +246,6 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
       fecha: payload.fecha,
       descripcion: payload.descripcion,
       id_tipo_acta: 1,
-      id_usuario_creador: user?.id || 1,
       ...(rutaArchivo ? { ruta_archivo: rutaArchivo } : {}),
     };
 
@@ -383,11 +391,13 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
         </div>
       )}
 
-      <div className="flex-row--end mb-16">
-        <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
-          <i className="fas fa-plus" aria-hidden="true" /> Nueva Acta
-        </button>
-      </div>
+      {puedeCrearActa && (
+        <div className="flex-row--end mb-16">
+          <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
+            <i className="fas fa-plus" aria-hidden="true" /> Nueva Acta
+          </button>
+        </div>
+      )}
 
       {showNewForm && (
         <FormActa

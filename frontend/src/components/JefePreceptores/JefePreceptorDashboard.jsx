@@ -88,7 +88,7 @@ function JefePreceptorDashboard({ user, onLogout }) {
       case 'actas':
         return (
           <div className="view-section active">
-            <Actas {...filtrosProps} ownerOnly />
+            <Actas {...filtrosProps} />
           </div>
         );
 

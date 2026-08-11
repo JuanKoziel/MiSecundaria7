@@ -6,6 +6,7 @@ export const menuItems = [
   { id: 'libro-temas', label: 'Libro de Temas', icon: 'fa-book-open' },
   { id: 'actividades', label: 'Actividades', icon: 'fa-tasks' },
   { id: 'asistencia', label: 'Asistencia', icon: 'fa-user-check' },
+  { id: 'actas', label: 'Actas', icon: 'fa-file-signature' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
   { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
   { id: 'notificaciones', label: 'Notificaciones', icon: 'fa-bell' },
