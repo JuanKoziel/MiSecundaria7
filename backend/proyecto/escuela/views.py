@@ -1117,7 +1117,7 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
 
 
 class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
-    queryset = Docente.objects.select_related('id_usuario').all()
+    queryset = Docente.objects.select_related('id_usuario').prefetch_related('ddjj_docente').all()
     serializer_class = DocenteSerializer
     historial_tabla = 'docentes'
     historial_soft_delete = True
@@ -1482,7 +1482,12 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
 
 
 class PreceptorViewSet(HistorialMixin, viewsets.ModelViewSet):
-    queryset = Preceptor.objects.select_related('id_usuario').all()
+    queryset = Preceptor.objects.select_related('id_usuario').prefetch_related(
+        models.Prefetch(
+            'curso_set',
+            queryset=Curso.objects.order_by('nombre_curso').select_related('id_ciclo'),
+        ),
+    ).all()
     serializer_class = PreceptorSerializer
     historial_tabla = 'preceptores'
     historial_soft_delete = True
@@ -1557,7 +1562,12 @@ class DirectivoViewSet(HistorialMixin, viewsets.ModelViewSet):
 
 
 class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
-    queryset = PadreTutor.objects.select_related('id_usuario').all()
+    queryset = PadreTutor.objects.select_related('id_usuario').prefetch_related(
+        models.Prefetch(
+            'alumno_set',
+            queryset=Alumno.objects.select_related('id_curso', 'id_curso__id_ciclo'),
+        ),
+    ).all()
     serializer_class = PadreTutorSerializer
     historial_tabla = 'tutores'
     historial_soft_delete = True
@@ -1652,7 +1662,12 @@ class CicloLectivoViewSet(viewsets.ModelViewSet):
 
 
 class CursoViewSet(HistorialMixin, viewsets.ModelViewSet):
-    queryset = Curso.objects.select_related('id_preceptor', 'id_ciclo').all()
+    queryset = Curso.objects.select_related('id_preceptor', 'id_ciclo').prefetch_related(
+        models.Prefetch(
+            'cursomateria_set__horario_set',
+            queryset=Horario.objects.select_related('id_modulo'),
+        ),
+    ).all()
     serializer_class = CursoSerializer
     permission_classes = [IsAuthenticated]
     historial_tabla = 'cursos'
@@ -1728,7 +1743,7 @@ class MateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
 class CursoMateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = CursoMateria.objects.select_related(
         'id_curso', 'id_materia',
-    ).prefetch_related('id_docente').all()
+    ).prefetch_related('id_docente', 'horario_set', 'horariosespeciales_set').all()
     serializer_class = CursoMateriaSerializer
     permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
     historial_tabla = 'asignaciones_cursos'
@@ -1795,6 +1810,19 @@ class SuplenciaDocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
             qs = qs.filter(id_docente_suplente=docente)
         if estado not in (None, ''):
             qs = qs.filter(estado=estado)
+        hoy = timezone.localdate()
+        qs = qs.prefetch_related(
+            models.Prefetch(
+                'id_curso_materia__suplencias',
+                queryset=SuplenciaDocente.objects.filter(
+                    estado=True,
+                    fecha_inicio__lte=hoy,
+                    fecha_fin__gte=hoy,
+                ).select_related('id_docente_suplente', 'id_curso_materia')
+                .order_by('-nivel', '-fecha_inicio'),
+                to_attr='_suplencias_activas',
+            ),
+        )
         return qs
 
     @action(detail=True, methods=['post'], url_path='finalizar')
@@ -1902,7 +1930,10 @@ class ModuloViewSet(viewsets.ModelViewSet):
 
 
 class HorarioEspecialViewSet(viewsets.ModelViewSet):
-    queryset = HorariosEspeciales.objects.select_related('id_curso_materia').all()
+    queryset = HorariosEspeciales.objects.select_related('id_curso_materia').prefetch_related(
+        'id_curso_materia__id_curso',
+        'id_curso_materia__id_materia',
+    ).all()
     serializer_class = HorarioEspecialSerializer
 
     def get_queryset(self):
@@ -1962,7 +1993,11 @@ class HorarioEspecialViewSet(viewsets.ModelViewSet):
 
 
 class HorarioViewSet(viewsets.ModelViewSet):
-    queryset = Horario.objects.select_related('id_curso_materia', 'id_modulo').all()
+    queryset = Horario.objects.select_related('id_curso_materia', 'id_modulo').prefetch_related(
+        'id_curso_materia__id_curso',
+        'id_curso_materia__id_materia',
+        'id_curso_materia__id_docente',
+    ).all()
     serializer_class = HorarioSerializer
 
     def get_queryset(self):
@@ -3006,7 +3041,11 @@ def _eventos_a_reemplazar(nuevo_alcance, nueva_fecha, nueva_hora_inicio, nueva_h
 
 
 class EventoInstitucionalViewSet(HistorialMixin, viewsets.ModelViewSet):
-    queryset = EventoInstitucional.objects.all()
+    queryset = EventoInstitucional.objects.prefetch_related(
+        'id_usuario_creador',
+        'id_usuario_creador__preceptor',
+        'id_usuario_creador__directivo',
+    ).all()
     serializer_class = EventoInstitucionalSerializer
     permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
     historial_tabla = 'eventos_institucionales'
@@ -3779,7 +3818,7 @@ class TipoAccionViewSet(viewsets.ReadOnlyModelViewSet):
 class HistorialCambioViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = HistorialCambio.objects.select_related(
         'id_usuario', 'id_tipo_accion',
-    ).all()
+    ).prefetch_related('id_usuario__usuariorol_set__id_rol').all()
     serializer_class = HistorialCambioSerializer
     permission_classes = [IsAuthenticated, PuedeVerHistorial]
 

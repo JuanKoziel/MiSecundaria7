@@ -2,6 +2,8 @@ import unicodedata
 
 from rest_framework import serializers
 
+from django.utils import timezone
+
 from escuela.utils import normalizar_dni, obtener_docente_activo
 
 from escuela.models import (
@@ -417,7 +419,7 @@ class PadreTutorSerializer(serializers.ModelSerializer):
         return normalizar_dni(value)
 
     def get_alumnos(self, obj):
-        alumnos = Alumno.objects.filter(id_tutor=obj).select_related('id_curso', 'id_curso__id_ciclo')
+        alumnos = obj.alumno_set.all()
         return [
             {
                 'id_alumno': al.id_alumno,
@@ -432,7 +434,7 @@ class PadreTutorSerializer(serializers.ModelSerializer):
         ]
 
     def get_cantidad_alumnos(self, obj):
-        return Alumno.objects.filter(id_tutor=obj).count()
+        return len(obj.alumno_set.all())
 
     def get_estado_label(self, obj):
         if not obj.id_usuario:
@@ -564,7 +566,7 @@ class PreceptorSerializer(serializers.ModelSerializer):
         return normalizar_dni(value)
 
     def get_cursos_asignados(self, obj):
-        cursos = Curso.objects.filter(id_preceptor=obj).order_by('nombre_curso')
+        cursos = obj.curso_set.all()
         return [
             {
                 'id_curso': curso.id_curso,
@@ -983,7 +985,10 @@ class DocenteSerializer(serializers.ModelSerializer):
         return normalizar_dni(value)
 
     def _get_ddjj(self, obj):
-        return DdjjDocente.objects.filter(id_docente=obj).first()
+        try:
+            return obj.ddjj_docente
+        except DdjjDocente.DoesNotExist:
+            return None
 
     def get_ddjj_id(self, obj):
         ddjj = self._get_ddjj(obj)
@@ -1255,9 +1260,9 @@ class CursoSerializer(serializers.ModelSerializer):
         return None
 
     def get_turno_calculado(self, obj):
-        horarios = Horario.objects.filter(
-            id_curso_materia__id_curso=obj,
-        ).select_related('id_modulo')
+        horarios = []
+        for cm in obj.cursomateria_set.all():
+            horarios.extend(cm.horario_set.all())
         manana = 0
         tarde = 0
         for h in horarios:
@@ -1314,11 +1319,7 @@ class CursoMateriaSerializer(serializers.ModelSerializer):
         return None
 
     def get_horarios_count(self, obj):
-        from escuela.models import Horario, HorariosEspeciales
-        return (
-            Horario.objects.filter(id_curso_materia=obj).count() +
-            HorariosEspeciales.objects.filter(id_curso_materia=obj).count()
-        )
+        return len(obj.horario_set.all()) + len(obj.horariosespeciales_set.all())
 
     def create(self, validated_data):
         from escuela.utils import activar_o_crear
@@ -1419,13 +1420,42 @@ class SuplenciaDocenteSerializer(serializers.ModelSerializer):
         cm_id = getattr(obj, 'id_curso_materia_id', None)
         if not cm_id:
             return None
-        resultado = obtener_docente_activo(cm_id)
-        if not resultado.docente:
+        try:
+            cm = obj.id_curso_materia
+        except Exception:
+            return None
+        if cm is None:
+            return None
+        titular = cm.id_docente
+        activas = getattr(cm, '_suplencias_activas', None)
+        if activas is None:
+            activas = list(
+                SuplenciaDocente.objects
+                .filter(
+                    id_curso_materia_id=cm_id,
+                    estado=True,
+                    fecha_inicio__lte=timezone.localdate(),
+                    fecha_fin__gte=timezone.localdate(),
+                )
+                .order_by('-nivel', '-fecha_inicio')
+                .select_related('id_docente_suplente', 'id_curso_materia')
+            )
+        suplencia = activas[0] if activas else None
+        if suplencia:
+            docente = suplencia.id_docente_suplente
+            if not docente:
+                return None
+            return {
+                'id_docente': docente.id_docente,
+                'nombre': f'{docente.apellido}, {docente.nombre}',
+                'es_suplencia': True,
+            }
+        if not titular:
             return None
         return {
-            'id_docente': resultado.docente.id_docente,
-            'nombre': f'{resultado.docente.apellido}, {resultado.docente.nombre}',
-            'es_suplencia': resultado.es_suplencia,
+            'id_docente': titular.id_docente,
+            'nombre': f'{titular.apellido}, {titular.nombre}',
+            'es_suplencia': False,
         }
 
     def get_estado_label(self, obj):
@@ -1934,7 +1964,7 @@ class HistorialCambioSerializer(serializers.ModelSerializer):
         ]
 
     def get_roles_usuario(self, obj):
-        roles = UsuarioRol.objects.filter(id_usuario=obj.id_usuario).select_related('id_rol')
+        roles = obj.id_usuario.usuariorol_set.all()
         return [ur.id_rol.nombre_rol for ur in roles]
 
     def get_tabla_label(self, obj):
@@ -1963,15 +1993,21 @@ class EventoInstitucionalSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_creado_por_nombre(self, obj):
-        if obj.id_usuario_creador:
-            preceptor = Preceptor.objects.filter(id_usuario=obj.id_usuario_creador).first()
-            if preceptor:
-                return f'{preceptor.apellido}, {preceptor.nombre}'
-            admin = Directivo.objects.filter(id_usuario=obj.id_usuario_creador).first()
-            if admin:
-                return f'{admin.apellido}, {admin.nombre}'
-            return obj.id_usuario_creador.usuario
-        return None
+        if not obj.id_usuario_creador:
+            return None
+        try:
+            preceptor = obj.id_usuario_creador.preceptor
+        except Preceptor.DoesNotExist:
+            preceptor = None
+        if preceptor:
+            return f'{preceptor.apellido}, {preceptor.nombre}'
+        try:
+            admin = obj.id_usuario_creador.directivo
+        except Directivo.DoesNotExist:
+            admin = None
+        if admin:
+            return f'{admin.apellido}, {admin.nombre}'
+        return obj.id_usuario_creador.usuario
 
 
 # ---------- Libro de Temas ----------
@@ -2078,6 +2114,10 @@ class AdelantoHorasSerializer(serializers.ModelSerializer):
         """Módulos completos contenidos en la franja horaria del adelanto."""
         if not obj.hora_inicio or not obj.hora_fin:
             return []
+        modulos = self.context.get('_adelanto_modulos')
+        if modulos is None:
+            modulos = list(Modulos.objects.order_by('hora_inicio'))
+            self.context['_adelanto_modulos'] = modulos
         return [
             {
                 'id_modulo': m.id_modulo,
@@ -2085,10 +2125,9 @@ class AdelantoHorasSerializer(serializers.ModelSerializer):
                 'hora_inicio': str(m.hora_inicio)[:5],
                 'hora_fin': str(m.hora_fin)[:5],
             }
-            for m in Modulos.objects.filter(
-                hora_inicio__gte=obj.hora_inicio,
-                hora_fin__lte=obj.hora_fin,
-            ).order_by('hora_inicio')
+            for m in modulos
+            if m.hora_inicio is not None and m.hora_fin is not None
+            and m.hora_inicio >= obj.hora_inicio and m.hora_fin <= obj.hora_fin
         ]
 
     def validate(self, attrs):
