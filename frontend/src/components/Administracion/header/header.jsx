@@ -9,7 +9,7 @@ function Header({ user }) {
       </div>
 
       <div className="user-profile-info">
-        <span className="badge role-badge-display">{(user.role || user.roles?.[0] || '').toUpperCase()}</span>
+        <span className="badge role-badge-display">{(user.role || '').toUpperCase()}</span>
         <div className="user-avatar">{inicial}</div>
       </div>
     </header>

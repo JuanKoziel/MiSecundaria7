@@ -1,6 +1,7 @@
 import { menuItems } from '../sidebarMenu';
 import { useAuth } from '../../../context/AuthContext';
 import Logo from '../../Shared/Logo';
+import CambiarRolButton from '../../Shared/CambiarRolButton';
 
 function Sidebar({ setView, onLogout, view }) {
   const { user } = useAuth();
@@ -40,6 +41,7 @@ function Sidebar({ setView, onLogout, view }) {
       </div>
 
       <div className="sidebar-logout">
+        <CambiarRolButton />
         <button type="button" className="sidebar-menu-btn sidebar-logout-btn" onClick={onLogout}>
           <i className="fas fa-sign-out-alt" aria-hidden="true" />
           <span>Cerrar Sesión</span>

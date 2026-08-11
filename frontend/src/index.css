@@ -3327,3 +3327,90 @@ tbody tr:last-child td {
         opacity: 0.85;
     }
 }
+
+/* ==========================================================================
+   SELECCIÓN DE ROL
+   ========================================================================== */
+.rol-selector-card {
+    max-width: 520px;
+}
+
+.rol-selector-saludo {
+    margin-bottom: 20px;
+}
+
+.rol-selector-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 22px;
+}
+
+.rol-selector-card-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 16px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--card-bg);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: var(--transition);
+}
+
+.rol-selector-card-item:hover:not(:disabled) {
+    border-color: var(--primary-color);
+    background: rgba(253, 126, 20, 0.06);
+    transform: translateY(-1px);
+}
+
+.rol-selector-card-item:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.rol-selector-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(253, 126, 20, 0.12);
+    color: var(--primary-color);
+    font-size: 1.15rem;
+}
+
+.rol-selector-label {
+    flex: 1;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.rol-selector-cta {
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.rol-selector-logout {
+    display: flex;
+    justify-content: center;
+}
+
+.rol-sin-roles {
+    padding: 18px;
+    margin-bottom: 20px;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius);
+    background: #fdf3ee;
+    color: #b02a37;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+

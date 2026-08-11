@@ -6,13 +6,12 @@ import FamiliaDashboard from './components/Familia/FamiliaDashboard';
 import AdminDashboard from './components/Administracion/AdminDashboard';
 import AlumnoDashboard from './components/Alumno/AlumnoDashboard';
 import LoadingScreen from './components/Shared/LoadingScreen';
+import SeleccionRol from './components/Shared/SeleccionRol';
 import { useAuth } from './context/AuthContext';
 import { DataProvider, useData } from './context/DataContext';
 
-function Dashboard({ user, logout }) {
-  const role = user.role || user.roles?.[0] || '';
-
-  switch (role) {
+function Dashboard({ user, rolActivo, logout }) {
+  switch (rolActivo) {
     case 'preceptor':
       return <PreceptorDashboard user={user} onLogout={logout} />;
     case 'jefe_preceptores':
@@ -27,34 +26,22 @@ function Dashboard({ user, logout }) {
     case 'alumno':
       return <AlumnoDashboard user={user} onLogout={logout} />;
     default:
-      return (
-        <div className="login-container">
-          <div className="card" style={{ maxWidth: '480px', textAlign: 'center' }}>
-            <h2>Usuario sin panel asignado</h2>
-            <p style={{ color: 'var(--text-light)', margin: '16px 0 24px' }}>
-              El rol seleccionado no tiene un panel configurado.
-            </p>
-            <button type="button" className="btn btn-primary" onClick={logout}>
-              Volver al inicio
-            </button>
-          </div>
-        </div>
-      );
+      return null;
   }
 }
 
-function DashboardConDatos({ user, logout }) {
+function DashboardConDatos({ user, rolActivo, logout }) {
   const { loading, refreshing } = useData();
 
   if (loading && !refreshing) {
     return <LoadingScreen fixed text="Cargando el sistema" />;
   }
 
-  return <Dashboard user={user} logout={logout} />;
+  return <Dashboard user={user} rolActivo={rolActivo} logout={logout} />;
 }
 
 function App() {
-  const { user, loading, logout } = useAuth();
+  const { user, rolActivo, loading, logout } = useAuth();
 
   if (loading) {
     return <LoadingScreen fixed text="Iniciando sesión" />;
@@ -64,9 +51,13 @@ function App() {
     return <Login />;
   }
 
+  if (!rolActivo) {
+    return <SeleccionRol />;
+  }
+
   return (
     <DataProvider>
-      <DashboardConDatos user={user} logout={logout} />
+      <DashboardConDatos user={user} rolActivo={rolActivo} logout={logout} />
     </DataProvider>
   );
 }

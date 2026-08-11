@@ -702,6 +702,32 @@ def me_view(request):
     })
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def seleccionar_rol(request):
+    """Valida que el rol solicitado pertenezca al usuario autenticado.
+
+    El 'rol activo' es una elección de sesión del frontend (qué panel
+    mostrar). El backend autoriza cada recurso con los roles reales del
+    usuario en la base de datos, por lo que seleccionar un rol jamás
+    otorga permisos adicionales. Este endpoint solo garantiza que el
+    frontend no use un rol que el usuario no posee.
+    """
+    username = request.user.username
+    rol = request.data.get('rol')
+    roles = get_roles_for_usuario(username)
+    if rol not in roles:
+        return Response(
+            {'error': 'El rol solicitado no está asignado a tu usuario.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return Response({
+        'usuario': username,
+        'roles': roles,
+        'rol_activo': rol,
+    })
+
+
 # ---------- Suplencias docentes: helpers compartidos ----------
 
 def _materias_docente_ids(docente, fecha=None):

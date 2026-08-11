@@ -39,10 +39,20 @@ class UsuarioBackend:
 
 
 def get_roles_for_usuario(username):
-    """Devuelve los nombres de roles asignados a un usuario."""
+    """Devuelve los nombres de roles asignados a un usuario.
+
+    El resultado es determinista (orden alfabético por nombre de rol).
+    IMPORTANTE: el orden NO debe usarse para decidir el rol activo cuando
+    un usuario tiene varios roles; esa elección la hace el usuario en el
+    selector de rol del frontend.
+    """
     try:
         usuario = Usuario.objects.get(usuario=username)
     except Usuario.DoesNotExist:
         return []
-    roles = UsuarioRol.objects.filter(id_usuario=usuario).select_related('id_rol')
+    roles = (
+        UsuarioRol.objects.filter(id_usuario=usuario)
+        .select_related('id_rol')
+        .order_by('id_rol__nombre_rol')
+    )
     return [ur.id_rol.nombre_rol for ur in roles]

@@ -62,6 +62,11 @@ export async function getMe() {
   return data;
 }
 
+export async function seleccionarRol(rol) {
+  const { data } = await api.post('/rol-activo/', { rol });
+  return data;
+}
+
 export async function getAlumnos(params) {
   const { data } = await api.get('/alumnos/', { params });
   return data;
