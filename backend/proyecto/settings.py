@@ -109,8 +109,17 @@ DATABASES = {
         'OPTIONS': {
             'charset': 'utf8mb4',
         },
+        # Los modelos de `escuela` son managed=False y no tienen migraciones
+        # que creen tablas: el test DB se llena de estructura con el runner
+        # `escuela.test_runner.EscuelaDiscoverRunner`.
+        'TEST': {
+            'MIGRATE': False,
+        },
     }
 }
+
+# Runner custom: replica el esquema real en la base de testing (sin datos).
+TEST_RUNNER = 'escuela.test_runner.EscuelaDiscoverRunner'
 
 
 # Password validation
