@@ -1,5 +1,6 @@
 import { menuItems } from '../sidebarMenu';
 import { useAuth } from '../../../context/AuthContext';
+import Logo from '../../Shared/Logo';
 
 function Sidebar({ setView, onLogout, view }) {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ function Sidebar({ setView, onLogout, view }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <i className="fas fa-school" aria-hidden="true" />
+        <Logo />
         <span>MiSecundaria 7</span>
       </div>
 

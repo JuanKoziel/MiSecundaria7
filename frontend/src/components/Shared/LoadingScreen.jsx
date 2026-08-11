@@ -1,3 +1,5 @@
+import Logo from './Logo';
+
 export default function LoadingScreen({ text = 'Cargando', fixed = false, dark = false }) {
   return (
     <div
@@ -6,7 +8,7 @@ export default function LoadingScreen({ text = 'Cargando', fixed = false, dark =
       aria-live="polite"
     >
       <div className="loading-screen__logo">
-        <i className="fas fa-school" aria-hidden="true" />
+        <Logo />
       </div>
       <span className="loading-screen__text">{text}</span>
     </div>

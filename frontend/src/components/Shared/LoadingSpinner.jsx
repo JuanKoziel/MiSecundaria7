@@ -1,3 +1,5 @@
+import Logo from './Logo';
+
 export default function LoadingSpinner({ text = 'Cargando', size = 'md', dark = false, inline = false }) {
   return (
     <div
@@ -6,7 +8,7 @@ export default function LoadingSpinner({ text = 'Cargando', size = 'md', dark = 
       aria-live="polite"
     >
       <div className="loading-screen__logo">
-        <i className="fas fa-school" aria-hidden="true" />
+        <Logo />
       </div>
       {text && <span className="loading-screen__text">{text}</span>}
     </div>

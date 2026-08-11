@@ -1,10 +1,11 @@
 import { menuItems } from './sidebarMenu';
+import Logo from '../Shared/Logo';
 
 function Sidebar({ setView, onLogout, view }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <i className="fas fa-school" aria-hidden="true" />
+        <Logo />
         <span>MiSecundaria 7</span>
       </div>
 

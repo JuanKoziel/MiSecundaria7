@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import Logo from '../Shared/Logo';
 
 const REMEMBER_KEY = 'remembered_user';
 
@@ -39,7 +40,9 @@ function Login() {
   return (
     <div className="login-container">
       <div className="login-card">
-        <div className="login-icon">🏫</div>
+        <div className="login-icon">
+          <Logo />
+        </div>
 
         <h2>MiSecundaria 7</h2>
         <p>Ingresa tus credenciales para acceder</p>
