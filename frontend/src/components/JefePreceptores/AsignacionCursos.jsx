@@ -99,19 +99,22 @@ function AsignacionCursos() {
   };
 
   const handleQuitar = async (cursoId) => {
-    if (!confirmarEliminacion('¿Quitar este curso del preceptor?\n\nEsta acción no se puede deshacer.')) return;
-    setError('');
-    setSuccess('');
-    setGuardando(true);
-    try {
-      await updateCurso(cursoId, { id_preceptor: null });
-      toast.success('Curso quitado correctamente.');
-      await refreshData();
-    } catch (err) {
-      toast.error(`Error al quitar curso: ${mensajeError(err)}`);
-    } finally {
-      setGuardando(false);
-    }
+    await confirmarEliminacion('¿Quitar este curso del preceptor?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        setError('');
+        setSuccess('');
+        setGuardando(true);
+        try {
+          await updateCurso(cursoId, { id_preceptor: null });
+          toast.success('Curso quitado correctamente.');
+          await refreshData();
+        } catch (err) {
+          toast.error(`Error al quitar curso: ${mensajeError(err)}`);
+        } finally {
+          setGuardando(false);
+        }
+      },
+    });
   };
 
   return (

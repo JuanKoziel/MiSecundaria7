@@ -124,16 +124,18 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
   };
 
   const handleDelete = async (d) => {
-    if (confirmarEliminacion()) {
-      try {
-        await deleteDiagnosticoGrupal(d.id);
-        await refreshData();
-        toast.success('Diagnóstico eliminado correctamente.');
-      } catch (err) {
-        console.error('Error deleting diagnostico:', err);
-        toast.error('Error al eliminar el diagnóstico.');
-      }
-    }
+    await confirmarEliminacion(undefined, {
+      onConfirm: async () => {
+        try {
+          await deleteDiagnosticoGrupal(d.id);
+          await refreshData();
+          toast.success('Diagnóstico eliminado correctamente.');
+        } catch (err) {
+          console.error('Error deleting diagnostico:', err);
+          toast.error('Error al eliminar el diagnóstico.');
+        }
+      },
+    });
   };
 
   const handleCreate = async (e) => {

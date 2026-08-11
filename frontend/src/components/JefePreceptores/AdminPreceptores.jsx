@@ -10,6 +10,7 @@ import {
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
+import LoadingScreen from '../Shared/LoadingScreen';
 
 const formVacio = {
   usuario_nombre: '',
@@ -245,22 +246,24 @@ function AdminPreceptores() {
   };
 
   const handleDelete = async (preceptor) => {
-    if (!confirmarEliminacion(`Eliminar al preceptor ${preceptor.apellido}, ${preceptor.nombre}?\n\nEsta acción no se puede deshacer.`)) return;
-
-    setError('');
-    setSuccess('');
-    try {
-      await deletePreceptor(preceptor.id_preceptor, 'preceptor');
-      toast.success('Preceptor eliminado correctamente');
-      await fetchPreceptores();
-      await refreshData();
-    } catch (err) {
-      toast.error(`Error al eliminar preceptor: ${mensajeError(err)}`);
-    }
+    await confirmarEliminacion(`Eliminar al preceptor ${preceptor.apellido}, ${preceptor.nombre}?\n\nEsta acción no se puede deshacer.`, {
+      onConfirm: async () => {
+        setError('');
+        setSuccess('');
+        try {
+          await deletePreceptor(preceptor.id_preceptor, 'preceptor');
+          toast.success('Preceptor eliminado correctamente');
+          await fetchPreceptores();
+          await refreshData();
+        } catch (err) {
+          toast.error(`Error al eliminar preceptor: ${mensajeError(err)}`);
+        }
+      },
+    });
   };
 
   if (loading) {
-    return <div className="card">Cargando...</div>;
+    return <LoadingScreen text="Cargando preceptores" />;
   }
 
   const renderFormulario = () => (

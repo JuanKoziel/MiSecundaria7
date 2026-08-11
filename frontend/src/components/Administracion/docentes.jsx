@@ -259,16 +259,19 @@ function Docentes() {
   }, [docentes, searchTerm]);
 
   const handleEliminarDdjj = async (docente) => {
-    if (!confirmarEliminacion('¿Está seguro de eliminar esta D.D.J.J.?\n\nEsta acción no se puede deshacer.')) return;
-    try {
-      await deleteMiDdjjDocente(docente.id);
-      if (previewDocente?.id === docente.id) {
-        setPreviewDocente(null);
-      }
-      await refreshData();
-    } catch (error) {
-      toast.error(error.response?.data?.error || error.response?.data?.detail || 'No se pudo eliminar la DDJJ.');
-    }
+    await confirmarEliminacion('¿Está seguro de eliminar esta D.D.J.J.?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        try {
+          await deleteMiDdjjDocente(docente.id);
+          if (previewDocente?.id === docente.id) {
+            setPreviewDocente(null);
+          }
+          await refreshData();
+        } catch (error) {
+          toast.error(error.response?.data?.error || error.response?.data?.detail || 'No se pudo eliminar la DDJJ.');
+        }
+      },
+    });
   };
 
   return (

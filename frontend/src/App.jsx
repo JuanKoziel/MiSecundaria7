@@ -5,8 +5,9 @@ import JefePreceptorDashboard from './components/JefePreceptores/JefePreceptorDa
 import FamiliaDashboard from './components/Familia/FamiliaDashboard';
 import AdminDashboard from './components/Administracion/AdminDashboard';
 import AlumnoDashboard from './components/Alumno/AlumnoDashboard';
+import LoadingScreen from './components/Shared/LoadingScreen';
 import { useAuth } from './context/AuthContext';
-import { DataProvider } from './context/DataContext';
+import { DataProvider, useData } from './context/DataContext';
 
 function Dashboard({ user, logout }) {
   const role = user.role || user.roles?.[0] || '';
@@ -42,15 +43,21 @@ function Dashboard({ user, logout }) {
   }
 }
 
+function DashboardConDatos({ user, logout }) {
+  const { loading } = useData();
+
+  if (loading) {
+    return <LoadingScreen fixed text="Cargando el sistema" />;
+  }
+
+  return <Dashboard user={user} logout={logout} />;
+}
+
 function App() {
   const { user, loading, logout } = useAuth();
 
   if (loading) {
-    return (
-      <div className="login-container">
-        <p>Cargando...</p>
-      </div>
-    );
+    return <LoadingScreen fixed text="Iniciando sesión" />;
   }
 
   if (!user) {
@@ -59,7 +66,7 @@ function App() {
 
   return (
     <DataProvider>
-      <Dashboard user={user} logout={logout} />
+      <DashboardConDatos user={user} logout={logout} />
     </DataProvider>
   );
 }

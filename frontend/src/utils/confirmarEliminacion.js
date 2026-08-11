@@ -1,6 +1,18 @@
-const MENSAJE_DEFECTO = '¿Está seguro de que desea eliminar este registro?\n\nEsta acción no se puede deshacer.';
+let handler = null;
 
-function confirmarEliminacion(mensaje = MENSAJE_DEFECTO) {
+const MENSAJE_DEFECTO = '¿Está seguro de que desea eliminar este registro?';
+
+export function setConfirmHandler(fn) {
+  handler = fn;
+}
+
+async function confirmarEliminacion(mensaje = MENSAJE_DEFECTO, opciones = {}) {
+  if (handler) {
+    return handler({
+      message: mensaje || MENSAJE_DEFECTO,
+      ...opciones,
+    });
+  }
   return window.confirm(mensaje || MENSAJE_DEFECTO);
 }
 

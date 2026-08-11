@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { getSuplencias, createSuplencia, updateSuplencia, deleteSuplencia, finalizarSuplencia } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import LoadingSpinner from '../Shared/LoadingSpinner';
 
 const formVacio = {
   id_curso_materia: '',
@@ -287,36 +288,46 @@ function GestionSuplencias() {
   };
 
   const handleFinalizar = async (s) => {
-    if (!confirmarEliminacion(
+    await confirmarEliminacion(
       '¿Finalizar esta suplencia?\n\n' +
       'El docente titular volverá a tener el control de la materia.\n\n' +
       'La suplencia quedará registrada como finalizada.\n\n' +
-      '¿Desea continuar?'
-    )) return;
-    try {
-      await finalizarSuplencia(s.id_suplencia);
-      toast.success('Suplencia finalizada correctamente.');
-      await cargar();
-      await refreshData();
-    } catch (err) {
-      toast.error(mensajeError(err));
-    }
+      '¿Desea continuar?',
+      {
+        confirmText: 'Finalizar',
+        loadingText: 'Finalizando...',
+        onConfirm: async () => {
+          try {
+            await finalizarSuplencia(s.id_suplencia);
+            toast.success('Suplencia finalizada correctamente.');
+            await cargar();
+            await refreshData();
+          } catch (err) {
+            toast.error(mensajeError(err));
+          }
+        },
+      },
+    );
   };
 
   const handleEliminar = async (s) => {
-    if (!confirmarEliminacion(
+    await confirmarEliminacion(
       '¿Eliminar esta suplencia?\n\n' +
       'Se eliminará el registro de la lista.\n\n' +
-      '¿Desea continuar?'
-    )) return;
-    try {
-      await deleteSuplencia(s.id_suplencia);
-      toast.success('Suplencia eliminada correctamente.');
-      await cargar();
-      await refreshData();
-    } catch (err) {
-      toast.error(mensajeError(err));
-    }
+      '¿Desea continuar?',
+      {
+        onConfirm: async () => {
+          try {
+            await deleteSuplencia(s.id_suplencia);
+            toast.success('Suplencia eliminada correctamente.');
+            await cargar();
+            await refreshData();
+          } catch (err) {
+            toast.error(mensajeError(err));
+          }
+        },
+      },
+    );
   };
 
   return (
@@ -359,7 +370,7 @@ function GestionSuplencias() {
           </thead>
           <tbody>
             {cargando ? (
-              <tr><td colSpan={10} className="empty-state-message">Cargando suplencias...</td></tr>
+              <tr><td colSpan={10} className="empty-state-message"><LoadingSpinner text="Cargando suplencias..." size="sm" inline /></td></tr>
             ) : suplencias.length === 0 ? (
               <tr><td colSpan={10} className="empty-state-message">No hay suplencias registradas.</td></tr>
             ) : (

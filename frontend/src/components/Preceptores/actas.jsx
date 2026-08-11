@@ -342,20 +342,23 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, ownerOnly = fa
   };
 
   const handleEliminar = async (item, tipo) => {
-    if (!confirmarEliminacion('¿Seguro que querés eliminar esta acta?\n\nEsta acción no se puede deshacer.')) return;
-    setMensaje('');
-    try {
-      if (tipo === 'alumno') await deleteActaAlumno(item.id);
-      else if (tipo === 'docente') await deleteActaDocente(item.id);
-      else if (tipo === 'curso') await deleteActaCurso(item.id);
-      if (item.actaId) await deleteActa(item.actaId);
-      toast.success('Acta eliminada correctamente.');
-      await refreshData();
-    } catch (err) {
-      const data = err.response?.data;
-      const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-      toast.error(msg);
-    }
+    await confirmarEliminacion('¿Seguro que querés eliminar esta acta?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        setMensaje('');
+        try {
+          if (tipo === 'alumno') await deleteActaAlumno(item.id);
+          else if (tipo === 'docente') await deleteActaDocente(item.id);
+          else if (tipo === 'curso') await deleteActaCurso(item.id);
+          if (item.actaId) await deleteActa(item.actaId);
+          toast.success('Acta eliminada correctamente.');
+          await refreshData();
+        } catch (err) {
+          const data = err.response?.data;
+          const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
+          toast.error(msg);
+        }
+      },
+    });
   };
 
   if (!filtrosCompletos(anioLectivo, curso)) {

@@ -141,14 +141,17 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
   };
 
   const handleEliminar = async (registro) => {
-    if (!confirmarEliminacion('¿Está seguro de eliminar este registro del Libro de Temas?\n\nEsta acción no se puede deshacer.')) return;
-    try {
-      await deleteLibroTema(registro.id_libro_tema);
-      toast.success('Libro de Temas eliminado correctamente.');
-      await cargar();
-    } catch (err) {
-      toast.error(mensajeError(err));
-    }
+    await confirmarEliminacion('¿Está seguro de eliminar este registro del Libro de Temas?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        try {
+          await deleteLibroTema(registro.id_libro_tema);
+          toast.success('Libro de Temas eliminado correctamente.');
+          await cargar();
+        } catch (err) {
+          toast.error(mensajeError(err));
+        }
+      },
+    });
   };
 
   const formularioBloqueado = !enHorario || eventoActivo || !puedeEditar;

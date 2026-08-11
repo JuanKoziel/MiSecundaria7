@@ -231,17 +231,20 @@ function Comunicados() {
   };
 
   const handleBorrar = async (id) => {
-    if (!confirmarEliminacion()) return;
-    setMensaje('');
-    try {
-      await deleteComunicado(id);
-      toast.success('Comunicado eliminado correctamente.');
-      await refreshData();
-    } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(`Error: ${msg}`);
-    }
+    await confirmarEliminacion('¿Está seguro de que desea eliminar este comunicado?\n\nEsta acción ocultará el comunicado del sistema.', {
+      onConfirm: async () => {
+        setMensaje('');
+        try {
+          await deleteComunicado(id);
+          toast.success('Comunicado eliminado correctamente.');
+          await refreshData();
+        } catch (err) {
+          const detail = err.response?.data;
+          const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
+          toast.error(`Error: ${msg}`);
+        }
+      },
+    });
   };
 
   return (

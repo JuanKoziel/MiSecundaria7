@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import LoadingSpinner from '../Shared/LoadingSpinner';
 import {
   createAsistencia,
   getAsistenciasPreceptorMateria,
@@ -319,7 +320,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
           </p>
 
           {cargandoDiaria ? (
-            <p>Cargando asistencias...</p>
+            <LoadingSpinner text="Cargando asistencias..." size="sm" inline />
           ) : dataDiaria.length === 0 ? (
             <p className="empty-state-message">No hay asistencias registradas para hoy.</p>
           ) : (
@@ -385,7 +386,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
             {!regFecha && !regAlumno ? (
               <p className="empty-state-message">Seleccioná una fecha o un alumno para ver registros.</p>
             ) : cargandoRegistro ? (
-              <p>Cargando registros...</p>
+              <LoadingSpinner text="Cargando registros..." size="sm" inline />
             ) : dataRegistro.length === 0 ? (
               <p className="empty-state-message">No hay registros para los filtros seleccionados.</p>
             ) : (
@@ -473,7 +474,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
           {!materiaCmId ? (
             <p className="empty-state-message">Seleccione una materia para ver las asistencias.</p>
           ) : cargandoMateria ? (
-            <p>Cargando asistencias...</p>
+            <LoadingSpinner text="Cargando asistencias..." size="sm" inline />
           ) : dataMateria.length === 0 ? (
             <p className="empty-state-message">No hay asistencias registradas para esta materia con los filtros seleccionados.</p>
           ) : (
@@ -571,7 +572,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
           )}
 
           {cargandoDocentes ? (
-            <p>Cargando docentes...</p>
+            <LoadingSpinner text="Cargando docentes..." size="sm" inline />
           ) : docentesDisponibles.length === 0 ? (
             <p className="empty-state-message">No hay docentes con clase en este momento.</p>
           ) : (

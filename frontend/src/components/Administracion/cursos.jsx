@@ -152,23 +152,29 @@ function Cursos() {
   };
 
   const handleDesactivar = async (curso) => {
-    if (!confirmarEliminacion(
+    await confirmarEliminacion(
       'Este curso dejará de estar disponible para nuevas operaciones.\n\n' +
       'No se eliminará ningún dato histórico.\n\n' +
       'Se conservarán:\n' +
       '• alumnos\n• horarios\n• actividades\n• asistencias\n' +
       '• calificaciones\n• planificaciones\n• comunicaciones\n\n' +
-      '¿Desea continuar?'
-    )) return;
-    setError('');
-    setSuccess('');
-    try {
-      await updateCurso(curso.id_curso, { activo: false });
-      toast.success('Curso desactivado correctamente.');
-      await refreshAdminCursos(mostrarInactivos);
-    } catch (err) {
-      toast.error(mensajeError(err));
-    }
+      '¿Desea continuar?',
+      {
+        confirmText: 'Desactivar',
+        loadingText: 'Desactivando...',
+        onConfirm: async () => {
+          setError('');
+          setSuccess('');
+          try {
+            await updateCurso(curso.id_curso, { activo: false });
+            toast.success('Curso desactivado correctamente.');
+            await refreshAdminCursos(mostrarInactivos);
+          } catch (err) {
+            toast.error(mensajeError(err));
+          }
+        },
+      },
+    );
   };
 
   const cursoNombre = (curso) => curso.nombre_curso || '';

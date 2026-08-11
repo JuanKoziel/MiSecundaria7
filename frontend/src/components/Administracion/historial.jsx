@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getHistorialCambios, getTiposAccion, getUsuarios } from '../../services/api';
+import LoadingSpinner from '../Shared/LoadingSpinner';
 
 const TABLAS = [
   { value: 'alumnos', label: 'Alumnos' },
@@ -175,7 +176,7 @@ function Historial({ ocultarRegistro = false }) {
           </thead>
           <tbody>
             {cargando ? (
-              <tr><td colSpan={ocultarRegistro ? 7 : 8} className="empty-state-message">Cargando historial...</td></tr>
+              <tr><td colSpan={ocultarRegistro ? 7 : 8} className="empty-state-message"><LoadingSpinner text="Cargando historial..." size="sm" inline /></td></tr>
             ) : registros.length === 0 ? (
               <tr><td colSpan={ocultarRegistro ? 7 : 8} className="empty-state-message">No hay registros de historial.</td></tr>
             ) : (

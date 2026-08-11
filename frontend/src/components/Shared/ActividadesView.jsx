@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { getActividades } from '../../services/api';
+import LoadingSpinner from './LoadingSpinner';
 
 const API_BASE = 'http://localhost:8000';
 const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif'];
@@ -230,9 +231,7 @@ function ActividadesView({ userRole, selectedChild }) {
       )}
 
       {loading ? (
-        <p className="empty-state-message empty-state-centered">
-          Cargando actividades...
-        </p>
+        <LoadingSpinner text="Cargando actividades..." size="sm" inline />
       ) : materiasDelCurso.length === 0 ? (
         <p className="empty-state-message empty-state-centered">
           No hay materias disponibles.

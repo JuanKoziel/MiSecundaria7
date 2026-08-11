@@ -423,13 +423,13 @@ function Docentes({ readOnly = false }) {
           setGuardando(false);
           return;
         }
-        if (!confirmarEliminacion('¿Estás seguro de que querés eliminar este docente y todas sus asignaciones?\n\nEsta acción no se puede deshacer.')) {
-          setGuardando(false);
-          return;
-        }
-        await deleteDocente(seleccionado);
-        toast.success('Docente eliminado correctamente.');
-        setSeleccionado('');
+        await confirmarEliminacion('¿Estás seguro de que querés eliminar este docente y todas sus asignaciones?\n\nEsta acción no se puede deshacer.', {
+          onConfirm: async () => {
+            await deleteDocente(seleccionado);
+            toast.success('Docente eliminado correctamente.');
+            setSeleccionado('');
+          },
+        });
       }
       await dataCtx.refreshData();
     } catch (err) {
@@ -495,22 +495,25 @@ function Docentes({ readOnly = false }) {
 
   const limpiarProgramar = async () => {
     if (!programando) return;
-    if (!confirmarEliminacion('¿Desea eliminar todas las fechas programadas para este usuario?\n\nEsta acción no se puede deshacer.')) return;
-    setGuardando(true);
-    setMensaje('');
-    try {
-      await updateDocente(programando, {
-        fecha_deshabilitacion_programada: null,
-        fecha_habilitacion_programada: null,
-      });
-      toast.success('Fechas eliminadas correctamente.');
-      setProgramando(null);
-      await dataCtx.refreshData();
-    } catch (err) {
-      toast.error(mensajeError(err));
-    } finally {
-      setGuardando(false);
-    }
+    await confirmarEliminacion('¿Desea eliminar todas las fechas programadas para este usuario?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        setGuardando(true);
+        setMensaje('');
+        try {
+          await updateDocente(programando, {
+            fecha_deshabilitacion_programada: null,
+            fecha_habilitacion_programada: null,
+          });
+          toast.success('Fechas eliminadas correctamente.');
+          setProgramando(null);
+          await dataCtx.refreshData();
+        } catch (err) {
+          toast.error(mensajeError(err));
+        } finally {
+          setGuardando(false);
+        }
+      },
+    });
   };
 
   const cargarAsignacionesDocente = (docenteId) => {

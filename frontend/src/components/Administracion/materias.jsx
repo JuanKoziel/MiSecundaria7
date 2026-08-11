@@ -95,23 +95,29 @@ function GestionMaterias() {
   };
 
   const handleDesactivar = async (materia) => {
-    if (!confirmarEliminacion(
+    await confirmarEliminacion(
       'Esta materia dejará de estar disponible para nuevas operaciones.\n\n' +
       'No se eliminará ningún dato histórico.\n\n' +
       'Se conservarán:\n' +
       '• horarios\n• actividades\n• asistencias\n' +
       '• calificaciones\n• planificaciones\n\n' +
-      '¿Desea continuar?'
-    )) return;
-    setError('');
-    setSuccess('');
-    try {
-      await updateMateria(materia.id_materia, { activo: false });
-      toast.success('Materia desactivada correctamente.');
-      await refreshAdminMaterias(mostrarInactivos);
-    } catch (err) {
-      toast.error(mensajeError(err));
-    }
+      '¿Desea continuar?',
+      {
+        confirmText: 'Desactivar',
+        loadingText: 'Desactivando...',
+        onConfirm: async () => {
+          setError('');
+          setSuccess('');
+          try {
+            await updateMateria(materia.id_materia, { activo: false });
+            toast.success('Materia desactivada correctamente.');
+            await refreshAdminMaterias(mostrarInactivos);
+          } catch (err) {
+            toast.error(mensajeError(err));
+          }
+        },
+      },
+    );
   };
 
   return (

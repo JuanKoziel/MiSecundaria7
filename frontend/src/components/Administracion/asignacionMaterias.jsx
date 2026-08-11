@@ -98,16 +98,21 @@ function AsignacionMaterias() {
   };
 
   const handleDesactivar = async (cm) => {
-    if (!confirmarEliminacion('La materia dejará de estar asignada a este curso.\n\nNo se eliminará ningún historial existente.\n\n¿Desea continuar?')) return;
-    setError('');
-    setSuccess('');
-    try {
-      await updateCursoMateria(cm.id_curso_materia, { activo: false });
-      toast.success('Asignación desactivada correctamente.');
-      cargarAsignaciones();
-    } catch (err) {
-      toast.error(`Error al quitar: ${mensajeError(err)}`);
-    }
+    await confirmarEliminacion('La materia dejará de estar asignada a este curso.\n\nNo se eliminará ningún historial existente.\n\n¿Desea continuar?', {
+      confirmText: 'Quitar',
+      loadingText: 'Quitando...',
+      onConfirm: async () => {
+        setError('');
+        setSuccess('');
+        try {
+          await updateCursoMateria(cm.id_curso_materia, { activo: false });
+          toast.success('Asignación desactivada correctamente.');
+          cargarAsignaciones();
+        } catch (err) {
+          toast.error(`Error al quitar: ${mensajeError(err)}`);
+        }
+      },
+    });
   };
 
   const nombreMateria = (id_materia) => {

@@ -14,6 +14,7 @@ import {
 } from '../../services/api';
 import VistaHorarios from './VistaHorarios';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import LoadingSpinner from '../Shared/LoadingSpinner';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 const MATERIA_EF = 'Educación Física';
@@ -194,9 +195,7 @@ function HorarioSemanal({ cursosOptions }) {
       {cursoSeleccionado && (
         <div>
           {cargandoGrilla ? (
-            <p className="empty-state-message empty-state-centered">
-              Cargando horarios...
-            </p>
+            <LoadingSpinner text="Cargando horarios..." size="sm" inline />
           ) : modulosSorted.length === 0 ? (
             <p className="empty-state-message empty-state-centered">
               No hay módulos horarios definidos en el sistema.
@@ -366,23 +365,26 @@ function EducacionFisica({ cursosOptions }) {
   };
 
   const handleEliminar = async (h) => {
-    if (!confirmarEliminacion()) return;
-    try {
-      await deleteHorarioEspecial(h.id_horario_especial);
-      const [heData] = await Promise.all([
-        getHorariosEspeciales({ curso: cursoSeleccionado }),
-      ]);
-      const heList = Array.isArray(heData) ? heData : heData.results || [];
-      heList.sort((a, b) => {
-        const diaA = DIAS.indexOf(a.dia_semana);
-        const diaB = DIAS.indexOf(b.dia_semana);
-        if (diaA !== diaB) return diaA - diaB;
-        return (a.hora_inicio || '').localeCompare(b.hora_inicio || '');
-      });
-      setHorarios(heList);
-    } catch {
-      toast.error('Error al eliminar.');
-    }
+    await confirmarEliminacion('¿Está seguro de que desea eliminar este horario especial?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        try {
+          await deleteHorarioEspecial(h.id_horario_especial);
+          const [heData] = await Promise.all([
+            getHorariosEspeciales({ curso: cursoSeleccionado }),
+          ]);
+          const heList = Array.isArray(heData) ? heData : heData.results || [];
+          heList.sort((a, b) => {
+            const diaA = DIAS.indexOf(a.dia_semana);
+            const diaB = DIAS.indexOf(b.dia_semana);
+            if (diaA !== diaB) return diaA - diaB;
+            return (a.hora_inicio || '').localeCompare(b.hora_inicio || '');
+          });
+          setHorarios(heList);
+        } catch {
+          toast.error('Error al eliminar.');
+        }
+      },
+    });
   };
 
   const handleChange = (campo, valor) => {
@@ -416,9 +418,7 @@ function EducacionFisica({ cursosOptions }) {
       {cursoSeleccionado && (
         <div>
           {cargando ? (
-            <p className="empty-state-message empty-state-centered">
-              Cargando...
-            </p>
+            <LoadingSpinner text="Cargando horarios..." size="sm" inline />
           ) : !cmEf ? (
             <p className="empty-state-message empty-state-centered">
               El curso no tiene Educación Física asignada.

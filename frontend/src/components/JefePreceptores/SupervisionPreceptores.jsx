@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getSupervisionPreceptores } from '../../services/api';
+import LoadingScreen from '../Shared/LoadingScreen';
 
 function formatDateTime(value) {
   if (!value) return 'Nunca';
@@ -30,7 +31,7 @@ function SupervisionPreceptores() {
   }, []);
 
   if (loading) {
-    return <div className="card">Cargando datos de supervisión...</div>;
+    return <LoadingScreen text="Cargando datos de supervisión" />;
   }
 
   if (error) {

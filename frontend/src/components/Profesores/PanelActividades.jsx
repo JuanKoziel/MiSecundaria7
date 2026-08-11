@@ -8,6 +8,7 @@ import {
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
+import LoadingSpinner from '../Shared/LoadingSpinner';
 
 const API_BASE = 'http://localhost:8000';
 const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif'];
@@ -422,38 +423,43 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
   };
 
   const handleEliminar = async (actividad) => {
-    if (!confirmarEliminacion('¿Estás seguro de que querés eliminar esta actividad?\n\nEsta acción no se puede deshacer.')) return;
-    try {
-      await deleteActividad(actividad.id_actividad);
-      toast.success('Actividad eliminada correctamente.');
-      await cargaLista();
-      if (actividadVista?.id_actividad === actividad.id_actividad) {
-        setActividadVista(null);
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    }
+    await confirmarEliminacion('¿Estás seguro de que querés eliminar esta actividad?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        try {
+          await deleteActividad(actividad.id_actividad);
+          toast.success('Actividad eliminada correctamente.');
+          await cargaLista();
+          if (actividadVista?.id_actividad === actividad.id_actividad) {
+            setActividadVista(null);
+          }
+        } catch (err) {
+          toast.error(getErrorMessage(err));
+        }
+      },
+    });
   };
 
   const handleEliminarArchivo = async (archivo) => {
     const archivoId = archivo?.id_archivo;
     if (!actividadEditando || !archivoId) return;
-    if (!confirmarEliminacion('¿Estás seguro de que querés eliminar este archivo?\n\nEsta acción no se puede deshacer.')) return;
-
-    try {
-      const actualizada = await deleteActividadArchivo(actividadEditando.id_actividad, archivoId);
-      toast.success('Archivo eliminado correctamente.');
-      const fresh = await cargaLista();
-      const actividadFresh =
-        fresh.find((item) => item.id_actividad === actividadEditando.id_actividad) ||
-        actualizada ||
-        null;
-      if (actividadFresh) {
-        setActividadEditando(actividadFresh);
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    }
+    await confirmarEliminacion('¿Estás seguro de que querés eliminar este archivo?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        try {
+          const actualizada = await deleteActividadArchivo(actividadEditando.id_actividad, archivoId);
+          toast.success('Archivo eliminado correctamente.');
+          const fresh = await cargaLista();
+          const actividadFresh =
+            fresh.find((item) => item.id_actividad === actividadEditando.id_actividad) ||
+            actualizada ||
+            null;
+          if (actividadFresh) {
+            setActividadEditando(actividadFresh);
+          }
+        } catch (err) {
+          toast.error(getErrorMessage(err));
+        }
+      },
+    });
   };
 
   return (
@@ -509,7 +515,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
             {loading ? (
               <tr>
                 <td colSpan={4} className="empty-state-message">
-                  Cargando actividades...
+                  <LoadingSpinner text="Cargando actividades..." size="sm" inline />
                 </td>
               </tr>
             ) : actividades.length === 0 ? (

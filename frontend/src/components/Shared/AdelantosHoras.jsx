@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { getAdelantosHoras, createAdelantoHoras, updateAdelantoHoras, deleteAdelantoHoras } from '../../services/api';
 import FormModal from './FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import LoadingSpinner from './LoadingSpinner';
 
 const formVacio = {
   id_docente: '',
@@ -382,19 +383,23 @@ function GestionAdelantosHoras({ readOnly = false }) {
   };
 
   const handleEliminar = async (a) => {
-    if (!confirmarEliminacion(
+    await confirmarEliminacion(
       '¿Eliminar este adelanto de horas?\n\n' +
       'El registro quedará marcado como eliminado y la clase volverá al horario normal.\n\n' +
-      '¿Desea continuar?'
-    )) return;
-    try {
-      await deleteAdelantoHoras(a.id_adelanto);
-      toast.success('Adelanto de horas eliminado correctamente.');
-      await cargar();
-      await refreshData();
-    } catch (err) {
-      toast.error(mensajeError(err));
-    }
+      '¿Desea continuar?',
+      {
+        onConfirm: async () => {
+          try {
+            await deleteAdelantoHoras(a.id_adelanto);
+            toast.success('Adelanto de horas eliminado correctamente.');
+            await cargar();
+            await refreshData();
+          } catch (err) {
+            toast.error(mensajeError(err));
+          }
+        },
+      },
+    );
   };
 
   const badgeEstado = (a) => {
@@ -457,7 +462,7 @@ function GestionAdelantosHoras({ readOnly = false }) {
           </thead>
           <tbody>
             {cargando ? (
-              <tr><td colSpan={!readOnly ? 11 : 10} className="empty-state-message">Cargando adelantos...</td></tr>
+              <tr><td colSpan={!readOnly ? 11 : 10} className="empty-state-message"><LoadingSpinner text="Cargando adelantos..." size="sm" inline /></td></tr>
             ) : adelantos.length === 0 ? (
               <tr><td colSpan={!readOnly ? 11 : 10} className="empty-state-message">No hay adelantos de horas registrados.</td></tr>
             ) : (

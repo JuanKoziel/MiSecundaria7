@@ -8,6 +8,7 @@ import {
   deleteEventoInstitucional,
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import LoadingSpinner from '../Shared/LoadingSpinner';
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_CAB = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -190,16 +191,19 @@ function CalendarioInstitucional({ readOnly = false }) {
   };
 
   const handleEliminar = async (ev) => {
-    if (!confirmarEliminacion(`¿Eliminar el evento "${ev.tipo_evento}" del ${ev.fecha}?\n\nEsta acción no se puede deshacer.`)) return;
-    try {
-      await deleteEventoInstitucional(ev.id_evento);
-      toast.success('Evento institucional eliminado correctamente.');
-      setModalAbierto(false);
-      setEventoVer(null);
-      await cargarEventos();
-    } catch (err) {
-      toast.error(`Error al eliminar: ${err.message}`);
-    }
+    await confirmarEliminacion(`¿Eliminar el evento "${ev.tipo_evento}" del ${ev.fecha}?\n\nEsta acción no se puede deshacer.`, {
+      onConfirm: async () => {
+        try {
+          await deleteEventoInstitucional(ev.id_evento);
+          toast.success('Evento institucional eliminado correctamente.');
+          setModalAbierto(false);
+          setEventoVer(null);
+          await cargarEventos();
+        } catch (err) {
+          toast.error(`Error al eliminar: ${err.message}`);
+        }
+      },
+    });
   };
 
   const diasCeldas = [];
@@ -287,7 +291,7 @@ function CalendarioInstitucional({ readOnly = false }) {
       </div>
 
       {cargando ? (
-        <p style={{ padding: '16px' }}>Cargando eventos...</p>
+        <LoadingSpinner text="Cargando eventos..." size="sm" inline />
       ) : (
         <div className="cal-grid">
           {DIAS_CAB.map((d) => (

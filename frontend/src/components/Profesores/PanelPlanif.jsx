@@ -173,17 +173,20 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
   };
 
   const handleEliminar = async (proyecto) => {
-    if (!confirmarEliminacion('¿Está seguro de eliminar este proyecto?\n\nEsta acción no se puede deshacer.')) return;
-    setError('');
-    setSuccess('');
-    try {
-      await deletePlanificacion(proyecto.id_planificacion);
-      toast.success('Proyecto eliminado correctamente.');
-      await cargar();
-      await refreshData();
-    } catch (err) {
-      toast.error(mensajeError(err));
-    }
+    await confirmarEliminacion('¿Está seguro de eliminar este proyecto?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        setError('');
+        setSuccess('');
+        try {
+          await deletePlanificacion(proyecto.id_planificacion);
+          toast.success('Proyecto eliminado correctamente.');
+          await cargar();
+          await refreshData();
+        } catch (err) {
+          toast.error(mensajeError(err));
+        }
+      },
+    });
   };
 
   const docenteDisplay = miDocente ? `${miDocente.apellido}, ${miDocente.nombre}` : '';

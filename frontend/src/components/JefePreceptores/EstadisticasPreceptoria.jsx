@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getEstadisticasPreceptoria } from '../../services/api';
+import LoadingScreen from '../Shared/LoadingScreen';
 
 function StatCard({ icon, value, label, color }) {
   return (
@@ -35,7 +36,7 @@ function EstadisticasPreceptoria() {
   }, []);
 
   if (loading) {
-    return <div className="card">Cargando estadísticas...</div>;
+    return <LoadingScreen text="Cargando estadísticas" />;
   }
 
   if (error) {

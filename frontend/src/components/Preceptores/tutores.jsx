@@ -158,13 +158,13 @@ function Tutores({ readOnly = false }) {
           setGuardando(false);
           return;
         }
-        if (!confirmarEliminacion('¿Estás seguro de que querés eliminar este tutor?\n\nEsta acción no se puede deshacer.')) {
-          setGuardando(false);
-          return;
-        }
-        await deletePadreTutor(seleccionado);
-        toast.success('Tutor eliminado correctamente.');
-        setSeleccionado('');
+        await confirmarEliminacion('¿Estás seguro de que querés eliminar este tutor?\n\nEsta acción no se puede deshacer.', {
+          onConfirm: async () => {
+            await deletePadreTutor(seleccionado);
+            toast.success('Tutor eliminado correctamente.');
+            setSeleccionado('');
+          },
+        });
       }
       await refreshData();
     } catch (err) {
@@ -230,22 +230,25 @@ function Tutores({ readOnly = false }) {
 
   const limpiarProgramar = async () => {
     if (!programando) return;
-    if (!confirmarEliminacion('¿Desea eliminar todas las fechas programadas para este usuario?\n\nEsta acción no se puede deshacer.')) return;
-    setGuardando(true);
-    setMensaje('');
-    try {
-      await updatePadreTutor(programando, {
-        fecha_deshabilitacion_programada: null,
-        fecha_habilitacion_programada: null,
-      });
-      toast.success('Fechas eliminadas correctamente.');
-      setProgramando(null);
-      await refreshData();
-    } catch (err) {
-      toast.error(mensajeError(err));
-    } finally {
-      setGuardando(false);
-    }
+    await confirmarEliminacion('¿Desea eliminar todas las fechas programadas para este usuario?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        setGuardando(true);
+        setMensaje('');
+        try {
+          await updatePadreTutor(programando, {
+            fecha_deshabilitacion_programada: null,
+            fecha_habilitacion_programada: null,
+          });
+          toast.success('Fechas eliminadas correctamente.');
+          setProgramando(null);
+          await refreshData();
+        } catch (err) {
+          toast.error(mensajeError(err));
+        } finally {
+          setGuardando(false);
+        }
+      },
+    });
   };
 
   const renderTablaVista = () => (

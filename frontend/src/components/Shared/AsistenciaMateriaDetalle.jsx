@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getAsistenciasAlumnoDetalle } from '../../services/api';
+import LoadingSpinner from './LoadingSpinner';
 
 export default function AsistenciaMateriaDetalle({ alumnoId, cursoMateria, idCurso }) {
   const [materiaId, setMateriaId] = useState('');
@@ -65,7 +66,7 @@ export default function AsistenciaMateriaDetalle({ alumnoId, cursoMateria, idCur
       {!materiaId ? (
         <p className="empty-state-message">Seleccione una materia para ver sus asistencias.</p>
       ) : cargando ? (
-        <p>Cargando asistencias...</p>
+        <LoadingSpinner text="Cargando asistencias..." size="sm" inline />
       ) : asistencias.length === 0 ? (
         <p className="empty-state-message">No hay asistencias registradas para esta materia.</p>
       ) : (

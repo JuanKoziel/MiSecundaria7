@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
 import { getCursoMateria, getHorarios, getHorariosEspeciales, getSuplencias, getAdelantosHoras } from '../../services/api';
 import { suplenciasActivasLista } from '../../utils/suplencias';
+import LoadingSpinner from '../Shared/LoadingSpinner';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
@@ -493,9 +494,7 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
       )}
 
       {cargando && (
-        <p className="empty-state-message empty-state-centered">
-          Cargando horarios...
-        </p>
+        <LoadingSpinner text="Cargando horarios..." size="sm" inline />
       )}
 
       {!cargando && cursoSeleccionado && !hasData && (

@@ -10,6 +10,7 @@ import {
 } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import LoadingScreen from '../Shared/LoadingScreen';
 
 const formVacio = {
   usuario_nombre: '',
@@ -252,22 +253,24 @@ function Preceptores({ rol = 'preceptor' }) {
   };
 
   const handleDelete = async (preceptor) => {
-    if (!confirmarEliminacion(`Eliminar al ${entidad} ${preceptor.apellido}, ${preceptor.nombre}?\n\nEsta acción no se puede deshacer.`)) return;
-
-    setError('');
-    setSuccess('');
-    try {
-      await deletePreceptor(preceptor.id_preceptor, rol);
-      toast.success(`${etiquetaSingular} eliminado correctamente.`);
-      await fetchPreceptores();
-      await refreshData();
-    } catch (err) {
-      toast.error(`Error al eliminar ${entidad}: ${mensajeError(err)}`);
-    }
+    await confirmarEliminacion(`Eliminar al ${entidad} ${preceptor.apellido}, ${preceptor.nombre}?\n\nEsta acción no se puede deshacer.`, {
+      onConfirm: async () => {
+        setError('');
+        setSuccess('');
+        try {
+          await deletePreceptor(preceptor.id_preceptor, rol);
+          toast.success(`${etiquetaSingular} eliminado correctamente.`);
+          await fetchPreceptores();
+          await refreshData();
+        } catch (err) {
+          toast.error(`Error al eliminar ${entidad}: ${mensajeError(err)}`);
+        }
+      },
+    });
   };
 
   if (loading) {
-    return <div className="card">Cargando...</div>;
+    return <LoadingScreen text={`Cargando ${entidad}`} />;
   }
 
   const renderFormulario = () => (

@@ -4,6 +4,7 @@ import FormModal from '../../components/Shared/FormModal';
 import { createUsuario, deleteUsuario, getUsuarios, updateUsuario } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import LoadingScreen from '../Shared/LoadingScreen';
 
 function toInputDateTime(value) {
   if (!value) return '';
@@ -129,15 +130,17 @@ function Administradores() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirmarEliminacion()) return;
-
-    try {
-      await deleteUsuario(id);
-      toast.success('Administrador eliminado correctamente.');
-      fetchUsuarios();
-    } catch (err) {
-      toast.error('Error al eliminar administrador');
-    }
+    await confirmarEliminacion('¿Está seguro de que desea eliminar este administrador?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        try {
+          await deleteUsuario(id);
+          toast.success('Administrador eliminado correctamente.');
+          fetchUsuarios();
+        } catch (err) {
+          toast.error('Error al eliminar administrador');
+        }
+      },
+    });
   };
 
   const handleToggleEstado = async (usuario) => {
@@ -191,7 +194,7 @@ function Administradores() {
   };
 
   if (loading) {
-    return <div className="card">Cargando...</div>;
+    return <LoadingScreen text="Cargando administradores" />;
   }
 
   const renderFormulario = () => (
