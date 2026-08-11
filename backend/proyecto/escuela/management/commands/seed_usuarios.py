@@ -7,11 +7,12 @@ Uso:
 Crea los siguientes usuarios en la tabla 'usuarios' y les asigna el rol
 correspondiente en 'usuario_roles'. Si los roles no existen, los crea.
 
-    usuario: admin_test      | contraseña: admin123      | rol: admin
-    usuario: docente_test    | contraseña: docente123    | rol: docente
-    usuario: preceptor_test  | contraseña: preceptor123  | rol: preceptor
-    usuario: familia_test    | contraseña: familia123    | rol: familia
-    usuario: director_test   | contraseña: director123   | rol: director
+    usuario: admin_test            | contraseña: admin123            | rol: admin
+    usuario: docente_test          | contraseña: docente123          | rol: docente
+    usuario: preceptor_test        | contraseña: preceptor123        | rol: preceptor
+    usuario: jefe_preceptores_test | contraseña: jefe_preceptores123 | rol: jefe_preceptores
+    usuario: familia_test          | contraseña: familia123          | rol: familia
+    usuario: director_test         | contraseña: director123         | rol: director
 """
 
 from django.contrib.auth.hashers import make_password
@@ -24,6 +25,7 @@ USUARIOS_PRUEBA = [
     {'usuario': 'admin_test', 'contrasena': 'admin123', 'rol': 'admin'},
     {'usuario': 'docente_test', 'contrasena': 'docente123', 'rol': 'docente'},
     {'usuario': 'preceptor_test', 'contrasena': 'preceptor123', 'rol': 'preceptor'},
+    {'usuario': 'jefe_preceptores_test', 'contrasena': 'jefe_preceptores123', 'rol': 'jefe_preceptores'},
     {'usuario': 'familia_test', 'contrasena': 'familia123', 'rol': 'familia'},
     {'usuario': 'alumno_test', 'contrasena': 'alumno123', 'rol': 'alumno'},
     {'usuario': 'director_test', 'contrasena': 'director123', 'rol': 'director'},
