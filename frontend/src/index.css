@@ -4,7 +4,7 @@
 :root {
     --primary-color: #fd7e14; /* Tu naranja de prueba */
     --primary-dark: #e06d0f;
-    --bg-gradient: linear-gradient(180deg, #fd7e14 0%, #f8f9fa 400px, #f8f9fa 100px);
+    --bg-gradient: linear-gradient(180deg, #fd7e14 0%, #f8f9fa 400px, #f8f9fa 100%);
     --sidebar-color: #0d233a;
     --sidebar-hover: #163452;
     --text-dark: #333333;
@@ -20,6 +20,8 @@
     --table-row-alt: #f4f7fb;
     --table-row-hover: #fff3e6;
     --table-text: #27313f;
+    --card-bg: #ffffff;
+    --border-color: #dee2e6;
 }
 
 * {
@@ -58,6 +60,28 @@ body {
 .btn-danger:hover { background: #bd2130; }
 .btn-success { background: #28a745; color: var(--white); }
 .btn-success:hover { background: #218838; }
+.btn-warning { background: #ffc107; color: #212529; }
+.btn-warning:hover { background: #e0a800; }
+
+.alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.alert-danger {
+    background: #fdecea;
+    color: #c0392b;
+    border: 1px solid #f5c6cb;
+}
+
+.alert-success {
+    background: #e8f7ee;
+    color: #1e7e34;
+    border: 1px solid #b6e3c0;
+}
 
 .font-accent { color: var(--primary-color); }
 
@@ -1761,21 +1785,6 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     td {
         white-space: nowrap;
     }
-}/* ==========================================================================
-   VARIABLES Y ESTILOS GLOBALES
-   ========================================================================== */
-:root {
-    --primary-color: #fd7e14;
-    --primary-dark: #e06d0f;
-    --bg-gradient: linear-gradient(180deg, #fd7e14 0%, #f8f9fa 400px, #f8f9fa 100px);
-    --sidebar-color: #0d233a;
-    --sidebar-hover: #163452;
-    --text-dark: #333333;
-    --text-light: #666666;
-    --white: #ffffff;
-    --shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-    --radius: 12px;
-    --transition: all 0.3s ease;
 }
 
 * {

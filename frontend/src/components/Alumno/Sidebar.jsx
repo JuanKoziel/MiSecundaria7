@@ -6,7 +6,7 @@ function Sidebar({ view, setView, onLogout }) {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <Logo />
-        <span>Portal Alumno</span>
+        <span>MiSecundaria 7</span>
       </div>
 
       <div className="sidebar-menu-wrapper">

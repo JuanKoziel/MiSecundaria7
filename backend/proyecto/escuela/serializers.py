@@ -114,7 +114,7 @@ def _build_usuario_account(
     return usuario, validated_data
 
 
-# ---------- CatÃ¡logos / tablas auxiliares ----------
+# ---------- Catálogos / tablas auxiliares ----------
 
 class RolSerializer(serializers.ModelSerializer):
     class Meta:
@@ -1230,7 +1230,7 @@ class AlumnoSerializer(serializers.ModelSerializer):
         return instance
 
 
-# ---------- Estructura acadÃ©mica ----------
+# ---------- Estructura académica ----------
 
 class CursoSerializer(serializers.ModelSerializer):
     preceptor_nombre = serializers.SerializerMethodField()
@@ -1867,7 +1867,7 @@ class PlanificacionSerializer(serializers.ModelSerializer):
         return ''
 
 
-# ---------- DiagnÃ³sticos grupales ----------
+# ---------- Diagnósticos grupales ----------
 
 class DiagnosticoGrupalSerializer(serializers.ModelSerializer):
     class Meta:

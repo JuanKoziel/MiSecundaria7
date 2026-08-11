@@ -72,11 +72,6 @@ export async function getDocentes() {
   return data;
 }
 
-export async function getMiDdjjDocente() {
-  const { data } = await api.get('/ddjj-docente/mi-ddjj/');
-  return data;
-}
-
 export async function uploadMiDdjjDocente(file) {
   const formData = new FormData();
   formData.append('archivo', file);
@@ -105,11 +100,6 @@ export async function deleteActividad(id) {
 
 export async function deleteActividadArchivo(idActividad, idArchivo) {
   const { data } = await api.delete(`/actividades-docente/${idActividad}/archivos/${idArchivo}/`);
-  return data;
-}
-
-export async function getDdjjDocenteArchivo(idDdjj) {
-  const { data } = await api.get(`/ddjj-docente/${idDdjj}/archivo/`);
   return data;
 }
 
@@ -234,11 +224,6 @@ export async function getAsistencias(params) {
 
 export async function createAsistencia(payload) {
   const { data } = await api.post('/asistencias/', payload);
-  return data;
-}
-
-export async function updateAsistencia(id, payload) {
-  const { data } = await api.patch(`/asistencias/${id}/`, payload);
   return data;
 }
 
@@ -435,16 +420,6 @@ export async function getInscripciones(params) {
   return data;
 }
 
-export async function getTiposActa() {
-  const { data } = await api.get('/tipos-acta/');
-  return data;
-}
-
-export async function getRoles() {
-  const { data } = await api.get('/roles/');
-  return data;
-}
-
 export async function getUsuarios() {
   const { data } = await api.get('/usuarios/');
   return data;
@@ -513,11 +488,6 @@ export async function createActaCurso(payload) {
 
 export async function createActaAlumno(payload) {
   const { data } = await api.post('/acta-alumno/', payload);
-  return data;
-}
-
-export async function createNotificacion(payload) {
-  const { data } = await api.post('/notificaciones/', payload);
   return data;
 }
 

@@ -665,14 +665,14 @@ def login_view(request):
     usuario_obj = Usuario.objects.filter(usuario=username).first()
     if usuario_obj and not usuario_obj.estado:
         return Response(
-            {'error': 'Su usuario se encuentra deshabilitado. ComunÃ­quese con la administraciÃ³n.'},
+            {'error': 'Su usuario se encuentra deshabilitado. Comuníquese con la administración.'},
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
     user = authenticate(request, username=username, password=password)
     if user is None:
         return Response(
-            {'error': 'Credenciales invÃ¡lidas'},
+            {'error': 'Credenciales inválidas'},
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
@@ -749,6 +749,8 @@ def _verificar_docente_activo_materia(request, id_curso_materia, fecha=None):
     if 'admin' in roles or 'director' in roles:
         return
     if 'docente' not in roles:
+        if 'familia' in roles or 'alumno' in roles:
+            raise PermissionDenied('No tienes permiso para realizar esta operación.')
         return
     docente = Docente.objects.filter(id_usuario__usuario=username).first()
     if not docente:
@@ -779,6 +781,8 @@ def _verificar_docente_activo_curso(request, id_curso, fecha=None):
     if 'admin' in roles or 'director' in roles:
         return
     if 'docente' not in roles:
+        if 'familia' in roles or 'alumno' in roles:
+            raise PermissionDenied('No tienes permiso para realizar esta operación.')
         return
     docente = Docente.objects.filter(id_usuario__usuario=username).first()
     if not docente:
@@ -1190,7 +1194,7 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
     def mi_ddjj(self, request):
         docente = self._get_docente_from_request()
         if not docente:
-            raise PermissionDenied('No se encontrÃ³ un perfil de docente asociado al usuario.')
+            raise PermissionDenied('No se encontró un perfil de docente asociado al usuario.')
 
         ddjj = DdjjDocente.objects.filter(id_docente=docente).first()
 
@@ -1229,8 +1233,8 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
             return Response(
                 {
                     'archivo': [
-                        'No se recibiÃ³ un archivo en request.FILES. '
-                        'EnvÃ­alo como FormData con el campo "archivo".'
+                        'No se recibió un archivo en request.FILES. '
+                        'Envíalo como FormData con el campo "archivo".'
                     ]
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1669,6 +1673,10 @@ class CursoViewSet(HistorialMixin, viewsets.ModelViewSet):
         self._require_write_permiso()
         super().perform_create(serializer)
 
+    def perform_update(self, serializer):
+        self._require_write_permiso()
+        super().perform_update(serializer)
+
     def perform_destroy(self, instance):
         self._require_write_permiso()
         super().perform_destroy(instance)
@@ -1899,14 +1907,22 @@ class HorarioEspecialViewSet(viewsets.ModelViewSet):
     def _check_preceptor_curso_access(self, instance):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'preceptor' not in roles:
+        if 'admin' in roles or 'director' in roles:
             return
-        curso_id = instance.id_curso_materia.id_curso_id
+        if 'preceptor' not in roles:
+            raise PermissionDenied('No tienes permiso para modificar horarios.')
+        if isinstance(instance, CursoMateria):
+            curso_id = instance.id_curso_id
+        else:
+            curso_id = instance.id_curso_materia.id_curso_id
         cursos_ids = _preceptor_cursos_ids(self.request)
         if not cursos_ids or int(curso_id) not in {int(c) for c in cursos_ids}:
             raise PermissionDenied('No tienes permiso para modificar horarios de este curso.')
 
     def perform_create(self, serializer):
+        cm = serializer.validated_data.get('id_curso_materia')
+        if cm is not None:
+            self._check_preceptor_curso_access(cm)
         instance = serializer.save()
         self._check_preceptor_curso_access(instance)
 
@@ -1958,14 +1974,22 @@ class HorarioViewSet(viewsets.ModelViewSet):
     def _check_preceptor_curso_access(self, instance):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'preceptor' not in roles:
+        if 'admin' in roles or 'director' in roles:
             return
-        curso_id = instance.id_curso_materia.id_curso_id
+        if 'preceptor' not in roles:
+            raise PermissionDenied('No tienes permiso para modificar horarios.')
+        if isinstance(instance, CursoMateria):
+            curso_id = instance.id_curso_id
+        else:
+            curso_id = instance.id_curso_materia.id_curso_id
         cursos_ids = _preceptor_cursos_ids(self.request)
         if not cursos_ids or int(curso_id) not in {int(c) for c in cursos_ids}:
             raise PermissionDenied('No tienes permiso para modificar horarios de este curso.')
 
     def perform_create(self, serializer):
+        cm = serializer.validated_data.get('id_curso_materia')
+        if cm is not None:
+            self._check_preceptor_curso_access(cm)
         instance = serializer.save()
         self._check_preceptor_curso_access(instance)
 
@@ -2543,7 +2567,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         dia = _dia_semana_es(ahora)
 
         roles = get_roles_for_usuario(request.user.username)
-        if 'jefe_preceptores' in roles:
+        if 'jefe_preceptores' in roles or not any(r in roles for r in ('admin', 'director', 'preceptor', 'docente')):
             return Response({'error': 'No tenés permiso para registrar asistencias.'}, status=status.HTTP_403_FORBIDDEN)
 
         cm_id = request.data.get('id_curso_materia')
@@ -2577,13 +2601,17 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
                 if not puede:
                     return Response({'error': mensaje}, status=status.HTTP_403_FORBIDDEN)
 
+        usuario_actual = Usuario.objects.filter(usuario=request.user.username).first()
+        if not usuario_actual:
+            return Response({'error': 'No se encontró un perfil de usuario válido.'}, status=status.HTTP_403_FORBIDDEN)
+
         data = {
             'id_alumno': request.data.get('id_alumno'),
             'id_curso_materia': cm_id,
             'id_estado_asistencia': request.data.get('id_estado_asistencia'),
             'fecha': ahora.date(),
             'hora': ahora.time(),
-            'id_usuario': request.user.id_usuario if hasattr(request.user, 'id_usuario') else request.user.id,
+            'id_usuario': usuario_actual,
         }
         existing = Asistencia.objects.filter(
             id_alumno=data['id_alumno'],
@@ -2602,7 +2630,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
 
 
 class AsistenciaDocenteViewSet(viewsets.ViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=['get'], url_path='docentes-disponibles')
     def docentes_disponibles(self, request):
@@ -3763,17 +3791,18 @@ def supervision_preceptores(request):
 @permission_classes([IsAuthenticated])
 def upload_file(request):
     import os
+    from pathlib import PurePath
     from django.conf import settings
 
     archivo = request.FILES.get('archivo')
     if not archivo:
-        return Response({'error': 'No se enviÃ³ ningÃºn archivo.'}, status=400)
+        return Response({'error': 'No se envió ningún archivo.'}, status=400)
 
-    carpeta = request.data.get('carpeta', 'general')
+    carpeta = PurePath(request.data.get('carpeta') or 'general').name or 'general'
     dest_dir = os.path.join(settings.MEDIA_ROOT, carpeta)
     os.makedirs(dest_dir, exist_ok=True)
 
-    nombre = archivo.name
+    nombre = PurePath(archivo.name).name
     ruta = os.path.join(dest_dir, nombre)
     counter = 1
     base, ext = os.path.splitext(nombre)

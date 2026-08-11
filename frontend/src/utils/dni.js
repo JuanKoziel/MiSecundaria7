@@ -13,7 +13,3 @@ export function formatDNI(value) {
   const first = rest.slice(0, -3);
   return `${first}.${next3}.${last3}`;
 }
-
-export function normalizeDNI(value) {
-  return cleanDNI(value);
-}
