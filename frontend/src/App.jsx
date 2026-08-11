@@ -44,9 +44,9 @@ function Dashboard({ user, logout }) {
 }
 
 function DashboardConDatos({ user, logout }) {
-  const { loading } = useData();
+  const { loading, refreshing } = useData();
 
-  if (loading) {
+  if (loading && !refreshing) {
     return <LoadingScreen fixed text="Cargando el sistema" />;
   }
 

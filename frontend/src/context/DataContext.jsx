@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   getAlumnos,
   getDocentes,
@@ -71,13 +71,20 @@ function buildAlcanceLabels(alcances) {
 export function DataProvider({ children }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [adminCursos, setAdminCursos] = useState([]);
   const [adminMaterias, setAdminMaterias] = useState([]);
   const [adminCursoMateria, setAdminCursoMateria] = useState([]);
+  const hasLoadedRef = useRef(false);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    const isInitial = !hasLoadedRef.current;
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setError(null);
     try {
       const [
@@ -539,6 +546,7 @@ export function DataProvider({ children }) {
 
 
 
+      hasLoadedRef.current = true;
       setData({
         alumnos,
         docentes,
@@ -594,6 +602,7 @@ export function DataProvider({ children }) {
       setError('Error al cargar datos del servidor');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -627,7 +636,7 @@ export function DataProvider({ children }) {
 
   return (
     <DataContext.Provider value={{
-      data, loading, error, refreshData: fetchData,
+      data, loading, refreshing, error, refreshData: fetchData,
       adminCursos, adminMaterias, adminCursoMateria,
       refreshAdminCursos, refreshAdminMaterias, refreshAdminCursoMateria,
     }}>
@@ -642,6 +651,7 @@ export function useData() {
   if (ctx.loading || !ctx.data) {
     return {
       loading: true,
+      refreshing: false,
       error: ctx.error,
       alumnos: [],
       docentes: [],
@@ -693,7 +703,7 @@ export function useData() {
     };
   }
   return {
-    loading: false, error: null,
+    loading: false, refreshing: ctx.refreshing || false, error: null,
     ...ctx.data,
     refreshData: ctx.refreshData,
     adminCursos: ctx.adminCursos,
