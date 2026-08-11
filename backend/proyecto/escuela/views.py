@@ -1,5 +1,5 @@
 ﻿import os
-from datetime import datetime, date, time
+from datetime import datetime, time
 from django.contrib.auth import authenticate
 from django.db import models
 from django.http import FileResponse
@@ -244,13 +244,15 @@ def puede_modificar_libro_tema(libro_tema, fecha_hora_actual=None):
     fuente de verdad de la comparación de horarios del Libro de Temas.
     """
     if fecha_hora_actual is None:
-        fecha_hora_actual = datetime.now()
-    fin_clase = datetime.combine(libro_tema.fecha, libro_tema.hora_fin)
+        fecha_hora_actual = timezone.localtime()
+    elif timezone.is_naive(fecha_hora_actual):
+        fecha_hora_actual = timezone.make_aware(fecha_hora_actual)
+    fin_clase = timezone.make_aware(datetime.combine(libro_tema.fecha, libro_tema.hora_fin))
     return fecha_hora_actual < fin_clase
 
 
 def docente_puede_registrar_asistencia_alumnos(docente_id, curso_materia_id, fecha=None, hora=None):
-    ahora = datetime.now()
+    ahora = timezone.localtime()
     fecha = fecha or ahora.date()
     hora = hora or ahora.time()
     dia = _dia_semana_es(ahora)
@@ -304,17 +306,15 @@ def limpiar_eventos_temporales_vencidos():
 
     Retorna la cantidad de eventos eliminados.
     """
-    from datetime import date as date_cls
     count = EventoInstitucional.objects.filter(
         permanente=False,
-        fecha__lt=date_cls.today(),
+        fecha__lt=timezone.localdate(),
     ).update(estado=False, fecha_eliminacion=timezone.now())
     return count
 
 
 def evento_institucional_activo(fecha=None, hora=None):
-    from datetime import date as date_cls
-    ahora = datetime.now()
+    ahora = timezone.localtime()
     fecha = fecha or ahora.date()
     hora = hora or ahora.time()
 
@@ -2138,7 +2138,7 @@ class EstadoAsistenciaViewSet(viewsets.ReadOnlyModelViewSet):
 DIAS_SEMANA_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
 def _dia_semana_es(dt=None):
-    dt = dt or datetime.now()
+    dt = dt or timezone.localtime()
     return DIAS_SEMANA_ES[dt.weekday()]  # 0=Lunes
 
 
@@ -2182,7 +2182,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='server-time')
     def server_time(self, request):
-        ahora = datetime.now()
+        ahora = timezone.localtime()
         dia = _dia_semana_es(ahora)
         data = {
             'fecha': ahora.strftime('%Y-%m-%d'),
@@ -2624,7 +2624,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         return None
 
     def create(self, request, *args, **kwargs):
-        ahora = datetime.now()
+        ahora = timezone.localtime()
         dia = _dia_semana_es(ahora)
 
         roles = get_roles_for_usuario(request.user.username)
@@ -2711,7 +2711,7 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 return Response([])
             curso_filtro_id = curso_obj.id_curso
 
-        ahora = datetime.now()
+        ahora = timezone.localtime()
         dia = _dia_semana_es(ahora)
         hora_actual = ahora.time()
         fecha_hoy = ahora.date()
@@ -2843,7 +2843,7 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        ahora = datetime.now()
+        ahora = timezone.localtime()
         dia = _dia_semana_es(ahora)
         hora_actual = ahora.time()
         fecha_hoy = ahora.date()
@@ -3399,8 +3399,8 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         mutable = request.data.copy()
-        mutable['fecha_subida'] = datetime.now()
-        mutable['fecha_ultima_modificacion'] = datetime.now()
+        mutable['fecha_subida'] = timezone.now()
+        mutable['fecha_ultima_modificacion'] = timezone.now()
 
         serializer = self.get_serializer(data=mutable)
         serializer.is_valid(raise_exception=True)
@@ -3435,8 +3435,8 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
 
         mutable = request.data.copy()
-        mutable['fecha_subida'] = datetime.now()
-        mutable['fecha_ultima_modificacion'] = datetime.now()
+        mutable['fecha_subida'] = timezone.now()
+        mutable['fecha_ultima_modificacion'] = timezone.now()
 
         serializer = self.get_serializer(instance, data=mutable, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -3575,7 +3575,7 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
           - El titular no puede cargar mientras una suplencia esté vigente.
           - Fuera de horario / evento activo: HTTP 403.
         """
-        ahora = datetime.now()
+        ahora = timezone.localtime()
         fecha_hoy = ahora.date()
         hora_ahora = ahora.time()
 
@@ -3870,7 +3870,7 @@ def estadisticas_preceptoria(request):
     roles = get_roles_for_usuario(username)
     if 'jefe_preceptores' not in roles and 'admin' not in roles and 'director' not in roles:
         return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
-    hoy = date.today()
+    hoy = timezone.localdate()
     return Response({
         'total_preceptores': Preceptor.objects.filter(
             id_usuario__usuariorol__id_rol__nombre_rol='preceptor',

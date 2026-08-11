@@ -12,6 +12,7 @@ ningún ciclo, crea uno para el año actual.
 
 from datetime import date
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from escuela.models import CicloLectivo, Curso
 from escuela.utils import activar_o_crear
@@ -23,7 +24,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         ciclos = list(CicloLectivo.objects.filter(estado=True))
         if not ciclos:
-            anio = date.today().year
+            anio = timezone.localdate().year
             ciclo, _ = CicloLectivo.objects.get_or_create(
                 anio=anio,
                 defaults={

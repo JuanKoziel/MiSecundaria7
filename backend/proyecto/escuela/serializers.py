@@ -2107,8 +2107,8 @@ class AdelantoHorasSerializer(serializers.ModelSerializer):
         from datetime import datetime
         if not obj.estado:
             return True
-        fin = datetime.combine(obj.fecha_adelanto, obj.hora_fin)
-        return datetime.now() >= fin
+        fin = timezone.make_aware(datetime.combine(obj.fecha_adelanto, obj.hora_fin))
+        return timezone.localtime() >= fin
 
     def get_modulos_detalle(self, obj):
         """Módulos completos contenidos en la franja horaria del adelanto."""
