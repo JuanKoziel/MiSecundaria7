@@ -71,6 +71,20 @@ from escuela.models import (
     TipoActa,
     Usuario,
     UsuarioRol,
+    HistorialAcademico,
+    IntensificacionAcademica,
+    MateriaAdeudada,
+    ActividadMateriaAdeudada,
+    RendicionMateriaAdeudada,
+    HistorialCursoAlumno,
+    BloqueoHorarioAlumno,
+    PromocionAlumno,
+    RecursadaMateria,
+    RecursadaCalificacion,
+    BloqueoMateriaRecursada,
+    RegistroRendicionPrevia,
+    ResultadoActividadAdeudada,
+    SituacionMateriaAlumno,
 )
 from escuela.serializers import (
     ActaAlumnoSerializer,
@@ -114,6 +128,20 @@ from escuela.serializers import (
     TipoAccionSerializer,
     TipoActaSerializer,
     UsuarioSerializer,
+    HistorialAcademicoSerializer,
+    IntensificacionAcademicaSerializer,
+    MateriaAdeudadaSerializer,
+    ActividadMateriaAdeudadaSerializer,
+    RendicionMateriaAdeudadaSerializer,
+    HistorialCursoAlumnoSerializer,
+    BloqueoHorarioAlumnoSerializer,
+    PromocionAlumnoSerializer,
+    RecursadaMateriaSerializer,
+    RecursadaCalificacionSerializer,
+    BloqueoMateriaRecursadaSerializer,
+    RegistroRendicionPreviaSerializer,
+    ResultadoActividadAdeudadaSerializer,
+    SituacionMateriaAlumnoSerializer,
 )
 
 
@@ -3957,5 +3985,228 @@ def upload_file(request):
 
     url = f'{settings.MEDIA_URL}{carpeta}/{nombre}'
     return Response({'url': url, 'nombre': nombre})
+
+
+class HistorialAcademicoViewSet(viewsets.ModelViewSet):
+    queryset = HistorialAcademico.objects.select_related('id_alumno', 'id_materia', 'id_curso', 'id_curso_materia').all()
+    serializer_class = HistorialAcademicoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        alumno = self.request.query_params.get('alumno')
+        curso = self.request.query_params.get('curso')
+        materia = self.request.query_params.get('materia')
+        anio = self.request.query_params.get('anio')
+        if alumno:
+            qs = qs.filter(id_alumno=alumno)
+        if curso:
+            qs = qs.filter(id_curso=curso)
+        if materia:
+            qs = qs.filter(id_materia=materia)
+        if anio:
+            qs = qs.filter(anio_lectivo=anio)
+        return qs
+
+
+class IntensificacionAcademicaViewSet(viewsets.ModelViewSet):
+    queryset = IntensificacionAcademica.objects.select_related('id_historial', 'id_historial__id_alumno', 'id_historial__id_materia').all()
+    serializer_class = IntensificacionAcademicaSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
+    queryset = MateriaAdeudada.objects.select_related('id_alumno', 'id_materia', 'id_curso_origen', 'id_curso_actual').all()
+    serializer_class = MateriaAdeudadaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        alumno = self.request.query_params.get('alumno')
+        tipo = self.request.query_params.get('tipo')
+        estado = self.request.query_params.get('estado')
+        if alumno:
+            qs = qs.filter(id_alumno=alumno)
+        if tipo:
+            qs = qs.filter(tipo_deuda=tipo)
+        if estado:
+            qs = qs.filter(estado=estado)
+        return qs
+
+    @action(detail=True, methods=['post'], url_path='rendir')
+    def rendir(self, request, pk=None):
+        ma = self.get_object()
+        nota = request.data.get('nota')
+        periodo = request.data.get('periodo')
+        anio = request.data.get('anio_rendicion') or timezone.now().year
+        observaciones = request.data.get('observaciones', '')
+
+        if nota is None or not periodo:
+            return Response({'error': 'Nota y período son obligatorios.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        nota_num = float(nota)
+        resultado = 'APROBADA' if nota_num >= 7 else 'DESAPROBADA'
+
+        rendicion = RendicionMateriaAdeudada.objects.create(
+            id_materia_adeudada=ma,
+            id_alumno=ma.id_alumno,
+            id_docente_id=request.data.get('id_docente'),
+            anio_rendicion=anio,
+            periodo=periodo,
+            nota=nota_num,
+            estado=resultado,
+            fecha_rendicion=timezone.now(),
+            observaciones=observaciones,
+            fecha_registro=timezone.now()
+        )
+
+        RegistroRendicionPrevia.objects.create(
+            id_alumno=ma.id_alumno,
+            id_materia_adeudada=ma,
+            id_materia=ma.id_materia,
+            id_curso_origen=ma.id_curso_origen,
+            anio_rendicion=anio,
+            periodo=periodo,
+            nota=nota_num,
+            resultado=resultado,
+            id_docente_id=request.data.get('id_docente'),
+            observaciones=observaciones,
+            fecha_rendicion=timezone.now()
+        )
+
+        if resultado == 'APROBADA':
+            ma.estado = 'APROBADA'
+            ma.fecha_aprobacion = timezone.now()
+            ma.save(update_fields=['estado', 'fecha_aprobacion'])
+
+            HistorialAcademico.objects.filter(
+                id_alumno=ma.id_alumno,
+                id_materia=ma.id_materia,
+                id_curso=ma.id_curso_origen
+            ).update(
+                estado_materia='aprobada',
+                periodo_aprobacion='previa',
+                anio_aprobacion=anio,
+                nota_final=nota_num
+            )
+
+        return Response(RendicionMateriaAdeudadaSerializer(rendicion).data)
+
+
+class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
+    queryset = ActividadMateriaAdeudada.objects.select_related('id_curso_materia__id_materia', 'id_curso_materia__id_curso', 'id_docente').all()
+    serializer_class = ActividadMateriaAdeudadaSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        tipo = self.request.query_params.get('tipo')
+        curso_materia = self.request.query_params.get('curso_materia')
+        if tipo:
+            qs = qs.filter(tipo=tipo)
+        if curso_materia:
+            qs = qs.filter(id_curso_materia=curso_materia)
+        return qs
+
+
+class RendicionMateriaAdeudadaViewSet(viewsets.ModelViewSet):
+    queryset = RendicionMateriaAdeudada.objects.all()
+    serializer_class = RendicionMateriaAdeudadaSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class HistorialCursoAlumnoViewSet(viewsets.ModelViewSet):
+    queryset = HistorialCursoAlumno.objects.select_related('id_alumno', 'id_curso').all()
+    serializer_class = HistorialCursoAlumnoSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class BloqueoHorarioAlumnoViewSet(viewsets.ModelViewSet):
+    queryset = BloqueoHorarioAlumno.objects.select_related('id_alumno', 'id_materia_bloqueada', 'id_materia_prioritaria').all()
+    serializer_class = BloqueoHorarioAlumnoSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class PromocionAlumnoViewSet(viewsets.ModelViewSet):
+    queryset = PromocionAlumno.objects.select_related('id_alumno', 'curso_origen', 'curso_destino').all()
+    serializer_class = PromocionAlumnoSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class RecursadaMateriaViewSet(viewsets.ModelViewSet):
+    queryset = RecursadaMateria.objects.select_related('id_alumno', 'id_materia', 'id_curso_origen', 'id_curso_recursada').all()
+    serializer_class = RecursadaMateriaSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class RecursadaCalificacionViewSet(viewsets.ModelViewSet):
+    queryset = RecursadaCalificacion.objects.all()
+    serializer_class = RecursadaCalificacionSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class BloqueoMateriaRecursadaViewSet(viewsets.ModelViewSet):
+    queryset = BloqueoMateriaRecursada.objects.all()
+    serializer_class = BloqueoMateriaRecursadaSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class RegistroRendicionPreviaViewSet(viewsets.ModelViewSet):
+    queryset = RegistroRendicionPrevia.objects.all()
+    serializer_class = RegistroRendicionPreviaSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class ResultadoActividadAdeudadaViewSet(viewsets.ModelViewSet):
+    queryset = ResultadoActividadAdeudada.objects.all()
+    serializer_class = ResultadoActividadAdeudadaSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class SituacionMateriaAlumnoViewSet(viewsets.ModelViewSet):
+    queryset = SituacionMateriaAlumno.objects.select_related('id_alumno', 'id_curso_materia').all()
+    serializer_class = SituacionMateriaAlumnoSerializer
+    permission_classes = [IsAuthenticated]
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cierre_ciclo_api_view(request):
+    from escuela.academico import procesar_cierre_ciclo
+    username = request.user.username
+    roles = get_roles_for_usuario(username)
+    if 'admin' not in roles and 'director' not in roles:
+        return Response({'error': 'Solo administradores o directores pueden ejecutar el cierre de ciclo.'}, status=status.HTTP_403_FORBIDDEN)
+    anio = request.data.get('anio_lectivo') or timezone.now().year
+    procesar_cierre_ciclo(int(anio))
+    return Response({'status': 'Cierre de ciclo ejecutado correctamente', 'anio': anio})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def boletin_academico_api_view(request, alumno_id):
+    alumno = Alumno.objects.filter(pk=alumno_id).select_related('id_curso').first()
+    if not alumno:
+        return Response({'error': 'Alumno no encontrado.'}, status=404)
+
+    historial = HistorialAcademico.objects.filter(id_alumno=alumno).select_related('id_materia', 'id_curso')
+    previas = MateriaAdeudada.objects.filter(id_alumno=alumno, tipo_deuda='PREVIA').select_related('id_materia', 'id_curso_origen')
+    recursadas = MateriaAdeudada.objects.filter(id_alumno=alumno, tipo_deuda='RECURSADA').select_related('id_materia', 'id_curso_origen')
+    rendiciones_previas = RegistroRendicionPrevia.objects.filter(id_alumno=alumno)
+
+    return Response({
+        'alumno': {
+            'id': alumno.id_alumno,
+            'nombre': f"{alumno.apellido}, {alumno.nombre}",
+            'dni': alumno.dni,
+            'curso': alumno.id_curso.nombre_curso if alumno.id_curso else ''
+        },
+        'historial': HistorialAcademicoSerializer(historial, many=True).data,
+        'previas': MateriaAdeudadaSerializer(previas, many=True).data,
+        'recursadas': MateriaAdeudadaSerializer(recursadas, many=True).data,
+        'rendiciones_previas': RegistroRendicionPreviaSerializer(rendiciones_previas, many=True).data,
+    })
+
 
 

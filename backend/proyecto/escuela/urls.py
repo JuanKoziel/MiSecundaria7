@@ -42,6 +42,20 @@ router.register(r'historial', views.HistorialCambioViewSet)
 router.register(r'eventos-institucionales', views.EventoInstitucionalViewSet, basename='eventos-institucionales')
 router.register(r'libro-temas', views.LibroTemaViewSet)
 router.register(r'adelantos-horas', views.AdelantoHorasViewSet)
+router.register(r'historial-academico', views.HistorialAcademicoViewSet)
+router.register(r'intensificaciones-academicas', views.IntensificacionAcademicaViewSet)
+router.register(r'materias-adeudadas', views.MateriaAdeudadaViewSet)
+router.register(r'actividades-materias-adeudadas', views.ActividadMateriaAdeudadaViewSet)
+router.register(r'rendiciones-materias-adeudadas', views.RendicionMateriaAdeudadaViewSet)
+router.register(r'historial-cursos-alumno', views.HistorialCursoAlumnoViewSet)
+router.register(r'bloqueos-horarios-alumno', views.BloqueoHorarioAlumnoViewSet)
+router.register(r'promociones-alumno', views.PromocionAlumnoViewSet)
+router.register(r'recursadas-materias', views.RecursadaMateriaViewSet)
+router.register(r'materias-recursadas-calificaciones', views.RecursadaCalificacionViewSet)
+router.register(r'bloqueos-materias-recursadas', views.BloqueoMateriaRecursadaViewSet)
+router.register(r'registro-rendiciones-previas', views.RegistroRendicionPreviaViewSet)
+router.register(r'resultados-actividades-adeudadas', views.ResultadoActividadAdeudadaViewSet)
+router.register(r'situaciones-materias-alumno', views.SituacionMateriaAlumnoViewSet)
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),
@@ -50,5 +64,7 @@ urlpatterns = [
     path('upload/', views.upload_file, name='upload_file'),
     path('estadisticas-preceptoria/', views.estadisticas_preceptoria, name='estadisticas-preceptoria'),
     path('supervision-preceptores/', views.supervision_preceptores, name='supervision-preceptores'),
+    path('cierre-ciclo/', views.cierre_ciclo_api_view, name='cierre-ciclo'),
+    path('boletin-academico/<int:alumno_id>/', views.boletin_academico_api_view, name='boletin-academico'),
     path('', include(router.urls)),
 ]

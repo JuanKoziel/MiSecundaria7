@@ -48,6 +48,20 @@ from escuela.models import (
     TipoActa,
     Usuario,
     UsuarioRol,
+    HistorialAcademico,
+    IntensificacionAcademica,
+    MateriaAdeudada,
+    ActividadMateriaAdeudada,
+    RendicionMateriaAdeudada,
+    HistorialCursoAlumno,
+    BloqueoHorarioAlumno,
+    PromocionAlumno,
+    RecursadaMateria,
+    RecursadaCalificacion,
+    BloqueoMateriaRecursada,
+    RegistroRendicionPrevia,
+    ResultadoActividadAdeudada,
+    SituacionMateriaAlumno,
 )
 
 
@@ -2209,5 +2223,135 @@ class AdelantoHorasSerializer(serializers.ModelSerializer):
                     ]}
                 )
         return attrs
+
+
+# ---------- Sistema Académico Avanzado ----------
+
+class HistorialAcademicoSerializer(serializers.ModelSerializer):
+    alumno_nombre = serializers.CharField(source='id_alumno.apellido_nombre', read_only=True, default='')
+    materia_nombre = serializers.CharField(source='id_materia.nombre_materia', read_only=True, default='')
+    curso_nombre = serializers.CharField(source='id_curso.nombre_curso', read_only=True, default='')
+
+    class Meta:
+        model = HistorialAcademico
+        fields = '__all__'
+
+
+class IntensificacionAcademicaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IntensificacionAcademica
+        fields = '__all__'
+
+
+class MateriaAdeudadaSerializer(serializers.ModelSerializer):
+    materia_nombre = serializers.CharField(source='id_materia.nombre_materia', read_only=True, default='')
+    curso_origen_nombre = serializers.CharField(source='id_curso_origen.nombre_curso', read_only=True, default='')
+    curso_actual_nombre = serializers.CharField(source='id_curso_actual.nombre_curso', read_only=True, default='')
+    alumno_nombre = serializers.CharField(source='id_alumno.apellido_nombre', read_only=True, default='')
+
+    class Meta:
+        model = MateriaAdeudada
+        fields = '__all__'
+
+
+class ActividadMateriaAdeudadaSerializer(serializers.ModelSerializer):
+    materia_nombre = serializers.CharField(source='id_curso_materia.id_materia.nombre_materia', read_only=True, default='')
+    curso_nombre = serializers.CharField(source='id_curso_materia.id_curso.nombre_curso', read_only=True, default='')
+    docente_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ActividadMateriaAdeudada
+        fields = '__all__'
+
+    def get_docente_nombre(self, obj):
+        if obj.id_docente:
+            return f"{obj.id_docente.apellido}, {obj.id_docente.nombre}"
+        return ''
+
+
+class RendicionMateriaAdeudadaSerializer(serializers.ModelSerializer):
+    docente_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RendicionMateriaAdeudada
+        fields = '__all__'
+
+    def get_docente_nombre(self, obj):
+        if obj.id_docente:
+            return f"{obj.id_docente.apellido}, {obj.id_docente.nombre}"
+        return ''
+
+
+class HistorialCursoAlumnoSerializer(serializers.ModelSerializer):
+    curso_nombre = serializers.CharField(source='id_curso.nombre_curso', read_only=True, default='')
+
+    class Meta:
+        model = HistorialCursoAlumno
+        fields = '__all__'
+
+
+class BloqueoHorarioAlumnoSerializer(serializers.ModelSerializer):
+    materia_bloqueada_nombre = serializers.CharField(source='id_materia_bloqueada.nombre_materia', read_only=True, default='')
+    materia_prioritaria_nombre = serializers.CharField(source='id_materia_prioritaria.nombre_materia', read_only=True, default='')
+    materia_recursada_nombre = serializers.CharField(source='id_materia_recursada.nombre_materia', read_only=True, default='')
+
+    class Meta:
+        model = BloqueoHorarioAlumno
+        fields = '__all__'
+
+
+class PromocionAlumnoSerializer(serializers.ModelSerializer):
+    curso_origen_nombre = serializers.CharField(source='curso_origen.nombre_curso', read_only=True, default='')
+    curso_destino_nombre = serializers.CharField(source='curso_destino.nombre_curso', read_only=True, default='')
+
+    class Meta:
+        model = PromocionAlumno
+        fields = '__all__'
+
+
+class RecursadaMateriaSerializer(serializers.ModelSerializer):
+    materia_nombre = serializers.CharField(source='id_materia.nombre_materia', read_only=True, default='')
+    curso_origen_nombre = serializers.CharField(source='id_curso_origen.nombre_curso', read_only=True, default='')
+    curso_recursada_nombre = serializers.CharField(source='id_curso_recursada.nombre_curso', read_only=True, default='')
+
+    class Meta:
+        model = RecursadaMateria
+        fields = '__all__'
+
+
+class RecursadaCalificacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecursadaCalificacion
+        fields = '__all__'
+
+
+class BloqueoMateriaRecursadaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BloqueoMateriaRecursada
+        fields = '__all__'
+
+
+class RegistroRendicionPreviaSerializer(serializers.ModelSerializer):
+    materia_nombre = serializers.CharField(source='id_materia.nombre_materia', read_only=True, default='')
+    curso_origen_nombre = serializers.CharField(source='id_curso_origen.nombre_curso', read_only=True, default='')
+
+    class Meta:
+        model = RegistroRendicionPrevia
+        fields = '__all__'
+
+
+class ResultadoActividadAdeudadaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ResultadoActividadAdeudada
+        fields = '__all__'
+
+
+class SituacionMateriaAlumnoSerializer(serializers.ModelSerializer):
+    materia_nombre = serializers.CharField(source='id_curso_materia.id_materia.nombre_materia', read_only=True, default='')
+    curso_nombre = serializers.CharField(source='id_curso_materia.id_curso.nombre_curso', read_only=True, default='')
+
+    class Meta:
+        model = SituacionMateriaAlumno
+        fields = '__all__'
 
 
