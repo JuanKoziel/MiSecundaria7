@@ -35,7 +35,66 @@ function promedioGeneral(materias) {
   return (proms.reduce((a, b) => a + b, 0) / proms.length).toFixed(2);
 }
 
-export function boletinHTML({ alumnoNombre, dni, cursoNombre, anioLectivo, materias, inasistenciasPorMateria }) {
+function seccionIntensificaciones(items) {
+  if (!items || !items.length) {
+    return `<div class="boletin-seccion"><h3>Espacios de Intensificación</h3><p class="sin-datos">Sin espacios de intensificación registrados.</p></div>`;
+  }
+  const lis = items
+    .map((a) => {
+      const pdf = a.archivo_pdf
+        ? `<br/><a href="${a.archivo_pdf}" target="_blank" rel="noopener">Descargar archivo (PDF)</a>`
+        : '';
+      const extra = [a.materia_nombre ? `Materia: ${a.materia_nombre}` : '', a.docente_nombre ? `Docente: ${a.docente_nombre}` : '']
+        .filter(Boolean)
+        .join(' · ');
+      return `<li><strong>${a.titulo || 'Actividad de intensificación'}</strong>${
+        a.periodo_intensificacion ? ` — <span class="badge">${a.periodo_intensificacion}</span>` : ''
+      }${extra ? `<br/><span class="sub">${extra}</span>` : ''}${pdf}</li>`;
+    })
+    .join('');
+  return `<div class="boletin-seccion"><h3>Espacios de Intensificación</h3><ul class="boletin-lista">${lis}</ul></div>`;
+}
+
+function seccionBloqueos(items) {
+  if (!items || !items.length) {
+    return `<div class="boletin-seccion"><h3>Bloqueos de Horario</h3><p class="sin-datos">Sin bloqueos de horario registrados.</p></div>`;
+  }
+  const rows = items
+    .map(
+      (b) => `<tr><td>${b.materia_bloqueada_nombre || '—'}</td><td>${
+        b.materia_prioritaria_nombre || b.materia_recursada_nombre || '—'
+      }</td><td>${b.estado ? 'Activo' : 'Inactivo'}</td><td>${b.motivo || '—'}</td></tr>`,
+    )
+    .join('');
+  return `<div class="boletin-seccion"><h3>Bloqueos de Horario</h3><table class="boletin-tabla-extra"><thead><tr><th>Materia bloqueada</th><th>Prioritaria / Recursada</th><th>Estado</th><th>Motivo</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function seccionSituaciones(items) {
+  if (!items || !items.length) {
+    return `<div class="boletin-seccion"><h3>Situaciones de Materia</h3><p class="sin-datos">Sin situaciones registradas.</p></div>`;
+  }
+  const rows = items
+    .map(
+      (s) =>
+        `<tr><td>${s.materia_nombre || '—'}</td><td>${s.situacion || '—'}</td><td>${
+          s.observaciones || '—'
+        }</td></tr>`,
+    )
+    .join('');
+  return `<div class="boletin-seccion"><h3>Situaciones de Materia</h3><table class="boletin-tabla-extra"><thead><tr><th>Materia</th><th>Situación</th><th>Observaciones</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+export function boletinHTML({
+  alumnoNombre,
+  dni,
+  cursoNombre,
+  anioLectivo,
+  materias,
+  inasistenciasPorMateria,
+  intensificaciones = [],
+  bloqueos = [],
+  situaciones = [],
+}) {
   const fechaEmision = new Date().toLocaleDateString('es-AR');
   const cursoLabel = cursoConOrientacion(cursoNombre);
   return `
@@ -72,6 +131,9 @@ export function boletinHTML({ alumnoNombre, dni, cursoNombre, anioLectivo, mater
           ${materias.length ? filasMaterias(materias, inasistenciasPorMateria) : '<tr><td colspan="8">Sin calificaciones cargadas.</td></tr>'}
         </tbody>
       </table>
+      ${seccionIntensificaciones(intensificaciones)}
+      ${seccionBloqueos(bloqueos)}
+      ${seccionSituaciones(situaciones)}
       <div class="boletin-footer">
         <div><strong>Promedio general:</strong> ${promedioGeneral(materias)}</div>
         <div class="firma">Firma y sello</div>
@@ -94,6 +156,17 @@ const BOLETIN_CSS = `
   td.prom { font-weight: 700; }
   .boletin-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 18px; font-size: 14px; }
   .boletin-footer .firma { border-top: 1px solid #1f2937; padding-top: 4px; width: 200px; text-align: center; color: #6b7280; }
+  .boletin-seccion { margin-top: 18px; }
+  .boletin-seccion h3 { font-size: 15px; border-bottom: 1px solid #9ca3af; padding-bottom: 4px; margin-bottom: 8px; }
+  .boletin-lista { margin: 0; padding-left: 18px; font-size: 13px; }
+  .boletin-lista li { margin-bottom: 6px; }
+  .boletin-lista .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; background: #fef3c7; color: #92400e; font-size: 12px; }
+  .boletin-lista .sub { color: #6b7280; }
+  .boletin-lista a { color: #1d4ed8; }
+  .boletin-tabla-extra { margin-top: 4px; }
+  .boletin-tabla-extra th, .boletin-tabla-extra td { text-align: left; }
+  .boletin-tabla-extra th:nth-child(3), .boletin-tabla-extra td:nth-child(3) { text-align: center; }
+  .sin-datos { color: #6b7280; font-size: 13px; font-style: italic; }
   @media print { button { display: none; } }
 `;
 

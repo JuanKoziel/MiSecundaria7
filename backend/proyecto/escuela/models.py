@@ -1098,7 +1098,7 @@ class MateriaAdeudada(models.Model):
     )
     tipo_deuda = models.CharField(max_length=20, choices=TIPO_DEUDA_CHOICES, default='PREVIA')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='ADEUDADA')
-    fecha_generacion = models.DateTimeField(blank=True, null=True)
+    fecha_generacion = models.DateTimeField(blank=True, null=True, default=timezone.now)
     fecha_aprobacion = models.DateTimeField(blank=True, null=True)
     id_curso_actual = models.ForeignKey(
         Curso, on_delete=models.SET_NULL, db_column='id_curso_actual',
@@ -1391,7 +1391,7 @@ class RecursadaCalificacion(models.Model):
         max_digits=4, decimal_places=2, blank=True, null=True,
     )
     diagnostico = models.TextField(blank=True, null=True)
-    fecha_carga = models.DateTimeField(blank=True, null=True)
+    fecha_carga = models.DateTimeField(blank=True, null=True, default=timezone.now)
 
     class Meta:
         managed = False

@@ -1,6 +1,84 @@
 from rest_framework import permissions
 
 from escuela.auth_backend import get_roles_for_usuario
+from escuela.models import Usuario, Alumno, Docente, PadreTutor, CursoMateria
+
+
+# ---------------------------------------------------------------------------
+# Resolución del actor autenticado y autorización a nivel de objeto.
+# El backend de autenticación resuelve `request.user` a un django.contrib.auth.User
+# cuyo `username` es el campo `usuario` de la tabla `usuarios`. A partir de ahí se
+# derivan los vínculos Alumno / Familia (PadreTutor) / Docente.
+# ---------------------------------------------------------------------------
+
+ROLES_AMPLIOS = {'admin', 'director', 'jefe_preceptores', 'preceptor'}
+
+
+def get_usuario(request):
+    username = getattr(request.user, 'username', None)
+    if not username:
+        return None
+    return Usuario.objects.filter(usuario=username).first()
+
+
+def roles_de_request(request):
+    u = get_usuario(request)
+    if not u:
+        return set()
+    return set(get_roles_for_usuario(u.usuario))
+
+
+def es_rol_amplio(request):
+    return bool(roles_de_request(request) & ROLES_AMPLIOS)
+
+
+def alumno_del_usuario(request):
+    u = get_usuario(request)
+    if not u:
+        return None
+    return Alumno.objects.filter(id_usuario=u).first()
+
+
+def alumno_ids_familia(request):
+    u = get_usuario(request)
+    if not u:
+        return []
+    tutor = PadreTutor.objects.filter(id_usuario=u).first()
+    if not tutor:
+        return []
+    return list(Alumno.objects.filter(id_tutor=tutor).values_list('id_alumno', flat=True))
+
+
+def docente_del_usuario(request):
+    u = get_usuario(request)
+    if not u:
+        return None
+    return Docente.objects.filter(id_usuario=u).first()
+
+
+def alumnos_permitidos(request):
+    """Queryset de Alumno que el usuario puede consultar.
+
+    Devuelve ``None`` cuando no hay restricción (roles amplios: admin/director/
+    jefe_preceptores/preceptor). En otro caso devuelve únicamente los alumnos
+    permitidos según el rol: el propio (alumno), los vinculados a su tutor
+    (familia) o los que cursan materias asignadas al docente.
+    """
+    if es_rol_amplio(request):
+        return None
+    al = alumno_del_usuario(request)
+    if al:
+        return Alumno.objects.filter(id_alumno=al.id_alumno)
+    ids = alumno_ids_familia(request)
+    if ids:
+        return Alumno.objects.filter(id_alumno__in=ids)
+    doc = docente_del_usuario(request)
+    if doc:
+        cursos = CursoMateria.objects.filter(
+            id_docente=doc, activo=True, estado=True
+        ).values_list('id_curso', flat=True)
+        return Alumno.objects.filter(id_curso__in=cursos)
+    return Alumno.objects.none()
 
 
 class IsAdminOrDirectorForWrite(permissions.BasePermission):

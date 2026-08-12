@@ -9,6 +9,7 @@ import {
   uploadFile
 } from '../../services/api';
 import FormModal from '../Shared/FormModal';
+import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 
 function mensajeError(err) {
@@ -163,14 +164,17 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
   };
 
   const handleDeleteActividad = async (id) => {
-    if (!window.confirm('¿Está seguro de eliminar esta actividad?')) return;
-    try {
-      await deleteActividadMateriaAdeudada(id);
-      toast.success('Actividad eliminada correctamente.');
-      loadActividades();
-    } catch (err) {
-      toast.error(`Error al eliminar la actividad: ${mensajeError(err)}`);
-    }
+    await confirmarEliminacion('¿Está seguro de eliminar esta actividad?', {
+      onConfirm: async () => {
+        try {
+          await deleteActividadMateriaAdeudada(id);
+          toast.success('Actividad eliminada correctamente.');
+          loadActividades();
+        } catch (err) {
+          toast.error(`Error al eliminar la actividad: ${mensajeError(err)}`);
+        }
+      },
+    });
   };
 
   const handleRendirPrevia = async (e) => {
@@ -191,7 +195,7 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
       setObsRendicion('');
       loadDeudas();
     } catch (err) {
-      alert('Error al registrar rendición: ' + (err.response?.data?.error || err.message));
+      toast.error(`Error al registrar rendición: ${mensajeError(err)}`);
     }
   };
 
@@ -216,17 +220,17 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
       <h2>Materias Adeudadas e Intensificaciones</h2>
       <p className="text-muted">Gestión de actividades de intensificación y registro de notas de previas.</p>
 
-      <div style={{ display: 'flex', gap: '12px', margin: '16px 0', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
+      <div className="tabs-container">
         <button
           type="button"
-          className={`btn ${subTab === 'intensificaciones' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`tab-button ${subTab === 'intensificaciones' ? 'active' : ''}`}
           onClick={() => setSubTab('intensificaciones')}
         >
           Intensificaciones
         </button>
         <button
           type="button"
-          className={`btn ${subTab === 'previas' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`tab-button ${subTab === 'previas' ? 'active' : ''}`}
           onClick={() => setSubTab('previas')}
         >
           Previas / Rendiciones
@@ -245,7 +249,7 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
             </button>
           </div>
 
-          <div className="filter-row" style={{ marginBottom: '16px' }}>
+          <div className="filter-row mb-16">
             <div className="form-group-filter">
               <label>Filtrar por Curso</label>
               <select value={cursoId} onChange={(e) => { setCursoId(e.target.value); setMateriaNombre(''); }}>
@@ -435,7 +439,7 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
         </div>
       ) : (
         <div>
-          <div className="filter-row" style={{ marginBottom: '16px' }}>
+          <div className="filter-row mb-16">
             <div className="form-group-filter">
               <label>Curso</label>
               <select value={cursoId} onChange={(e) => { setCursoId(e.target.value); setMateriaNombre(''); }}>

@@ -14,7 +14,15 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from escuela.auth_backend import get_roles_for_usuario
-from escuela.permissions import IsAdminOrDirectorForWrite, PuedeVerHistorial, PuedeGestionarAdelantos
+from escuela.permissions import (
+    IsAdminOrDirectorForWrite,
+    PuedeVerHistorial,
+    PuedeGestionarAdelantos,
+    alumnos_permitidos,
+    alumno_del_usuario,
+    docente_del_usuario,
+    es_rol_amplio,
+)
 from escuela.utils import (
     ACCION_CAMBIO_CONTRASENA,
     ACCION_CAMBIO_ROL,
@@ -3994,6 +4002,9 @@ class HistorialAcademicoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        permitidos = alumnos_permitidos(self.request)
+        if permitidos is not None:
+            qs = qs.filter(id_alumno__in=permitidos)
         alumno = self.request.query_params.get('alumno')
         curso = self.request.query_params.get('curso')
         materia = self.request.query_params.get('materia')
@@ -4022,6 +4033,9 @@ class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        permitidos = alumnos_permitidos(self.request)
+        if permitidos is not None:
+            qs = qs.filter(id_alumno__in=permitidos)
         alumno = self.request.query_params.get('alumno')
         tipo = self.request.query_params.get('tipo')
         estado = self.request.query_params.get('estado')
@@ -4036,6 +4050,9 @@ class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='rendir')
     def rendir(self, request, pk=None):
         ma = self.get_object()
+        permitidos = alumnos_permitidos(request)
+        if permitidos is not None and not permitidos.filter(pk=ma.id_alumno_id).exists():
+            raise PermissionDenied('No tiene permiso para rendir esta materia adeudada.')
         nota = request.data.get('nota')
         periodo = request.data.get('periodo')
         anio = request.data.get('anio_rendicion') or timezone.now().year
@@ -4101,6 +4118,13 @@ class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        doc = docente_del_usuario(self.request)
+        if es_rol_amplio(self.request):
+            pass
+        elif doc:
+            qs = qs.filter(id_docente=doc)
+        else:
+            qs = qs.none()
         tipo = self.request.query_params.get('tipo')
         curso_materia = self.request.query_params.get('curso_materia')
         if tipo:
@@ -4108,6 +4132,65 @@ class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)
         return qs
+
+    def _es_dueno_o_amplio(self, instancia):
+        if es_rol_amplio(self.request):
+            return True
+        doc = docente_del_usuario(self.request)
+        return bool(doc and instancia.id_docente_id == doc.id_docente)
+
+    def perform_create(self, serializer):
+        doc = docente_del_usuario(self.request)
+        if not es_rol_amplio(self.request) and not doc:
+            raise PermissionDenied('No tiene permiso para crear actividades.')
+        cm_id = self.request.data.get('id_curso_materia')
+        if doc and not es_rol_amplio(self.request):
+            if not CursoMateria.objects.filter(id_curso_materia=cm_id, id_docente=doc).exists():
+                raise PermissionDenied('No puede crear actividades para materias que no tiene asignadas.')
+            serializer.save(id_docente=doc)
+        else:
+            serializer.save()
+
+    def perform_update(self, serializer):
+        if not self._es_dueno_o_amplio(self.get_object()):
+            raise PermissionDenied('No puede modificar actividades de otro docente.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not self._es_dueno_o_amplio(instance):
+            raise PermissionDenied('No puede eliminar actividades de otro docente.')
+        marcar_eliminado(instance)
+
+    def _obtener_para_escritura(self, pk):
+        from django.http import Http404
+        try:
+            instancia = ActividadMateriaAdeudada.all_objects.filter(pk=pk).first()
+        except (ValueError, TypeError):
+            raise Http404
+        if instancia is None:
+            raise Http404
+        if not self._es_dueno_o_amplio(instancia):
+            raise PermissionDenied('No puede modificar actividades de otro docente.')
+        return instancia
+
+    def update(self, request, *args, **kwargs):
+        instancia = self._obtener_para_escritura(kwargs['pk'])
+        serializer = self.get_serializer(instancia, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        instancia = self._obtener_para_escritura(kwargs['pk'])
+        serializer = self.get_serializer(instancia, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instancia = self._obtener_para_escritura(kwargs['pk'])
+        self.perform_destroy(instancia)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RendicionMateriaAdeudadaViewSet(viewsets.ModelViewSet):
@@ -4127,6 +4210,13 @@ class BloqueoHorarioAlumnoViewSet(viewsets.ModelViewSet):
     serializer_class = BloqueoHorarioAlumnoSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitidos = alumnos_permitidos(self.request)
+        if permitidos is not None:
+            qs = qs.filter(id_alumno__in=permitidos)
+        return qs
+
 
 class PromocionAlumnoViewSet(viewsets.ModelViewSet):
     queryset = PromocionAlumno.objects.select_related('id_alumno', 'curso_origen', 'curso_destino').all()
@@ -4138,6 +4228,13 @@ class RecursadaMateriaViewSet(viewsets.ModelViewSet):
     queryset = RecursadaMateria.objects.select_related('id_alumno', 'id_materia', 'id_curso_origen', 'id_curso_recursada').all()
     serializer_class = RecursadaMateriaSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitidos = alumnos_permitidos(self.request)
+        if permitidos is not None:
+            qs = qs.filter(id_alumno__in=permitidos)
+        return qs
 
 
 class RecursadaCalificacionViewSet(viewsets.ModelViewSet):
@@ -4169,6 +4266,13 @@ class SituacionMateriaAlumnoViewSet(viewsets.ModelViewSet):
     serializer_class = SituacionMateriaAlumnoSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitidos = alumnos_permitidos(self.request)
+        if permitidos is not None:
+            qs = qs.filter(id_alumno__in=permitidos)
+        return qs
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -4190,10 +4294,22 @@ def boletin_academico_api_view(request, alumno_id):
     if not alumno:
         return Response({'error': 'Alumno no encontrado.'}, status=404)
 
+    permitidos = alumnos_permitidos(request)
+    if permitidos is not None and not permitidos.filter(pk=alumno_id).exists():
+        return Response({'error': 'No tiene permiso para consultar este boletín.'}, status=403)
+
     historial = HistorialAcademico.objects.filter(id_alumno=alumno).select_related('id_materia', 'id_curso')
     previas = MateriaAdeudada.objects.filter(id_alumno=alumno, tipo_deuda='PREVIA').select_related('id_materia', 'id_curso_origen')
     recursadas = MateriaAdeudada.objects.filter(id_alumno=alumno, tipo_deuda='RECURSADA').select_related('id_materia', 'id_curso_origen')
     rendiciones_previas = RegistroRendicionPrevia.objects.filter(id_alumno=alumno)
+    intensificaciones = ActividadMateriaAdeudada.objects.filter(
+        id_curso_materia__id_curso=alumno.id_curso, estado=True,
+        tipo__in=['INTENSIFICACION', 'ESPACIO'],
+    ).select_related('id_curso_materia__id_materia', 'id_curso_materia__id_curso', 'id_docente')
+    bloqueos = BloqueoHorarioAlumno.objects.filter(id_alumno=alumno).select_related(
+        'id_materia_bloqueada', 'id_materia_prioritaria',
+        'id_curso_materia_bloqueada', 'id_curso_materia_prioritaria')
+    situaciones = SituacionMateriaAlumno.objects.filter(id_alumno=alumno).select_related('id_curso_materia')
 
     return Response({
         'alumno': {
@@ -4206,6 +4322,9 @@ def boletin_academico_api_view(request, alumno_id):
         'previas': MateriaAdeudadaSerializer(previas, many=True).data,
         'recursadas': MateriaAdeudadaSerializer(recursadas, many=True).data,
         'rendiciones_previas': RegistroRendicionPreviaSerializer(rendiciones_previas, many=True).data,
+        'intensificaciones': ActividadMateriaAdeudadaSerializer(intensificaciones, many=True).data,
+        'bloqueos': BloqueoHorarioAlumnoSerializer(bloqueos, many=True).data,
+        'situaciones': SituacionMateriaAlumnoSerializer(situaciones, many=True).data,
     })
 
 

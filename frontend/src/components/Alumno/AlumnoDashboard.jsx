@@ -6,6 +6,8 @@ import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
+import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
+import BoletinExtras from '../BoletinExtras';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
@@ -29,6 +31,7 @@ function AlumnoDashboard({ user, onLogout }) {
     () => alumnos.find((a) => a.id_usuario === user?.id) || null,
     [alumnos, user],
   );
+  const { intensificaciones, bloqueos, situaciones } = useBoletinAcademico(miAlumno?.id);
 
   const misCalificaciones = useMemo(() => {
     if (!miAlumno) return [];
@@ -121,6 +124,9 @@ function AlumnoDashboard({ user, onLogout }) {
       anioLectivo: new Date().getFullYear(),
       materias: calsPorMateria,
       inasistenciasPorMateria,
+      intensificaciones,
+      bloqueos,
+      situaciones,
     });
     exportarBoletinPDF(html, `Boletín — ${miAlumno.apellido}, ${miAlumno.nombre}`);
   };
@@ -255,6 +261,8 @@ function AlumnoDashboard({ user, onLogout }) {
                     <p className="text-muted" style={{ margin: '4px 0 0' }}>Presentes</p>
                   </div>
                 </div>
+
+                <BoletinExtras intensificaciones={intensificaciones} bloqueos={bloqueos} situaciones={situaciones} />
               </div>
             )}
 

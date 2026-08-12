@@ -1,12 +1,15 @@
 import { useData } from '../../context/DataContext';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 import { useMemo } from 'react';
+import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
+import BoletinExtras from '../BoletinExtras';
 
 function Calificaciones({ hijo }) {
   const { calificacionesFamilia, materiasPorCurso, cursoMateria, periodos, asistenciasAdmin, alumnos } = useData();
 
   // Obtener el objeto real del alumno
   const alumno = alumnos.find((a) => a.id === hijo.alumnoId);
+  const { intensificaciones, bloqueos, situaciones } = useBoletinAcademico(hijo.alumnoId);
 
   // Obtener todas las materias del curso del hijo
   const cursoNombre = hijo.curso;
@@ -83,6 +86,9 @@ function Calificaciones({ hijo }) {
       anioLectivo: new Date().getFullYear(),
       materias: calificacionesDisplay,
       inasistenciasPorMateria,
+      intensificaciones,
+      bloqueos,
+      situaciones,
     });
     exportarBoletinPDF(html, `Boletín — ${alumno.apellido}, ${alumno.nombre}`);
   };
@@ -139,6 +145,8 @@ function Calificaciones({ hijo }) {
           </tbody>
         </table>
       </div>
+
+      <BoletinExtras intensificaciones={intensificaciones} bloqueos={bloqueos} situaciones={situaciones} />
     </div>
   );
 }

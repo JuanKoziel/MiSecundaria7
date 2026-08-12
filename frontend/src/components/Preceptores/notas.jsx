@@ -4,6 +4,8 @@ import FiltrosAnioCurso from './FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, boletinPorAlumno, filtrosCompletos } from './preceptorUtils';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
+import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
+import BoletinExtras from '../BoletinExtras';
 
 function totalesInasistencias(inasistenciasPorMateria) {
   return Object.values(inasistenciasPorMateria).reduce(
@@ -23,6 +25,7 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
     return { id: idx + 1, materia: nombre, prenota1: '', nota1: '', prenota2: '', nota2: '', diagnostico: '' };
   });
   const totales = totalesInasistencias(inasistenciasPorMateria);
+  const { intensificaciones, bloqueos, situaciones } = useBoletinAcademico(alumno.id);
 
   const handleExportar = (e) => {
     e.stopPropagation();
@@ -33,6 +36,9 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
       anioLectivo,
       materias,
       inasistenciasPorMateria,
+      intensificaciones,
+      bloqueos,
+      situaciones,
     });
     exportarBoletinPDF(html, `Boletín — ${alumno.apellido}, ${alumno.nombre}`);
   };
@@ -111,6 +117,7 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
               </table>
             </div>
           )}
+          <BoletinExtras intensificaciones={intensificaciones} bloqueos={bloqueos} situaciones={situaciones} />
         </div>
       )}
     </div>
