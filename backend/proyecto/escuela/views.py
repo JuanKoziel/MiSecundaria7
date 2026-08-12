@@ -9,7 +9,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -4097,7 +4097,7 @@ class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
     queryset = ActividadMateriaAdeudada.objects.select_related('id_curso_materia__id_materia', 'id_curso_materia__id_curso', 'id_docente').all()
     serializer_class = ActividadMateriaAdeudadaSerializer
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
         qs = super().get_queryset()

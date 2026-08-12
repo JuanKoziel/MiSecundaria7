@@ -640,4 +640,46 @@ export async function deleteLibroTema(id) {
   await api.delete(`/libro-temas/${id}/`);
 }
 
+// --- Sistema Académico Avanzado ---
+
+export async function getHistorialAcademico(params) {
+  const { data } = await api.get('/historial-academico/', { params });
+  return data;
+}
+
+export async function getMateriasAdeudadas(params) {
+  const { data } = await api.get('/materias-adeudadas/', { params });
+  return data;
+}
+
+export async function rendirMateriaAdeudada(id, payload) {
+  const { data } = await api.post(`/materias-adeudadas/${id}/rendir/`, payload);
+  return data;
+}
+
+export async function getActividadesMateriasAdeudadas(params) {
+  const { data } = await api.get('/actividades-materias-adeudadas/', { params });
+  return data;
+}
+
+export async function createActividadMateriaAdeudada(payload) {
+  const { data } = await api.post('/actividades-materias-adeudadas/', payload);
+  return data;
+}
+
+export async function updateActividadMateriaAdeudada(id, payload) {
+  const { data } = await api.patch(`/actividades-materias-adeudadas/${id}/`, payload);
+  return data;
+}
+
+export async function deleteActividadMateriaAdeudada(id) {
+  await api.delete(`/actividades-materias-adeudadas/${id}/`);
+}
+
+export async function getBoletinAcademico(alumnoId) {
+  const { data } = await api.get(`/boletin-academico/${alumnoId}/`);
+  return data;
+}
+
+
 export default api;

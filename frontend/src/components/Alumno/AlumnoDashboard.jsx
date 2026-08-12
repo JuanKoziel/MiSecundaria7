@@ -10,6 +10,7 @@ import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
 import PanelAlumno from './PanelAlumno';
+import PanelPreviasAlumno from './PanelPreviasAlumno';
 import Sidebar from './Sidebar';
 
 function AlumnoDashboard({ user, onLogout }) {
@@ -150,6 +151,10 @@ function AlumnoDashboard({ user, onLogout }) {
         {view === 'perfil' ? (
           <div className="view-section active">
             <PanelAlumno miAlumno={miAlumno} user={user} />
+          </div>
+        ) : view === 'previas' ? (
+          <div className="view-section active">
+            <PanelPreviasAlumno miAlumno={miAlumno} />
           </div>
         ) : view === 'notificaciones' ? (
           <div className="view-section active">

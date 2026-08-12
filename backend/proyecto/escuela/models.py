@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class ActivoManager(models.Manager):
@@ -1136,9 +1137,14 @@ class ActividadMateriaAdeudada(models.Model):
     )
     titulo = models.CharField(max_length=150)
     descripcion = models.TextField(blank=True, null=True)
-    archivo_pdf = models.FileField(upload_to='materias_adeudadas/', max_length=500, blank=True, null=True)
+    archivo_pdf = models.CharField(max_length=500, blank=True, null=True)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
-    fecha_publicacion = models.DateTimeField(blank=True, null=True)
+    periodo_intensificacion = models.CharField(max_length=50, blank=True, null=True)
+    fecha_publicacion = models.DateTimeField(
+        default=timezone.now,
+        blank=True,
+        null=True
+    )
     activo = models.BooleanField(default=True)
     estado = models.BooleanField(default=True)
     fecha_eliminacion = models.DateTimeField(blank=True, null=True)
