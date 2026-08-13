@@ -32,16 +32,16 @@ export default function BoletinTablaPrincipal({
     <div className="table-responsive">
       <table className="boletin-table boletin-tabla-principal">
         <colgroup>
-          <col style={{ width: '18%' }} />
+          <col style={{ width: '16%' }} />
+          <col style={{ width: '8.5%' }} />
+          <col style={{ width: '9.5%' }} />
+          <col style={{ width: '8.5%' }} />
+          <col style={{ width: '9.5%' }} />
+          <col style={{ width: '12%' }} />
           <col style={{ width: '7%' }} />
-          <col style={{ width: '7%' }} />
-          <col style={{ width: '7%' }} />
-          <col style={{ width: '7%' }} />
-          <col style={{ width: '9%' }} />
-          <col style={{ width: '7%' }} />
-          <col style={{ width: '7%' }} />
-          <col style={{ width: '9%' }} />
-          <col style={{ width: '22%' }} />
+          <col style={{ width: '6.5%' }} />
+          <col style={{ width: '9.5%' }} />
+          <col style={{ width: '13%' }} />
         </colgroup>
         <thead>
           <tr>
@@ -90,7 +90,7 @@ export default function BoletinTablaPrincipal({
                   <td></td>
                   <td></td>
                   <td>{califFinal(m)}</td>
-                  <td>{m.diagnostico || '—'}</td>
+                  <td className="cell-obs">{m.diagnostico || '—'}</td>
                 </tr>
               );
             })

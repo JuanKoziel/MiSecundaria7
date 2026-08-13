@@ -48,14 +48,15 @@ function SeccionPrevias({ previas = [] }) {
       <div className="table-responsive">
         <table className="boletin-table">
           <colgroup>
-            <col style={{ width: '18%' }} />
+            <col style={{ width: '16%' }} />
             <col style={{ width: '10%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '30%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '26%' }} />
           </colgroup>
           <thead>
             <tr>
@@ -113,17 +114,17 @@ function SeccionRecursadas({ recursadas = [] }) {
       <div className="table-responsive">
         <table className="boletin-table">
           <colgroup>
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '14%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '9%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '9%' }} />
-            <col style={{ width: '19%' }} />
+            <col style={{ width: '7.5%' }} />
+            <col style={{ width: '12.5%' }} />
+            <col style={{ width: '7.5%' }} />
+            <col style={{ width: '8.5%' }} />
+            <col style={{ width: '7.5%' }} />
+            <col style={{ width: '8.5%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '6.5%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '8.5%' }} />
+            <col style={{ width: '16%' }} />
           </colgroup>
           <CabeceraBoletinConAnio />
           <tbody>
@@ -154,7 +155,7 @@ function SeccionRecursadas({ recursadas = [] }) {
                   <td></td>
                   <td></td>
                   <td></td>
-                  <td>{r.estado || 'A recursar'}</td>
+                  <td className="cell-obs">{r.estado || 'A recursar'}</td>
                 </tr>
               ))
             )}
@@ -172,9 +173,9 @@ function SeccionOtrasIntensificaciones({ intensificaciones_posteriores = [] }) {
       <div className="table-responsive">
         <table className="boletin-table">
           <colgroup>
-            <col style={{ width: '30%' }} />
-            <col style={{ width: '35%' }} />
-            <col style={{ width: '35%' }} />
+            <col style={{ width: '34%' }} />
+            <col style={{ width: '33%' }} />
+            <col style={{ width: '33%' }} />
           </colgroup>
           <thead>
             <tr>

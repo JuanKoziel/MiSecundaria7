@@ -40,7 +40,7 @@ function filasMaterias(materias, intensificaciones_1c = {}, bloqueos_por_materia
           <td></td>
           <td></td>
           <td class="prom">${prom ?? '—'}</td>
-          <td>${m.diagnostico || '—'}</td>
+          <td class="cell-obs">${m.diagnostico || '—'}</td>
         </tr>`;
     })
     .join('');
@@ -61,24 +61,24 @@ function seccionRecursadas(items) {
         <tr>
           <td>${r.anio || '—'}</td>
           <td>${r.materia || '—'}</td>
-          <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-          <td>${r.estado || 'A recursar'}</td>
+          <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+          <td class="cell-obs">${r.estado || 'A recursar'}</td>
         </tr>`,
           )
           .join('')
       : '<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
-  return `<div class="boletin-seccion"><h3>MATERIAS A RECURSAR</h3><table class="boletin-tabla-extra"><colgroup>
-      <col style="width:7%" />
-      <col style="width:14%" />
-      <col style="width:7%" />
-      <col style="width:7%" />
-      <col style="width:7%" />
-      <col style="width:7%" />
-      <col style="width:9%" />
-      <col style="width:7%" />
-      <col style="width:7%" />
-      <col style="width:9%" />
-      <col style="width:19%" />
+  return `<div class="boletin-seccion boletin-seccion-recursadas"><h3>MATERIAS A RECURSAR</h3><table class="boletin-tabla-extra"><colgroup>
+      <col style="width:7.5%" />
+      <col style="width:12.5%" />
+      <col style="width:7.5%" />
+      <col style="width:8.5%" />
+      <col style="width:7.5%" />
+      <col style="width:8.5%" />
+      <col style="width:11%" />
+      <col style="width:6.5%" />
+      <col style="width:6%" />
+      <col style="width:8.5%" />
+      <col style="width:16%" />
     </colgroup><thead>
     <tr>
       <th rowspan="2">Año/Curso</th>
@@ -131,15 +131,16 @@ function seccionPrevias(items) {
           })
           .join('')
       : `<tr><td></td><td></td>${periodos.map(() => '<td></td>').join('')}<td></td></tr>`;
-  return `<div class="boletin-seccion"><h3>MATERIAS PREVIAS / ADEUDADAS</h3><table class="boletin-tabla-extra"><colgroup>
-      <col style="width:18%" />
+  return `<div class="boletin-seccion boletin-seccion-previas"><h3>MATERIAS PREVIAS / ADEUDADAS</h3><table class="boletin-tabla-extra"><colgroup>
+      <col style="width:16%" />
       <col style="width:10%" />
-      <col style="width:7%" />
-      <col style="width:7%" />
-      <col style="width:7%" />
-      <col style="width:7%" />
-      <col style="width:7%" />
-      <col style="width:30%" />
+      <col style="width:8%" />
+      <col style="width:8%" />
+      <col style="width:8%" />
+      <col style="width:8%" />
+      <col style="width:8%" />
+      <col style="width:8%" />
+      <col style="width:26%" />
     </colgroup><thead><tr><th rowspan="2">Materia</th><th rowspan="2">Año (curso)</th><th colspan="6">Período de intensificación</th><th rowspan="2">Calificación final</th></tr><tr>${headCols}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -157,10 +158,10 @@ function seccionOtrasIntensificaciones(items) {
           )
           .join('')
       : '<tr><td></td><td></td><td></td></tr>';
-  return `<div class="boletin-seccion"><h3>INTENSIFICACIONES</h3><table class="boletin-tabla-extra"><colgroup>
-      <col style="width:30%" />
-      <col style="width:35%" />
-      <col style="width:35%" />
+  return `<div class="boletin-seccion boletin-seccion-intensif"><h3>INTENSIFICACIONES</h3><table class="boletin-tabla-extra"><colgroup>
+      <col style="width:34%" />
+      <col style="width:33%" />
+      <col style="width:33%" />
     </colgroup><thead><tr><th>Materia</th><th>Diciembre</th><th>Febrero</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -195,16 +196,16 @@ export function boletinHTML({
         </div>
         <table>
           <colgroup>
-            <col style="width:18%" />
+            <col style="width:16%" />
+            <col style="width:8.5%" />
+            <col style="width:9.5%" />
+            <col style="width:8.5%" />
+            <col style="width:9.5%" />
+            <col style="width:12%" />
             <col style="width:7%" />
-            <col style="width:7%" />
-            <col style="width:7%" />
-            <col style="width:7%" />
-            <col style="width:9%" />
-            <col style="width:7%" />
-            <col style="width:7%" />
-            <col style="width:9%" />
-            <col style="width:22%" />
+            <col style="width:6.5%" />
+            <col style="width:9.5%" />
+            <col style="width:13%" />
           </colgroup>
           <thead>
             <tr>
@@ -247,37 +248,74 @@ export function boletinHTML({
 }
 
 const BOLETIN_CSS = `
-  body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
-  .boletin { }
-  .boletin-pagina { border: 2px solid #1f2937; border-radius: 8px; padding: 18px; max-width: 900px; margin: 0 auto 24px; }
+  @page {
+    size: A4 portrait;
+    margin: 7mm 7mm 7mm 7mm;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    color: #1f2937;
+  }
+  .boletin-pagina {
+    width: 100%;
+    border: 2px solid #1f2937;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 18px;
+  }
   .boletin-pagina-2 { page-break-before: always; }
-  .boletin-header { border-bottom: 2px solid #1f2937; padding-bottom: 12px; margin-bottom: 14px; }
-  .boletin-header .escuela { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: #6b7280; }
-  .boletin-header .titulo { font-size: 22px; font-weight: bold; margin: 4px 0 10px; }
-  .boletin-header .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; font-size: 14px; }
+  .boletin-header { border-bottom: 2px solid #1f2937; padding-bottom: 10px; margin-bottom: 12px; }
+  .boletin-header .escuela { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #6b7280; }
+  .boletin-header .titulo { font-size: 20px; font-weight: bold; margin: 4px 0 10px; }
+  .boletin-header .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 24px; font-size: 13px; }
   .boletin-header .datos span { color: #6b7280; }
   table { width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; }
-  th, td { border: 1px solid #9ca3af; padding: 6px 8px; text-align: center; font-size: 13px; overflow-wrap: anywhere; word-break: break-word; vertical-align: top; }
-  th { background: #17324d; color: #fff; font-weight: 600; }
+  th, td {
+    border: 1px solid #9ca3af;
+    padding: 5px 4px;
+    text-align: center;
+    vertical-align: top;
+    font-size: 12px;
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: none;
+  }
+  thead th {
+    background: #17324d;
+    color: #fff;
+    font-weight: 700;
+    font-size: 10px;
+    line-height: 1.3;
+    letter-spacing: 0.05em;
+    padding: 7px 3px;
+  }
   td.mat { text-align: left; font-weight: 600; }
   td.prom { font-weight: 700; }
+  td.cell-obs { text-align: left; }
   .mat-bloqueada { background-color: #fde2e2; }
   .mat-bloqueada td { color: #991b1b; }
-  .boletin-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 48px; font-size: 14px; min-height: 80px; }
-  .boletin-footer .firma { border-top: 1px solid #1f2937; padding-top: 44px; width: 220px; text-align: center; color: #6b7280; min-height: 28px; }
-  .boletin-seccion { margin-top: 24px; page-break-inside: avoid; }
-  .boletin-seccion h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: #17324d; color: #fff; padding: 7px 12px; margin: 0 0 0 0; page-break-after: avoid; }
-  .boletin-lista { margin: 0; padding-left: 18px; font-size: 13px; }
-  .boletin-lista li { margin-bottom: 6px; }
-  .boletin-lista .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; background: #fef3c7; color: #92400e; font-size: 12px; }
-  .boletin-lista .sub { color: #6b7280; }
-  .boletin-lista a { color: #1d4ed8; }
+  .boletin-footer { margin-top: 56px; text-align: center; page-break-inside: avoid; }
+  .boletin-footer .firma {
+    display: inline-block;
+    min-width: 280px;
+    border-top: 1.5px solid #1f2937;
+    padding-top: 10px;
+    color: #6b7280;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .boletin-seccion { margin-top: 22px; page-break-inside: avoid; }
+  .boletin-seccion h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: #17324d; color: #fff; padding: 7px 12px; margin: 0 0 0 0; page-break-after: avoid; }
   .boletin-tabla-extra { margin-top: 0; page-break-inside: avoid; }
-  .boletin-nota { font-size: 12px; font-style: italic; color: #6b7280; margin: 8px 2px 0; }
-  .boletin-tabla-extra th, .boletin-tabla-extra td { text-align: center; }
-  .boletin-tabla-extra th:first-child, .boletin-tabla-extra td:first-child,
-  .boletin-tabla-extra th:nth-child(2), .boletin-tabla-extra td:nth-child(2) { text-align: left; }
-  .sin-datos { color: #6b7280; font-size: 13px; font-style: italic; }
+  .boletin-nota { font-size: 11px; font-style: italic; color: #6b7280; margin: 8px 2px 0; }
+  .boletin-seccion-previas .boletin-tabla-extra th:first-child, .boletin-seccion-previas .boletin-tabla-extra td:first-child,
+  .boletin-seccion-previas .boletin-tabla-extra th:nth-child(2), .boletin-seccion-previas .boletin-tabla-extra td:nth-child(2) { text-align: left; }
+  .boletin-seccion-recursadas .boletin-tabla-extra th:first-child, .boletin-seccion-recursadas .boletin-tabla-extra td:first-child,
+  .boletin-seccion-recursadas .boletin-tabla-extra th:nth-child(2), .boletin-seccion-recursadas .boletin-tabla-extra td:nth-child(2) { text-align: left; }
   @media print { button { display: none; } }
 `;
 

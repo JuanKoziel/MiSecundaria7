@@ -679,26 +679,31 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 .boletin-tabla-extra th,
 .boletin-tabla-extra td {
   border: 1px solid #cbd5e1;
-  padding: 6px 8px;
+  padding: 5px 6px;
   font-size: 0.8rem;
   text-align: center;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
   vertical-align: top;
 }
 .boletin-table thead th,
 .boletin-tabla-extra thead th {
   background-color: var(--table-header-bg, #17324d);
   color: #fff;
-  text-transform: uppercase;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  line-height: 1.3;
+  letter-spacing: 0.05em;
+  padding: 8px 6px;
 }
 .boletin-table td.table-cell-strong,
 .boletin-tabla-extra td.table-cell-strong,
 .boletin-table tbody td:first-child,
 .boletin-tabla-extra tbody td:first-child {
+  text-align: left;
+}
+.boletin-table td.cell-obs,
+.boletin-tabla-extra td.cell-obs {
   text-align: left;
 }
 
@@ -710,15 +715,27 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
   margin: 8px 2px 0;
 }
 
-/* Boletín académico: espacio para firma y sello */
+/* Boletín académico: separación entre secciones extra */
+.boletin-seccion-extra {
+  margin-top: 26px;
+}
+
+/* Boletín académico: espacio para firma y sello (centrado en la hoja) */
 .boletin-firma-sello {
-  margin-top: 36px;
-  padding-top: 60px;
-  min-height: 72px;
-  border-top: 1px solid var(--table-border);
+  margin: 52px auto 0;
   text-align: center;
+}
+.boletin-firma-sello::before {
+  content: "";
+  display: block;
+  width: 280px;
+  margin: 0 auto 10px;
+  border-top: 1.5px solid #1f2937;
+}
+.boletin-firma-sello span {
+  display: inline-block;
   color: var(--text-light);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
