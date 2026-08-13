@@ -31,6 +31,18 @@ export default function BoletinTablaPrincipal({
   return (
     <div className="table-responsive">
       <table className="boletin-table boletin-tabla-principal">
+        <colgroup>
+          <col style={{ width: '18%' }} />
+          <col style={{ width: '7%' }} />
+          <col style={{ width: '7%' }} />
+          <col style={{ width: '7%' }} />
+          <col style={{ width: '7%' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '7%' }} />
+          <col style={{ width: '7%' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '22%' }} />
+        </colgroup>
         <thead>
           <tr>
             <th rowSpan={2}>Materia</th>

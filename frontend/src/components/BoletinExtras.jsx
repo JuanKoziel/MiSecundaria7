@@ -47,6 +47,16 @@ function SeccionPrevias({ previas = [] }) {
       <div className="boletin-seccion-titulo">MATERIAS PREVIAS / ADEUDADAS</div>
       <div className="table-responsive">
         <table className="boletin-table">
+          <colgroup>
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '30%' }} />
+          </colgroup>
           <thead>
             <tr>
               <th rowSpan={2}>Materia</th>
@@ -102,6 +112,19 @@ function SeccionRecursadas({ recursadas = [] }) {
       <div className="boletin-seccion-titulo">MATERIAS A RECURSAR</div>
       <div className="table-responsive">
         <table className="boletin-table">
+          <colgroup>
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '19%' }} />
+          </colgroup>
           <CabeceraBoletinConAnio />
           <tbody>
             {recursadas.length === 0 ? (
@@ -148,6 +171,11 @@ function SeccionOtrasIntensificaciones({ intensificaciones_posteriores = [] }) {
       <div className="boletin-seccion-titulo">INTENSIFICACIONES</div>
       <div className="table-responsive">
         <table className="boletin-table">
+          <colgroup>
+            <col style={{ width: '30%' }} />
+            <col style={{ width: '35%' }} />
+            <col style={{ width: '35%' }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Materia</th>

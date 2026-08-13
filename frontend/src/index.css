@@ -670,6 +670,8 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 .boletin-table,
 .boletin-tabla-extra {
   width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 .boletin-table th,
@@ -680,6 +682,9 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
   padding: 6px 8px;
   font-size: 0.8rem;
   text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  vertical-align: top;
 }
 .boletin-table thead th,
 .boletin-tabla-extra thead th {

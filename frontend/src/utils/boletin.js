@@ -67,7 +67,19 @@ function seccionRecursadas(items) {
           )
           .join('')
       : '<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
-  return `<div class="boletin-seccion"><h3>MATERIAS A RECURSAR</h3><table class="boletin-tabla-extra"><thead>
+  return `<div class="boletin-seccion"><h3>MATERIAS A RECURSAR</h3><table class="boletin-tabla-extra"><colgroup>
+      <col style="width:7%" />
+      <col style="width:14%" />
+      <col style="width:7%" />
+      <col style="width:7%" />
+      <col style="width:7%" />
+      <col style="width:7%" />
+      <col style="width:9%" />
+      <col style="width:7%" />
+      <col style="width:7%" />
+      <col style="width:9%" />
+      <col style="width:19%" />
+    </colgroup><thead>
     <tr>
       <th rowspan="2">Año/Curso</th>
       <th rowspan="2">Materia</th>
@@ -119,7 +131,16 @@ function seccionPrevias(items) {
           })
           .join('')
       : `<tr><td></td><td></td>${periodos.map(() => '<td></td>').join('')}<td></td></tr>`;
-  return `<div class="boletin-seccion"><h3>MATERIAS PREVIAS / ADEUDADAS</h3><table class="boletin-tabla-extra"><thead><tr><th rowspan="2">Materia</th><th rowspan="2">Año (curso)</th><th colspan="6">Período de intensificación</th><th rowspan="2">Calificación final</th></tr><tr>${headCols}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="boletin-seccion"><h3>MATERIAS PREVIAS / ADEUDADAS</h3><table class="boletin-tabla-extra"><colgroup>
+      <col style="width:18%" />
+      <col style="width:10%" />
+      <col style="width:7%" />
+      <col style="width:7%" />
+      <col style="width:7%" />
+      <col style="width:7%" />
+      <col style="width:7%" />
+      <col style="width:30%" />
+    </colgroup><thead><tr><th rowspan="2">Materia</th><th rowspan="2">Año (curso)</th><th colspan="6">Período de intensificación</th><th rowspan="2">Calificación final</th></tr><tr>${headCols}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function seccionOtrasIntensificaciones(items) {
@@ -136,7 +157,11 @@ function seccionOtrasIntensificaciones(items) {
           )
           .join('')
       : '<tr><td></td><td></td><td></td></tr>';
-  return `<div class="boletin-seccion"><h3>INTENSIFICACIONES</h3><table class="boletin-tabla-extra"><thead><tr><th>Materia</th><th>Diciembre</th><th>Febrero</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="boletin-seccion"><h3>INTENSIFICACIONES</h3><table class="boletin-tabla-extra"><colgroup>
+      <col style="width:30%" />
+      <col style="width:35%" />
+      <col style="width:35%" />
+    </colgroup><thead><tr><th>Materia</th><th>Diciembre</th><th>Febrero</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 export function boletinHTML({
@@ -169,6 +194,18 @@ export function boletinHTML({
           </div>
         </div>
         <table>
+          <colgroup>
+            <col style="width:18%" />
+            <col style="width:7%" />
+            <col style="width:7%" />
+            <col style="width:7%" />
+            <col style="width:7%" />
+            <col style="width:9%" />
+            <col style="width:7%" />
+            <col style="width:7%" />
+            <col style="width:9%" />
+            <col style="width:22%" />
+          </colgroup>
           <thead>
             <tr>
               <th rowspan="2">Materia</th>
@@ -219,8 +256,8 @@ const BOLETIN_CSS = `
   .boletin-header .titulo { font-size: 22px; font-weight: bold; margin: 4px 0 10px; }
   .boletin-header .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; font-size: 14px; }
   .boletin-header .datos span { color: #6b7280; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #9ca3af; padding: 6px 8px; text-align: center; font-size: 13px; }
+  table { width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; }
+  th, td { border: 1px solid #9ca3af; padding: 6px 8px; text-align: center; font-size: 13px; overflow-wrap: anywhere; word-break: break-word; vertical-align: top; }
   th { background: #17324d; color: #fff; font-weight: 600; }
   td.mat { text-align: left; font-weight: 600; }
   td.prom { font-weight: 700; }
