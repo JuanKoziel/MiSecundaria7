@@ -4298,33 +4298,107 @@ def boletin_academico_api_view(request, alumno_id):
     if permitidos is not None and not permitidos.filter(pk=alumno_id).exists():
         return Response({'error': 'No tiene permiso para consultar este boletín.'}, status=403)
 
-    historial = HistorialAcademico.objects.filter(id_alumno=alumno).select_related('id_materia', 'id_curso')
-    previas = MateriaAdeudada.objects.filter(id_alumno=alumno, tipo_deuda='PREVIA').select_related('id_materia', 'id_curso_origen')
-    recursadas = MateriaAdeudada.objects.filter(id_alumno=alumno, tipo_deuda='RECURSADA').select_related('id_materia', 'id_curso_origen')
-    rendiciones_previas = RegistroRendicionPrevia.objects.filter(id_alumno=alumno)
-    intensificaciones = ActividadMateriaAdeudada.objects.filter(
-        id_curso_materia__id_curso=alumno.id_curso, estado=True,
-        tipo__in=['INTENSIFICACION', 'ESPACIO'],
-    ).select_related('id_curso_materia__id_materia', 'id_curso_materia__id_curso', 'id_docente')
-    bloqueos = BloqueoHorarioAlumno.objects.filter(id_alumno=alumno).select_related(
-        'id_materia_bloqueada', 'id_materia_prioritaria',
-        'id_curso_materia_bloqueada', 'id_curso_materia_prioritaria')
-    situaciones = SituacionMateriaAlumno.objects.filter(id_alumno=alumno).select_related('id_curso_materia')
+    from django.db.models import Q
+
+    curso_actual = alumno.id_curso
+    nombre_curso_actual = curso_actual.nombre_curso if curso_actual else ''
+
+    PERIODO_LABEL = {
+        'MARZO': 'MARZO', 'JULIO': 'JULIO', 'AGOSTO': 'AGOSTO',
+        'DICIEMBRE_1': 'DICIEMBRE 1', 'DICIEMBRE_2': 'DICIEMBRE 2', 'FEBRERO': 'FEBRERO',
+    }
+    PERIODO_ORDEN = {'MARZO': 1, 'JULIO': 2, 'AGOSTO': 3, 'DICIEMBRE_1': 4, 'DICIEMBRE_2': 5, 'FEBRERO': 6}
+
+    # --- Intensificación 1° cuatrimestre (columna de la tabla principal) ---
+    intensificaciones_1c = {}
+    if curso_actual:
+        acts_1c = ActividadMateriaAdeudada.objects.filter(
+            id_curso_materia__id_curso=curso_actual, estado=True,
+            periodo_intensificacion__icontains='primer cuatrimestre',
+        ).select_related('id_curso_materia__id_materia')
+        for a in acts_1c:
+            materia = a.id_curso_materia.id_materia.nombre_materia if a.id_curso_materia and a.id_curso_materia.id_materia else ''
+            if not materia:
+                continue
+            res = ResultadoActividadAdeudada.objects.filter(id_actividad=a.id_actividad, id_alumno=alumno).first()
+            nota = float(res.nota) if (res and res.nota is not None) else None
+            intensificaciones_1c[materia] = nota
+
+    # --- Bloqueos por materia (tabla principal) ---
+    bloqueos_por_materia = {}
+    bloqueos = BloqueoHorarioAlumno.objects.filter(id_alumno=alumno, estado=True).select_related('id_materia_bloqueada')
+    for b in bloqueos:
+        if b.id_materia_bloqueada:
+            bloqueos_por_materia[b.id_materia_bloqueada.nombre_materia] = {
+                'bloqueada': True,
+                'motivo': b.get_motivo_display() if b.motivo else 'Bloqueada por superposición de horario',
+            }
+
+    # --- Intensificaciones posteriores (sección B): diciembre / febrero ---
+    intensificaciones_posteriores = []
+    if curso_actual:
+        acts_post = ActividadMateriaAdeudada.objects.filter(
+            id_curso_materia__id_curso=curso_actual, estado=True,
+        ).filter(
+            Q(periodo_intensificacion__icontains='diciembre') | Q(periodo_intensificacion__icontains='febrero')
+        ).select_related('id_curso_materia__id_materia')
+        agrup = {}
+        for a in acts_post:
+            cm = a.id_curso_materia
+            if not cm or not cm.id_materia:
+                continue
+            materia = cm.id_materia.nombre_materia
+            if materia not in agrup:
+                agrup[materia] = {'materia': materia, 'anio': nombre_curso_actual, 'diciembre': None, 'febrero': None}
+            res = ResultadoActividadAdeudada.objects.filter(id_actividad=a.id_actividad, id_alumno=alumno).first()
+            nota = float(res.nota) if (res and res.nota is not None) else None
+            peri = (a.periodo_intensificacion or '').lower()
+            if 'diciembre' in peri:
+                agrup[materia]['diciembre'] = nota
+            elif 'febrero' in peri:
+                agrup[materia]['febrero'] = nota
+        intensificaciones_posteriores = list(agrup.values())
+
+    # --- Materias a recursar (sección C) ---
+    recursadas = []
+    for r in RecursadaMateria.objects.filter(id_alumno=alumno, estado='ACTIVA').select_related('id_materia', 'id_curso_origen'):
+        recursadas.append({
+            'materia': r.id_materia.nombre_materia if r.id_materia else '',
+            'anio': r.id_curso_origen.nombre_curso if r.id_curso_origen else '',
+            'estado': 'A recursar',
+        })
+
+    # --- Previas / adeudadas no resueltas (sección D) ---
+    previas = []
+    for p in MateriaAdeudada.objects.filter(
+        id_alumno=alumno, tipo_deuda='PREVIA', estado='ADEUDADA'
+    ).select_related('id_materia', 'id_curso_origen'):
+        regs = list(RegistroRendicionPrevia.objects.filter(id_materia_adeudada=p))
+        ult = None
+        if regs:
+            regs.sort(key=lambda x: (x.anio_rendicion, PERIODO_ORDEN.get(x.periodo, 0)), reverse=True)
+            ult = regs[0]
+        periodo = PERIODO_LABEL.get(ult.periodo, ult.periodo) if ult else ''
+        calif = float(ult.nota) if (ult and ult.nota is not None) else None
+        previas.append({
+            'materia': p.id_materia.nombre_materia if p.id_materia else '',
+            'anio': p.id_curso_origen.nombre_curso if p.id_curso_origen else '',
+            'periodo': periodo,
+            'calificacion': calif,
+        })
 
     return Response({
         'alumno': {
             'id': alumno.id_alumno,
             'nombre': f"{alumno.apellido}, {alumno.nombre}",
             'dni': alumno.dni,
-            'curso': alumno.id_curso.nombre_curso if alumno.id_curso else ''
+            'curso': nombre_curso_actual,
         },
-        'historial': HistorialAcademicoSerializer(historial, many=True).data,
-        'previas': MateriaAdeudadaSerializer(previas, many=True).data,
-        'recursadas': MateriaAdeudadaSerializer(recursadas, many=True).data,
-        'rendiciones_previas': RegistroRendicionPreviaSerializer(rendiciones_previas, many=True).data,
-        'intensificaciones': ActividadMateriaAdeudadaSerializer(intensificaciones, many=True).data,
-        'bloqueos': BloqueoHorarioAlumnoSerializer(bloqueos, many=True).data,
-        'situaciones': SituacionMateriaAlumnoSerializer(situaciones, many=True).data,
+        'intensificaciones_1c': intensificaciones_1c,
+        'bloqueos_por_materia': bloqueos_por_materia,
+        'intensificaciones_posteriores': intensificaciones_posteriores,
+        'recursadas': recursadas,
+        'previas': previas,
     })
 
 

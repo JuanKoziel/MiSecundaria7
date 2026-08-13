@@ -6,6 +6,7 @@ import { alumnosPorAnioYCurso, boletinPorAlumno, filtrosCompletos } from './prec
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
 import BoletinExtras from '../BoletinExtras';
+import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
 
 function totalesInasistencias(inasistenciasPorMateria) {
   return Object.values(inasistenciasPorMateria).reduce(
@@ -25,7 +26,14 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
     return { id: idx + 1, materia: nombre, prenota1: '', nota1: '', prenota2: '', nota2: '', diagnostico: '' };
   });
   const totales = totalesInasistencias(inasistenciasPorMateria);
-  const { intensificaciones, bloqueos, situaciones } = useBoletinAcademico(alumno.id);
+  const {
+    intensificaciones_1c,
+    bloqueos_por_materia,
+    intensificaciones_posteriores,
+    recursadas,
+    previas,
+    loading,
+  } = useBoletinAcademico(alumno.id);
 
   const handleExportar = (e) => {
     e.stopPropagation();
@@ -36,9 +44,11 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
       anioLectivo,
       materias,
       inasistenciasPorMateria,
-      intensificaciones,
-      bloqueos,
-      situaciones,
+      intensificaciones_1c,
+      bloqueos_por_materia,
+      intensificaciones_posteriores,
+      recursadas,
+      previas,
     });
     exportarBoletinPDF(html, `Boletín — ${alumno.apellido}, ${alumno.nombre}`);
   };
@@ -72,52 +82,21 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
 
       {expandido && (
         <div className="preceptor-boletin-body">
-          {materias.length === 0 ? (
-            <p className="empty-state-message">Sin calificaciones cargadas.</p>
-          ) : (
-            <div className="table-responsive">
-              <table>
-                <thead>
-                  <tr>
-                    <th rowSpan={2}>Materia</th>
-                    <th colSpan={3}>1° Cuatrimestre</th>
-                    <th colSpan={3}>2° Cuatrimestre</th>
-                    <th rowSpan={2}>Diagnóstico</th>
-                  </tr>
-                  <tr>
-                    <th>Prenota</th>
-                    <th>Nota</th>
-                    <th>Inasist.</th>
-                    <th>Prenota</th>
-                    <th>Nota</th>
-                    <th>Inasist.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {materias.map((m) => {
-                    const ina = inasistenciasPorMateria[m.materia] || { ausencias: 0, tardanzas: 0 };
-                    return (
-                    <tr key={m.id}>
-                      <td className="table-cell-strong">{m.materia}</td>
-                      <td>
-                        <span className="badge badge-cualitativa">{m.prenota1 || '—'}</span>
-                      </td>
-                      <td>{m.nota1 ?? '—'}</td>
-                      <td>{ina.ausencias}</td>
-                      <td>
-                        <span className="badge badge-cualitativa">{m.prenota2 || '—'}</span>
-                      </td>
-                      <td>{m.nota2 ?? '—'}</td>
-                      <td>{ina.ausencias}</td>
-                      <td>{m.diagnostico || '—'}</td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <BoletinExtras intensificaciones={intensificaciones} bloqueos={bloqueos} situaciones={situaciones} />
+          <BoletinTablaPrincipal
+            materias={materias}
+            intensificaciones_1c={intensificaciones_1c}
+            bloqueos_por_materia={bloqueos_por_materia}
+          />
+          <div className="boletin-firma-sello">
+            <span>Firma y sello</span>
+          </div>
+
+          <BoletinExtras
+            recursadas={recursadas}
+            previas={previas}
+            intensificaciones_posteriores={intensificaciones_posteriores}
+            loading={loading}
+          />
         </div>
       )}
     </div>

@@ -8,6 +8,7 @@ import { cursoConOrientacion } from '../../utils/orientacion';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
 import BoletinExtras from '../BoletinExtras';
+import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
@@ -31,7 +32,14 @@ function AlumnoDashboard({ user, onLogout }) {
     () => alumnos.find((a) => a.id_usuario === user?.id) || null,
     [alumnos, user],
   );
-  const { intensificaciones, bloqueos, situaciones } = useBoletinAcademico(miAlumno?.id);
+  const {
+    intensificaciones_1c,
+    bloqueos_por_materia,
+    intensificaciones_posteriores,
+    recursadas,
+    previas,
+    loading,
+  } = useBoletinAcademico(miAlumno?.id);
 
   const misCalificaciones = useMemo(() => {
     if (!miAlumno) return [];
@@ -124,9 +132,11 @@ function AlumnoDashboard({ user, onLogout }) {
       anioLectivo: new Date().getFullYear(),
       materias: calsPorMateria,
       inasistenciasPorMateria,
-      intensificaciones,
-      bloqueos,
-      situaciones,
+      intensificaciones_1c,
+      bloqueos_por_materia,
+      intensificaciones_posteriores,
+      recursadas,
+      previas,
     });
     exportarBoletinPDF(html, `Boletín — ${miAlumno.apellido}, ${miAlumno.nombre}`);
   };
@@ -211,40 +221,11 @@ function AlumnoDashboard({ user, onLogout }) {
                 {calsPorMateria.length === 0 ? (
                   <p className="empty-state-message">No tenés calificaciones cargadas todavía.</p>
                 ) : (
-                  <div className="table-responsive">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Materia</th>
-                          <th>Prenota 1°</th>
-                          <th>Nota 1°</th>
-                          <th>Prenota 2°</th>
-                          <th>Nota 2°</th>
-                          <th>Diagnóstico</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {calsPorMateria.map((c, idx) => (
-                          <tr key={idx}>
-                            <td className="table-cell-strong">{c.materia}</td>
-                            <td>
-                              {c.prenota1 ? (
-                                <span className="badge badge-cualitativa">{c.prenota1}</span>
-                              ) : '—'}
-                            </td>
-                            <td>{c.nota1 !== '' ? c.nota1 : '—'}</td>
-                            <td>
-                              {c.prenota2 ? (
-                                <span className="badge badge-cualitativa">{c.prenota2}</span>
-                              ) : '—'}
-                            </td>
-                            <td>{c.nota2 !== '' ? c.nota2 : '—'}</td>
-                            <td>{c.diagnostico || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <BoletinTablaPrincipal
+                    materias={calsPorMateria}
+                    intensificaciones_1c={intensificaciones_1c}
+                    bloqueos_por_materia={bloqueos_por_materia}
+                  />
                 )}
 
                 <div className="flex-gap-16--wrap mt-16">
@@ -262,7 +243,16 @@ function AlumnoDashboard({ user, onLogout }) {
                   </div>
                 </div>
 
-                <BoletinExtras intensificaciones={intensificaciones} bloqueos={bloqueos} situaciones={situaciones} />
+                <div className="boletin-firma-sello">
+                  <span>Firma y sello</span>
+                </div>
+
+                <BoletinExtras
+                  recursadas={recursadas}
+                  previas={previas}
+                  intensificaciones_posteriores={intensificaciones_posteriores}
+                  loading={loading}
+                />
               </div>
             )}
 

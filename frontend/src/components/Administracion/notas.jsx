@@ -72,23 +72,35 @@ function Notas() {
         <table>
           <thead>
             <tr>
-              <th>Alumno</th>
-              <th>Prenota 1</th>
-              <th>Nota 1</th>
-              <th>Prenota 2</th>
-              <th>Nota 2</th>
-              <th>Diagnóstico</th>
+              <th rowSpan={2}>Alumno</th>
+              <th colSpan={2}>1.º Cuatrimestre</th>
+              <th colSpan={2}>2.º Cuatrimestre</th>
+              <th rowSpan={2}>Calificación final</th>
+              <th rowSpan={2}>Diagnóstico</th>
+            </tr>
+            <tr>
+              <th>1.ª Valoración Preliminar</th>
+              <th>Calificación</th>
+              <th>2.ª Valoración Preliminar</th>
+              <th>Calificación</th>
             </tr>
           </thead>
           <tbody>
             {planilla.length === 0 ? (
               <tr>
-                <td colSpan={6} className="empty-state-message">
+                <td colSpan={7} className="empty-state-message">
                   No hay alumnos en este curso.
                 </td>
               </tr>
             ) : (
-              planilla.map((fila) => (
+              planilla.map((fila) => {
+                const n1 = parseFloat(fila.nota1);
+                const n2 = parseFloat(fila.nota2);
+                const nums = [n1, n2].filter((n) => !Number.isNaN(n));
+                const califFinal = nums.length
+                  ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2)
+                  : '—';
+                return (
                 <tr key={fila.alumnoId}>
                   <td className="table-cell-strong">{fila.nombre}</td>
                   <td>
@@ -107,9 +119,11 @@ function Notas() {
                     )}
                   </td>
                   <td>{fila.nota2}</td>
+                  <td>{califFinal}</td>
                   <td>{fila.diagnostico}</td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

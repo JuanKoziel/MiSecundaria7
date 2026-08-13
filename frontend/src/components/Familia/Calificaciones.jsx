@@ -3,13 +3,21 @@ import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 import { useMemo } from 'react';
 import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
 import BoletinExtras from '../BoletinExtras';
+import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
 
 function Calificaciones({ hijo }) {
   const { calificacionesFamilia, materiasPorCurso, cursoMateria, periodos, asistenciasAdmin, alumnos } = useData();
 
   // Obtener el objeto real del alumno
   const alumno = alumnos.find((a) => a.id === hijo.alumnoId);
-  const { intensificaciones, bloqueos, situaciones } = useBoletinAcademico(hijo.alumnoId);
+  const {
+    intensificaciones_1c,
+    bloqueos_por_materia,
+    intensificaciones_posteriores,
+    recursadas,
+    previas,
+    loading,
+  } = useBoletinAcademico(hijo.alumnoId);
 
   // Obtener todas las materias del curso del hijo
   const cursoNombre = hijo.curso;
@@ -86,9 +94,11 @@ function Calificaciones({ hijo }) {
       anioLectivo: new Date().getFullYear(),
       materias: calificacionesDisplay,
       inasistenciasPorMateria,
-      intensificaciones,
-      bloqueos,
-      situaciones,
+      intensificaciones_1c,
+      bloqueos_por_materia,
+      intensificaciones_posteriores,
+      recursadas,
+      previas,
     });
     exportarBoletinPDF(html, `Boletín — ${alumno.apellido}, ${alumno.nombre}`);
   };
@@ -107,46 +117,22 @@ function Calificaciones({ hijo }) {
         </button>
       </div>
 
-      <div className="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>Materia</th>
-              <th>Prenota 1</th>
-              <th>Nota 1</th>
-              <th>Prenota 2</th>
-              <th>Nota 2</th>
-              <th>Diagnóstico</th>
-            </tr>
-          </thead>
-          <tbody>
-            {calificacionesDisplay.map((c, idx) => (
-              <tr key={idx}>
-                <td className="table-cell-strong">{c.materia}</td>
-                <td>
-                  {c.prenota1 === 'Sin calificaciones' ? (
-                    <span style={{ color: '#999' }}>{c.prenota1}</span>
-                  ) : (
-                    <span className="badge badge-cualitativa">{c.prenota1}</span>
-                  )}
-                </td>
-                <td>{c.nota1 !== '' ? c.nota1 : '—'}</td>
-                <td>
-                  {c.prenota2 === 'Sin calificaciones' ? (
-                    <span style={{ color: '#999' }}>{c.prenota2}</span>
-                  ) : (
-                    <span className="badge badge-cualitativa">{c.prenota2}</span>
-                  )}
-                </td>
-                <td>{c.nota2 !== '' ? c.nota2 : '—'}</td>
-                <td>{c.diagnostico || '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <BoletinTablaPrincipal
+        materias={calificacionesDisplay}
+        intensificaciones_1c={intensificaciones_1c}
+        bloqueos_por_materia={bloqueos_por_materia}
+      />
+
+      <div className="boletin-firma-sello">
+        <span>Firma y sello</span>
       </div>
 
-      <BoletinExtras intensificaciones={intensificaciones} bloqueos={bloqueos} situaciones={situaciones} />
+      <BoletinExtras
+        recursadas={recursadas}
+        previas={previas}
+        intensificaciones_posteriores={intensificaciones_posteriores}
+        loading={loading}
+      />
     </div>
   );
 }

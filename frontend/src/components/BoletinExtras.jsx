@@ -1,120 +1,196 @@
 import React from 'react';
 
-function IntensificacionItem({ a }) {
+const PERIODOS_PREVIA = [
+  { key: 'MARZO', label: 'Marzo' },
+  { key: 'JULIO', label: 'Julio' },
+  { key: 'AGOSTO', label: 'Agosto' },
+  { key: 'DICIEMBRE 1', label: 'Diciembre 1' },
+  { key: 'DICIEMBRE 2', label: 'Diciembre 2' },
+  { key: 'FEBRERO', label: 'Febrero' },
+];
+
+function formatearCalif(v) {
+  if (v === null || v === undefined || v === '') return '';
+  return v;
+}
+
+// Cabecera idéntica a la tabla principal (Intensificación 1.º C como grupo propio),
+// con una columna extra "Año/Curso" al inicio. Se usa para "Materias a recursar".
+function CabeceraBoletinConAnio() {
   return (
-    <li className="boletin-extra-item">
-      <div className="boletin-extra-titulo">{a.titulo || 'Actividad de intensificación'}</div>
-      <div className="boletin-extra-meta">
-        {a.periodo_intensificacion && (
-          <span className="badge badge-warning">{a.periodo_intensificacion}</span>
-        )}
-        {a.materia_nombre && <span className="text-muted">Materia: {a.materia_nombre}</span>}
-        {a.docente_nombre && <span className="text-muted">Docente: {a.docente_nombre}</span>}
+      <thead>
+        <tr>
+          <th rowSpan={2}>Año/Curso</th>
+          <th rowSpan={2}>Materia</th>
+          <th colSpan={2}>1.º Cuatrimestre</th>
+          <th colSpan={3}>2.º Cuatrimestre</th>
+          <th colSpan={2}>Intensificaciones</th>
+          <th rowSpan={2}>Calificación final</th>
+          <th rowSpan={2}>Observaciones</th>
+        </tr>
+        <tr>
+          <th>1.ª Valoración Preliminar</th>
+          <th>Calificación</th>
+          <th>2.ª Valoración Preliminar</th>
+          <th>Calificación</th>
+          <th>Intensificación 1.º C</th>
+          <th>Diciembre</th>
+          <th>Febrero</th>
+        </tr>
+      </thead>
+  );
+}
+
+function SeccionPrevias({ previas = [] }) {
+  return (
+    <div className="boletin-seccion-extra">
+      <div className="boletin-seccion-titulo">MATERIAS PREVIAS / ADEUDADAS</div>
+      <div className="table-responsive">
+        <table className="boletin-table">
+          <thead>
+            <tr>
+              <th rowSpan={2}>Materia</th>
+              <th rowSpan={2}>Año (curso)</th>
+              <th colSpan={6}>Período de intensificación</th>
+              <th rowSpan={2}>Calificación final</th>
+            </tr>
+            <tr>
+              {PERIODOS_PREVIA.map((p) => (
+                <th key={p.key}>{p.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {previas.length === 0 ? (
+              <tr>
+                <td></td>
+                <td></td>
+                {PERIODOS_PREVIA.map((p) => (
+                  <td key={p.key}></td>
+                ))}
+                <td></td>
+              </tr>
+            ) : (
+              previas.map((p, i) => {
+                const peri = String(p.periodo || '')
+                  .trim()
+                  .toUpperCase();
+                return (
+                  <tr key={i}>
+                    <td className="table-cell-strong">{p.materia || '—'}</td>
+                    <td>{p.anio || '—'}</td>
+                    {PERIODOS_PREVIA.map((col) => (
+                      <td key={col.key}>
+                        {col.key === peri ? formatearCalif(p.calificacion) : ''}
+                      </td>
+                    ))}
+                    <td>{formatearCalif(p.calificacion) || '—'}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
-      {a.archivo_pdf && (
-        <a href={a.archivo_pdf} target="_blank" rel="noopener noreferrer" className="boletin-extra-link">
-          <i className="fas fa-file-pdf" aria-hidden="true" /> Descargar archivo (PDF)
-        </a>
-      )}
-    </li>
+    </div>
   );
 }
 
-function BloqueoItem({ b }) {
-  const materia = b.materia_bloqueada_nombre || '—';
-  const prioritaria = b.materia_prioritaria_nombre || b.materia_recursada_nombre || '—';
+function SeccionRecursadas({ recursadas = [] }) {
   return (
-    <tr>
-      <td className="table-cell-strong">{materia}</td>
-      <td>{prioritaria}</td>
-      <td>
-        <span className={`badge ${b.estado ? 'badge-danger' : 'badge-secondary'}`}>
-          {b.estado ? 'Activo' : 'Inactivo'}
-        </span>
-      </td>
-      <td>{b.motivo || '—'}</td>
-    </tr>
+    <div className="boletin-seccion-extra">
+      <div className="boletin-seccion-titulo">MATERIAS A RECURSAR</div>
+      <div className="table-responsive">
+        <table className="boletin-table">
+          <CabeceraBoletinConAnio />
+          <tbody>
+            {recursadas.length === 0 ? (
+              <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            ) : (
+              recursadas.map((r, i) => (
+                <tr key={i}>
+                  <td className="table-cell-strong">{r.anio || '—'}</td>
+                  <td className="table-cell-strong">{r.materia || '—'}</td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td>{r.estado || 'A recursar'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
-function SituacionItem({ s }) {
+function SeccionOtrasIntensificaciones({ intensificaciones_posteriores = [] }) {
   return (
-    <tr>
-      <td className="table-cell-strong">{s.materia_nombre || '—'}</td>
-      <td>
-        <span className={`badge ${s.situacion === 'LIBERADA' ? 'badge-success' : 'badge-danger'}`}>
-          {s.situacion || '—'}
-        </span>
-      </td>
-      <td>{s.observaciones || '—'}</td>
-    </tr>
+    <div className="boletin-seccion-extra">
+      <div className="boletin-seccion-titulo">INTENSIFICACIONES</div>
+      <div className="table-responsive">
+        <table className="boletin-table">
+          <thead>
+            <tr>
+              <th>Materia</th>
+              <th>Diciembre</th>
+              <th>Febrero</th>
+            </tr>
+          </thead>
+          <tbody>
+            {intensificaciones_posteriores.length === 0 ? (
+              <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            ) : (
+              intensificaciones_posteriores.map((it, i) => (
+                <tr key={i}>
+                  <td className="table-cell-strong">{it.materia || '—'}</td>
+                  <td>{it.diciembre !== null && it.diciembre !== undefined ? it.diciembre : ''}</td>
+                  <td>{it.febrero !== null && it.febrero !== undefined ? it.febrero : ''}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
-export default function BoletinExtras({ intensificaciones = [], bloqueos = [], situaciones = [], loading }) {
+export default function BoletinExtras({
+  recursadas = [],
+  previas = [],
+  intensificaciones_posteriores = [],
+  loading,
+}) {
   return (
     <div className="boletin-extras mt-16">
-      <h4>Espacios de Intensificación</h4>
-      {loading ? (
-        <p className="text-muted">Cargando…</p>
-      ) : intensificaciones.length === 0 ? (
-        <p className="empty-state-message">Sin espacios de intensificación registrados.</p>
-      ) : (
-        <ul className="boletin-extra-lista">
-          {intensificaciones.map((a) => (
-            <IntensificacionItem key={a.id_actividad} a={a} />
-          ))}
-        </ul>
-      )}
+      <SeccionPrevias previas={previas} />
+      <SeccionRecursadas recursadas={recursadas} />
+      <SeccionOtrasIntensificaciones intensificaciones_posteriores={intensificaciones_posteriores} />
 
-      <h4 className="mt-16">Bloqueos de Horario</h4>
-      {loading ? (
-        <p className="text-muted">Cargando…</p>
-      ) : bloqueos.length === 0 ? (
-        <p className="empty-state-message">Sin bloqueos de horario registrados.</p>
-      ) : (
-        <div className="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Materia bloqueada</th>
-                <th>Prioritaria / Recursada</th>
-                <th>Estado</th>
-                <th>Motivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bloqueos.map((b) => (
-                <BloqueoItem key={b.id_bloqueo} b={b} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <h4 className="mt-16">Situaciones de Materia</h4>
-      {loading ? (
-        <p className="text-muted">Cargando…</p>
-      ) : situaciones.length === 0 ? (
-        <p className="empty-state-message">Sin situaciones registradas.</p>
-      ) : (
-        <div className="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Materia</th>
-                <th>Situación</th>
-                <th>Observaciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {situaciones.map((s) => (
-                <SituacionItem key={s.id_situacion} s={s} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <p className="boletin-nota">Prenota = 1.ª y 2.ª Valoración Preliminar</p>
     </div>
   );
 }
