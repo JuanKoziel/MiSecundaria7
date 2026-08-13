@@ -23,7 +23,9 @@ const materias = [
 ];
 
 const previas = [{ materia: 'Lengua', anio: '1°', periodo: 'JULIO', calificacion: '6' }];
-const recursadas = [{ anio: '2°', materia: 'Física', estado: 'A recursar' }];
+const recursadas = [
+  { anio: '2°', materia: 'Física', estado: 'A recursar', nota1: 7, nota2: 8, observaciones: '' },
+];
 const intensificaciones_posteriores = [{ materia: 'Química', diciembre: 5, febrero: null }];
 
 function generarDoc() {
@@ -137,5 +139,34 @@ describe('boletinHTML — integridad de columnas', () => {
     const obs = tablaPrincipal.querySelectorAll('tbody tr td.cell-obs');
     expect(obs.length).toBeGreaterThan(0);
     expect(obs[0].textContent).toContain('Muy buen desempeño');
+  });
+
+  it('E10: la nota de la recursada cae en la columna de su período y calcula el final', () => {
+    const fila = recursadasTabla.querySelector('tbody tr');
+    const celdas = [...fila.children].map((c) => c.textContent);
+    // Año(0) | Materia(1) | 1.ªVal(2) | Calificación(3) | 2.ªVal(4) | Calificación(5) |
+    // Intensif1C(6) | Dic(7) | Feb(8) | Final(9) | Obs(10)
+    expect(celdas[3]).toBe('7');
+    expect(celdas[5]).toBe('8');
+    expect(celdas[9]).toBe('7.50');
+  });
+
+  it('E10: la recursada sin notas conserva el estado en Observaciones', () => {
+    const html2 = boletinHTML({
+      alumnoNombre: 'Pérez, Juan',
+      dni: '12345678',
+      cursoNombre: '4°1',
+      anioLectivo: 2025,
+      materias,
+      inasistenciasPorMateria: {},
+      recursadas: [{ anio: '2°', materia: 'Historia', estado: 'A recursar' }],
+      previas: [],
+      intensificaciones_posteriores: [],
+    });
+    const doc2 = new DOMParser().parseFromString(html2, 'text/html');
+    const fila2 = doc2.querySelector('.boletin-seccion-recursadas tbody tr');
+    const obs = [...fila2.children][10];
+    expect(obs.textContent).toContain('A recursar');
+    expect([...fila2.children][9].textContent).toBe('—');
   });
 });

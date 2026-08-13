@@ -114,17 +114,17 @@ function SeccionRecursadas({ recursadas = [] }) {
       <div className="table-responsive">
         <table className="boletin-table">
           <colgroup>
-            <col style={{ width: '7.5%' }} />
-            <col style={{ width: '12.5%' }} />
-            <col style={{ width: '7.5%' }} />
             <col style={{ width: '8.5%' }} />
-            <col style={{ width: '7.5%' }} />
+            <col style={{ width: '8%' }} />
             <col style={{ width: '8.5%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '8.5%' }} />
+            <col style={{ width: '9%' }} />
             <col style={{ width: '11%' }} />
+            <col style={{ width: '8%' }} />
             <col style={{ width: '6.5%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '8.5%' }} />
-            <col style={{ width: '16%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '14%' }} />
           </colgroup>
           <CabeceraBoletinConAnio />
           <tbody>
@@ -143,21 +143,27 @@ function SeccionRecursadas({ recursadas = [] }) {
                 <td></td>
               </tr>
             ) : (
-              recursadas.map((r, i) => (
-                <tr key={i}>
-                  <td className="table-cell-strong">{r.anio || '—'}</td>
-                  <td className="table-cell-strong">{r.materia || '—'}</td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td className="cell-obs">{r.estado || 'A recursar'}</td>
-                </tr>
-              ))
+              recursadas.map((r, i) => {
+                const n1 = r.nota1 === '' || r.nota1 === null || r.nota1 === undefined ? null : Number(r.nota1);
+                const n2 = r.nota2 === '' || r.nota2 === null || r.nota2 === undefined ? null : Number(r.nota2);
+                const nums = [n1, n2].filter((n) => n !== null && !Number.isNaN(n));
+                const final = nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2) : null;
+                return (
+                  <tr key={i}>
+                    <td className="table-cell-strong">{r.anio || '—'}</td>
+                    <td className="table-cell-strong">{r.materia || '—'}</td>
+                    <td>{r.prenota1 || '—'}</td>
+                    <td>{r.nota1 === '' || r.nota1 === null || r.nota1 === undefined ? '—' : r.nota1}</td>
+                    <td>{r.prenota2 || '—'}</td>
+                    <td>{r.nota2 === '' || r.nota2 === null || r.nota2 === undefined ? '—' : r.nota2}</td>
+                    <td>{r.intensificacion_1c === null || r.intensificacion_1c === undefined ? '' : r.intensificacion_1c}</td>
+                    <td>{r.diciembre === null || r.diciembre === undefined ? '' : r.diciembre}</td>
+                    <td>{r.febrero === null || r.febrero === undefined ? '' : r.febrero}</td>
+                    <td>{final ?? '—'}</td>
+                    <td className="cell-obs">{r.observaciones || r.estado || 'A recursar'}</td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

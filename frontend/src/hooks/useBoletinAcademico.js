@@ -7,7 +7,8 @@ import { getBoletinAcademico } from '../services/api';
 //   - intensificaciones_1c: { [materia_nombre]: nota }  (intensificacion 1er cuatrimestre)
 //   - bloqueos_por_materia: { [materia_nombre]: { bloqueada, motivo } }
 //   - intensificaciones_posteriores: [{ materia, anio, diciembre, febrero }]
-//   - recursadas: [{ materia, anio, estado }]
+//   - recursadas: [{ materia, anio, estado, prenota1, nota1, prenota2, nota2,
+//                    intensificacion_1c, diciembre, febrero, observaciones }]
 //   - previas: [{ materia, anio, periodo, calificacion }]
 export function useBoletinAcademico(alumnoId) {
   const [intensificaciones_1c, setIntensificaciones1c] = useState({});

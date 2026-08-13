@@ -4360,12 +4360,43 @@ def boletin_academico_api_view(request, alumno_id):
         intensificaciones_posteriores = list(agrup.values())
 
     # --- Materias a recursar (sección C) ---
+    # Cada RecursadaMateria tiene sus notas en RecursadaCalificacion
+    # (relación id_recursada -> calificaciones). Cada nota se ubica en la
+    # columna que corresponde según el periodo declarado de la calificación;
+    # la "Calificación final" se calcula igual que en la tabla principal
+    # (promedio de las notas de ambos cuatrimestres) en el frontend.
     recursadas = []
-    for r in RecursadaMateria.objects.filter(id_alumno=alumno, estado='ACTIVA').select_related('id_materia', 'id_curso_origen'):
+    for r in RecursadaMateria.objects.filter(
+        id_alumno=alumno, estado='ACTIVA'
+    ).select_related('id_materia', 'id_curso_origen').prefetch_related('calificaciones'):
+        notas = {'1c': None, '2c': None, 'intensif_1c': None, 'diciembre': None, 'febrero': None}
+        for c in r.calificaciones.all():
+            if c.nota is None:
+                continue
+            p = (c.periodo or '').lower()
+            if 'diciembre' in p:
+                notas['diciembre'] = float(c.nota)
+            elif 'febrero' in p:
+                notas['febrero'] = float(c.nota)
+            elif 'intensificacion' in p and any(k in p for k in ('1', 'primer', '1°', '1º')):
+                notas['intensif_1c'] = float(c.nota)
+            elif 'cuatrimestre' in p:
+                if any(k in p for k in ('1', 'primer', '1°', '1º')):
+                    notas['1c'] = float(c.nota)
+                elif any(k in p for k in ('2', 'segundo', '2°', '2º')):
+                    notas['2c'] = float(c.nota)
         recursadas.append({
             'materia': r.id_materia.nombre_materia if r.id_materia else '',
             'anio': r.id_curso_origen.nombre_curso if r.id_curso_origen else '',
             'estado': 'A recursar',
+            'prenota1': None,
+            'nota1': notas['1c'],
+            'prenota2': None,
+            'nota2': notas['2c'],
+            'intensificacion_1c': notas['intensif_1c'],
+            'diciembre': notas['diciembre'],
+            'febrero': notas['febrero'],
+            'observaciones': (r.observaciones or '').strip(),
         })
 
     # --- Previas / adeudadas no resueltas (sección D) ---

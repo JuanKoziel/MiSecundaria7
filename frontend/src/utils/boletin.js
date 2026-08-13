@@ -52,33 +52,41 @@ function promedioGeneral(materias) {
   return (proms.reduce((a, b) => a + b, 0) / proms.length).toFixed(2);
 }
 
+function filaRecursada(r) {
+  const prom = promedioMateria(r);
+  return `
+        <tr>
+          <td>${r.anio || '—'}</td>
+          <td class="mat">${r.materia || '—'}</td>
+          <td>${r.prenota1 || '—'}</td>
+          <td>${r.nota1 ?? '—'}</td>
+          <td>${r.prenota2 || '—'}</td>
+          <td>${r.nota2 ?? '—'}</td>
+          <td>${r.intensificacion_1c ?? ''}</td>
+          <td>${r.diciembre ?? ''}</td>
+          <td>${r.febrero ?? ''}</td>
+          <td class="prom">${prom ?? '—'}</td>
+          <td class="cell-obs">${r.observaciones || r.estado || 'A recursar'}</td>
+        </tr>`;
+}
+
 function seccionRecursadas(items) {
   const rows =
     items && items.length
-      ? items
-          .map(
-            (r) => `
-        <tr>
-          <td>${r.anio || '—'}</td>
-          <td>${r.materia || '—'}</td>
-          <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-          <td class="cell-obs">${r.estado || 'A recursar'}</td>
-        </tr>`,
-          )
-          .join('')
+      ? items.map(filaRecursada).join('')
       : '<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
   return `<div class="boletin-seccion boletin-seccion-recursadas"><h3>MATERIAS A RECURSAR</h3><table class="boletin-tabla-extra"><colgroup>
-      <col style="width:7.5%" />
-      <col style="width:12.5%" />
-      <col style="width:7.5%" />
       <col style="width:8.5%" />
-      <col style="width:7.5%" />
+      <col style="width:8%" />
       <col style="width:8.5%" />
+      <col style="width:9%" />
+      <col style="width:8.5%" />
+      <col style="width:9%" />
       <col style="width:11%" />
+      <col style="width:8%" />
       <col style="width:6.5%" />
-      <col style="width:6%" />
-      <col style="width:8.5%" />
-      <col style="width:16%" />
+      <col style="width:9%" />
+      <col style="width:14%" />
     </colgroup><thead>
     <tr>
       <th rowspan="2">Año/Curso</th>
@@ -196,16 +204,16 @@ export function boletinHTML({
         </div>
         <table>
           <colgroup>
-            <col style="width:16%" />
-            <col style="width:8.5%" />
-            <col style="width:9.5%" />
-            <col style="width:8.5%" />
-            <col style="width:9.5%" />
             <col style="width:12%" />
-            <col style="width:7%" />
-            <col style="width:6.5%" />
+            <col style="width:8.5%" />
             <col style="width:9.5%" />
+            <col style="width:8.5%" />
+            <col style="width:9.5%" />
+            <col style="width:11.5%" />
+            <col style="width:8.5%" />
+            <col style="width:7%" />
             <col style="width:13%" />
+            <col style="width:12%" />
           </colgroup>
           <thead>
             <tr>
@@ -247,7 +255,7 @@ export function boletinHTML({
     </div>`;
 }
 
-const BOLETIN_CSS = `
+export const BOLETIN_CSS = `
   @page {
     size: A4 portrait;
     margin: 7mm 7mm 7mm 7mm;
@@ -263,7 +271,7 @@ const BOLETIN_CSS = `
     width: 100%;
     border: 2px solid #1f2937;
     border-radius: 8px;
-    padding: 10px 12px;
+    padding: 10px 8px;
     margin-bottom: 18px;
   }
   .boletin-pagina-2 { page-break-before: always; }
@@ -289,15 +297,16 @@ const BOLETIN_CSS = `
     font-weight: 700;
     font-size: 10px;
     line-height: 1.3;
-    letter-spacing: 0.05em;
-    padding: 7px 3px;
+    letter-spacing: 0;
+    padding: 6px 1px;
+    overflow-wrap: normal;
   }
   td.mat { text-align: left; font-weight: 600; }
   td.prom { font-weight: 700; }
   td.cell-obs { text-align: left; }
   .mat-bloqueada { background-color: #fde2e2; }
   .mat-bloqueada td { color: #991b1b; }
-  .boletin-footer { margin-top: 56px; text-align: center; page-break-inside: avoid; }
+  .boletin-footer { margin-top: 64px; text-align: center; page-break-inside: avoid; }
   .boletin-footer .firma {
     display: inline-block;
     min-width: 280px;
