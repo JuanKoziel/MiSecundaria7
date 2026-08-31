@@ -693,6 +693,21 @@ export async function deleteActividadMateriaAdeudada(id) {
   await api.delete(`/actividades-materias-adeudadas/${id}/`);
 }
 
+export async function getIntensificacionesAcademicas(params) {
+  const { data } = await api.get('/intensificaciones-academicas/', { params });
+  return data;
+}
+
+export async function updateIntensificacionAcademica(id, payload) {
+  const { data } = await api.patch(`/intensificaciones-academicas/${id}/`, payload);
+  return data;
+}
+
+export async function getRegistroRendicionesPrevias(params) {
+  const { data } = await api.get('/registro-rendiciones-previas/', { params });
+  return data;
+}
+
 export async function getBoletinAcademico(alumnoId) {
   const { data } = await api.get(`/boletin-academico/${alumnoId}/`);
   return data;

@@ -2729,7 +2729,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             'id_estado_asistencia': request.data.get('id_estado_asistencia'),
             'fecha': ahora.date(),
             'hora': ahora.time(),
-            'id_usuario': usuario_actual,
+            'id_usuario': usuario_actual.id_usuario,
         }
         existing = Asistencia.objects.filter(
             id_alumno=data['id_alumno'],

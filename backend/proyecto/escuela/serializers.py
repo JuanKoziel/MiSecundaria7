@@ -883,13 +883,6 @@ class ActividadDocenteSerializer(serializers.ModelSerializer):
         if not resultado.docente or resultado.docente.id_docente != docente_actual.id_docente:
             raise serializers.ValidationError({'id_curso_materia': 'No tienes permiso para usar esa asignaci?n.'})
 
-        archivos = list(self.context.get('uploaded_files') or [])
-        archivo_legacy = attrs.get('archivo')
-        if archivo_legacy:
-            archivos = [archivo_legacy, *archivos]
-        if self.instance is None and not archivos:
-            raise serializers.ValidationError({'archivo': 'Debes adjuntar un archivo para la actividad.'})
-
         return attrs
 
     def create(self, validated_data):
@@ -2238,9 +2231,20 @@ class HistorialAcademicoSerializer(serializers.ModelSerializer):
 
 
 class IntensificacionAcademicaSerializer(serializers.ModelSerializer):
+    id_alumno = serializers.IntegerField(source='id_historial.id_alumno_id', read_only=True)
+    alumno_nombre = serializers.SerializerMethodField()
+    materia_nombre = serializers.CharField(source='id_historial.id_materia.nombre_materia', read_only=True, default='')
+
     class Meta:
         model = IntensificacionAcademica
         fields = '__all__'
+
+    def get_alumno_nombre(self, obj):
+        historial = getattr(obj, 'id_historial', None)
+        if historial and getattr(historial, 'id_alumno', None):
+            a = historial.id_alumno
+            return f'{a.apellido}, {a.nombre}'
+        return ''
 
 
 class MateriaAdeudadaSerializer(serializers.ModelSerializer):
