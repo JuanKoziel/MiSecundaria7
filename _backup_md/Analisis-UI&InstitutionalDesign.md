@@ -378,9 +378,9 @@ When a component is identified as a Shared candidate:
 
 ### Immediate Actions (P0)
 
-1. **Resolve duplicate selectors** (`.main-header`, `.card`, `.table-responsive`, `.user-avatar`) — consolidate into single definitions.
-2. **Extract hardcoded colors into CSS variables** — create `--danger`, `--success`, `--secondary`, `--warning`, `--info-bg`, `--error-text`, `--label-dark`, `--placeholder`, `--bg-subtle`, `--border-light`, `--overlay-border`, `--overlay-dark`.
-3. **Consolidate `FiltrosAnioCurso`** — merge the two existing copies (Administracion + Preceptores) into `Shared/FiltrosAnioCurso.jsx`.
+1. **Resolve duplicate selectors** (`.main-header`, `.card`, `.table-responsive`, `.user-avatar`) — consolidate into single definitions. ✅ **RESUELTO 2026-08-24** — bloques sombreados eliminados de `index.css` (conservadas `.main-header-subtitle`, `.user-profile-info`; recortada la regla redundante de `.table-responsive` dentro del media query 768px); quedan las definiciones únicas canónicas (sección HEADER/CARDS/TABLAS). Verificado: Vitest 85 OK + `vite build` OK.
+2. **Extract hardcoded colors into CSS variables** — create `--danger`, `--success`, `--secondary`, `--warning`, `--info-bg`, `--error-text`, `--label-dark`, `--placeholder`, `--bg-subtle`, `--border-light`, `--overlay-border`, `--overlay-dark`. *(Pendiente — fuera del alcance P0 ejecutado; requiere registro en DECISIONES.md §7 o nombres en español.)*
+3. **Consolidate `FiltrosAnioCurso`** — merge the two existing copies (Administracion + Preceptores) into `Shared/FiltrosAnioCurso.jsx`. ✅ **RESUELTO 2026-08-24** — componente unificado en `Shared/FiltrosAnioCurso.jsx` (modo controlado para Preceptores vía `anioLectivo/onAnioChange`; modo autónomo para Administración vía `cursosObj/defaultToFirst`), helpers movidos a `Shared/cursoFilters.js`, imports actualizados en 9 consumidores y originales eliminados (sin leer `user.role`). Verificado: Vitest 85 OK + `vite build` OK.
 
 ### Short-Term Actions (P1)
 

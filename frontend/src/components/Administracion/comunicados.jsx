@@ -10,7 +10,7 @@ import {
   uploadFile,
 } from '../../services/api';
 import { cursoConOrientacion, parseCurso } from '../../utils/orientacion';
-import { findCursoObj, getAniosCurso, getDivisiones } from './cursoFilters';
+import { findCursoObj, getAniosCurso, getDivisiones } from '../Shared/cursoFilters';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
 const API_BASE = 'http://localhost:8000';

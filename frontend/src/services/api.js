@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -19,6 +19,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let refreshEnCurso = null;
+
+function refrescarAccessToken(refresh) {
+  if (!refreshEnCurso) {
+    refreshEnCurso = axios
+      .post(`${API_BASE}/token/refresh/`, { refresh })
+      .then(({ data }) => {
+        localStorage.setItem('access_token', data.access);
+        return data.access;
+      })
+      .finally(() => {
+        refreshEnCurso = null;
+      });
+  }
+  return refreshEnCurso;
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -28,11 +45,8 @@ api.interceptors.response.use(
       const refresh = localStorage.getItem('refresh_token');
       if (refresh) {
         try {
-          const { data } = await axios.post(`${API_BASE}/token/refresh/`, {
-            refresh,
-          });
-          localStorage.setItem('access_token', data.access);
-          original.headers.Authorization = `Bearer ${data.access}`;
+          const access = await refrescarAccessToken(refresh);
+          original.headers.Authorization = `Bearer ${access}`;
           return api(original);
         } catch {
           localStorage.removeItem('access_token');

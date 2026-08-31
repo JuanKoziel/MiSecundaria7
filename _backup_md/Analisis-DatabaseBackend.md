@@ -810,8 +810,8 @@ cd backend && python manage.py limpiar_eventos_temporales
 
 | # | Hallazgo | Severidad | Fase |
 |---|----------|-----------|------|
-| 1 | 28 ViewSets sin `permission_classes` explícito — dependen de `IsAuthenticated` default | **CRÍTICO** | 3 |
-| 2 | `CalificacionViewSet` sin restricción de escritura por rol | **CRÍTICO** | 3 |
+| 1 | 28 ViewSets sin `permission_classes` explícito — dependen de `IsAuthenticated` default | **CRÍTICO** | 3 | ✅ **RESUELTO 2026-08-24** — Puertas declaradas en `permissions.py` (clases nuevas en español) y cableadas en `views.py`: personas/cursos → `IsAdminOrDirectorForWrite` / `PuedeGestionarPersonas`; actas → `PuedeGestionarActas`; asistencias → `PuedeRegistrarAsistencias`; planificaciones → `PuedeGestionarPlanificaciones`; ámbito docente (DDJJ/libro temas/diagnósticos/materias adeudadas) → `PuedeGestionarAmbitoDocente`; comunicados → `PuedePublicarComunicados`; avanzados sin escritor UI → `IsAdminOrDirectorForWrite`. ReadOnly puros (Rol/TipoActa/EstadoAsistencia/TipoAccion) y `AsistenciaDocenteViewSet` (actions auto-cuidados) quedan como estaban. Tests: `tests/test_permisos.py` (37 casos), suite completa 138 OK. |
+| 2 | `CalificacionViewSet` sin restricción de escritura por rol | **CRÍTICO** | 3 | ✅ **RESUELTO 2026-08-24** — `permission_classes = [IsAuthenticated, PuedeEscribirCalificaciones]` ({admin, director, docente}); el alcance fino por `CursoMateria` sigue en `_verificar_docente_activo_materia`. Alumno/familia/preceptor/jefe → 403 en la puerta. |
 | 3 | Boletín generado client-side, no backend con ReportLab (viola DECISIONES.md §6) | **ALTO** | 4 |
 | 4 | `HorarioEspecialViewSet.perform_destroy` usa `delete()` físico (no `marcar_eliminado`) | **MEDIO** | 2 |
 | 5 | No hay rate limiting en `login_view` (brute-force) | **MEDIO** | 5 |

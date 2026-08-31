@@ -15,7 +15,7 @@ import {
   deleteActaDocente,
   uploadFile,
 } from '../../services/api';
-import FiltrosAnioCurso from './FiltrosAnioCurso';
+import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';

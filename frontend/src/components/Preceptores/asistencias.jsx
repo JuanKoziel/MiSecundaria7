@@ -12,7 +12,7 @@ import {
   registrarAsistenciaDocente,
   getServerTime,
 } from '../../services/api';
-import FiltrosAnioCurso from './FiltrosAnioCurso';
+import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import {
   alumnosPorAnioYCurso,

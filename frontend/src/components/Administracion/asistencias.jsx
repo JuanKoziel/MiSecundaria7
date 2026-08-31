@@ -8,7 +8,7 @@ import {
   getRegistroDiario,
   getServerTime,
 } from '../../services/api';
-import FiltrosAnioCurso from './FiltrosAnioCurso';
+import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 
 function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';

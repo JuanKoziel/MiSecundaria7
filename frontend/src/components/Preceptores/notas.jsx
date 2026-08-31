@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import FiltrosAnioCurso from './FiltrosAnioCurso';
+import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, boletinPorAlumno, filtrosCompletos } from './preceptorUtils';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';

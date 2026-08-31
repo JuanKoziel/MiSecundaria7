@@ -52,7 +52,7 @@
 
 | # | Check | Status | Notes |
 |---|-------|--------|-------|
-| 1 | `baseURL` uses environment variable | **FAIL** | Hardcoded to `http://localhost:8000/api` (line 3). Will break in any non-local deployment. |
+| 1 | `baseURL` uses environment variable | **FAIL → ✅ RESUELTO 2026-08-24** | `api.js` ahora usa `import.meta.env.VITE_API_URL` con fallback local (`.env.example` ya documentaba la variable). Nota: quedan 11 constantes `API_BASE/MEDIA_BASE = 'http://localhost:8000'` para URLs de media en componentes (`Familia/Actas.jsx`, `Preceptores/actas.jsx`, `Shared/ComunicadosView.jsx`, etc.) — mismo patrón, corrección sugerida para próximo lote. |
 | 2 | Default `Content-Type` header set | **OK** | `'application/json'` applied at creation (line 7). |
 | 3 | Request timeout configured | **FAIL** | No `timeout` property on `axios.create()`. Requests can hang indefinitely. |
 | 4 | `withCredentials` configured if needed | N/A | Not required for JWT-in-header pattern. |
@@ -71,7 +71,7 @@
 | # | Check | Status | Notes |
 |---|-------|--------|-------|
 | 9 | Refresh only triggers on first 401 | **PARTIAL** | `original._retry` flag (line 26) prevents infinite loops, but... |
-| 10 | Concurrent 401 race condition protected | **FAIL** | No mutex/queue. If 3 requests fail simultaneously, all 3 fire separate `POST /token/refresh/` calls before the first writes the new token. |
+| 10 | Concurrent 401 race condition protected | **FAIL → ✅ RESUELTO 2026-08-24** | Mutex implementado: `refreshEnCurso` comparte la promesa de refresh entre requests concurrentes (`refrescarAccessToken`), todos los 401 esperan el mismo refresh. |
 | 11 | Refresh uses raw `axios` (bypassing interceptor) | **OK** | Line 31 uses bare `axios.post`, not `api.post`, avoiding recursive interceptor calls. |
 | 12 | New `access_token` persisted and retried | **OK** | Lines 34–36: stores new token, patches original request header, returns `api(original)`. |
 | 13 | On refresh failure: tokens cleared | **OK** | Lines 38–39: both `access_token` and `refresh_token` removed from `localStorage`. |
@@ -92,7 +92,7 @@
 | # | Check | Status | Notes |
 |---|-------|--------|-------|
 | 20 | Functions are grouped by domain | **PARTIAL** | Loosely grouped (alumnos, docentes, etc.) but no clear section markers beyond the `--- Sistema Académico Avanzado ---` comment. |
-| 21 | No duplicate endpoint definitions | **FAIL** | `createActaCurso` appears at line 489 (already defined at line 271). `createActaAlumno` appears at line 494 (already at line 277). |
+| 21 | No duplicate endpoint definitions | **FAIL → ✅ FALSO POSITIVO 2026-08-24** | Re-verificación: `createActa` (línea 271, endpoint `/actas/`) y `createActaCurso`/`createActaAlumno` (líneas 489/494, endpoints `/acta-curso/`, `/acta-alumno/`) son funciones **distintas** con endpoints distintos; cada nombre se exporta una sola vez en `api.js`. No había duplicados. |
 | 22 | No TypeScript/prop validation | **FAIL** | Pure JS. No parameter type checks. Incorrect param types will silently pass to axios and fail at runtime. |
 | 23 | Error handling is uniform | **FAIL** | No centralized error transformation. Each consumer must handle raw axios errors independently. |
 | 24 | No request cancellation support | **FAIL** | No `AbortController` or signal forwarding. Components that unmount mid-request risk state updates on unmounted components. |
@@ -321,9 +321,9 @@ This reveals the **precondition dependency** problem in `PanelProfesores`: click
 
 | Area | Severity | Finding |
 |------|----------|---------|
-| `api.js` | **HIGH** | Hardcoded `API_BASE` — cannot deploy to staging/production without code change |
-| `api.js` | **HIGH** | Refresh token race condition — concurrent 401s cause duplicate refresh calls |
-| `api.js` | **MEDIUM** | Duplicate endpoint definitions (`createActaCurso`, `createActaAlumno`) |
+| `api.js` | **HIGH** | Hardcoded `API_BASE` — cannot deploy to staging/production without code change → ✅ **RESUELTO 2026-08-24** (`VITE_API_URL`) |
+| `api.js` | **HIGH** | Refresh token race condition — concurrent 401s cause duplicate refresh calls → ✅ **RESUELTO 2026-08-24** (mutex `refreshEnCurso`) |
+| `api.js` | **MEDIUM** | Duplicate endpoint definitions (`createActaCurso`, `createActaAlumno`) → ✅ **FALSO POSITIVO 2026-08-24** (eran funciones distintas: `createActa` vs `createActaCurso`/`createActaAlumno`) |
 | `DataContext` | **HIGH** | All 23 endpoints fire for every role — massive over-fetching |
 | `DataContext` | **HIGH** | Individual endpoint errors silently swallowed — users see empty states with no error message |
 | `DataContext` | **MEDIUM** | Context value object recreated every render — causes unnecessary re-renders in all consumers |

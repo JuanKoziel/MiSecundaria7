@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { formatDNI, cleanDNI } from '../../utils/dni';
-import FiltrosAnioCurso from './FiltrosAnioCurso';
+import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 
 const API_BASE = 'http://localhost:8000';
 

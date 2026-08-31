@@ -18,6 +18,13 @@ from escuela.permissions import (
     IsAdminOrDirectorForWrite,
     PuedeVerHistorial,
     PuedeGestionarAdelantos,
+    PuedeEscribirCalificaciones,
+    PuedeGestionarPersonas,
+    PuedeGestionarActas,
+    PuedeRegistrarAsistencias,
+    PuedeGestionarPlanificaciones,
+    PuedeGestionarAmbitoDocente,
+    PuedePublicarComunicados,
     alumnos_permitidos,
     alumno_del_usuario,
     docente_del_usuario,
@@ -992,7 +999,7 @@ class HistorialMixin:
 class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
     serializer_class = UsuarioSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
     historial_tabla = 'usuarios'
     historial_soft_delete = True
 
@@ -1091,6 +1098,7 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
     ).all()
     serializer_class = AlumnoSerializer
     filterset_fields = ['id_curso', 'dni']
+    permission_classes = [IsAuthenticated, PuedeGestionarPersonas]
     historial_tabla = 'alumnos'
     historial_soft_delete = True
 
@@ -1155,6 +1163,7 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
 class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Docente.objects.select_related('id_usuario').prefetch_related('ddjj_docente').all()
     serializer_class = DocenteSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarPersonas]
     historial_tabla = 'docentes'
     historial_soft_delete = True
 
@@ -1211,6 +1220,7 @@ class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
 class DdjjDocenteViewSet(viewsets.ModelViewSet):
     queryset = DdjjDocente.objects.select_related('id_docente', 'id_docente__id_usuario').all()
     serializer_class = DdjjDocenteSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarAmbitoDocente]
     parser_classes = [MultiPartParser, FormParser]
 
     def _roles(self):
@@ -1361,9 +1371,9 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         'id_docente',
         'id_curso_materia__id_curso',
         'id_curso_materia__id_materia',
-    ).prefetch_related('archivos_adjuntos').all()
+        ).prefetch_related('archivos_adjuntos').all()
     serializer_class = ActividadDocenteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, PuedeGestionarAmbitoDocente]
     parser_classes = [MultiPartParser, FormParser]
 
     def _docente_actual(self):
@@ -1525,6 +1535,7 @@ class PreceptorViewSet(HistorialMixin, viewsets.ModelViewSet):
         ),
     ).all()
     serializer_class = PreceptorSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarPersonas]
     historial_tabla = 'preceptores'
     historial_soft_delete = True
 
@@ -1593,6 +1604,7 @@ class PreceptorViewSet(HistorialMixin, viewsets.ModelViewSet):
 class DirectivoViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Directivo.objects.select_related('id_usuario').all()
     serializer_class = DirectivoSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
     historial_tabla = 'directores'
     historial_soft_delete = True
 
@@ -1605,6 +1617,7 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
         ),
     ).all()
     serializer_class = PadreTutorSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarPersonas]
     historial_tabla = 'tutores'
     historial_soft_delete = True
 
@@ -1692,6 +1705,7 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
 class CicloLectivoViewSet(viewsets.ModelViewSet):
     queryset = CicloLectivo.objects.all()
     serializer_class = CicloLectivoSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def perform_destroy(self, instance):
         marcar_eliminado(instance)
@@ -1705,7 +1719,7 @@ class CursoViewSet(HistorialMixin, viewsets.ModelViewSet):
         ),
     ).all()
     serializer_class = CursoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
     historial_tabla = 'cursos'
     historial_soft_delete = True
 
@@ -1963,14 +1977,16 @@ class AdelantoHorasViewSet(HistorialMixin, viewsets.ModelViewSet):
 class ModuloViewSet(viewsets.ModelViewSet):
     queryset = Modulos.objects.all()
     serializer_class = ModuloSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
 
 class HorarioEspecialViewSet(viewsets.ModelViewSet):
     queryset = HorariosEspeciales.objects.select_related('id_curso_materia').prefetch_related(
         'id_curso_materia__id_curso',
         'id_curso_materia__id_materia',
-    ).all()
+        ).all()
     serializer_class = HorarioEspecialSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2033,8 +2049,9 @@ class HorarioViewSet(viewsets.ModelViewSet):
         'id_curso_materia__id_curso',
         'id_curso_materia__id_materia',
         'id_curso_materia__id_docente',
-    ).all()
+        ).all()
     serializer_class = HorarioSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2104,6 +2121,7 @@ class InscripcionMateriaViewSet(viewsets.ModelViewSet):
         'id_alumno', 'id_curso_materia',
     ).all()
     serializer_class = InscripcionMateriaSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2116,6 +2134,7 @@ class InscripcionMateriaViewSet(viewsets.ModelViewSet):
 class PeriodoEvaluacionViewSet(viewsets.ModelViewSet):
     queryset = PeriodoEvaluacion.objects.all()
     serializer_class = PeriodoEvaluacionSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def perform_destroy(self, instance):
         marcar_eliminado(instance)
@@ -2125,8 +2144,9 @@ class CalificacionViewSet(viewsets.ModelViewSet):
     queryset = Calificacion.objects.select_related(
         'id_alumno', 'id_curso_materia__id_materia',
         'id_curso_materia__id_curso', 'id_docente', 'id_periodo',
-    ).all()
+        ).all()
     serializer_class = CalificacionSerializer
+    permission_classes = [IsAuthenticated, PuedeEscribirCalificaciones]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2182,8 +2202,9 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
     queryset = Asistencia.objects.select_related(
         'id_alumno', 'id_curso_materia__id_materia',
         'id_curso_materia__id_curso', 'id_estado_asistencia',
-    ).all()
+        ).all()
     serializer_class = AsistenciaSerializer
+    permission_classes = [IsAuthenticated, PuedeRegistrarAsistencias]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -3213,6 +3234,7 @@ class ActaViewSet(HistorialMixin, ActaPropiedadMixin, viewsets.ModelViewSet):
         'id_usuario_creador', 'id_tipo_acta',
     ).all()
     serializer_class = ActaSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarActas]
     historial_tabla = 'actas'
     historial_soft_delete = True
 
@@ -3302,16 +3324,19 @@ class ActaRelacionMixin(ActaPropiedadMixin):
 class ActaAlumnoViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     queryset = ActaAlumno.objects.select_related('id_acta', 'id_alumno').all()
     serializer_class = ActaAlumnoSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarActas]
 
 
 class ActaCursoViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     queryset = ActaCurso.objects.select_related('id_acta', 'id_curso').all()
     serializer_class = ActaCursoSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarActas]
 
 
 class ActaDocenteViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     queryset = ActaDocente.objects.select_related('id_acta', 'id_docente').all()
     serializer_class = ActaDocenteSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarActas]
 
 
 class ComunicadoViewSet(HistorialMixin, viewsets.ModelViewSet):
@@ -3319,7 +3344,7 @@ class ComunicadoViewSet(HistorialMixin, viewsets.ModelViewSet):
         'id_usuario_creador', 'id_curso__id_ciclo', 'id_materia',
     ).prefetch_related('archivos', 'alcances').all()
     serializer_class = ComunicadoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, PuedePublicarComunicados]
     historial_tabla = 'comunicados'
     historial_soft_delete = True
 
@@ -3327,10 +3352,11 @@ class ComunicadoViewSet(HistorialMixin, viewsets.ModelViewSet):
         qs = super().get_queryset()
         return _filter_visible_comunicados(self.request, qs)
 
+
 class ComunicadoArchivoViewSet(viewsets.ModelViewSet):
     queryset = ComunicadoArchivo.objects.select_related('id_comunicado').all()
     serializer_class = ComunicadoArchivoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, PuedePublicarComunicados]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -3346,6 +3372,7 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         'id_curso_materia__id_curso__id_ciclo',
     ).all()
     serializer_class = PlanificacionSerializer
+    permission_classes = [IsAuthenticated, PuedeGestionarPlanificaciones]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -3519,7 +3546,7 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
         'id_curso_materia__id_materia',
     ).all()
     serializer_class = LibroTemaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, PuedeGestionarAmbitoDocente]
     historial_tabla = 'libro_temas'
     historial_soft_delete = True
 
@@ -3727,7 +3754,7 @@ class DiagnosticoGrupalViewSet(HistorialMixin, viewsets.ModelViewSet):
         'id_curso', 'id_docente',
     ).all()
     serializer_class = DiagnosticoGrupalSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, PuedeGestionarAmbitoDocente]
     historial_tabla = 'diagnosticos'
     historial_soft_delete = True
 
@@ -3998,7 +4025,7 @@ def upload_file(request):
 class HistorialAcademicoViewSet(viewsets.ModelViewSet):
     queryset = HistorialAcademico.objects.select_related('id_alumno', 'id_materia', 'id_curso', 'id_curso_materia').all()
     serializer_class = HistorialAcademicoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -4023,13 +4050,13 @@ class HistorialAcademicoViewSet(viewsets.ModelViewSet):
 class IntensificacionAcademicaViewSet(viewsets.ModelViewSet):
     queryset = IntensificacionAcademica.objects.select_related('id_historial', 'id_historial__id_alumno', 'id_historial__id_materia').all()
     serializer_class = IntensificacionAcademicaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
 
 class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
     queryset = MateriaAdeudada.objects.select_related('id_alumno', 'id_materia', 'id_curso_origen', 'id_curso_actual').all()
     serializer_class = MateriaAdeudadaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, PuedeGestionarAmbitoDocente]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -4196,19 +4223,19 @@ class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
 class RendicionMateriaAdeudadaViewSet(viewsets.ModelViewSet):
     queryset = RendicionMateriaAdeudada.objects.all()
     serializer_class = RendicionMateriaAdeudadaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
 
 class HistorialCursoAlumnoViewSet(viewsets.ModelViewSet):
     queryset = HistorialCursoAlumno.objects.select_related('id_alumno', 'id_curso').all()
     serializer_class = HistorialCursoAlumnoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
 
 class BloqueoHorarioAlumnoViewSet(viewsets.ModelViewSet):
     queryset = BloqueoHorarioAlumno.objects.select_related('id_alumno', 'id_materia_bloqueada', 'id_materia_prioritaria').all()
     serializer_class = BloqueoHorarioAlumnoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -4221,13 +4248,13 @@ class BloqueoHorarioAlumnoViewSet(viewsets.ModelViewSet):
 class PromocionAlumnoViewSet(viewsets.ModelViewSet):
     queryset = PromocionAlumno.objects.select_related('id_alumno', 'curso_origen', 'curso_destino').all()
     serializer_class = PromocionAlumnoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
 
 class RecursadaMateriaViewSet(viewsets.ModelViewSet):
     queryset = RecursadaMateria.objects.select_related('id_alumno', 'id_materia', 'id_curso_origen', 'id_curso_recursada').all()
     serializer_class = RecursadaMateriaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -4240,31 +4267,31 @@ class RecursadaMateriaViewSet(viewsets.ModelViewSet):
 class RecursadaCalificacionViewSet(viewsets.ModelViewSet):
     queryset = RecursadaCalificacion.objects.all()
     serializer_class = RecursadaCalificacionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
 
 class BloqueoMateriaRecursadaViewSet(viewsets.ModelViewSet):
     queryset = BloqueoMateriaRecursada.objects.all()
     serializer_class = BloqueoMateriaRecursadaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
 
 class RegistroRendicionPreviaViewSet(viewsets.ModelViewSet):
     queryset = RegistroRendicionPrevia.objects.all()
     serializer_class = RegistroRendicionPreviaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
 
 class ResultadoActividadAdeudadaViewSet(viewsets.ModelViewSet):
     queryset = ResultadoActividadAdeudada.objects.all()
     serializer_class = ResultadoActividadAdeudadaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
 
 class SituacionMateriaAlumnoViewSet(viewsets.ModelViewSet):
     queryset = SituacionMateriaAlumno.objects.select_related('id_alumno', 'id_curso_materia').all()
     serializer_class = SituacionMateriaAlumnoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
     def get_queryset(self):
         qs = super().get_queryset()

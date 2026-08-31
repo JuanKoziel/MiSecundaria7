@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import FiltrosAnioCurso from './FiltrosAnioCurso';
+import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 
 function Notas() {
   const {
