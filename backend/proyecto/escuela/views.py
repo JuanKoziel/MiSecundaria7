@@ -2727,7 +2727,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             'id_alumno': request.data.get('id_alumno'),
             'id_curso_materia': cm_id,
             'id_estado_asistencia': request.data.get('id_estado_asistencia'),
-            'fecha': ahora.date(),
+            'fecha': request.data.get('fecha') or ahora.date(),
             'hora': ahora.time(),
             'id_usuario': usuario_actual.id_usuario,
         }

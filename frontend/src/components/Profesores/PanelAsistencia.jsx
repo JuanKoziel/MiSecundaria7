@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
-import { getServerTime, createAsistencia } from '../../services/api';
+import { getServerTime, createAsistencia, getAsistencias } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
@@ -15,6 +15,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
   const [filas, setFilas] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [fechaSeleccionada, setFechaSeleccionada] = useState('');
 
   const alumnosCurso = useMemo(
     () => alumnos.filter((a) => a.id_curso === cursoId),
@@ -27,30 +28,84 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
     try {
       const info = await getServerTime(cursoMateriaId);
       setServerInfo(info);
+      if (info?.fecha && !fechaSeleccionada) {
+        setFechaSeleccionada(info.fecha);
+      }
     } catch (err) {
       toast.error(`Error al obtener hora del servidor: ${err.message}`);
     } finally {
       setCargando(false);
     }
-  }, [cursoMateriaId]);
+  }, [cursoMateriaId, fechaSeleccionada]);
 
   useEffect(() => {
     cargarServerTime();
   }, [cargarServerTime]);
 
   useEffect(() => {
-    if (alumnosCurso.length > 0) {
-      setFilas(
-        alumnosCurso.map((a) => ({
-          id: a.id,
-          nombre: `${a.apellido}, ${a.nombre}`,
-          estado: '',
-        })),
-      );
+    if (serverInfo?.fecha && !fechaSeleccionada) {
+      setFechaSeleccionada(serverInfo.fecha);
     }
-  }, [alumnosCurso]);
+  }, [serverInfo?.fecha, fechaSeleccionada]);
+
+  useEffect(() => {
+    if (alumnosCurso.length === 0 || !cursoMateriaId || !fechaSeleccionada) {
+      setFilas([]);
+      return;
+    }
+
+    let cancelado = false;
+
+    const cargarAsistencias = async () => {
+      const filasBase = alumnosCurso.map((a) => ({
+        id: a.id,
+        nombre: `${a.apellido}, ${a.nombre}`,
+        estado: '',
+      }));
+
+      try {
+        const data = await getAsistencias({
+          curso_materia: cursoMateriaId,
+          fecha: fechaSeleccionada,
+        });
+
+        if (cancelado) return;
+
+        const asistenciaMap = {};
+        if (Array.isArray(data)) {
+          data.forEach((a) => {
+            const alumnoId = typeof a.id_alumno === 'object' ? a.id_alumno?.id_alumno : a.id_alumno;
+            const estadoNombre = a.estado_nombre
+              || a.id_estado_asistencia?.nombre_estado
+              || (typeof a.id_estado_asistencia === 'object' ? a.id_estado_asistencia?.nombre_estado : null);
+            if (alumnoId && estadoNombre) {
+              asistenciaMap[alumnoId] = estadoNombre;
+            }
+          });
+        }
+
+        setFilas(
+          filasBase.map((fila) => ({
+            ...fila,
+            estado: asistenciaMap[fila.id] || '',
+          })),
+        );
+      } catch {
+        if (!cancelado) {
+          setFilas(filasBase);
+        }
+      }
+    };
+
+    cargarAsistencias();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [alumnosCurso, cursoMateriaId, fechaSeleccionada]);
 
   const enHorario = serverInfo?.estado?.codigo === 'en_horario';
+  const esFechaHoy = fechaSeleccionada === serverInfo?.fecha;
 
   const handleEstadoChange = (id, nuevoEstado) => {
     setFilas((prev) =>
@@ -58,8 +113,16 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
     );
   };
 
+  const handleFechaChange = (nuevaFecha) => {
+    setFechaSeleccionada(nuevaFecha);
+  };
+
   const handleGuardar = async () => {
     if (!enHorario) return;
+    if (!esFechaHoy) {
+      toast.warning('Solo puede guardar asistencias para la fecha de hoy.');
+      return;
+    }
     const alumnosConEstado = filas.filter((a) => a.estado);
     if (alumnosConEstado.length === 0) {
       toast.warning('Seleccioná un estado de asistencia para al menos un alumno.');
@@ -83,6 +146,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
           id_alumno: a.id,
           id_curso_materia: cursoMateriaId,
           id_estado_asistencia: idEstado,
+          fecha: fechaSeleccionada,
         });
       });
       await Promise.all(promises);
@@ -180,7 +244,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
               type="button"
               className="btn btn-primary"
               onClick={handleGuardar}
-              disabled={guardando || !enHorario || filas.length === 0}
+              disabled={guardando || !enHorario || !esFechaHoy || filas.length === 0}
             >
               <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Asistencia'}
             </button>
@@ -213,8 +277,12 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
 
       <div className="filter-row">
         <div className="form-group-filter">
-          <label>Fecha (servidor)</label>
-          <input type="date" value={serverInfo?.fecha || ''} readOnly disabled />
+          <label>Fecha</label>
+          <input
+            type="date"
+            value={fechaSeleccionada || serverInfo?.fecha || ''}
+            onChange={(e) => handleFechaChange(e.target.value)}
+          />
         </div>
         <div className="form-group-filter">
           <label>Hora (servidor)</label>
@@ -233,6 +301,12 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
                    color: enHorario ? '#155724' : '#856404' }}>
           <i className={`fas ${enHorario ? 'fa-check-circle' : 'fa-info-circle'}`} aria-hidden="true" />
           {' '}{serverInfo.estado.mensaje}
+        </p>
+      )}
+
+      {!esFechaHoy && (
+        <p style={{ padding: '8px 12px', borderRadius: '4px', backgroundColor: '#e2e3e5', color: '#383d41', margin: '8px 0', fontSize: '0.9em' }}>
+          <i className="fas fa-info-circle" aria-hidden="true" /> Viendo asistencias del día {fechaSeleccionada}. Para modificar, seleccione la fecha de hoy ({serverInfo?.fecha}).
         </p>
       )}
 
@@ -257,7 +331,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
             </tr>
           </thead>
           <tbody>
-            {!enHorario ? (
+            {!enHorario && esFechaHoy ? (
               <tr>
                 <td colSpan={2} className="empty-state-message">
                   {serverInfo?.estado?.mensaje || 'No hay horario disponible.'}
@@ -266,7 +340,9 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
             ) : filas.length === 0 ? (
               <tr>
                 <td colSpan={2} className="empty-state-message">
-                  No hay alumnos en este curso.
+                  {fechaSeleccionada !== serverInfo?.fecha
+                    ? 'No hay asistencias registradas para esta fecha.'
+                    : 'No hay alumnos en este curso.'}
                 </td>
               </tr>
             ) : (
@@ -278,7 +354,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
                       {ESTADOS.map((est) => {
                         const seleccionado = fila.estado === est;
                         const deshabilitado = fila.estado !== '' && !seleccionado;
-                        const bloq = !puedeEditar;
+                        const bloq = !puedeEditar || !enHorario || !esFechaHoy;
                         return (
                           <button
                             key={est}
