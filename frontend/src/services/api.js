@@ -9,7 +9,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
-  if (token) {
+  if (token && !config.url?.endsWith('/login/')) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   if (config.data instanceof FormData) {
@@ -42,6 +42,9 @@ api.interceptors.response.use(
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
+      if (original.url?.endsWith('/login/')) {
+        return Promise.reject(error);
+      }
       const refresh = localStorage.getItem('refresh_token');
       if (refresh) {
         try {
