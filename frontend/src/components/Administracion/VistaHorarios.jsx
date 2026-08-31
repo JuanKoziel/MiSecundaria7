@@ -375,8 +375,8 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
       getCursoMateria({ curso: cursoSeleccionado }),
       getHorarios({ curso: cursoSeleccionado }),
       getHorariosEspeciales({ curso: cursoSeleccionado }),
-      getSuplencias({ curso: cursoSeleccionado }),
-      getAdelantosHoras({ curso: cursoSeleccionado, estado: 1 }),
+      getSuplencias({ curso: cursoSeleccionado }).catch(() => []),
+      getAdelantosHoras({ curso: cursoSeleccionado, estado: 1 }).catch(() => []),
     ])
       .then(([cmData, horData, heData, spData, adData]) => {
         const cmList = Array.isArray(cmData) ? cmData : cmData.results || [];

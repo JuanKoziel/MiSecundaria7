@@ -261,14 +261,14 @@ function ModalFormularioActividad({
           </div>
 
           <div className="form-group-filter preceptor-form-full">
-            <label htmlFor="actividad-archivos">Archivos *</label>
+            <label htmlFor="actividad-archivos">Archivos</label>
             <input
               id="actividad-archivos"
               type="file"
               multiple
               onChange={agregarArchivos}
             />
-            <small className="upload-hint">Podés agregar uno o más archivos.</small>
+            <small className="upload-hint">Opcional. Podés agregar uno o más archivos.</small>
           </div>
 
           {archivosExistentes.length > 0 && (
@@ -388,10 +388,6 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
     }
     if (!form.titulo.trim()) {
       toast.warning('El título es obligatorio.');
-      return;
-    }
-    if (!actividadEditando && nuevosArchivos.length === 0) {
-      toast.warning('Debes adjuntar al menos un archivo para la actividad.');
       return;
     }
 

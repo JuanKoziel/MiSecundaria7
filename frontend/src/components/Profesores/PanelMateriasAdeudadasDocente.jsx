@@ -121,16 +121,17 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
       toast.error('Debe seleccionar un curso y materia válidos.');
       return;
     }
-    if (!titulo || !periodoIntensificacion || (!archivo && !archivoActual)) {
-      toast.error('Curso, materia, período, título y archivo PDF son obligatorios.');
+    if (!titulo || !periodoIntensificacion) {
+      toast.error('Curso, materia, período y título son obligatorios.');
       return;
     }
 
     setLoadingAct(true);
     try {
-      const archivoUrl = archivo
-        ? (await uploadFile(archivo, 'materias_adeudadas')).url
-        : archivoActual;
+      let archivoUrl = archivoActual;
+      if (archivo) {
+        archivoUrl = (await uploadFile(archivo, 'materias_adeudadas')).url;
+      }
 
       const payload = {
         id_curso_materia: modalCursoMateriaObj.id,
@@ -362,14 +363,14 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
                   )}
 
                   <div className="form-group-filter">
-                    <label htmlFor="modal-pdf">Archivo PDF{editingId ? ' (opcional)' : ''}</label>
+                    <label htmlFor="modal-pdf">Archivo PDF (opcional)</label>
                     <input
                       id="modal-pdf"
                       type="file"
                       accept="application/pdf"
                       onChange={(e) => setArchivo(e.target.files[0])}
-                      required={!editingId}
                     />
+                    <small className="text-muted">Opcional. Podés publicar la actividad sin adjuntar archivo.</small>
                   </div>
                 </div>
 

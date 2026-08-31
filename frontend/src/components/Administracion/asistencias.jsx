@@ -55,10 +55,13 @@ function Asistencias() {
   );
 
   const handleCursoChange = (nuevoCurso) => {
-    setCurso(nuevoCurso);
-    setMateriaCmId('');
-    setFechaMateria('');
-    setAlumnoMateria('');
+    setCurso((prev) => {
+      if (prev === nuevoCurso) return prev;
+      setMateriaCmId('');
+      setFechaMateria('');
+      setAlumnoMateria('');
+      return nuevoCurso;
+    });
   };
 
   const today = new Date().toISOString().slice(0, 10);

@@ -463,12 +463,6 @@ function Preceptores({ rol = 'preceptor' }) {
         </button>
       </div>
 
-      <div className="empty-state-message flex-gap-16--wrap mb-12">
-        <span><i className="fas fa-edit" aria-hidden="true" /> Editar</span>
-        <span><i className="fas fa-toggle-on" aria-hidden="true" /> Habilitar / Deshabilitar</span>
-        <span><i className="fas fa-trash" aria-hidden="true" /> Eliminar</span>
-      </div>
-
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
@@ -534,7 +528,7 @@ function Preceptores({ rol = 'preceptor' }) {
                         aria-label={`Editar ${entidad}`}
                         title="Editar"
                       >
-                        <i className="fas fa-edit" aria-hidden="true" />
+                        <i className="fas fa-edit" aria-hidden="true" /> Editar
                       </button>
                       <button
                         type="button"
@@ -544,7 +538,8 @@ function Preceptores({ rol = 'preceptor' }) {
                         title={p.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
                         disabled={p.usuario_estado === null || p.usuario_estado === undefined}
                       >
-                        <i className={`fas ${p.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />
+                        <i className={`fas ${p.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />{' '}
+                        {p.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
                       </button>
                       <button
                         type="button"
@@ -553,7 +548,7 @@ function Preceptores({ rol = 'preceptor' }) {
                         aria-label={`Eliminar ${entidad}`}
                         title="Eliminar"
                       >
-                        <i className="fas fa-trash" aria-hidden="true" />
+                        <i className="fas fa-trash" aria-hidden="true" /> Eliminar
                       </button>
                     </td>
                   </tr>

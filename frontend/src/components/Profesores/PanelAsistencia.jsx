@@ -60,6 +60,11 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
 
   const handleGuardar = async () => {
     if (!enHorario) return;
+    const alumnosConEstado = filas.filter((a) => a.estado);
+    if (alumnosConEstado.length === 0) {
+      toast.warning('Seleccioná un estado de asistencia para al menos un alumno.');
+      return;
+    }
     setGuardando(true);
     setMensaje('');
     try {
@@ -67,7 +72,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
       estadosAsistencia.forEach((e) => {
         estadoMap[e.nombre_estado] = e.id_estado_asistencia;
       });
-      const promises = filas.map((a) => {
+      const promises = alumnosConEstado.map((a) => {
         let idEstado;
         if (a.estado === 'Retiro') {
           idEstado = 4;
@@ -77,7 +82,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
         return createAsistencia({
           id_alumno: a.id,
           id_curso_materia: cursoMateriaId,
-          id_estado_asistencia: idEstado || estadosAsistencia[0]?.id_estado_asistencia || 1,
+          id_estado_asistencia: idEstado,
         });
       });
       await Promise.all(promises);
