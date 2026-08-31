@@ -8,7 +8,7 @@ function Header({ user, hijoSeleccionado }) {
         <p className="main-header-subtitle">
           {hijoSeleccionado
             ? `Seguimiento académico — ${hijoSeleccionado.nombre}`
-            : 'Panel de Familia — seleccioná un alumno vinculado'}
+            : 'Panel de Familia — seleccioná un estudiante vinculado'}
         </p>
       </div>
 

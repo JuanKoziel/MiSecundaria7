@@ -17,7 +17,7 @@ function Actas({ hijo }) {
 
       {actas.length === 0 ? (
         <p className="empty-state-message">
-          No hay actas cargadas para este alumno en este momento.
+          No hay actas cargadas para este estudiante en este momento.
         </p>
       ) : (
         <div className="table-responsive">

@@ -43,7 +43,7 @@ function Resumen({ hijo }) {
 
       <div className="card" style={{ gridColumn: '1 / -1' }}>
         <div className="card-header-flex">
-          <h3>Información del alumno</h3>
+          <h3>Información del estudiante</h3>
         </div>
         <div className="table-responsive">
           <table>

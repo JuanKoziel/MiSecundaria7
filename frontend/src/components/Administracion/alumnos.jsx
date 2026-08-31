@@ -79,7 +79,7 @@ function Alumnos() {
     <div>
       <div className="card">
         <div className="card-header-flex">
-          <h3>Listado de Alumnos</h3>
+          <h3>Listado de Estudiantes</h3>
         </div>
 
         <FiltrosAnioCurso
@@ -106,7 +106,7 @@ function Alumnos() {
               {alumnosCurso.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="empty-state-message">
-                    No hay alumnos registrados en este curso.
+                    No hay estudiantes registrados en este curso.
                   </td>
                 </tr>
               ) : (

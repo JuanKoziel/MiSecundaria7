@@ -466,15 +466,15 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
 
           {cursoId && materiaNombre && cursoMateriaObj ? (
             <div>
-              <h3>Alumnos que adeudan {materiaNombre}</h3>
+              <h3>Estudiantes que adeudan {materiaNombre}</h3>
               {deudasMateriaActual.length === 0 ? (
-                <p className="text-muted">No hay alumnos con deudas activas registrados en esta materia.</p>
+                <p className="text-muted">No hay estudiantes con deudas activas registrados en esta materia.</p>
               ) : (
                 <div className="table-responsive">
                   <table>
                     <thead>
                       <tr>
-                        <th>Alumno</th>
+                        <th>Estudiante</th>
                         <th>Tipo Deuda</th>
                         <th>Estado</th>
                         <th>Acción</th>
@@ -483,7 +483,7 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
                     <tbody>
                       {deudasMateriaActual.map((d) => (
                         <tr key={d.id_materia_adeudada}>
-                          <td>{d.alumno_nombre || `Alumno #${d.id_alumno}`}</td>
+                          <td>{d.alumno_nombre || `Estudiante #${d.id_alumno}`}</td>
                           <td><span className="badge badge-warning">{d.tipo_deuda}</span></td>
                           <td><span className="badge">{d.estado}</span></td>
                           <td>

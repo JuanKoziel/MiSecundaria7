@@ -18,7 +18,7 @@ function Notificaciones({ userRole, selectedChild }) {
             className={`tab-button ${activeTab === 'alumno' ? 'active' : ''}`}
             onClick={() => setActiveTab('alumno')}
           >
-            Del Alumno
+            Del Estudiante
           </button>
           <button
             type="button"
@@ -45,7 +45,7 @@ function Notificaciones({ userRole, selectedChild }) {
             ) : (
               <div className="notificaciones-empty">
                 <i className="fas fa-user-slash" aria-hidden="true" />
-                <p>Seleccioná un alumno para ver sus notificaciones.</p>
+                <p>Seleccioná un estudiante para ver sus notificaciones.</p>
               </div>
             )}
           </div>

@@ -156,7 +156,7 @@ function Cursos() {
       'Este curso dejará de estar disponible para nuevas operaciones.\n\n' +
       'No se eliminará ningún dato histórico.\n\n' +
       'Se conservarán:\n' +
-      '• alumnos\n• horarios\n• actividades\n• asistencias\n' +
+      '• estudiantes\n• horarios\n• actividades\n• asistencias\n' +
       '• calificaciones\n• planificaciones\n• comunicaciones\n\n' +
       '¿Desea continuar?',
       {

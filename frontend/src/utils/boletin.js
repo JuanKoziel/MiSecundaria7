@@ -195,7 +195,7 @@ export function boletinHTML({
           <div class="escuela">Escuela Secundaria N° 7</div>
           <div class="titulo">Boletín de Calificaciones</div>
           <div class="datos">
-            <div><span>Alumno/a:</span> ${alumnoNombre}</div>
+            <div><span>Estudiante:</span> ${alumnoNombre}</div>
             ${dni ? `<div><span>DNI:</span> ${formatDNI(dni)}</div>` : ''}
             <div><span>Curso:</span> ${cursoLabel}</div>
             <div><span>Ciclo lectivo:</span> ${anioLectivo}</div>

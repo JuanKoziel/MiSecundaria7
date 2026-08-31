@@ -100,7 +100,7 @@ function PanelFamilia({ miTutor, user, hijos }) {
         >
           <strong style={{ fontSize: '0.9rem', color: '#444', display: 'block', marginBottom: '10px' }}>
             <i className="fas fa-users icon-primary" aria-hidden="true" />
-            Alumnos asociados
+            Estudiantes asociados
           </strong>
           {hijos.map((hijo, idx) => (
             <div key={hijo.id} style={{

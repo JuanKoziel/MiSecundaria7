@@ -48,7 +48,7 @@ function PanelAlumno({ miAlumno, user }) {
     return (
       <div className="card">
         <p className="empty-state-message">
-          No se encontró un alumno vinculado a tu usuario.
+          No se encontró un estudiante vinculado a tu usuario.
         </p>
       </div>
     );
@@ -60,7 +60,7 @@ function PanelAlumno({ miAlumno, user }) {
   return (
     <div className="card">
       <div className="card-header-flex card-header-flex--compact">
-        <h3>Perfil del Alumno</h3>
+        <h3>Perfil del Estudiante</h3>
         <span className="badge badge-presente badge--header">
           <i className="fas fa-check-circle" aria-hidden="true" /> Activo
         </span>
@@ -99,7 +99,7 @@ function PanelAlumno({ miAlumno, user }) {
         </div>
         <div>
           <label className="profile-label">Rol</label>
-          <p className="profile-value">Alumno</p>
+          <p className="profile-value">Estudiante</p>
         </div>
       </div>
 

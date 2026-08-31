@@ -35,7 +35,7 @@ function FamiliaDashboard({ user, onLogout }) {
       const alumno = getAlumnoById(hijo.alumnoId);
       return {
         ...hijo,
-        nombre: alumno ? nombreCompleto(alumno) : 'Alumno',
+        nombre: alumno ? nombreCompleto(alumno) : 'Estudiante',
         dni: alumno?.dni ?? '—',
       };
     });
@@ -137,7 +137,7 @@ function FamiliaDashboard({ user, onLogout }) {
         <div className="card">
 
           <div className="card-header-flex">
-            <h3>Alumno vinculado</h3>
+            <h3>Estudiante vinculado</h3>
           </div>
 
           <div className="filter-row">
@@ -145,7 +145,7 @@ function FamiliaDashboard({ user, onLogout }) {
             <div className="form-group-filter">
 
               <label htmlFor="hijo-select">
-                Seleccionar alumno
+                Seleccionar estudiante
               </label>
 
               <select
@@ -154,7 +154,7 @@ function FamiliaDashboard({ user, onLogout }) {
                 onChange={(e) => setHijoId(e.target.value)}
               >
                 <option value="" disabled hidden>
-                  Seleccione un alumno...
+                  Seleccione un estudiante...
                 </option>
 
                 {hijos.map((hijo) => (
@@ -213,7 +213,7 @@ function FamiliaDashboard({ user, onLogout }) {
           <div className="card empty-state-card">
 
             <p className="empty-state-message">
-              Seleccioná un alumno vinculado
+              Seleccioná un estudiante vinculado
               para visualizar toda su información académica.
             </p>
 

@@ -156,12 +156,12 @@ function AlumnoDashboard({ user, onLogout }) {
       <main className="main-content">
         <header className="main-header">
           <div>
-            <h1>{miAlumno ? `${miAlumno.nombre} ${miAlumno.apellido}` : 'Alumno'}</h1>
+            <h1>{miAlumno ? `${miAlumno.nombre} ${miAlumno.apellido}` : 'Estudiante'}</h1>
             <p className="main-header-subtitle">
-              {miAlumno ? `Curso: ${cursoConOrientacion(miAlumno.curso)}` : 'Portal del Alumno'}
+              {miAlumno ? `Curso: ${cursoConOrientacion(miAlumno.curso)}` : 'Portal del Estudiante'}
             </p>
           </div>
-          <span className="badge role-badge-display">Alumno</span>
+          <span className="badge role-badge-display">Estudiante</span>
         </header>
 
         {view === 'perfil' ? (
@@ -199,7 +199,7 @@ function AlumnoDashboard({ user, onLogout }) {
         ) : !miAlumno ? (
           <div className="card">
             <p className="empty-state-message">
-              No se encontró un alumno vinculado a este usuario.
+              No se encontró un estudiante vinculado a este usuario.
             </p>
           </div>
         ) : (
@@ -287,7 +287,7 @@ function AlumnoDashboard({ user, onLogout }) {
                       idCurso={miAlumno.id_curso}
                     />
                   ) : (
-                    <p className="empty-state-message">No se pudo identificar al alumno.</p>
+                    <p className="empty-state-message">No se pudo identificar al estudiante.</p>
                   )}
                 </div>
               </div>

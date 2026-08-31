@@ -185,7 +185,7 @@ function PanelDocente({ miDocente, mapSuplencias }) {
       <div className="stats-grid">
         <StatCard icon="fa-book" value={stats.materias} label="Materias asignadas" />
         <StatCard icon="fa-school" value={stats.cursos} label="Cursos a cargo" />
-        <StatCard icon="fa-users" value={stats.alumnos} label="Alumnos a cargo" />
+        <StatCard icon="fa-users" value={stats.alumnos} label="Estudiantes a cargo" />
         <StatCard icon="fa-folder-open" value={stats.proyectos} label="Proyectos creados" />
         <StatCard icon="fa-file-signature" value={stats.actas} label="Actas realizadas" />
         <StatCard icon="fa-clock" value="—" label="Último ingreso" />

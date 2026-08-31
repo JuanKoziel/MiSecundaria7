@@ -585,7 +585,7 @@ export function DataProvider({ children }) {
         getAlumnoById: (alumnoId) => alumnos.find((a) => a.id === alumnoId),
         getHijoLabel: (hijo) => {
           const alumno = alumnos.find((a) => a.id === hijo.alumnoId);
-          if (!alumno) return 'Alumno';
+          if (!alumno) return 'Estudiante';
           return `${nombreCorto(alumno)} (${hijo.curso})`;
         },
         getAlumnosByCurso: (curso) => alumnos.filter((a) => a.curso === curso),
@@ -688,7 +688,7 @@ export function useData() {
       nombreCompleto: (a) => `${a.apellido}, ${a.nombre}`,
       nombreCorto: (a) => `${a.nombre} ${a.apellido}`,
       getAlumnoById: () => null,
-      getHijoLabel: () => 'Alumno',
+      getHijoLabel: () => 'Estudiante',
       getAlumnosByCurso: () => [],
       getMateriasByCurso: () => [],
       getHorarioClase: () => '—',

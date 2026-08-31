@@ -56,7 +56,7 @@ function EstadisticasPreceptoria() {
         <StatCard icon="fa-user-graduate" value={stats.total_alumnos} label="Total alumnos" />
         <StatCard icon="fa-users" value={stats.total_tutores} label="Total tutores" />
         <StatCard icon="fa-user-slash" value={stats.docentes_ausentes_hoy} label="Docentes ausentes hoy" color="#ffc107" />
-        <StatCard icon="fa-user-minus" value={stats.alumnos_ausentes_hoy} label="Alumnos ausentes hoy" color="#ffc107" />
+        <StatCard icon="fa-user-minus" value={stats.alumnos_ausentes_hoy} label="Estudiantes ausentes hoy" color="#ffc107" />
         <StatCard icon="fa-file-alt" value={stats.actas_hoy} label="Actas creadas hoy" />
       </div>
 

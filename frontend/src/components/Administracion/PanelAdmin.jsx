@@ -92,7 +92,7 @@ function PanelAdmin({ miDirectivo, user }) {
       </div>
 
       <div className="stats-grid">
-        <StatCard icon="fa-user-graduate" value={systemStats.alumnos} label="Alumnos" />
+        <StatCard icon="fa-user-graduate" value={systemStats.alumnos} label="Estudiantes" />
         <StatCard icon="fa-chalkboard-teacher" value={systemStats.docentes} label="Docentes" />
         <StatCard icon="fa-user-tie" value={systemStats.preceptores} label="Preceptores" />
         <StatCard icon="fa-users" value={systemStats.familias} label="Familias" />

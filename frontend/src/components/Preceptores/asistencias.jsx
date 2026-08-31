@@ -328,7 +328,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
               <table>
                 <thead>
                   <tr>
-                    <th>Alumno</th>
+                    <th>Estudiante</th>
                     <th>Resultado</th>
                   </tr>
                 </thead>
@@ -369,7 +369,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                 />
               </div>
               <div className="form-group-filter">
-                <label htmlFor="reg-alumno">Alumno</label>
+                <label htmlFor="reg-alumno">Estudiante</label>
                 <select
                   id="reg-alumno"
                   value={regAlumno}
@@ -384,7 +384,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
             </div>
 
             {!regFecha && !regAlumno ? (
-              <p className="empty-state-message">Seleccioná una fecha o un alumno para ver registros.</p>
+              <p className="empty-state-message">Seleccioná una fecha o un estudiante para ver registros.</p>
             ) : cargandoRegistro ? (
               <LoadingSpinner text="Cargando registros..." size="sm" inline />
             ) : dataRegistro.length === 0 ? (
@@ -395,7 +395,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                   <thead>
                     <tr>
                       <th>Fecha</th>
-                      <th>Alumno</th>
+                      <th>Estudiante</th>
                       <th>Estado</th>
                     </tr>
                   </thead>
@@ -457,7 +457,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
               />
             </div>
             <div className="form-group-filter">
-              <label htmlFor="alumno-materia-prec">Alumno</label>
+              <label htmlFor="alumno-materia-prec">Estudiante</label>
               <select
                 id="alumno-materia-prec"
                 value={alumnoMateria}
@@ -482,7 +482,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
               <table>
                 <thead>
                   <tr>
-                    <th>Alumno</th>
+                    <th>Estudiante</th>
                     <th>Fecha</th>
                     <th>Horario</th>
                     <th>Docente</th>

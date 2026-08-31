@@ -51,7 +51,7 @@ function SupervisionPreceptores() {
             <tr>
               <th>Preceptor</th>
               <th>Cursos Asignados</th>
-              <th>Cantidad de Alumnos</th>
+              <th>Cantidad de Estudiantes</th>
               <th>Cantidad de Tutores</th>
               <th>Último Acceso</th>
             </tr>

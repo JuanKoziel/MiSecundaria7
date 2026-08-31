@@ -461,7 +461,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
             <table>
               <thead>
                 <tr>
-                  <th>Alumno</th>
+                  <th>Estudiante</th>
                   {PERIODOS_INTENSIFICACION.map(({ key, label }) => (
                     <th key={key}>{label}</th>
                   ))}
@@ -513,7 +513,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
             <table>
               <thead>
                 <tr>
-                  <th>Alumno</th>
+                  <th>Estudiante</th>
                   <th>Materia</th>
                   <th>Curso Origen</th>
                   <th>Periodo de Rendición</th>

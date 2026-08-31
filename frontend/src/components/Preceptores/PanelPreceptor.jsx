@@ -85,7 +85,7 @@ function PanelPreceptor({ miPreceptor }) {
 
       <div className="stats-grid">
         <StatCard icon="fa-school" value={stats.cursos} label="Cursos asignados" />
-        <StatCard icon="fa-users" value={stats.alumnos} label="Alumnos bajo seguimiento" />
+        <StatCard icon="fa-users" value={stats.alumnos} label="Estudiantes bajo seguimiento" />
         <StatCard icon="fa-bullhorn" value={stats.comunicados} label="Comunicados" />
         <StatCard icon="fa-chart-bar" value={stats.diagnosticos} label="Diagnósticos grupales" />
         <StatCard

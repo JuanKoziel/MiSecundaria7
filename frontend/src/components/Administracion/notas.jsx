@@ -72,7 +72,7 @@ function Notas() {
         <table>
           <thead>
             <tr>
-              <th rowSpan={2}>Alumno</th>
+              <th rowSpan={2}>Estudiante</th>
               <th colSpan={2}>1.º Cuatrimestre</th>
               <th colSpan={2}>2.º Cuatrimestre</th>
               <th rowSpan={2}>Calificación final</th>
@@ -89,7 +89,7 @@ function Notas() {
             {planilla.length === 0 ? (
               <tr>
                 <td colSpan={7} className="empty-state-message">
-                  No hay alumnos en este curso.
+                  No hay estudiantes en este curso.
                 </td>
               </tr>
             ) : (

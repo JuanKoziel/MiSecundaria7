@@ -134,11 +134,11 @@ function Alumnos({ readOnly = false }) {
           telefono: form.telefono || null,
           id_curso: cursoObj?.id_curso || null,
         });
-        toast.success('Alumno creado correctamente.');
+        toast.success('Estudiante creado correctamente.');
         setForm(formVacio);
       } else if (modo === 'modificar') {
         if (!seleccionado) {
-          toast.warning('Seleccioná un alumno para modificar.');
+          toast.warning('Seleccioná un estudiante para modificar.');
           setGuardando(false);
           return;
         }
@@ -155,14 +155,14 @@ function Alumnos({ readOnly = false }) {
           fecha_nacimiento: form.fechaNacimiento || null,
           telefono: form.telefono || null,
         });
-        toast.success('Alumno actualizado correctamente.');
+        toast.success('Estudiante actualizado correctamente.');
       } else if (modo === 'borrar') {
         if (!seleccionado) {
-          toast.warning('Seleccioná un alumno para eliminar.');
+          toast.warning('Seleccioná un estudiante para eliminar.');
           setGuardando(false);
           return;
         }
-        await confirmarEliminacion('¿Estás seguro de que querés eliminar este alumno?\n\nEsta acción no se puede deshacer.', {
+        await confirmarEliminacion('¿Estás seguro de que querés eliminar este estudiante?\n\nEsta acción no se puede deshacer.', {
           onConfirm: async () => {
             await deleteAlumno(seleccionado);
             toast.success('Alumno eliminado correctamente.');
@@ -185,7 +185,7 @@ function Alumnos({ readOnly = false }) {
       await updateAlumno(alumno.id, {
         estado: !(alumno.usuario_estado !== false),
       });
-      toast.success(alumno.usuario_estado !== false ? 'Alumno deshabilitado correctamente.' : 'Alumno habilitado correctamente.');
+      toast.success(alumno.usuario_estado !== false ? 'Estudiante deshabilitado correctamente.' : 'Estudiante habilitado correctamente.');
       await refreshData();
     } catch (err) {
       toast.error(mensajeError(err));
@@ -528,7 +528,7 @@ function Alumnos({ readOnly = false }) {
             <>
           <div className="filter-row">
             <div className="form-group-filter">
-              <label htmlFor="alumno-select-mod">Alumno</label>
+              <label htmlFor="alumno-select-mod">Estudiante</label>
               <select
                 id="alumno-select-mod"
                 value={seleccionado}
@@ -696,7 +696,7 @@ function Alumnos({ readOnly = false }) {
       return (
         <div className="filter-row">
           <div className="form-group-filter">
-            <label htmlFor="alumno-select-del">Alumno a eliminar</label>
+            <label htmlFor="alumno-select-del">Estudiante a eliminar</label>
             <select
               id="alumno-select-del"
               value={seleccionado}
@@ -718,17 +718,17 @@ function Alumnos({ readOnly = false }) {
   };
   const tituloModo = {
     vista: 'Vista general',
-    crear: 'Crear alumno',
-    modificar: 'Modificar alumno',
-    borrar: 'Borrar alumno',
+    crear: 'Crear estudiante',
+    modificar: 'Modificar estudiante',
+    borrar: 'Borrar estudiante',
   };
 
   return (
     <div className="card">
-      {!readOnly && <SelectorModo modo={modo} onModoChange={resetModo} titulo="Alumnos — ¿Qué deseás hacer?" />}
+      {!readOnly && <SelectorModo modo={modo} onModoChange={resetModo} titulo="Estudiantes — ¿Qué deseás hacer?" />}
       {readOnly && (
         <div className="card-header-flex card-header-flex--compact">
-          <h3>Alumnos</h3>
+          <h3>Estudiantes</h3>
           <span className="badge role-badge-display">Solo lectura</span>
         </div>
       )}

@@ -55,7 +55,7 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
                   <label>Tipo de acta</label>
                   <select value={formData.tipo} onChange={(e) => setFormData((p) => ({ ...p, tipo: e.target.value, alumnoId: '', docenteId: '' }))}>
                     <option value="">Seleccionar tipo</option>
-                    <option value="alumno">Alumno</option>
+                    <option value="alumno">Estudiante</option>
                     <option value="docente">Docente</option>
                     <option value="curso">Curso</option>
                   </select>
@@ -78,9 +78,9 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
             <div className="form-group-filter">
               {formData.tipo === 'alumno' && (
                 <div>
-                  <label>Alumno</label>
+                  <label>Estudiante</label>
                   <select value={formData.alumnoId} onChange={(e) => setFormData((p) => ({ ...p, alumnoId: e.target.value }))}>
-                    <option value="">Seleccionar alumno</option>
+                    <option value="">Seleccionar estudiante</option>
                     {listaAlumnos.map((a) => (
                       <option key={a.id} value={a.id}>{nombreCorto(a)}</option>
                     ))}
@@ -420,9 +420,9 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
         />
       )}
 
-      {/* Actas de Alumnos */}
+      {/* Actas de Estudiantes */}
       <div className="card-header-flex mt-20">
-        <h4 className="preceptor-section-title">Actas de Alumnos</h4>
+        <h4 className="preceptor-section-title">Actas de Estudiantes</h4>
         <button type="button" className="btn btn-secondary" onClick={() => setShowAlumnos((v) => !v)}>
           <i className={`fas fa-eye${showAlumnos ? '-slash' : ''}`} aria-hidden="true" /> {showAlumnos ? 'Ocultar' : 'Mostrar'}
         </button>
@@ -432,7 +432,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
           <table>
             <thead>
               <tr>
-                <th>Alumno</th>
+                <th>Estudiante</th>
                 <th>Título</th>
                 <th>Fecha</th>
                 <th>Descripción</th>

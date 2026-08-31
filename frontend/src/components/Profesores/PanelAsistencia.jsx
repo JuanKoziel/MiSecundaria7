@@ -125,7 +125,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
     }
     const alumnosConEstado = filas.filter((a) => a.estado);
     if (alumnosConEstado.length === 0) {
-      toast.warning('Seleccioná un estado de asistencia para al menos un alumno.');
+      toast.warning('Seleccioná un estado de asistencia para al menos un estudiante.');
       return;
     }
     setGuardando(true);
@@ -326,7 +326,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
         <table>
           <thead>
             <tr>
-              <th>Alumno</th>
+              <th>Estudiante</th>
               <th>Estado</th>
             </tr>
           </thead>

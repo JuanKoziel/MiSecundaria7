@@ -28,7 +28,7 @@ function Asistencias({ hijo }) {
             idCurso={alumno.id_curso}
           />
         ) : (
-          <p className="empty-state-message">No se pudo obtener la información del alumno.</p>
+          <p className="empty-state-message">No se pudo obtener la información del estudiante.</p>
         )}
       </div>
     </div>

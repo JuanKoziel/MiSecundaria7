@@ -5,7 +5,7 @@ export const ROLE_INFO = {
   preceptor: { label: 'Preceptor', icon: 'fa-clipboard-user' },
   docente: { label: 'Docente', icon: 'fa-chalkboard-teacher' },
   familia: { label: 'Familia', icon: 'fa-users' },
-  alumno: { label: 'Alumno', icon: 'fa-user-graduate' },
+  alumno: { label: 'Estudiante', icon: 'fa-user-graduate' },
 };
 
 export function getRoleInfo(role) {

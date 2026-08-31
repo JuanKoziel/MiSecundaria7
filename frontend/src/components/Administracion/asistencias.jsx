@@ -195,7 +195,7 @@ function Asistencias() {
               <table>
                 <thead>
                   <tr>
-                    <th>Alumno</th>
+                    <th>Estudiante</th>
                     <th>Resultado</th>
                   </tr>
                 </thead>
@@ -231,7 +231,7 @@ function Asistencias() {
                 />
               </div>
               <div className="form-group-filter">
-                <label htmlFor="reg-alumno-admin">Alumno</label>
+                <label htmlFor="reg-alumno-admin">Estudiante</label>
                 <select
                   id="reg-alumno-admin"
                   value={regAlumno}
@@ -246,7 +246,7 @@ function Asistencias() {
             </div>
 
             {!regFecha && !regAlumno ? (
-              <p className="empty-state-message">Seleccioná una fecha o un alumno para ver registros.</p>
+              <p className="empty-state-message">Seleccioná una fecha o un estudiante para ver registros.</p>
             ) : cargandoRegistro ? (
               <LoadingSpinner text="Cargando registros..." size="sm" inline />
             ) : dataRegistro.length === 0 ? (
@@ -257,7 +257,7 @@ function Asistencias() {
                   <thead>
                     <tr>
                       <th>Fecha</th>
-                      <th>Alumno</th>
+                      <th>Estudiante</th>
                       <th>Estado</th>
                     </tr>
                   </thead>
@@ -309,7 +309,7 @@ function Asistencias() {
               />
             </div>
             <div className="form-group-filter">
-              <label htmlFor="alumno-asistencias">Alumno</label>
+              <label htmlFor="alumno-asistencias">Estudiante</label>
               <select
                 id="alumno-asistencias"
                 value={alumnoMateria}
@@ -334,7 +334,7 @@ function Asistencias() {
               <table>
                 <thead>
                   <tr>
-                    <th>Alumno</th>
+                    <th>Estudiante</th>
                     <th>Fecha</th>
                     <th>Horario</th>
                     <th>Docente</th>

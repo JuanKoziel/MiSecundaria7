@@ -262,7 +262,7 @@ function Tutores({ readOnly = false }) {
             <th>Teléfono</th>
             <th>Email</th>
             <th>Tipo</th>
-            <th>Alumnos asignados</th>
+            <th>Estudiantes asignados</th>
             {!readOnly && <th>Acción</th>}
           </tr>
         </thead>
@@ -288,7 +288,7 @@ function Tutores({ readOnly = false }) {
                     <td>{t.tipo || '---'}</td>
                     <td>
                       {alumnosAsignados.length === 0 ? (
-                        <span style={{ color: '#888' }}>Sin alumnos</span>
+                        <span style={{ color: '#888' }}>Sin estudiantes</span>
                       ) : (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                           {alumnosAsignados.map((al) => (
@@ -544,7 +544,7 @@ function Tutores({ readOnly = false }) {
       <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
         <div className="form-group-filter preceptor-form-full">
           <p className="preceptor-section-title" style={{ margin: '8px 0 0' }}>
-            Alumnos asignados
+            Estudiantes asignados
           </p>
         </div>
         <div className="form-group-filter">

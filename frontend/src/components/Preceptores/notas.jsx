@@ -158,7 +158,7 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
       </div>
 
       <p className="preceptor-modo-hint">
-        Vista consolidada por alumno. Cada boletín tiene su propio botón <strong>Exportar</strong>
+        Vista consolidada por estudiante. Cada boletín tiene su propio botón <strong>Exportar</strong>
         {' '}para descargar/imprimir el PDF individual.
       </p>
 

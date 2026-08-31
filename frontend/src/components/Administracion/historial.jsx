@@ -3,7 +3,7 @@ import { getHistorialCambios, getTiposAccion, getUsuarios } from '../../services
 import LoadingSpinner from '../Shared/LoadingSpinner';
 
 const TABLAS = [
-  { value: 'alumnos', label: 'Alumnos' },
+  { value: 'alumnos', label: 'Estudiantes' },
   { value: 'tutores', label: 'Tutores' },
   { value: 'docentes', label: 'Docentes' },
   { value: 'preceptores', label: 'Preceptores' },
@@ -25,7 +25,7 @@ const ROLES = [
   { value: 'jefe_preceptores', label: 'Jefe de Preceptores' },
   { value: 'preceptor', label: 'Preceptor' },
   { value: 'docente', label: 'Docente' },
-  { value: 'alumno', label: 'Alumno' },
+  { value: 'alumno', label: 'Estudiante' },
   { value: 'familia', label: 'Familia' },
 ];
 

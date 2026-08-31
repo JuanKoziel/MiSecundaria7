@@ -96,7 +96,7 @@ function PanelJefePreceptor({ miPreceptor }) {
       <div className="stats-grid">
         <StatCard icon="fa-user-tie" value={stats.totalPreceptores} label="Preceptores admin" />
         <StatCard icon="fa-school" value={stats.cursosSupervisados} label="Cursos supervisados" />
-        <StatCard icon="fa-users" value={stats.alumnosSupervisados} label="Alumnos supervisados" />
+        <StatCard icon="fa-users" value={stats.alumnosSupervisados} label="Estudiantes supervisados" />
         <StatCard icon="fa-user-shield" value={stats.tutoresSupervisados} label="Tutores supervisados" />
         <StatCard icon="fa-file-alt" value={stats.actasCreadas} label="Actas creadas" />
         <StatCard icon="fa-bullhorn" value={stats.comunicadosEnviados} label="Comunicados enviados" />
