@@ -7,8 +7,16 @@ import {
   getIntensificacionesAcademicas,
   updateIntensificacionAcademica,
   getMateriasAdeudadas,
+  getRegistroRendicionesPrevias,
   rendirMateriaAdeudada,
 } from '../../services/api';
+import {
+  PERIODOS_RENDICION,
+  PERIODO_ORDEN,
+  PERIODO_LABELS,
+  proximoPeriodoEditable,
+  notaGuardada,
+} from '../../utils/previasRendicion';
 
 function clampNota(value) {
   if (value === '') return '';
@@ -139,22 +147,46 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
     if (!alumnosCurso.length) return;
     setCargandoPrevias(true);
     try {
-      const allData = await getMateriasAdeudadas();
-      const data = Array.isArray(allData) ? allData : allData.results || [];
+      const [maData, regData] = await Promise.all([
+        getMateriasAdeudadas(),
+        getRegistroRendicionesPrevias(),
+      ]);
+      const deudas = Array.isArray(maData) ? maData : maData.results || [];
+      const registros = Array.isArray(regData) ? regData : regData.results || [];
       const alumnoIds = new Set(alumnosCurso.map((a) => a.id));
-      const previasAlumnos = data.filter(
-        (p) => alumnoIds.has(p.id_alumno) && p.tipo_deuda === 'PREVIA' && p.estado === 'ADEUDADA',
+
+      // Histórico de rendiciones indexado por materia adeudada.
+      const rendicionesPorMateria = {};
+      registros.forEach((r) => {
+        const clave = r.id_materia_adeudada;
+        if (!rendicionesPorMateria[clave]) rendicionesPorMateria[clave] = [];
+        rendicionesPorMateria[clave].push({
+          periodo: r.periodo,
+          anio: r.anio_rendicion,
+          nota: r.nota,
+          resultado: r.resultado,
+          cursoOrigen: r.curso_origen_nombre || '',
+        });
+      });
+
+      // Todas las materias previas (ADEUDADA y APROBADA) para que las
+      // aprobadas sigan visibles en el histórico.
+      const previasAlumnos = deudas.filter(
+        (p) => alumnoIds.has(p.id_alumno) && p.tipo_deuda === 'PREVIA',
       );
 
-      const filasPrevias = previasAlumnos.map((p) => ({
-        alumnoId: p.id_alumno,
-        alumnoNombre: alumnosCurso.find((a) => a.id === p.id_alumno)
-          ? `${alumnosCurso.find((a) => a.id === p.id_alumno).apellido}, ${alumnosCurso.find((a) => a.id === p.id_alumno).nombre}`
-          : '',
-        materia: p.materia_nombre || '—',
-        materiaAdeudadaId: p.id_materia_adeudada,
-        cursoOrigen: p.curso_origen_nombre || '',
-      }));
+      const filasPrevias = previasAlumnos.map((p) => {
+        const alumno = alumnosCurso.find((a) => a.id === p.id_alumno);
+        return {
+          alumnoId: p.id_alumno,
+          alumnoNombre: alumno ? `${alumno.apellido}, ${alumno.nombre}` : '',
+          materia: p.materia_nombre || '—',
+          materiaAdeudadaId: p.id_materia_adeudada,
+          cursoOrigen: p.curso_origen_nombre || '',
+          estado: p.estado || 'ADEUDADA',
+          rendiciones: rendicionesPorMateria[p.id_materia_adeudada] || [],
+        };
+      });
 
       setPrevias(filasPrevias);
     } catch {
@@ -214,26 +246,44 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
     }
   };
 
-  const [previaSeleccion, setPreviaSeleccion] = useState({});
   const [previaNotas, setPreviaNotas] = useState({});
+  const [previaAnios, setPreviaAnios] = useState({});
 
-  const handlePreviaChange = (materiaAdeudadaId, valor) => {
-    setPreviaNotas((prev) => ({ ...prev, [materiaAdeudadaId]: valor }));
+  const previaCellKey = (id, periodo) => `${id}::${periodo}`;
+
+  const anioPorDefecto = () => new Date().getFullYear();
+
+  const handlePreviaNotaChange = (materiaAdeudadaId, periodo, valor) => {
+    setPreviaNotas((prev) => ({
+      ...prev,
+      [previaCellKey(materiaAdeudadaId, periodo)]: valor,
+    }));
+  };
+
+  const handlePreviaAnioChange = (materiaAdeudadaId, periodo, valor) => {
+    setPreviaAnios((prev) => ({
+      ...prev,
+      [previaCellKey(materiaAdeudadaId, periodo)]: valor,
+    }));
   };
 
   const handleGuardarPrevias = async () => {
     const promesas = [];
     for (const p of previas) {
-      const nota = previaNotas[p.materiaAdeudadaId];
-      if (nota === '' || nota === null || nota === undefined) continue;
-      promesas.push(
-        rendirMateriaAdeudada(p.materiaAdeudadaId, {
-          nota: Number(nota),
-          periodo: previaSeleccion[p.materiaAdeudadaId] || 'DICIEMBRE_1',
-          anio_rendicion: new Date().getFullYear(),
-          id_docente: docenteId,
-        }),
-      );
+      for (const per of PERIODOS_RENDICION) {
+        const clave = previaCellKey(p.materiaAdeudadaId, per);
+        const nota = previaNotas[clave];
+        if (nota === '' || nota === null || nota === undefined) continue;
+        const anio = previaAnios[clave] || anioPorDefecto();
+        promesas.push(
+          rendirMateriaAdeudada(p.materiaAdeudadaId, {
+            nota: Number(nota),
+            periodo: per,
+            anio_rendicion: Number(anio),
+            id_docente: docenteId,
+          }),
+        );
+      }
     }
     if (promesas.length === 0) {
       toast.info('No hay notas de previas para guardar.');
@@ -243,7 +293,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
       await Promise.all(promesas);
       toast.success('Notas de previas guardadas exitosamente.');
       setPreviaNotas({});
-      setPreviaSeleccion({});
+      setPreviaAnios({});
       await cargarPrevias();
       await refreshData();
     } catch (err) {
@@ -516,51 +566,98 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
                   <th>Estudiante</th>
                   <th>Materia</th>
                   <th>Curso Origen</th>
-                  <th>Periodo de Rendición</th>
-                  <th>Nota Previa</th>
+                  <th>Estado</th>
+                  <th>Aprobó en</th>
+                  {PERIODOS_RENDICION.map((per) => (
+                    <th key={per} className="previa-cell-center">{PERIODO_LABELS[per]}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {previas.map((p) => (
-                  <tr key={`${p.alumnoId}-${p.materiaAdeudadaId}`}>
-                    <td className="table-cell-strong">{p.alumnoNombre}</td>
-                    <td>{p.materia}</td>
-                    <td>{p.cursoOrigen}</td>
-                    <td>
-                      <select
-                        className="select-table"
-                        value={previaSeleccion[p.materiaAdeudadaId] || 'DICIEMBRE_1'}
-                        onChange={(e) =>
-                          setPreviaSeleccion((prev) => ({
-                            ...prev,
-                            [p.materiaAdeudadaId]: e.target.value,
-                          }))
-                        }
-                        disabled={!puedeEditar}
-                      >
-                        <option value="MARZO">Marzo</option>
-                        <option value="JULIO">Julio</option>
-                        <option value="AGOSTO">Agosto</option>
-                        <option value="DICIEMBRE_1">Diciembre 1</option>
-                        <option value="DICIEMBRE_2">Diciembre 2</option>
-                        <option value="FEBRERO">Febrero</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        min="1"
-                        max="10"
-                        className="input-table"
-                        value={previaNotas[p.materiaAdeudadaId] ?? ''}
-                        onChange={(e) =>
-                          handlePreviaChange(p.materiaAdeudadaId, clampNota(e.target.value))
-                        }
-                        disabled={!puedeEditar}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {previas.map((p) => {
+                  const proximo = proximoPeriodoEditable(p);
+                  const aprobadoPeriodo = (p.rendiciones || []).find(
+                    (r) => r.resultado === 'APROBADA',
+                  );
+                  return (
+                    <tr key={`${p.alumnoId}-${p.materiaAdeudadaId}`}>
+                      <td className="table-cell-strong">{p.alumnoNombre}</td>
+                      <td>{p.materia}</td>
+                      <td>{p.cursoOrigen}</td>
+                      <td>
+                        <span className={`badge ${p.estado === 'APROBADA' ? 'badge-success' : 'badge-warning'}`}>
+                          {p.estado === 'APROBADA' ? 'Aprobada' : 'Adeudada'}
+                        </span>
+                      </td>
+                      <td>
+                        {aprobadoPeriodo
+                          ? `${PERIODO_LABELS[aprobadoPeriodo.periodo]} ${aprobadoPeriodo.anio}`
+                          : '—'}
+                      </td>
+                      {PERIODOS_RENDICION.map((per) => {
+                        const guardadas = (p.rendiciones || []).filter((r) => r.periodo === per);
+                        const editable = puedeEditar && per === proximo;
+                        const clave = previaCellKey(p.materiaAdeudadaId, per);
+                        const anioSel = previaAnios[clave] || anioPorDefecto();
+                        const valor = previaNotas[clave] ?? '';
+                        const persisteNota = notaGuardada(p.rendiciones, per, anioSel);
+                        return (
+                          <td key={per} className="previa-cell-center">
+                            {guardadas.length > 0 && (
+                              <div className="previa-saved-list">
+                                {guardadas.map((g, i) => (
+                                  <span
+                                    key={i}
+                                    className={`badge ${g.resultado === 'APROBADA' ? 'badge-success' : 'badge-secondary'}`}
+                                    title={`${PERIODO_LABELS[g.periodo]} ${g.anio} · ${g.resultado}`}
+                                  >
+                                    {Number(g.nota)} ({g.anio})
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {editable ? (
+                              <div className="previa-input-group">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  className="input-table"
+                                  value={persisteNota != null && valor === '' ? persisteNota : valor}
+                                  onChange={(e) =>
+                                    handlePreviaNotaChange(
+                                      p.materiaAdeudadaId,
+                                      per,
+                                      clampNota(e.target.value),
+                                    )
+                                  }
+                                />
+                                <input
+                                  type="number"
+                                  min="2000"
+                                  max="2100"
+                                  className="input-table previa-anio"
+                                  value={anioSel}
+                                  onChange={(e) =>
+                                    handlePreviaAnioChange(p.materiaAdeudadaId, per, e.target.value)
+                                  }
+                                />
+                              </div>
+                            ) : (
+                              <span className="previa-bloqueado">
+                                {p.estado === 'APROBADA'
+                                  ? 'Previa aprobada'
+                                  : guardadas.length > 0
+                                    ? '—'
+                                    : 'Bloqueado: períodos previos'}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

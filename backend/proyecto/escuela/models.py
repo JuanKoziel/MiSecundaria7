@@ -951,6 +951,22 @@ class LibroTema(models.Model):
 # NO se deben ejecutar migraciones que las creen nuevamente.
 # ===========================================================================
 
+# Orden canónico de las instancias de rendición de previas/intensificaciones.
+# Reutilizado por backend (validación y boletín) y espejado en el frontend.
+PERIODOS_RENDICION = ['MARZO', 'JULIO', 'AGOSTO', 'DICIEMBRE_1', 'DICIEMBRE_2', 'FEBRERO']
+PERIODO_ORDEN = {p: i + 1 for i, p in enumerate(PERIODOS_RENDICION)}
+# Valores utilizados en salidas/errores (boletín, rendiciones). Se conserva el
+# formato legado del boletín: claves en mayúsculas con espacio en DICIEMBRE.
+PERIODO_LABELS = {
+    'MARZO': 'MARZO', 'JULIO': 'JULIO', 'AGOSTO': 'AGOSTO',
+    'DICIEMBRE_1': 'DICIEMBRE 1', 'DICIEMBRE_2': 'DICIEMBRE 2', 'FEBRERO': 'FEBRERO',
+}
+# etiquetas de visualización (title case) para el frontend.
+PERIODO_DISPLAY = {
+    'MARZO': 'Marzo', 'JULIO': 'Julio', 'AGOSTO': 'Agosto',
+    'DICIEMBRE_1': 'Diciembre 1', 'DICIEMBRE_2': 'Diciembre 2', 'FEBRERO': 'Febrero',
+}
+
 
 class HistorialAcademico(models.Model):
     """Registro histórico de cada materia cursada por cada alumno.

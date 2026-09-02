@@ -416,9 +416,10 @@ class Escenario9RendicionPreviaDesaprobada(BaseBoletinTestCase):
         self.cliente_doc = cliente_para('doc_e2e9')
 
     def test_rendicion_desaprobada_y_ultima_instancia(self):
+        # MARZO y JULIO en orden estricto (no se pueden saltar períodos).
         self.cliente_doc.post(
             f'/api/materias-adeudadas/{self.ma.id_materia_adeudada}/rendir/',
-            {'nota': 4, 'periodo': 'JULIO', 'anio_rendicion': 2026,
+            {'nota': 4, 'periodo': 'MARZO', 'anio_rendicion': 2026,
              'id_docente': self.docente.id_docente},
         )
         self.ma.refresh_from_db()
@@ -426,7 +427,7 @@ class Escenario9RendicionPreviaDesaprobada(BaseBoletinTestCase):
 
         self.cliente_doc.post(
             f'/api/materias-adeudadas/{self.ma.id_materia_adeudada}/rendir/',
-            {'nota': 5, 'periodo': 'MARZO', 'anio_rendicion': 2027,
+            {'nota': 5, 'periodo': 'JULIO', 'anio_rendicion': 2026,
              'id_docente': self.docente.id_docente},
         )
         self.ma.refresh_from_db()
@@ -441,15 +442,19 @@ class Escenario9RendicionPreviaDesaprobada(BaseBoletinTestCase):
         self.assertEqual(len(data['previas']), 1)
         p = data['previas'][0]
         self.assertEqual(p['materia'], 'Matemática')
-        self.assertEqual(p['periodo'], 'MARZO')
+        self.assertEqual(p['periodo'], 'JULIO')
         self.assertEqual(p['calificacion'], 5.0)
 
     def test_rendicion_desaprobada_muestra_esa_instancia(self):
-        self.cliente_doc.post(
-            f'/api/materias-adeudadas/{self.ma.id_materia_adeudada}/rendir/',
-            {'nota': 3, 'periodo': 'FEBRERO', 'anio_rendicion': 2027,
-             'id_docente': self.docente.id_docente},
-        )
+        # FEBRERO es el último de la secuencia: se rinden los anteriores primero
+        # con notas desaprobadas (< 7) para no aprobar la previa antes de tiempo.
+        for periodo, nota in [('MARZO', 3), ('JULIO', 3), ('AGOSTO', 3),
+                              ('DICIEMBRE_1', 3), ('DICIEMBRE_2', 3), ('FEBRERO', 3)]:
+            self.cliente_doc.post(
+                f'/api/materias-adeudadas/{self.ma.id_materia_adeudada}/rendir/',
+                {'nota': nota, 'periodo': periodo, 'anio_rendicion': 2027,
+                 'id_docente': self.docente.id_docente},
+            )
         data = self._boletin().json()
         self.assertEqual(data['previas'][0]['periodo'], 'FEBRERO')
         self.assertEqual(data['previas'][0]['calificacion'], 3.0)
@@ -538,11 +543,13 @@ class Escenario12BoletinCompleto(BaseBoletinTestCase):
         self.docente.save()
         cli = cliente_para('doc_e2e12')
         ma = MateriaAdeudada.objects.get(id_alumno=self.alumno, id_materia=m_math)
-        cli.post(
-            f'/api/materias-adeudadas/{ma.id_materia_adeudada}/rendir/',
-            {'nota': 4, 'periodo': 'AGOSTO', 'anio_rendicion': 2026,
-             'id_docente': self.docente.id_docente},
-        )
+        # Rendiciones en orden estricto; AGOSTO queda como última instancia.
+        for periodo, nota in [('MARZO', 4), ('JULIO', 5), ('AGOSTO', 6)]:
+            cli.post(
+                f'/api/materias-adeudadas/{ma.id_materia_adeudada}/rendir/',
+                {'nota': nota, 'periodo': periodo, 'anio_rendicion': 2026,
+                 'id_docente': self.docente.id_docente},
+            )
 
         # 1 recursada con calificación (reutilizada para el bloqueo)
         rm = RecursadaMateria.objects.create(

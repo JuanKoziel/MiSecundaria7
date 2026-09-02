@@ -146,3 +146,80 @@ class SistemaAcademicoTests(TestCase):
         self.assertIn('intensificaciones_posteriores', data)
         self.assertIn('previas', data)
         self.assertIn('recursadas', data)
+
+    def _previa_para_docente(self):
+        ma = MateriaAdeudada.objects.create(
+            id_alumno=self.alumno, id_materia=self.m1, id_curso_origen=self.curso1,
+            tipo_deuda='PREVIA', estado='ADEUDADA', fecha_generacion=timezone.now()
+        )
+        user = crear_usuario('doc_previa_seq', roles=('docente',))
+        self.docente.id_usuario = user
+        self.docente.save()
+        return ma, cliente_para('doc_previa_seq')
+
+    def _rendir(self, client, ma, nota, periodo, anio=2026):
+        return client.post(
+            f'/api/materias-adeudadas/{ma.id_materia_adeudada}/rendir/',
+            {'nota': nota, 'periodo': periodo, 'anio_rendicion': anio,
+             'id_docente': self.docente.id_docente},
+        )
+
+    def test_rendicion_persistencia_y_curso_origen(self):
+        ma, client = self._previa_para_docente()
+        resp = self._rendir(client, ma, 4, 'MARZO', 2026)
+        self.assertEqual(resp.status_code, 200)
+
+        # Persistencia: la nota sigue disponible al consultar la rendición.
+        rend = RendicionMateriaAdeudada.objects.get(id_materia_adeudada=ma, periodo='MARZO', anio_rendicion=2026)
+        self.assertEqual(float(rend.nota), 4.0)
+
+        # El registro histórico guarda el curso de origen correcto (NO el actual del alumno).
+        reg = RegistroRendicionPrevia.objects.get(id_materia_adeudada=ma, periodo='MARZO', anio_rendicion=2026)
+        self.assertEqual(reg.id_curso_origen_id, self.curso1.id_curso)
+
+        # El listado de materias adeudadas devuelve el curso de origen histórico.
+        lista = client.get('/api/materias-adeudadas/').json()
+        fila = next(x for x in lista if x['id_materia_adeudada'] == ma.id_materia_adeudada)
+        self.assertEqual(fila['curso_origen_nombre'], self.curso1.nombre_curso)
+
+    def test_rendicion_no_permite_saltar_periodos(self):
+        ma, client = self._previa_para_docente()
+        # Sin rendiciones previas, JULIO debe estar bloqueado.
+        self.assertEqual(self._rendir(client, ma, 5, 'JULIO').status_code, 400)
+        # Rendir MARZO habilita JULIO.
+        self.assertEqual(self._rendir(client, ma, 4, 'MARZO').status_code, 200)
+        self.assertEqual(self._rendir(client, ma, 5, 'JULIO').status_code, 200)
+        # Con MARZO + JULIO, AGOSTO se habilita.
+        self.assertEqual(self._rendir(client, ma, 6, 'AGOSTO').status_code, 200)
+        # Notas desaprobadas (< 7) mantienen la materia ADEUDADA.
+        self.assertEqual(self._rendir(client, ma, 6, 'DICIEMBRE_1').status_code, 200)
+        # FEBRERO requiere DICIEMBRE_2 previo -> bloqueado.
+        self.assertEqual(self._rendir(client, ma, 8, 'FEBRERO').status_code, 400)
+        self.assertEqual(self._rendir(client, ma, 6, 'DICIEMBRE_2').status_code, 200)
+        # Con DICIEMBRE_2 rendido, FEBRERO se habilita y aprueba (8 >= 7).
+        self.assertEqual(self._rendir(client, ma, 8, 'FEBRERO').status_code, 200)
+        ma.refresh_from_db()
+        self.assertEqual(ma.estado, 'APROBADA')
+
+    def test_rendicion_no_permite_duplicar_periodo_año(self):
+        ma, client = self._previa_para_docente()
+        self.assertEqual(self._rendir(client, ma, 4, 'MARZO', 2026).status_code, 200)
+        resp = self._rendir(client, ma, 5, 'MARZO', 2026)
+        self.assertEqual(resp.status_code, 400)
+
+    def test_previa_aprobada_se_bloquea_y_sigue_visible(self):
+        ma, client = self._previa_para_docente()
+        # Aprobación en Marzo (nota >= 7).
+        self.assertEqual(self._rendir(client, ma, 7, 'MARZO').status_code, 200)
+        ma.refresh_from_db()
+        self.assertEqual(ma.estado, 'APROBADA')
+
+        # No se pueden cargar períodos posteriores después de aprobar.
+        resp = self._rendir(client, ma, 8, 'JULIO')
+        self.assertEqual(resp.status_code, 400)
+
+        # La previa aprobada sigue apareciendo en el listado (visibilidad histórica).
+        lista = client.get('/api/materias-adeudadas/').json()
+        fila = next(x for x in lista if x['id_materia_adeudada'] == ma.id_materia_adeudada)
+        self.assertEqual(fila['estado'], 'APROBADA')
+        self.assertEqual(fila['curso_origen_nombre'], self.curso1.nombre_curso)

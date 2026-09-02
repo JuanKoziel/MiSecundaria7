@@ -100,6 +100,8 @@ from escuela.models import (
     RegistroRendicionPrevia,
     ResultadoActividadAdeudada,
     SituacionMateriaAlumno,
+    PERIODO_ORDEN,
+    PERIODO_LABELS,
 )
 from escuela.serializers import (
     ActaAlumnoSerializer,
@@ -4088,6 +4090,39 @@ class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
         if nota is None or not periodo:
             return Response({'error': 'Nota y período son obligatorios.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if ma.estado == 'APROBADA':
+            return Response(
+                {'error': 'La previa ya fue aprobada; no se pueden cargar rendiciones posteriores.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        periodo = str(periodo)
+        if periodo not in PERIODO_ORDEN:
+            return Response({'error': 'Período de rendición inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # No permitir duplicar una rendición del mismo período + año.
+        if RendicionMateriaAdeudada.objects.filter(
+            id_materia_adeudada=ma, periodo=periodo, anio_rendicion=anio
+        ).exists():
+            return Response(
+                {'error': f'Ya existe una rendición registrada para {PERIODO_LABELS.get(periodo, periodo)} {anio}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Regla de secuencia: toda instancia anterior (dentro del ciclo) debe
+        # tener una rendición registrada antes de habilitar la actual.
+        rendidas = set(
+            RendicionMateriaAdeudada.objects.filter(id_materia_adeudada=ma)
+            .values_list('periodo', flat=True)
+        )
+        orden_actual = PERIODO_ORDEN[periodo]
+        for p, ord_p in PERIODO_ORDEN.items():
+            if ord_p < orden_actual and p not in rendidas:
+                return Response(
+                    {'error': f'Debe registrar primero la instancia {PERIODO_LABELS.get(p, p)}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         nota_num = float(nota)
         resultado = 'APROBADA' if nota_num >= 7 else 'DESAPROBADA'
 
@@ -4330,11 +4365,9 @@ def boletin_academico_api_view(request, alumno_id):
     curso_actual = alumno.id_curso
     nombre_curso_actual = curso_actual.nombre_curso if curso_actual else ''
 
-    PERIODO_LABEL = {
-        'MARZO': 'MARZO', 'JULIO': 'JULIO', 'AGOSTO': 'AGOSTO',
-        'DICIEMBRE_1': 'DICIEMBRE 1', 'DICIEMBRE_2': 'DICIEMBRE 2', 'FEBRERO': 'FEBRERO',
-    }
-    PERIODO_ORDEN = {'MARZO': 1, 'JULIO': 2, 'AGOSTO': 3, 'DICIEMBRE_1': 4, 'DICIEMBRE_2': 5, 'FEBRERO': 6}
+    # Constante central (etiquetas de instancias de rendición). El orden
+    # canonico es la constante `PERIODO_ORDEN` importada a nivel de módulo.
+    PERIODO_LABEL = PERIODO_LABELS
 
     # --- Intensificación 1° cuatrimestre (columna de la tabla principal) ---
     intensificaciones_1c = {}

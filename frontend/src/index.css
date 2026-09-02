@@ -710,6 +710,21 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     color: #075985;
 }
 
+.badge-secondary {
+    background: #eef2f7;
+    border-color: #d5dce6;
+    color: #4b5563;
+}
+
+/* Previas: matriz de rendición por período */
+.previa-cell-center { text-align: center; }
+.previa-saved-list { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-bottom: 4px; }
+.previa-input-group { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.previa-input-group .input-table { width: 52px; }
+.previa-input-group .previa-anio { width: 60px; }
+.previa-bloqueado { display: inline-block; font-size: 0.78rem; color: #6b7280; white-space: nowrap; }
+
+
 .badge-interactive {
     cursor: pointer;
     border: none;
