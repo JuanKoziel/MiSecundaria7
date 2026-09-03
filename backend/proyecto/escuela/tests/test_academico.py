@@ -4,7 +4,8 @@ from escuela.models import (
     Alumno, Curso, Materia, CursoMateria, Calificacion, PeriodoEvaluacion,
     HistorialAcademico, MateriaAdeudada, HistorialCursoAlumno, PromocionAlumno,
     RecursadaMateria, BloqueoHorarioAlumno, RegistroRendicionPrevia,
-    RendicionMateriaAdeudada, SituacionMateriaAlumno, Horario, Modulos, Docente
+    RendicionMateriaAdeudada, SituacionMateriaAlumno, Horario, Modulos, Docente,
+    IntensificacionAcademica
 )
 from escuela.academico import (
     consolidar_historial_alumno, procesar_cierre_ciclo, detectar_superposiciones_y_bloqueos
@@ -223,3 +224,178 @@ class SistemaAcademicoTests(TestCase):
         fila = next(x for x in lista if x['id_materia_adeudada'] == ma.id_materia_adeudada)
         self.assertEqual(fila['estado'], 'APROBADA')
         self.assertEqual(fila['curso_origen_nombre'], self.curso1.nombre_curso)
+
+    def _intensif_para_docente(self, nota1=None, nota2=None):
+        """Crea un historial de la materia del panel + instancias de intensificación
+        para todos los períodos canónicos. Devuelve (hist, instancias_dict, cliente).
+        Las notas de cuatrimestre (nota1/nota2) habilitan las instancias según las
+        reglas académicas (1°C: desaprobó 1C; Diciembre: desaprobó 2C o desaprobó 1C;
+        Febrero: desaprobó Diciembre)."""
+        hist = HistorialAcademico.objects.create(
+            id_alumno=self.alumno, id_curso_materia=self.cm1, id_curso=self.curso1,
+            id_materia=self.m1, anio_lectivo=self.ciclo, estado_materia='adeudada',
+        )
+        if nota1 is not None:
+            Calificacion.objects.create(
+                id_alumno=self.alumno, id_curso_materia=self.cm1, id_docente=self.docente,
+                id_periodo=self.periodo1, nota_numerica=nota1,
+            )
+        if nota2 is not None:
+            Calificacion.objects.create(
+                id_alumno=self.alumno, id_curso_materia=self.cm1, id_docente=self.docente,
+                id_periodo=self.periodo2, nota_numerica=nota2,
+            )
+        instancias = {}
+        for per in ('MARZO', 'DICIEMBRE_1', 'FEBRERO'):
+            instancias[per] = IntensificacionAcademica.objects.create(
+                id_historial=hist, periodo=per, anio_rendicion=self.ciclo,
+                estado='PENDIENTE', fecha_registro=timezone.now(),
+            )
+        user = crear_usuario('doc_intensif', roles=('docente',))
+        self.docente.id_usuario = user
+        self.docente.save()
+        return hist, instancias, cliente_para('doc_intensif')
+
+    def _patch_nota(self, client, inst, nota):
+        return client.patch(
+            f'/api/intensificaciones-academicas/{inst.id_intensificacion}/',
+            {'nota': nota},
+        )
+
+    def test_intensificaciones_bloqueadas_por_defecto(self):
+        # Sin desaprobar ningún cuatrimestre, TODAS las instancias están bloqueadas.
+        hist, instancias, client = self._intensif_para_docente(nota1=8, nota2=8)
+        for per in ('MARZO', 'DICIEMBRE_1', 'FEBRERO'):
+            resp = self._patch_nota(client, instancias[per], 6)
+            self.assertEqual(resp.status_code, 400)
+
+    def test_intensificacion_1c_habilitada_y_persistida(self):
+        # Desaprobó el Primer Cuatrimestre -> Intensificación 1C habilitada.
+        hist, instancias, client = self._intensif_para_docente(nota1=4)
+        resp = self._patch_nota(client, instancias['MARZO'], 6)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['estado'], 'DESAPROBADA')
+
+        # Persistencia real: el registro queda modificado en la base de datos.
+        instancias['MARZO'].refresh_from_db()
+        self.assertEqual(float(instancias['MARZO'].nota), 6.0)
+        self.assertEqual(instancias['MARZO'].estado, 'DESAPROBADA')
+
+        # Diciembre se habilita porque la Intensificación 1C quedó desaprobada.
+        resp = self._patch_nota(client, instancias['DICIEMBRE_1'], 7)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['estado'], 'APROBADA')
+
+        # Febrero sigue bloqueado (requiere Diciembre desaprobada, pero aprobó).
+        resp = self._patch_nota(client, instancias['FEBRERO'], 7)
+        self.assertEqual(resp.status_code, 400)
+
+    def test_intensificacion_diciembre_habilitada_por_segundo_cuatrimestre(self):
+        hist, instancias, client = self._intensif_para_docente(nota1=8, nota2=4)
+        # 1C bloqueado (aprobó el primer cuatrimestre).
+        self.assertEqual(self._patch_nota(client, instancias['MARZO'], 5).status_code, 400)
+        # Diciembre habilitado (desaprobó el segundo cuatrimestre).
+        resp = self._patch_nota(client, instancias['DICIEMBRE_1'], 5)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['estado'], 'DESAPROBADA')
+
+        # Febrero habilitado porque Diciembre quedó desaprobada.
+        resp = self._patch_nota(client, instancias['FEBRERO'], 6)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_intensificacion_febrero_desaprobada_pasa_a_previa(self):
+        hist, instancias, client = self._intensif_para_docente(nota1=4)
+        # 1C desaprobada -> habilita Diciembre.
+        self.assertEqual(self._patch_nota(client, instancias['MARZO'], 4).status_code, 200)
+        # Diciembre desaprobada -> habilita Febrero.
+        self.assertEqual(self._patch_nota(client, instancias['DICIEMBRE_1'], 4).status_code, 200)
+        # Febrero desaprobada -> materia pasa a Previa/ADEUDADA (sin duplicar).
+        resp = self._patch_nota(client, instancias['FEBRERO'], 4)
+        self.assertEqual(resp.status_code, 200)
+        instancias['FEBRERO'].refresh_from_db()
+        self.assertEqual(instancias['FEBRERO'].estado, 'DESAPROBADA')
+
+        ma = MateriaAdeudada.objects.filter(id_alumno=self.alumno, id_materia=self.m1)
+        self.assertEqual(ma.count(), 1)
+        self.assertEqual(ma.first().tipo_deuda, 'PREVIA')
+        self.assertEqual(ma.first().id_curso_origen_id, self.curso1.id_curso)
+        hist.refresh_from_db()
+        self.assertEqual(hist.estado_materia, 'adeudada')
+
+        # Una segunda desaprobación no genera otra previa duplicada.
+        self.assertEqual(self._patch_nota(client, instancias['FEBRERO'], 3).status_code, 200)
+        self.assertEqual(MateriaAdeudada.objects.filter(id_alumno=self.alumno, id_materia=self.m1).count(), 1)
+
+    def test_intensificaciones_visibles_sin_estado_adeudada(self):
+        hist, instancias, client = self._intensif_para_docente(nota1=4)
+        self.assertEqual(self._patch_nota(client, instancias['MARZO'], 8).status_code, 200)
+        lista = client.get('/api/intensificaciones-academicas/').json()
+        ids = {x['id_intensificacion'] for x in lista}
+        self.assertIn(instancias['MARZO'].id_intensificacion, ids)
+        self.assertIn(instancias['FEBRERO'].id_intensificacion, ids)
+
+    def test_intensificacion_crea_sin_historial_existente(self):
+        # Año activo sin historial generado: el frontend solo dispone de
+        # id_alumno + id_curso_materia. El backend debe resolver/crear el
+        # historial y persistir la nota (antes devolvía 400 / "No hay ...").
+        hist_previo = HistorialAcademico.objects.filter(id_alumno=self.alumno).count()
+        self.assertEqual(hist_previo, 0)
+
+        user = crear_usuario('doc_intensif2', roles=('docente',))
+        self.docente.id_usuario = user
+        self.docente.save()
+        client = cliente_para('doc_intensif2')
+        Calificacion.objects.create(
+            id_alumno=self.alumno, id_curso_materia=self.cm1, id_docente=self.docente,
+            id_periodo=self.periodo1, nota_numerica=4,  # desaprobó 1C -> habilita 1C
+        )
+
+        resp = client.post(
+            '/api/intensificaciones-academicas/',
+            {
+                'id_alumno': self.alumno.id_alumno,
+                'id_curso_materia': self.cm1.id_curso_materia,
+                'periodo': 'MARZO',
+                'anio_rendicion': self.ciclo,
+                'nota': 6,
+            },
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()['estado'], 'DESAPROBADA')
+
+        # Se creó exactamente un historial on demand para el año.
+        hist = HistorialAcademico.objects.get(
+            id_alumno=self.alumno, id_curso_materia=self.cm1, anio_lectivo=self.ciclo,
+        )
+        ints = IntensificacionAcademica.objects.filter(
+            id_historial=hist, periodo='MARZO', anio_rendicion=self.ciclo,
+        )
+        self.assertEqual(ints.count(), 1)
+        instancia = ints.first()
+        self.assertEqual(float(instancia.nota), 6.0)
+        self.assertEqual(instancia.estado, 'DESAPROBADA')
+
+        # El id_historial enviado tiene prioridad sobre la resolución on demand.
+        hist2 = HistorialAcademico.objects.create(
+            id_alumno=self.alumno, id_curso_materia=self.cm1, id_curso=self.curso1,
+            id_materia=self.m1, anio_lectivo=self.ciclo, estado_materia='adeudada',
+        )
+        Calificacion.objects.create(
+            id_alumno=self.alumno, id_curso_materia=self.cm1, id_docente=self.docente,
+            id_periodo=self.periodo2, nota_numerica=4,  # desaprobó 2C -> habilita Diciembre
+        )
+        resp = client.post(
+            '/api/intensificaciones-academicas/',
+            {
+                'id_historial': hist2.id_historial,
+                'id_alumno': self.alumno.id_alumno,
+                'id_curso_materia': self.cm1.id_curso_materia,
+                'periodo': 'DICIEMBRE_1',
+                'anio_rendicion': self.ciclo,
+                'nota': 7,
+            },
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        inst2 = IntensificacionAcademica.objects.get(id_historial=hist2, periodo='DICIEMBRE_1')
+        self.assertEqual(float(inst2.nota), 7.0)
+        self.assertEqual(inst2.estado, 'APROBADA')

@@ -6,30 +6,25 @@ import {
   updateCalificacion,
   getIntensificacionesAcademicas,
   updateIntensificacionAcademica,
+  createIntensificacionAcademica,
+  getHistorialAcademico,
   getMateriasAdeudadas,
   getRegistroRendicionesPrevias,
   rendirMateriaAdeudada,
 } from '../../services/api';
 import {
   PERIODOS_RENDICION,
-  PERIODO_ORDEN,
   PERIODO_LABELS,
   proximoPeriodoEditable,
   notaGuardada,
 } from '../../utils/previasRendicion';
-
-function clampNota(value) {
-  if (value === '') return '';
-  const num = Number(value);
-  if (Number.isNaN(num)) return '';
-  return Math.min(10, Math.max(1, num));
-}
-
-const PERIODOS_INTENSIFICACION = [
-  { key: 'intensificacion_1c', label: 'Intensificación 1.º C' },
-  { key: 'diciembre', label: 'Diciembre' },
-  { key: 'febrero', label: 'Febrero' },
-];
+import {
+  PERIODOS_INTENSIFICACION,
+  TIPO_POR_BUCKET,
+  clampNota,
+  tiposIntensifHabilitados,
+  cambiosIntensificaciones,
+} from '../../utils/intensificaciones';
 
 function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, docenteId, puedeEditar = true }) {
   const { alumnos, calificacionesCompletas, periodos, refreshData } = useData();
@@ -89,50 +84,92 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
     if (!alumnosCurso.length) return;
     setCargandoIntensif(true);
     try {
-      const alumnoIds = alumnosCurso.map((a) => a.id);
+      const alumnoIds = new Set(alumnosCurso.map((a) => a.id));
       const allData = await getIntensificacionesAcademicas();
       const data = Array.isArray(allData) ? allData : allData.results || [];
-      const intensifAlumnos = data.filter((i) =>
-        alumnoIds.includes(i.id_alumno),
+      // Solo las instancias de la materia del panel actual y de alumnos del curso.
+      const intensifMateria = data.filter(
+        (i) => alumnoIds.has(i.id_alumno) && i.materia_nombre === materiaNombre,
+      );
+      const calsCm = calificacionesCompletas.filter(
+        (c) => c.id_curso_materia === cursoMateriaId,
       );
 
+      // Historial académico: fuente del id_historial (necesario al CREAR una
+      // intensificación nueva) y de las notas de cuatrimestre para las reglas.
+      const histData = await getHistorialAcademico();
+      const histList = Array.isArray(histData) ? histData : histData.results || [];
+      const histPorAlumno = new Map();
+      histList.forEach((h) => {
+        if (!histPorAlumno.has(h.id_alumno)) {
+          histPorAlumno.set(h.id_alumno, h);
+        }
+      });
+
       const filasIntensif = alumnosCurso.map((alumno) => {
-        const registros = intensifAlumnos.filter(
-          (i) => i.id_alumno === alumno.id,
+        const hist = histPorAlumno.get(alumno.id) || null;
+        const cal1 = calsCm.find(
+          (c) => c.id_alumno === alumno.id && c.id_periodo === periodo1?.id_periodo,
         );
-        const porPeriodo = {};
+        const cal2 = calsCm.find(
+          (c) => c.id_alumno === alumno.id && c.id_periodo === periodo2?.id_periodo,
+        );
+        const nota1Cal = cal1?.nota_numerica != null ? Number(cal1.nota_numerica) : null;
+        const nota2Cal = cal2?.nota_numerica != null ? Number(cal2.nota_numerica) : null;
+        // Fallback a las notas de cuatrimestre del historial (fuente autoritativa).
+        const nota1 =
+          nota1Cal != null
+            ? nota1Cal
+            : hist?.nota_1_cuatrimestre != null
+              ? Number(hist.nota_1_cuatrimestre)
+              : null;
+        const nota2 =
+          nota2Cal != null
+            ? nota2Cal
+            : hist?.nota_2_cuatrimestre != null
+              ? Number(hist.nota_2_cuatrimestre)
+              : null;
+
+        const instancias = intensifMateria
+          .filter((i) => i.id_alumno === alumno.id)
+          .map((i) => ({
+            id: i.id_intensificacion,
+            idHistorial: i.id_historial,
+            periodo: i.periodo,
+            anio: i.anio_rendicion,
+            nota: i.nota != null ? Number(i.nota) : null,
+            estado: i.estado || 'PENDIENTE',
+          }));
+
+        // Reglas académicas: habilita solo lo que corresponde (todo bloqueado por defecto).
+        const habilitados = tiposIntensifHabilitados(nota1, nota2, instancias);
+
+        // id_historial: primero desde el historial, luego desde una instancia previa.
+        const idHistorial = hist?.id_historial ?? instancias[0]?.idHistorial ?? null;
+
+        // Id de la instancia por período (para guardar la nota sobre ella).
+        const registroIds = {};
+        instancias.forEach((ins) => {
+          registroIds[ins.periodo] = ins.id;
+        });
+
+        // Estado local de los inputs, por columna (estructura original de 3).
+        const registros = {};
         PERIODOS_INTENSIFICACION.forEach(({ key }) => {
-          porPeriodo[key] = '';
+          registros[key] = '';
         });
-        registros.forEach((r) => {
-          const peri = (r.periodo || '').toLowerCase();
-          if (peri.includes('1') && (peri.includes('intensif') || peri.includes('primer'))) {
-            porPeriodo.intensificacion_1c = r.nota ?? '';
-          } else if (peri.includes('diciembre')) {
-            porPeriodo.diciembre = r.nota ?? '';
-          } else if (peri.includes('febrero')) {
-            porPeriodo.febrero = r.nota ?? '';
-          }
-        });
+
         return {
           alumnoId: alumno.id,
           nombre: `${alumno.apellido}, ${alumno.nombre}`,
-          registros: porPeriodo,
-          registroIds: {},
+          nota1,
+          nota2,
+          instancias,
+          idHistorial,
+          habilitados,
+          registros,
+          registroIds,
         };
-      });
-
-      intensifAlumnos.forEach((r) => {
-        const fila = filasIntensif.find((f) => f.alumnoId === r.id_alumno);
-        if (!fila) return;
-        const peri = (r.periodo || '').toLowerCase();
-        if (peri.includes('1') && (peri.includes('intensif') || peri.includes('primer'))) {
-          fila.registroIds.intensificacion_1c = r.id_intensificacion;
-        } else if (peri.includes('diciembre')) {
-          fila.registroIds.diciembre = r.id_intensificacion;
-        } else if (peri.includes('febrero')) {
-          fila.registroIds.febrero = r.id_intensificacion;
-        }
       });
 
       setIntensificaciones(filasIntensif);
@@ -141,7 +178,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
     } finally {
       setCargandoIntensif(false);
     }
-  }, [alumnosCurso]);
+  }, [alumnosCurso, materiaNombre, calificacionesCompletas, cursoMateriaId, periodo1, periodo2]);
 
   const cargarPrevias = useCallback(async () => {
     if (!alumnosCurso.length) return;
@@ -218,23 +255,17 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
   };
 
   const handleGuardarIntensificaciones = async () => {
-    const promesas = [];
-    for (const fila of intensificaciones) {
-      for (const { key } of PERIODOS_INTENSIFICACION) {
-        const nota = fila.registros[key];
-        if (nota === '' || nota === null || nota === undefined) continue;
-        const registroId = fila.registroIds[key];
-        if (registroId) {
-          promesas.push(
-            updateIntensificacionAcademica(registroId, { nota: Number(nota) }),
-          );
-        }
-      }
-    }
-    if (promesas.length === 0) {
+    const anio = new Date().getFullYear();
+    const cambios = cambiosIntensificaciones(intensificaciones, anio, cursoMateriaId);
+    if (cambios.length === 0) {
       toast.info('No hay intensificaciones para guardar.');
       return;
     }
+    const promesas = cambios.map((c) =>
+      c.tipo === 'update'
+        ? updateIntensificacionAcademica(c.id, c.payload)
+        : createIntensificacionAcademica(c.payload),
+    );
     try {
       await Promise.all(promesas);
       toast.success('Intensificaciones guardadas exitosamente.');
@@ -521,21 +552,47 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
                 {intensificaciones.map((fila) => (
                   <tr key={fila.alumnoId}>
                     <td className="table-cell-strong">{fila.nombre}</td>
-                    {PERIODOS_INTENSIFICACION.map(({ key }) => (
-                      <td key={key}>
-                        <input
-                          type="number"
-                          min="1"
-                          max="10"
-                          className="input-table"
-                          value={fila.registros[key] ?? ''}
-                          onChange={(e) =>
-                            handleIntensifChange(fila.alumnoId, key, clampNota(e.target.value))
-                          }
-                          disabled={!puedeEditar}
-                        />
-                      </td>
-                    ))}
+                    {PERIODOS_INTENSIFICACION.map(({ key, periodos }) => {
+                      const tipo = TIPO_POR_BUCKET[key];
+                      const habilitado = fila.habilitados[tipo];
+                      const delBucket = (fila.instancias || []).filter((ins) =>
+                        periodos.includes(ins.periodo),
+                      );
+                      const notaActual =
+                        delBucket.length > 0 ? delBucket[delBucket.length - 1].nota : null;
+                      const valor = fila.registros[key] ?? '';
+                      const persisteNota = notaActual != null && valor === '' ? notaActual : valor;
+                      return (
+                        <td key={key}>
+                          {delBucket.length > 0 && (
+                            <div className="intensif-historial">
+                              {delBucket.map((ins, i) => (
+                                <span key={i} className="intensif-histNota">
+                                  {PERIODO_LABELS[ins.periodo] || ins.periodo} {ins.anio} →{' '}
+                                  {ins.nota != null ? Number(ins.nota) : '—'}
+                                  {ins.estado === 'APROBADA' ? ' (Aprobada)' : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {habilitado ? (
+                            <input
+                              type="number"
+                              min="1"
+                              max="10"
+                              className="input-table"
+                              value={persisteNota}
+                              disabled={!puedeEditar}
+                              onChange={(e) =>
+                                handleIntensifChange(fila.alumnoId, key, clampNota(e.target.value))
+                              }
+                            />
+                          ) : (
+                            <span className="intensif-bloqueado">Bloqueado</span>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>

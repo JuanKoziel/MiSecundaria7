@@ -703,6 +703,11 @@ export async function updateIntensificacionAcademica(id, payload) {
   return data;
 }
 
+export async function createIntensificacionAcademica(payload) {
+  const { data } = await api.post('/intensificaciones-academicas/', payload);
+  return data;
+}
+
 export async function getRegistroRendicionesPrevias(params) {
   const { data } = await api.get('/registro-rendiciones-previas/', { params });
   return data;

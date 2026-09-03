@@ -967,6 +967,10 @@ PERIODO_DISPLAY = {
     'DICIEMBRE_1': 'Diciembre 1', 'DICIEMBRE_2': 'Diciembre 2', 'FEBRERO': 'Febrero',
 }
 
+# Nota mínima de aprobación. Regla central existente del sistema (>= 7 aprueba);
+# se centralizó aquí para que frontend y backend usen el mismo criterio.
+NOTA_APROBACION = 7
+
 
 class HistorialAcademico(models.Model):
     """Registro histórico de cada materia cursada por cada alumno.

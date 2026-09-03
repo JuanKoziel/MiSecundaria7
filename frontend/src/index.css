@@ -721,8 +721,14 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 .previa-saved-list { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-bottom: 4px; }
 .previa-input-group { display: flex; align-items: center; justify-content: center; gap: 4px; }
 .previa-input-group .input-table { width: 52px; }
-.previa-input-group .previa-anio { width: 60px; }
+.previa-input-group .previa-anio { width: 84px; }
 .previa-bloqueado { display: inline-block; font-size: 0.78rem; color: #6b7280; white-space: nowrap; }
+
+/* Intensificaciones: estructura propia (3 columnas, histórico compacto por instancia). */
+.intensif-estado { font-size: 0.75rem; color: #6b7280; font-weight: normal; }
+.intensif-historial { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.intensif-histNota { font-size: 0.78rem; color: #444; white-space: nowrap; }
+.intensif-bloqueado { display: inline-block; font-size: 0.78rem; color: #6b7280; white-space: nowrap; }
 
 
 .badge-interactive {

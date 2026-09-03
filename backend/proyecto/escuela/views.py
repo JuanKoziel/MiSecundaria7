@@ -102,6 +102,7 @@ from escuela.models import (
     SituacionMateriaAlumno,
     PERIODO_ORDEN,
     PERIODO_LABELS,
+    NOTA_APROBACION,
 )
 from escuela.serializers import (
     ActaAlumnoSerializer,
@@ -4049,10 +4050,191 @@ class HistorialAcademicoViewSet(viewsets.ModelViewSet):
         return qs
 
 
+TIPO_INTENSIF_1C = ('MARZO', 'JULIO', 'AGOSTO')
+TIPO_INTENSIF_DICIEMBRE = ('DICIEMBRE_1', 'DICIEMBRE_2')
+TIPO_INTENSIF_FEBRERO = 'FEBRERO'
+
+
+def _tipo_intensif(periodo):
+    """Clasifica un período de `IntensificacionAcademica` en los tres tipos
+    conceptuales de intensificación. NO usa la secuencia genérica de previas."""
+    if periodo in TIPO_INTENSIF_1C:
+        return '1C'
+    if periodo in TIPO_INTENSIF_DICIEMBRE:
+        return 'DICIEMBRE'
+    if periodo == TIPO_INTENSIF_FEBRERO:
+        return 'FEBRERO'
+    return None
+
+
+def _nota_cuatrimestre(historial, orden):
+    """Nota definitiva de un cuatrimestre (1 o 2) para el alumno/materia del
+    historial, evaluada igual que `consolidar_historial_alumno`."""
+    periodo = PeriodoEvaluacion.objects.filter(orden_periodo=orden, estado=True).first()
+    if not periodo:
+        return None
+    cal = Calificacion.objects.filter(
+        id_alumno=historial.id_alumno,
+        id_curso_materia=historial.id_curso_materia,
+        id_periodo=periodo,
+    ).first()
+    if cal and cal.nota_numerica is not None:
+        return float(cal.nota_numerica)
+    if orden == 1 and historial.nota_1_cuatrimestre is not None:
+        return float(historial.nota_1_cuatrimestre)
+    if orden == 2 and historial.nota_2_cuatrimestre is not None:
+        return float(historial.nota_2_cuatrimestre)
+    return None
+
+
+def _intensif_por_tipo(instancias, tipo):
+    for ins in instancias:
+        if _tipo_intensif(ins.periodo) == tipo:
+            return ins
+    return None
+
+
+def _intensif_habilitada(instancia):
+    """Reglas académicas de habilitación de intensificaciones:
+    - 1°C habilitada  -> desaprobó el Primer Cuatrimestre.
+    - Diciembre habilitado -> desaprobó el Segundo Cuatrimestre
+                             O desaprobó la Intensificación 1°C.
+    - Febrero habilitado -> desaprobó la Intensificación de Diciembre.
+    Todo comienza bloqueado: sin condición cumplida, NO se habilita.
+    """
+    historial = instancia.id_historial
+    tipo = _tipo_intensif(instancia.periodo)
+    hermanas = list(
+        IntensificacionAcademica.objects.filter(id_historial=historial)
+    )
+    if tipo == '1C':
+        n1 = _nota_cuatrimestre(historial, 1)
+        return n1 is not None and n1 < NOTA_APROBACION
+    if tipo == 'DICIEMBRE':
+        n2 = _nota_cuatrimestre(historial, 2)
+        intensif_1c = _intensif_por_tipo(hermanas, '1C')
+        desaprobo_1c = intensif_1c is not None and intensif_1c.estado == 'DESAPROBADA'
+        return (n2 is not None and n2 < NOTA_APROBACION) or desaprobo_1c
+    if tipo == 'FEBRERO':
+        intensif_dic = _intensif_por_tipo(hermanas, 'DICIEMBRE')
+        return intensif_dic is not None and intensif_dic.estado == 'DESAPROBADA'
+    return False
+
+
+def _msg_intensif_no_habilitada(instancia):
+    tipo = _tipo_intensif(instancia.periodo)
+    mensajes = {
+        '1C': 'No se puede cargar la Intensificación del Primer Cuatrimestre: el estudiante no desaprobó el Primer Cuatrimestre.',
+        'DICIEMBRE': 'No se puede cargar la Intensificación de Diciembre: no desaprobó el Segundo Cuatrimestre ni la Intensificación del Primer Cuatrimestre.',
+        'FEBRERO': 'No se puede cargar la Intensificación de Febrero: no desaprobó la Intensificación de Diciembre.',
+    }
+    return mensajes.get(tipo, 'La instancia de intensificación no está habilitada.')
+
+
+def _pasar_a_previa(historial):
+    """Convierte la materia en PREVIA / ADEUDADA reutilizando el mecanismo
+    existente (`get_or_create` con curso de origen real, sin duplicar)."""
+    MateriaAdeudada.objects.get_or_create(
+        id_alumno=historial.id_alumno,
+        id_materia=historial.id_materia,
+        id_curso_origen=historial.id_curso,
+        defaults={
+            'tipo_deuda': 'PREVIA',
+            'estado': 'ADEUDADA',
+            'fecha_generacion': timezone.now(),
+        },
+    )
+    HistorialAcademico.objects.filter(pk=historial.pk).update(
+        estado_materia='adeudada',
+        periodo_aprobacion='febrero_marzo',
+        es_recursada=False,
+    )
+
+
+def _resolver_o_crear_historial(id_alumno, id_curso_materia, anio_lectivo):
+    """Obtiene o crea el `HistorialAcademico` de un alumno + curso_materia + año.
+
+    Cuando la intensificación se crea desde la interfaz, el historial del año
+    activo puede no existir todavía (se genera al cerrar el ciclo). Para poder
+    persistir la intensificación, el backend recrea el historial on demand con
+    los mismos campos que usa el módulo académico. Nunca duplica existentes.
+    """
+    cm = CursoMateria.objects.select_related('id_curso', 'id_materia').get(
+        pk=id_curso_materia,
+    )
+    historial, _ = HistorialAcademico.objects.get_or_create(
+        id_alumno_id=id_alumno,
+        id_curso_materia_id=id_curso_materia,
+        anio_lectivo=anio_lectivo,
+        defaults={
+            'id_curso': cm.id_curso,
+            'id_materia': cm.id_materia,
+            'estado_materia': 'adeudada',
+        },
+    )
+    return historial
+
+
 class IntensificacionAcademicaViewSet(viewsets.ModelViewSet):
     queryset = IntensificacionAcademica.objects.select_related('id_historial', 'id_historial__id_alumno', 'id_historial__id_materia').all()
     serializer_class = IntensificacionAcademicaSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    permission_classes = [IsAuthenticated, PuedeGestionarAmbitoDocente]
+
+    def _procesar(self, instancia, nota):
+        """Aplica las reglas académicas: valida habilitación, deriva el estado
+        por la nota mínima central y, si Febrero quedó desaprobado, pasa a previa."""
+        nota = float(nota)
+        if not _intensif_habilitada(instancia):
+            return _msg_intensif_no_habilitada(instancia)
+        resultado = 'APROBADA' if nota >= NOTA_APROBACION else 'DESAPROBADA'
+        if resultado == 'DESAPROBADA' and _tipo_intensif(instancia.periodo) == 'FEBRERO':
+            _pasar_a_previa(instancia.id_historial)
+        return resultado
+
+    def create(self, request, *args, **kwargs):
+        # El frontend puede enviar el id_historial, o (más común en el año
+        # activo, que aún no tiene historial generado) los identificadores con
+        # los que el backend lo resuelve/crea on demand.
+        data = request.data.copy()
+        if not data.get('id_historial') and data.get('id_alumno') and data.get('id_curso_materia'):
+            historial = _resolver_o_crear_historial(
+                data['id_alumno'],
+                data['id_curso_materia'],
+                data.get('anio_rendicion') or timezone.now().year,
+            )
+            data['id_historial'] = historial.pk
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        if serializer.validated_data.get('fecha_registro') is None:
+            serializer.validated_data['fecha_registro'] = timezone.now()
+        instancia = serializer.save()
+        if 'nota' in serializer.validated_data and serializer.validated_data.get('nota') is not None:
+            resultado = self._procesar(instancia, serializer.validated_data['nota'])
+            if resultado not in ('APROBADA', 'DESAPROBADA'):
+                # No habilitada: revertir el registro recién creado.
+                instancia.delete()
+                return Response({'error': resultado}, status=status.HTTP_400_BAD_REQUEST)
+            instancia.estado = resultado
+            instancia.save(update_fields=['estado'])
+        return Response(IntensificacionAcademicaSerializer(instancia).data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        """Backend como autoridad: rechaza cargar una instancia que no está
+        habilitada según las condiciones académicas; deriva el estado con la
+        nota mínima central y aplica el paso a previa cuando corresponde."""
+        parcial = kwargs.pop('partial', request.method == 'PATCH')
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=parcial)
+        serializer.is_valid(raise_exception=True)
+
+        if 'nota' in serializer.validated_data and serializer.validated_data.get('nota') is not None:
+            resultado = self._procesar(instance, serializer.validated_data['nota'])
+            if resultado not in ('APROBADA', 'DESAPROBADA'):
+                return Response({'error': resultado}, status=status.HTTP_400_BAD_REQUEST)
+            serializer.validated_data['estado'] = resultado
+
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 
 class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
