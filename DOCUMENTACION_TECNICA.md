@@ -329,6 +329,7 @@ El archivo tiene 1881 líneas. Contiene:
 | `HorarioViewSet` | `/api/horarios/` | CRUD de horarios |
 | `DdjjDocenteViewSet` | `/api/ddjj-docente/` | CRUD de DDJJ + subida/descarga de archivos |
 | `ActividadDocenteViewSet` | `/api/actividades-docente/` | CRUD de actividades + archivos adjuntos |
+| `IntensificacionAcademicaViewSet` | `/api/intensificaciones-academicas/` | CRUD de intensificaciones; `create` puede resolver/crear el `HistorialAcademico` a partir de `id_alumno + id_curso_materia + anio_rendicion` cuando el historial del año activo aún no existe |
 
 ### 3.6 Permisos (`permissions.py`)
 

@@ -749,6 +749,22 @@ En el código analizado se detectó que actualmente solo `BLOQUEADA` se escribe 
 
 No alterar estas reglas al preparar una carga de prueba salvo que se solicite expresamente.
 
+## Intensificaciones — historial del año activo
+
+La tabla `intensificaciones_academicas` requiere una FK `id_historial` **NOT NULL** hacia `historial_academico`. El historial académico del año activo normalmente recién se genera durante el cierre/consolidación del ciclo, por lo que en el año en curso puede no existir.
+
+A partir de la corrección del 2026-09-02, el backend puede **resolver o crear** el `HistorialAcademico` necesario en el momento de guardar una intensificación, a partir de:
+
+```text
+id_alumno
+id_curso_materia
+anio_rendicion
+```
+
+`id_curso` e `id_materia` se derivan de `CursoMateria`. Se usa `get_or_create` para no duplicar historiales. El `create` de `IntensificacionAcademicaViewSet` acepta `id_alumno + id_curso_materia` sin `id_historial`.
+
+**Nota:** No se realizaron modificaciones manuales sobre la base de producción para esta corrección; la investigación de `historial_academico = 0` e `intensificaciones_academicas = 0` fue de solo lectura y la única base limpiada fue la efímera de testing (`test_sistema_escolar`) de Django.
+
 ---
 
 # 19. Problemas/reglas detectados durante el proyecto

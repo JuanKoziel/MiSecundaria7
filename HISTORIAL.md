@@ -2,7 +2,7 @@
 
 > **Propósito:** Registro de todas las auditorías, correcciones y decisiones significativas tomadas en el proyecto. Este archivo preserva el trabajo ya realizado para referencia futura.
 >
-> **Última actualización:** 2026-08-24
+> **Última actualización:** 2026-09-02
 
 ---
 
@@ -177,4 +177,79 @@ cd backend && python manage.py limpiar_eventos_temporales
 
 ---
 
-*Documento generado el 2026-08-24 · Proyecto Mi Secundaria 7*
+## 7. Corrección del flujo de guardado de Intensificaciones (2026-09-02)
+
+### 7.1 Problema
+
+Al intentar guardar una nota de Intensificaciones en `Docente → Calificaciones → Intensificaciones`, la interfaz mostraba incorrectamente **"No hay intensificaciones para guardar"** aunque el usuario hubiera escrito una nota en una columna habilitada.
+
+**Causa raíz (confirmada por inspección solo-lectura de la base real):**
+
+- En la base de producción, `historial_academico` tenía **0 registros**.
+- `intensificaciones_academicas` también tenía **0 registros**.
+- `IntensificacionAcademica.id_historial` es una FK **NOT NULL**.
+- El historial académico del año activo normalmente se genera durante el cierre/consolidación del ciclo (`consolidar_historial_alumno` / `procesar_cierre_ciclo`), por lo que era normal que el año activo aún **no tuviera historial**.
+- El frontend dependía de un `id_historial` existente para generar el `POST`.
+- Como no había historial, `fila.idHistorial` quedaba en `null`.
+- No se generaba ninguna promesa de guardado → `promesas.length === 0` → el mensaje "No hay intensificaciones para guardar".
+
+### 7.2 Solución (Backend)
+
+- Se agregó `_resolver_o_crear_historial()` en `backend/proyecto/escuela/views.py`.
+- El backend ahora puede **resolver o crear** el `HistorialAcademico` necesario a partir de:
+  - `id_alumno`
+  - `id_curso_materia`
+  - `anio_rendicion`
+- `id_curso` e `id_materia` se obtienen a partir de `CursoMateria`.
+- Se evita duplicar historiales mediante `get_or_create`.
+- `IntensificacionAcademicaViewSet.create` ahora puede recibir `id_alumno + id_curso_materia` **sin** `id_historial`.
+- El backend resuelve el historial automáticamente.
+- También se corrigió el establecimiento de `fecha_registro` en el `create` (el campo no podía quedar `NULL` a nivel de columna).
+
+### 7.3 Solución (Frontend)
+
+- `cambiosIntensificaciones()` ahora puede generar correctamente un `CREATE` aunque no exista previamente una intensificación.
+- El payload de creación utiliza:
+  - `id_alumno`
+  - `id_curso_materia`
+  - `periodo`
+  - `anio_rendicion`
+  - `nota`
+- `id_historial` se incluye cuando está disponible; en caso contrario el backend lo resuelve.
+- `PanelAlumnos.jsx` pasa `cursoMateriaId` a la lógica de cambios.
+- Las actualizaciones de registros existentes continúan utilizando `PATCH`.
+- Se **mantiene la estructura original de 3 columnas**:
+  - Intensificación 1.º Cuatrimestre
+  - Diciembre
+  - Febrero
+
+### 7.4 Reglas académicas (conservadas, no modificadas)
+
+- Intensificación 1.º Cuatrimestre → habilitada solo si se desaprobó el 1.º Cuatrimestre.
+- Diciembre → habilitada si se desaprobó el 2.º Cuatrimestre **O** la Intensificación 1.º Cuatrimestre quedó desaprobada.
+- Febrero → habilitada si Diciembre quedó desaprobado.
+- Si Febrero queda desaprobada → la materia pasa a **Previa**.
+- Se conserva el historial académico.
+
+### 7.5 Base de datos
+
+- **No se realizaron modificaciones manuales** sobre la base de producción durante esta corrección.
+- La investigación de `historial_academico = 0` e `intensificaciones_academicas = 0` fue de **solo lectura**.
+- La única base eliminada/limpiada durante las pruebas fue una **base efímera de testing** (`test_sistema_escolar`) mediante el mecanismo correspondiente de Django.
+- **No se modificaron migraciones** para solucionar este problema.
+
+### 7.6 Archivos modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `backend/proyecto/escuela/views.py` | `_resolver_o_crear_historial()`, `IntensificacionAcademicaViewSet.create` (resolve historial + `fecha_registro`), corrección de detección de error en create/update (`resultado not in ('APROBADA','DESAPROBADA')`) |
+| `backend/proyecto/escuela/models.py` | Ajuste menor relacionado con el flujo de intensificaciones |
+| `backend/proyecto/escuela/tests/test_academico.py` | 16 tests, incluye `test_intensificacion_crea_sin_historial_existente` |
+| `frontend/src/components/Profesores/PanelAlumnos.jsx` | `cargarIntensificaciones`, `handleGuardarIntensificaciones`, `handleIntensifChange`, pase de `cursoMateriaId` |
+| `frontend/src/services/api.js` | Uso de `getHistorialAcademico` / `createIntensificacionAcademica` |
+| `frontend/src/utils/intensificaciones.js` | Nuevo: constantes + lógica pura (`cambiosIntensificaciones`, etc.) |
+| `frontend/src/utils/intensificaciones.test.js` | Nuevo: cobertura de la lógica pura |
+
+---
+
+*Documento actualizado el 2026-09-02 · Proyecto Mi Secundaria 7*
