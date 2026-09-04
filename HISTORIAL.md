@@ -660,4 +660,94 @@ Backend sin cambios.
 
 ---
 
+## 14. Notificaciones en vivo: badge, campana y toast "Nueva notificación" (2026-09-04)
+
+Séptima ronda de correcciones post-cierre del Plan Maestro de Notificaciones
+(§16). Atiende los requisitos visuales **Partes 1–13** (todas las indicadas),
+sobre la base ya establecida de navegación por rol (§12/§13). **Sin cambios de
+base de datos, sin migraciones, sin commits/push**. El backend NO se tocó: el
+sondeo reutiliza el endpoint existente `GET /notificaciones/`.
+
+### 14.1 Qué cambió
+
+- **`frontend/src/context/DataContext.jsx`**
+  - Extracto `normalizarNotificacion(n)` (única normalización de una
+    notificación API) y helper puro `detectarNuevas(raw, conocidos)` que
+    identifica las notificaciones **realmente frescas** (id no conocido),
+    deduplica dentro del mismo lote y actualiza el set de conocidas.
+  - Estado de sesión: `nuevasNotificaciones` (cola del toast, id dedicado),
+    `campanaPulse` (contador que se incrementa al llegar una nueva; dispara la
+    animación), `idsInicialesRef` (línea base de ids ya vistos al cargar) y
+    `pollEnCursoRef` (guarda anti-solapamiento).
+  - **Línea base:** al terminar la carga inicial, los ids presentes se guardan
+    como "ya conocidos" → las no leídas que existían al abrir **nunca** se
+    muestran como "nueva" (Parte 5).
+  - **Sondeo (Parte 6):** un único `setInterval` global por sesión (30 s) que
+    llama a `getNotificaciones()`, detecta nuevas, las fusiona en
+    `data.notificaciones` (sin duplicar por id) y las encola + pulsa la campana.
+    El intervalo se limpia con `clearInterval` al desmontar el provider; la
+    guarda evita peticiones solapadas y las fallas de red se ignoran.
+  - `descartarNueva(id)` retira del toast una notificación.
+  - Expone `nuevasNotificaciones`, `campanaPulse` y `descartarNueva` en
+    `Provider.value` **y** en las dos ramas del hook `useData()` (lección de
+    §13: el puente no debe volver a quedarse sin exponerlos).
+
+- **`frontend/src/components/Shared/CampanaNotificaciones.jsx`** (nuevo, Parte 1/4)
+  Badge reutilizable de campana para el menú lateral. **Fuente ÚNICA del
+  contador**: calcula `notificaciones.filter(n => !n.leida).length` desde
+  `useData()` (no hay lógica de recuento duplicada por rol). El badge baja solo
+  al marcar leídas y sube al llegar nuevas; la cifra se limita a `99+`. Al
+  incrementarse `campanaPulse` se re-anima la campana (`@keyframes
+  campana-agitar`) sólo cuando hay un pulso > 0.
+
+- **Los 6 sidebars** (`Alumno`, `Familia`, `Profesores`, `Preceptores`,
+  `JefePreceptores`, `Administracion`) renderizan `<CampanaNotificaciones />`
+  en el ítem `id === 'notificaciones'`, manteniendo el resto del menú intacto.
+
+- **`frontend/src/components/Shared/NotificacionToast.jsx`** (nuevo, Partes 2/3/7/8)
+  Toast apilado abajo-a-la-derecha con cada notificación nueva detectada en
+  sesión: campana, título "Nueva notificación", asunto (título), mensaje,
+  botón **"Ver →"** y botón de cierre. Comportamiento:
+  - El "Ver →" **reutiliza** la navegación existente (`navegarDesdeNotificacion`
+    + `nav_destino`/`nav_params`). No crea un sistema de navegación paralelo.
+  - El "Ver →" **solo aparece si el rol tiene una vista real** para el destino
+    (`tieneVistaParaDestino`), idéntico a la regla de §12.
+  - Se autocierra (7 s) con animación de salida; el cierre lo descarta de la
+    cola (no se vuelve a mostrar mientras el id siga en la línea base).
+  - No se duplica: la cola descarta por id y la detección deduplica.
+  - Responsivo: en pantallas ≤ 640 px ocupa el ancho disponible abajo.
+
+- **`frontend/src/App.jsx`** — se renderiza `<NotificacionToast userRole={user.role} />`
+  una única vez (todos los roles) junto al dashboard, dentro de `DataProvider`.
+  El rol para el gating se toma de `user.role`; `tieneVistaParaDestino` ya
+  resuelve los alias (`jefe_preceptores`→preceptor, `director`→admin).
+
+- **`frontend/src/index.css`** — estilos de `.campana-notif` (badge + animación),
+  del toast `.notificaciones-toast`/`.notif-toast` (entrada/salida, Ver, cerrar,
+  responsive), y util `.visually-hidden`.
+
+### 14.2 Cómo se detectan las nuevas (Parte 2/5/6)
+
+El sondeo compara cada respuesta contra la **línea base de ids** (`idsInicialesRef`):
+una notificación se considera **"nueva"** solo si su id no estaba en esa línea
+base; la existente al cargar nunca dispara toast. "Nueva" es distinto de
+"no leída": el badge cuenta no-leídas (incluye las que ya estaban), el toast
+solo notifica las que llegaron en la sesión.
+
+### 14.3 Verificación
+
+- Nuevos tests:
+  - `frontend/src/context/DataContextDetect.test.js` — `detectarNuevas`: solo
+    desconocidas, sin duplicados en el lote, no marca las ya conocidas, tolera
+    no-array, normaliza `leida`/`nav_destino`/`nav_params`.
+  - `frontend/src/components/NotificacionesEnVivo.test.jsx` — badge: contador,
+    oculto a 0, tope 99+, reacción al pulso; toast: no renderiza sin nuevas,
+    muestra título+mensaje, "Ver" según rol/destino, sin "Ver" sin destino,
+    cierre llama a `descartarNueva`, "Ver" descarta y navega.
+- Suite completa: `npm test` → **172 OK (17 archivos)**; `npm run build` → OK.
+- Backend sin cambios: `manage.py check` OK (solo W342 preexistente) y
+  `test_notificaciones` → **19 OK**.
+
+---
+
 *Documento actualizado el 2026-09-04 · Proyecto Mi Secundaria 7*

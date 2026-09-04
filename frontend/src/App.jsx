@@ -9,6 +9,7 @@ import LoadingScreen from './components/Shared/LoadingScreen';
 import SeleccionRol from './components/Shared/SeleccionRol';
 import { useAuth } from './context/AuthContext';
 import { DataProvider, useData } from './context/DataContext';
+import NotificacionToast from './components/Shared/NotificacionToast';
 
 function Dashboard({ user, rolActivo, logout }) {
   switch (rolActivo) {
@@ -37,7 +38,12 @@ function DashboardConDatos({ user, rolActivo, logout }) {
     return <LoadingScreen fixed text="Cargando el sistema" />;
   }
 
-  return <Dashboard user={user} rolActivo={rolActivo} logout={logout} />;
+  return (
+    <>
+      <Dashboard user={user} rolActivo={rolActivo} logout={logout} />
+      <NotificacionToast userRole={user.role} />
+    </>
+  );
 }
 
 function App() {

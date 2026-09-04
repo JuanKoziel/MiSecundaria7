@@ -29,6 +29,42 @@ import {
 
 const DataContext = createContext(null);
 
+// Intervalo (ms) del sondeo de notificaciones nuevas mientras dure la sesión.
+const INTERVALO_POLL_NUEVAS = 30000;
+
+function normalizarNotificacion(n) {
+  return {
+    id: n.id_notificacion,
+    id_usuario: n.id_usuario ?? null,
+    id_alumno: n.id_alumno ?? null,
+    titulo: n.titulo || '',
+    mensaje: n.mensaje || '',
+    fecha: n.fecha || null,
+    leida: Boolean(n.leida),
+    // Se reenvían los metadatos de navegación que expone el API para que el
+    // componente pueda mostrar "Ver →" y navegar.
+    nav_destino: n.nav_destino || null,
+    nav_params: n.nav_params || {},
+  };
+}
+
+// PURE helper: identifica notificaciones REALMENTE nuevas (ids que no estan en
+// `conocidos`). Normaliza, evita duplicados dentro del mismo lote y actualiza
+// `conocidos` en el lugar. Expuesto para testeo unitario (Parte 17).
+export function detectarNuevas(raw, conocidos) {
+  const nuevas = [];
+  const vistosEnLote = new Set();
+  (Array.isArray(raw) ? raw : []).forEach((item) => {
+    const n = normalizarNotificacion(item);
+    if (conocidos.has(n.id)) return;
+    if (vistosEnLote.has(n.id)) return;
+    vistosEnLote.add(n.id);
+    conocidos.add(n.id);
+    nuevas.push(n);
+  });
+  return nuevas;
+}
+
 function nombreCompleto(alumno) {
   return `${alumno.apellido}, ${alumno.nombre}`;
 }
@@ -81,6 +117,14 @@ export function DataProvider({ children }) {
   // Parte 8: navegación desde notificaciones
   const [navIntent, setNavIntent] = useState(null);
   const hasLoadedRef = useRef(false);
+
+  // Parte 16/17: notificaciones nuevas en tiempo de sesión.
+  // Conjunto de ids cargados inicialmente (no deben disparar toast) y lista de
+  // notificaciones realmente nuevas detectadas por el sondeo.
+  const idsInicialesRef = useRef(null);
+  const [nuevasNotificaciones, setNuevasNotificaciones] = useState([]);
+  const [campanaPulse, setCampanaPulse] = useState(0);
+  const pollEnCursoRef = useRef(false);
 
   const fetchData = useCallback(async () => {
     const isInitial = !hasLoadedRef.current;
@@ -548,23 +592,16 @@ export function DataProvider({ children }) {
         fecha_subida: p.fecha_subida || null,
       }));
 
-      const notificaciones = (Array.isArray(notificacionesRaw) ? notificacionesRaw : []).map((n) => ({
-        id: n.id_notificacion,
-        id_usuario: n.id_usuario ?? null,
-        id_alumno: n.id_alumno ?? null,
-        titulo: n.titulo || '',
-        mensaje: n.mensaje || '',
-        fecha: n.fecha || null,
-        leida: Boolean(n.leida),
-        // Parte 8: se reenvían los metadatos de navegación que expone el API,
-        // para que el componente pueda mostrar "Ver →" y navegar.
-        nav_destino: n.nav_destino || null,
-        nav_params: n.nav_params || {},
-      }));
+      const notificaciones = (Array.isArray(notificacionesRaw) ? notificacionesRaw : []).map(normalizarNotificacion);
 
 
 
       hasLoadedRef.current = true;
+      // Línea base de ids de notificaciones ya conocidas en la carga inicial:
+      // son las que el usuario YA veía, por lo que nunca deben disparar toast.
+      if (idsInicialesRef.current === null) {
+        idsInicialesRef.current = new Set(notificaciones.map((n) => n.id));
+      }
       setData({
         alumnos,
         docentes,
@@ -691,6 +728,42 @@ export function DataProvider({ children }) {
     setNavIntent({ destino, params, timestamp: Date.now() });
   }, []);
 
+  // Notificaciones que el usuario ya descartó del toast (para no volver a
+  // mostrarlas aunque el sondeo las vuelva a listar).
+  const descartarNueva = useCallback((id) => {
+    setNuevasNotificaciones((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  // Sondeo (Parte 6): detecta notificaciones que llegan NUEVAS mientras el
+  // usuario usa la app. Un único intervalo global por sesión, con guarda para
+  // evitar peticiones solapadas. El sondeo se limpia al desmontar el provider.
+  useEffect(() => {
+    const intervalo = setInterval(async () => {
+      if (idsInicialesRef.current === null) return;
+      if (pollEnCursoRef.current) return;
+      pollEnCursoRef.current = true;
+      try {
+        const raw = await getNotificaciones().catch(() => null);
+        if (!Array.isArray(raw)) return;
+        const conocidos = idsInicialesRef.current;
+        const nuevas = detectarNuevas(raw, conocidos);
+        if (nuevas.length === 0) return;
+        setData((prev) => {
+          if (!prev) return prev;
+          const yaPresentes = new Set(prev.notificaciones.map((n) => n.id));
+          const aInsertar = nuevas.filter((n) => !yaPresentes.has(n.id));
+          if (aInsertar.length === 0) return prev;
+          return { ...prev, notificaciones: [...aInsertar, ...prev.notificaciones] };
+        });
+        setNuevasNotificaciones((prev) => [...prev, ...nuevas]);
+        setCampanaPulse((p) => p + 1);
+      } finally {
+        pollEnCursoRef.current = false;
+      }
+    }, INTERVALO_POLL_NUEVAS);
+    return () => clearInterval(intervalo);
+  }, []);
+
   if (data) {
     data.refreshData = fetchData;
   }
@@ -704,6 +777,9 @@ export function DataProvider({ children }) {
       marcarTodasNotificacionesLeidas,
       navegarDesdeNotificacion,
       navIntent,
+      nuevasNotificaciones,
+      descartarNueva,
+      campanaPulse,
     }}>
       {children}
     </DataContext.Provider>
@@ -770,6 +846,9 @@ export function useData() {
       marcarTodasNotificacionesLeidas: () => {},
       navegarDesdeNotificacion: () => {},
       navIntent: null,
+      nuevasNotificaciones: [],
+      descartarNueva: () => {},
+      campanaPulse: 0,
     };
   }
   return {
@@ -786,5 +865,8 @@ export function useData() {
     marcarTodasNotificacionesLeidas: ctx.marcarTodasNotificacionesLeidas,
     navegarDesdeNotificacion: ctx.navegarDesdeNotificacion,
     navIntent: ctx.navIntent,
+    nuevasNotificaciones: ctx.nuevasNotificaciones,
+    descartarNueva: ctx.descartarNueva,
+    campanaPulse: ctx.campanaPulse,
   };
 }

@@ -2,6 +2,7 @@ import { menuItems } from '../sidebarMenu';
 import { useAuth } from '../../../context/AuthContext';
 import Logo from '../../Shared/Logo';
 import CambiarRolButton from '../../Shared/CambiarRolButton';
+import CampanaNotificaciones from '../../Shared/CampanaNotificaciones';
 
 function Sidebar({ setView, onLogout, view }) {
   const { user } = useAuth();
@@ -32,7 +33,11 @@ function Sidebar({ setView, onLogout, view }) {
                 className="sidebar-menu-btn"
                 onClick={() => setView(item.id)}
               >
-                <i className={`fas ${item.icon}`} aria-hidden="true" />
+                {item.id === 'notificaciones' ? (
+                  <CampanaNotificaciones />
+                ) : (
+                  <i className={`fas ${item.icon}`} aria-hidden="true" />
+                )}
                 <span>{item.label}</span>
               </button>
             </li>

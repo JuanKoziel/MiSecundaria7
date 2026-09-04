@@ -1465,6 +1465,42 @@ Verificación:
 
 ---
 
+## Correcciones post-cierre (7) — Notificaciones en vivo: badge, campana y toast (2026-09-04)
+Estado: COMPLETADA — atiende las **Partes 1–13** (visual/UX): badge de contador,
+detección de nuevas en sesión, toast con navegación reutilizada y animación de
+campana. **Sin cambios de DB, sin migraciones, sin commits/push.** El backend NO
+se tocó (el sondeo reutiliza el endpoint `GET /notificaciones/`).
+
+- **Fuente única del contador:** `Shared/CampanaNotificaciones.jsx` calcula
+  `notificaciones.filter(n => !n.leida).length` desde `useData()`; se integra en
+  los 6 sidebars (ítem `notificaciones`). Sin contadores duplicados por rol.
+- **Detección de nuevas (Partes 2, 5, 6):** `DataContext` guarda la línea base de
+  ids al cargar (`idsInicialesRef`) y un `setInterval` de 30 s (único por sesión)
+  sondea `getNotificaciones()`. `detectarNuevas(raw, conocidos)` aísla solo los
+  ids nuevos, deduplica el lote y evita solapamientos (`pollEnCursoRef`). Las
+  no leídas que ya existían al abrir **nunca** se muestran como "nueva". El
+  intervalo se limpia al desmontar el provider.
+- **Toast (Partes 3, 7, 8):** `Shared/NotificacionToast.jsx` se monta una vez en
+  `App.jsx` (`userRole={user.role}`). Muestra título, mensaje, **"Ver →"** y
+  cierre; se autocierra (7 s) con animación; es responsivo. El "Ver →"
+  **reutiliza** `navegarDesdeNotificacion` (no crea navegación paralela) y solo
+  aparece si `tieneVistaParaDestino(destino, rol)` (misma regla que la ronda 5).
+- **Animación de campana (Parte 4):** `campanaPulse` se incrementa al llegar una
+  nueva; el badge re-monta brevemente la campana (`@keyframes campana-agitar`)
+  solo cuando hay pulso > 0 y se muestra una cifra hasta `99+`.
+- Nuevos valores expuestos en `useData()` (ambas ramas, lección ronda 6):
+  `nuevasNotificaciones`, `campanaPulse`, `descartarNueva`.
+
+Verificación:
+- Nuevos tests: `DataContextDetect.test.js` (helper de detección) y
+  `NotificacionesEnVivo.test.jsx` (badge + toast: contador, Ver según rol, cierre,
+  navegación, no-duplicados, sin toast en carga).
+- `npm test` → **172 OK (17 archivos)**; `npm run build` → OK.
+- Backend sin cambios: `manage.py check` OK (solo W342 preexistente) y
+  `test_notificaciones` → **19 OK**.
+
+---
+
 # 17. Criterios generales de aceptación
 
 El sistema final debe cumplir:

@@ -3161,3 +3161,150 @@ tbody tr:last-child td {
     font-size: 0.95rem;
     line-height: 1.6;
 }
+
+/* ==========================================================================
+   NOTIFICACIONES EN VIVO (Partes 1-17)
+   ========================================================================== */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* Badge de campana en el menú lateral (Parte 1). */
+.campana-notif {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+}
+.campana-notif__icono--animar {
+    animation: campana-agitar 0.8s ease;
+}
+.campana-notif__badge {
+    position: absolute;
+    top: -6px;
+    right: -12px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: #dc3545;
+    color: var(--white, #fff);
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+@keyframes campana-agitar {
+    0% { transform: rotate(0deg); }
+    15% { transform: rotate(-14deg); }
+    30% { transform: rotate(14deg); }
+    45% { transform: rotate(-10deg); }
+    60% { transform: rotate(10deg); }
+    80% { transform: rotate(-4deg); }
+    100% { transform: rotate(0deg); }
+}
+
+/* Toast "Nueva notificación" (Partes 2, 3, 5, 7 y 8). */
+.notificaciones-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: calc(100vh - 40px);
+    width: min(360px, calc(100vw - 24px));
+    overflow-y: auto;
+}
+@keyframes notif-toast-entrada {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes notif-toast-salida {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateY(18px); }
+}
+.notif-toast {
+    animation: notif-toast-entrada 0.3s ease forwards;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    box-shadow: var(--shadow, 0 4px 15px rgba(0,0,0,0.05));
+    border-left: 4px solid var(--primary-color);
+    background: var(--white, #ffffff);
+    color: var(--text-dark, #333333);
+}
+.notif-toast--saliendo {
+    animation: notif-toast-salida 0.3s ease forwards;
+}
+.notif-toast__campana {
+    color: var(--primary-color);
+    font-size: 1.25rem;
+    margin-top: 2px;
+}
+.notif-toast__cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+.notif-toast__titulo {
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 0.82rem;
+}
+.notif-toast__asunto {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.notif-toast__mensaje {
+    font-size: 0.82rem;
+    color: var(--text-light);
+    overflow-wrap: break-word;
+}
+.notif-toast__ver {
+    align-self: flex-start;
+    margin-top: 4px;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--primary-dark);
+    font-weight: 600;
+    cursor: pointer;
+}
+.notif-toast__ver:hover {
+    text-decoration: underline;
+}
+.notif-toast__cerrar {
+    align-self: flex-start;
+    background: transparent;
+    border: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--text-light);
+    cursor: pointer;
+}
+.notif-toast__cerrar:hover {
+    color: var(--text-dark);
+}
+
+@media (max-width: 640px) {
+    .notificaciones-toast {
+        left: 12px;
+        right: 12px;
+        bottom: 16px;
+        width: auto;
+        max-height: calc(100vh - 32px);
+    }
+}
