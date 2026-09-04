@@ -357,12 +357,6 @@ function CalendarioInstitucional({ readOnly = false }) {
             {eventoVer.creado_por_nombre && (
               <p><strong>Creado por:</strong> {eventoVer.creado_por_nombre}</p>
             )}
-            {eventoVer.fecha_creacion && (
-              <p><strong>Fecha de creación:</strong> {eventoVer.fecha_creacion?.slice(0,16).replace('T',' ')}</p>
-            )}
-            {eventoVer.fecha_modificacion && (
-              <p><strong>Última modificación:</strong> {eventoVer.fecha_modificacion?.slice(0,16).replace('T',' ')}</p>
-            )}
             {!readOnly && (
               <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => abrirModalEditar(eventoVer)}>

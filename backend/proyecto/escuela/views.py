@@ -3658,6 +3658,12 @@ class ActaDocenteViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     serializer_class = ActaDocenteSerializer
     permission_classes = [IsAuthenticated, PuedeGestionarActas]
 
+    def perform_create(self, serializer):
+        roles = self._roles_usuario()
+        if 'docente' in roles:
+            raise PermissionDenied("Los docentes no pueden crear actas de docentes.")
+        super().perform_create(serializer)
+
 
 class ComunicadoViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Comunicado.objects.select_related(
@@ -4649,6 +4655,13 @@ class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
         permitidos = alumnos_permitidos(self.request)
         if permitidos is not None:
             qs = qs.filter(id_alumno__in=permitidos)
+            # Si es docente, restringir a sus materias asignadas
+            doc = docente_del_usuario(self.request)
+            if doc:
+                materias_docente = CursoMateria.objects.filter(
+                    id_docente=doc, activo=True, estado=True
+                ).values_list('id_materia', flat=True)
+                qs = qs.filter(id_materia__in=materias_docente)
         alumno = self.request.query_params.get('alumno')
         tipo = self.request.query_params.get('tipo')
         estado = self.request.query_params.get('estado')
@@ -4891,7 +4904,21 @@ class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
 class RendicionMateriaAdeudadaViewSet(viewsets.ModelViewSet):
     queryset = RendicionMateriaAdeudada.objects.all()
     serializer_class = RendicionMateriaAdeudadaSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    permission_classes = [IsAuthenticated, PuedeGestionarAmbitoDocente]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitidos = alumnos_permitidos(self.request)
+        if permitidos is not None:
+            qs = qs.filter(id_alumno__in=permitidos)
+            # Si es docente, restringir a sus materias asignadas
+            doc = docente_del_usuario(self.request)
+            if doc:
+                materias_docente = CursoMateria.objects.filter(
+                    id_docente=doc, activo=True, estado=True
+                ).values_list('id_materia', flat=True)
+                qs = qs.filter(id_materia__in=materias_docente)
+        return qs
 
 
 class HistorialCursoAlumnoViewSet(viewsets.ModelViewSet):

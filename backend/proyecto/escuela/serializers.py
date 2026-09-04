@@ -2000,6 +2000,7 @@ TABLAS_MODIFICADAS_LABEL = {
 
 class HistorialCambioSerializer(serializers.ModelSerializer):
     usuario_nombre = serializers.CharField(source='id_usuario.usuario', read_only=True)
+    usuario_nombre_completo = serializers.SerializerMethodField()
     accion = serializers.CharField(source='id_tipo_accion.nombre_accion', read_only=True)
     roles_usuario = serializers.SerializerMethodField()
     tabla_label = serializers.SerializerMethodField()
@@ -2011,6 +2012,7 @@ class HistorialCambioSerializer(serializers.ModelSerializer):
             'id_historial',
             'id_usuario',
             'usuario_nombre',
+            'usuario_nombre_completo',
             'roles_usuario',
             'id_tipo_accion',
             'accion',
@@ -2022,6 +2024,50 @@ class HistorialCambioSerializer(serializers.ModelSerializer):
             'fecha',
             'fecha_formateada',
         ]
+
+    def get_usuario_nombre_completo(self, obj):
+        """Devuelve el nombre completo (apellido, nombre) del usuario responsable.
+        Busca en Preceptor, Docente, Directivo, PadreTutor, Alumno según corresponda."""
+        usuario = obj.id_usuario
+        if not usuario:
+            return None
+        # Preceptor
+        try:
+            preceptor = usuario.preceptor
+        except Preceptor.DoesNotExist:
+            preceptor = None
+        if preceptor:
+            return f'{preceptor.apellido}, {preceptor.nombre}'
+        # Docente
+        try:
+            docente = usuario.docente
+        except Docente.DoesNotExist:
+            docente = None
+        if docente:
+            return f'{docente.apellido}, {docente.nombre}'
+        # Directivo (Administrador/Director)
+        try:
+            directivo = usuario.directivo
+        except Directivo.DoesNotExist:
+            directivo = None
+        if directivo:
+            return f'{directivo.apellido}, {directivo.nombre}'
+        # Padre/Tutor
+        try:
+            tutor = usuario.padretutor
+        except PadreTutor.DoesNotExist:
+            tutor = None
+        if tutor:
+            return f'{tutor.apellido}, {tutor.nombre}'
+        # Alumno
+        try:
+            alumno = usuario.alumno
+        except Alumno.DoesNotExist:
+            alumno = None
+        if alumno:
+            return f'{alumno.apellido}, {alumno.nombre}'
+        # Fallback al username
+        return usuario.usuario
 
     def get_roles_usuario(self, obj):
         roles = obj.id_usuario.usuariorol_set.all()

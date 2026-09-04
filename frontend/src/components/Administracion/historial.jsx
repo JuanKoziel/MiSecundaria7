@@ -96,12 +96,15 @@ function Historial({ ocultarRegistro = false }) {
     cargar(params);
   };
 
-  const nombreUsuario = (id) => {
-    const u = usuarios.find((us) => us.id_usuario === id);
-    if (!u) return `#${id}`;
-    // Si el usuario tiene nombre y apellido (vienen del serializer de Usuarios), usarlos
-    if (u.nombre && u.apellido) return `${u.apellido}, ${u.nombre}`;
+  const nombreUsuario = (h) => {
+    // Usar el nombre completo del backend si está disponible
+    if (h.usuario_nombre_completo) return h.usuario_nombre_completo;
     // Fallback al username
+    if (h.usuario_nombre) return h.usuario_nombre;
+    // Fallback a búsqueda local
+    const u = usuarios.find((us) => us.id_usuario === h.id_usuario);
+    if (!u) return `#${h.id_usuario}`;
+    if (u.nombre && u.apellido) return `${u.apellido}, ${u.nombre}`;
     return u.usuario;
   };
 
@@ -123,7 +126,9 @@ function Historial({ ocultarRegistro = false }) {
           <select id="hist-usuario" value={filtros.usuario_id} onChange={(e) => filtrar('usuario_id', e.target.value)}>
             <option value="">Todos</option>
             {usuarios.map((u) => (
-              <option key={u.id_usuario} value={u.id_usuario}>{u.usuario}</option>
+              <option key={u.id_usuario} value={u.id_usuario}>
+                {(u.nombre && u.apellido) ? `${u.apellido}, ${u.nombre}` : u.usuario}
+              </option>
             ))}
           </select>
         </div>
@@ -187,7 +192,7 @@ function Historial({ ocultarRegistro = false }) {
               registros.map((h) => (
                 <tr key={h.id_historial}>
                   <td className="nowrap">{h.fecha_formateada || h.fecha}</td>
-                  <td>{h.usuario_nombre || nombreUsuario(h.id_usuario)}</td>
+                  <td>{nombreUsuario(h)}</td>
                   <td>
                     {(h.roles_usuario || []).length > 0
                       ? h.roles_usuario.map((r) => {

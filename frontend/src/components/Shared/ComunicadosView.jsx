@@ -42,6 +42,22 @@ function comunicadoMatchesCurso(comunicado, cursoObj) {
   return alcances.some((alcance) => comunicadoMatchesAlcance(cursoObj, alcance));
 }
 
+function comunicadoEstaVigente(comunicado, aniosLectivos) {
+  const alcances = getAlcances(comunicado);
+  if (!alcances.length) return true; // Sin alcance = general, siempre vigente
+
+  const anioActual = aniosLectivos.length > 0 ? Math.max(...aniosLectivos) : new Date().getFullYear();
+
+  return alcances.some((alcance) => {
+    const cicloId = alcance.id_ciclo;
+    if (!cicloId) return true; // Sin ciclo específico = vigente
+
+    const ciclo = aniosLectivos.find((c) => Number(c.id_ciclo) === Number(cicloId));
+    if (!ciclo) return true; // Ciclo no encontrado = asumir vigente
+    return Number(ciclo.anio) >= anioActual;
+  });
+}
+
 function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
   const {
     comunicados,
@@ -51,6 +67,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
     docentes,
     padresTutores,
     preceptores,
+    aniosLectivos,
   } = useData();
   const { user } = useAuth();
 
@@ -66,7 +83,9 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
         const miAlumno = alumnos.find((a) => a.id_usuario === userId);
         const miCurso = miAlumno ? cursosObj.find((c) => c.id_curso === miAlumno.id_curso) : null;
         if (!miCurso) return [];
-        return comunicados.filter((c) => comunicadoMatchesCurso(c, miCurso));
+        return comunicados
+          .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
+          .filter((c) => comunicadoMatchesCurso(c, miCurso));
       }
 
       case 'familia': {
@@ -74,7 +93,9 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
           const alumno = alumnos.find((a) => a.id === selectedChild.alumnoId);
           const cursoObj = alumno ? cursosObj.find((c) => c.id_curso === alumno.id_curso) : null;
           if (!cursoObj) return [];
-          return comunicados.filter((c) => comunicadoMatchesCurso(c, cursoObj));
+          return comunicados
+            .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
+            .filter((c) => comunicadoMatchesCurso(c, cursoObj));
         }
 
         const miTutor = padresTutores.find((pt) => pt.id_usuario === userId);
@@ -83,7 +104,9 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
         const cursosHijos = misHijos
           .map((h) => cursosObj.find((c) => c.id_curso === h.id_curso))
           .filter(Boolean);
-        return comunicados.filter((c) => cursosHijos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
+        return comunicados
+          .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
+          .filter((c) => cursosHijos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
       }
 
       case 'docente': {
@@ -91,20 +114,22 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
         if (!miDocente) return [];
         const misAsignaciones = cursoMateria.filter((cm) => cm.id_docente === miDocente.id);
 
-        const filteredByPermission = comunicados.filter((c) => {
-          if (!misAsignaciones.length) return false;
-          const alcances = getAlcances(c);
-          return misAsignaciones.some((cm) => {
-            const cursoObj = cursosObj.find((curso) => curso.id_curso === cm.id_curso);
-            return alcances.some((alcance) => {
-              if (!comunicadoMatchesAlcance(cursoObj, alcance)) return false;
-              if (alcance?.id_materia !== null && alcance?.id_materia !== undefined) {
-                return Number(alcance.id_materia) === Number(cm.id_materia);
-              }
-              return true;
+        const filteredByPermission = comunicados
+          .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
+          .filter((c) => {
+            if (!misAsignaciones.length) return false;
+            const alcances = getAlcances(c);
+            return misAsignaciones.some((cm) => {
+              const cursoObj = cursosObj.find((curso) => curso.id_curso === cm.id_curso);
+              return alcances.some((alcance) => {
+                if (!comunicadoMatchesAlcance(cursoObj, alcance)) return false;
+                if (alcance?.id_materia !== null && alcance?.id_materia !== undefined) {
+                  return Number(alcance.id_materia) === Number(cm.id_materia);
+                }
+                return true;
+              });
             });
           });
-        });
 
         if (cursoSeleccionado) {
           const cursoSeleccionadoObj = cursosObj.find((c) => c.id_curso === Number(cursoSeleccionado));
@@ -118,24 +143,28 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
         const miPreceptor = preceptores.find((p) => p.id_usuario === userId);
         if (!miPreceptor) return [];
         const misCursos = cursosObj.filter((c) => c.id_preceptor === miPreceptor.id_preceptor);
-        return comunicados.filter((c) => misCursos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
+        return comunicados
+          .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
+          .filter((c) => misCursos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
       }
 
       case 'jefe_preceptores': {
         const miPreceptor = preceptores.find((p) => p.id_usuario === userId);
-        if (!miPreceptor) return comunicados;
+        if (!miPreceptor) return comunicados.filter((c) => comunicadoEstaVigente(c, aniosLectivos));
         const misCursos = cursosObj.filter((c) => c.id_preceptor === miPreceptor.id_preceptor);
-        if (misCursos.length === 0) return comunicados;
-        return comunicados.filter((c) => misCursos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
+        if (misCursos.length === 0) return comunicados.filter((c) => comunicadoEstaVigente(c, aniosLectivos));
+        return comunicados
+          .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
+          .filter((c) => misCursos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
       }
 
       case 'admin':
-        return comunicados;
+        return comunicados.filter((c) => comunicadoEstaVigente(c, aniosLectivos));
 
       default:
         return [];
     }
-  }, [comunicados, user, userRole, alumnos, cursoMateria, cursosObj, docentes, padresTutores, preceptores, selectedChild, cursoSeleccionado]);
+  }, [comunicados, user, userRole, alumnos, cursoMateria, cursosObj, docentes, padresTutores, preceptores, selectedChild, cursoSeleccionado, aniosLectivos]);
 
   const comunicadosOrdenados = useMemo(() => {
     return [...comunicadosFiltrados].sort((a, b) => {

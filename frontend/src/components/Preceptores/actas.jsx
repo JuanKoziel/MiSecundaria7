@@ -168,8 +168,16 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
       user.roles.includes('preceptor') ||
       user.roles.includes('jefe_preceptores'));
 
+  const esDocente = Array.isArray(user?.roles) && user.roles.includes('docente');
+
   const canEditActa = (acta) => {
     if (esAdminODirector) return true;
+    return acta.id_usuario_creador != null && acta.id_usuario_creador === user?.id;
+  };
+
+  const canEditActaDocente = (acta) => {
+    if (esAdminODirector) return true;
+    if (esDocente) return false; // Docentes no pueden editar actas de docentes
     return acta.id_usuario_creador != null && acta.id_usuario_creador === user?.id;
   };
 
@@ -529,7 +537,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
                             ) : '—'}
                           </td>
                           <td>
-                            {canEditActa(acta) && (
+                            {canEditActaDocente(acta) && (
                               <>
                                 <button type="button" className="btn btn-sm btn-secondary" onClick={() => startEdit(acta, 'docente')}>
                                   <i className="fas fa-edit" aria-hidden="true" />

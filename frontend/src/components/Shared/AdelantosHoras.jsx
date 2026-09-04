@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
-import { getAdelantosHoras, createAdelantoHoras, updateAdelantoHoras, deleteAdelantoHoras } from '../../services/api';
+import { getAdelantosHoras, createAdelantoHoras, updateAdelantoHoras, deleteAdelantoHoras, getSuplencias } from '../../services/api';
 import FormModal from './FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingSpinner from './LoadingSpinner';
+import { suplenciasActivasEnFecha } from '../../utils/suplencias';
 
 const formVacio = {
   id_docente: '',
@@ -289,18 +290,25 @@ function GestionAdelantosHoras({ readOnly = false }) {
   const [formData, setFormData] = useState(formVacio);
   const [guardando, setGuardando] = useState(false);
   const [soloActivos, setSoloActivos] = useState(true);
+  const [suplencias, setSuplencias] = useState([]);
 
   const cargar = async () => {
     setCargando(true);
     try {
-      const data = await getAdelantosHoras(soloActivos ? { estado: 1 } : {});
-      setAdelantos(Array.isArray(data) ? data : []);
+      const [adelantosData, suplenciasData] = await Promise.all([
+        getAdelantosHoras(soloActivos ? { estado: 1 } : {}),
+        getSuplencias(),
+      ]);
+      setAdelantos(Array.isArray(adelantosData) ? adelantosData : []);
+      setSuplencias(Array.isArray(suplenciasData) ? suplenciasData : []);
     } catch (err) {
       toast.error(mensajeError(err));
     } finally {
       setCargando(false);
     }
   };
+
+  const mapaSuplencias = useMemo(() => suplenciasActivasEnFecha(suplencias), [suplencias]);
 
   useEffect(() => {
     cargar();
@@ -449,14 +457,6 @@ function GestionAdelantosHoras({ readOnly = false }) {
             <tr>
               <th>Curso / División</th>
               <th>Materia</th>
-              <th>Docente</th>
-              <th>Fecha</th>
-              <th>Horario</th>
-              <th>Módulos</th>
-              <th>Horario original</th>
-              <th>Motivo</th>
-              <th>Autorizado por</th>
-              <th>Estado</th>
               {!readOnly && <th>Acciones</th>}
             </tr>
           </thead>
@@ -466,48 +466,56 @@ function GestionAdelantosHoras({ readOnly = false }) {
             ) : adelantos.length === 0 ? (
               <tr><td colSpan={!readOnly ? 11 : 10} className="empty-state-message">No hay adelantos de horas registrados.</td></tr>
             ) : (
-              adelantos.map((a) => (
-                <Fragment key={a.id_adelanto}>
-                  <tr>
-                    <td>{a.curso_nombre || '—'}</td>
-                    <td>{a.materia_nombre || '—'}</td>
-                    <td>{a.docente_nombre || '—'}</td>
-                    <td>{fmtFecha(a.fecha_adelanto)}</td>
-                    <td>
-                      {a.hora_inicio ? `${String(a.hora_inicio).slice(0, 5)} a ${String(a.hora_fin).slice(0, 5)}` : '—'}
-                    </td>
-                    <td>
-                      {Array.isArray(a.modulos_detalle) && a.modulos_detalle.length > 0
-                        ? a.modulos_detalle.map((m) => m.nombre).join(', ')
-                        : '—'}
-                    </td>
-                    <td>
-                      <span className={`badge ${a.mantener_horario_original ? 'badge-success' : 'badge-warning'}`}>
-                        {a.mantener_horario_original ? 'Se mantiene' : 'Cancelado'}
-                      </span>
-                    </td>
-                    <td>{a.motivo || '—'}</td>
-                    <td>{a.autorizador_nombre || '—'}</td>
-                    <td>{badgeEstado(a)}</td>
-                    {!readOnly && (
-                      <td className="acciones-cell flex-row--center">
-                        {a.estado ? (
-                          <div>
-                            {!a.finalizado && (
-                              <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(a)} aria-label="Modificar adelanto" title="Modificar"><i className="fas fa-edit" aria-hidden="true" /></button>
-                            )}
-                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(a)} aria-label="Eliminar adelanto" title="Eliminar"><i className="fas fa-trash-alt" aria-hidden="true" /></button>
-                          </div>
-                        ) : (
-                          <div>
-                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(a)} aria-label="Eliminar adelanto" title="Eliminar"><i className="fas fa-trash-alt" aria-hidden="true" /></button>
-                          </div>
-                        )}
+              adelantos.map((a) => {
+                // Buscar suplencia activa para este adelanto (curso + materia)
+                const suplencia = mapaSuplencias[a.id_curso_materia] || null;
+                const docenteEsSuplente = suplencia && suplencia.id_docente_suplente === a.id_docente;
+                const nombreDocente = docenteEsSuplente
+                  ? `${a.docente_nombre || '—'} <span className="badge badge-warning" style={{ marginLeft: '6px', fontSize: '0.7rem' }}>Suplente</span>`
+                  : (a.docente_nombre || '—');
+                return (
+                  <Fragment key={a.id_adelanto}>
+                    <tr>
+                      <td>{a.curso_nombre || '—'}</td>
+                      <td>{a.materia_nombre || '—'}</td>
+                      <td dangerouslySetInnerHTML={{ __html: nombreDocente }} />
+                      <td>{fmtFecha(a.fecha_adelanto)}</td>
+                      <td>
+                        {a.hora_inicio ? `${String(a.hora_inicio).slice(0, 5)} a ${String(a.hora_fin).slice(0, 5)}` : '—'}
                       </td>
-                    )}
-                  </tr>
-                </Fragment>
-              ))
+                      <td>
+                        {Array.isArray(a.modulos_detalle) && a.modulos_detalle.length > 0
+                          ? a.modulos_detalle.map((m) => m.nombre).join(', ')
+                          : '—'}
+                      </td>
+                      <td>
+                        <span className={`badge ${a.mantener_horario_original ? 'badge-success' : 'badge-warning'}`}>
+                          {a.mantener_horario_original ? 'Se mantiene' : 'Cancelado'}
+                        </span>
+                      </td>
+                      <td>{a.motivo || '—'}</td>
+                      <td>{a.autorizador_nombre || '—'}</td>
+                      <td>{badgeEstado(a)}</td>
+                      {!readOnly && (
+                        <td className="acciones-cell flex-row--center">
+                          {a.estado ? (
+                            <div>
+                              {!a.finalizado && (
+                                <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(a)} aria-label="Modificar adelanto" title="Modificar"><i className="fas fa-edit" aria-hidden="true" /></button>
+                              )}
+                              <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(a)} aria-label="Eliminar adelanto" title="Eliminar"><i className="fas fa-trash-alt" aria-hidden="true" /></button>
+                            </div>
+                          ) : (
+                            <div>
+                              <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(a)} aria-label="Eliminar adelanto" title="Eliminar"><i className="fas fa-trash-alt" aria-hidden="true" /></button>
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
