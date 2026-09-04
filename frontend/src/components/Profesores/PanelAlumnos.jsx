@@ -322,7 +322,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
     }
     try {
       await Promise.all(promesas);
-      toast.success('Notas de previas guardadas exitosamente.');
+      toast.success('Calificaciones de previas guardadas exitosamente.');
       setPreviaNotas({});
       setPreviaAnios({});
       await cargarPrevias();
@@ -388,7 +388,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
       }
 
       await Promise.all(promises);
-      toast.success('Notas guardadas exitosamente.');
+      toast.success('Calificaciones guardadas exitosamente.');
       await refreshData();
     } catch (err) {
       const detail = err.response?.data;
@@ -405,7 +405,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
         <h3>Planilla de Calificaciones — {cursoNombre} &gt; {materiaNombre}</h3>
         {puedeEditar && (
           <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
-            <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Notas'}
+            <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Calificaciones'}
           </button>
         )}
       </div>
@@ -606,7 +606,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
           <h3>Previas</h3>
           {puedeEditar && previas.length > 0 && (
             <button type="button" className="btn btn-primary" onClick={handleGuardarPrevias}>
-              <i className="fas fa-save" aria-hidden="true" /> Guardar Notas de Previas
+              <i className="fas fa-save" aria-hidden="true" /> Guardar Calificaciones de Previas
             </button>
           )}
         </div>

@@ -4455,18 +4455,27 @@ def _nota_cuatrimestre(historial, orden):
 
 
 def _intensif_por_tipo(instancias, tipo):
+    """Devuelve la primera instancia del tipo indicado (compatibilidad)."""
     for ins in instancias:
         if _tipo_intensif(ins.periodo) == tipo:
             return ins
     return None
 
 
+def _intensif_alguna_desaprobada(instancias, tipo):
+    """Verifica si ALGUNA instancia del tipo indicado está DESAPROBADA."""
+    for ins in instancias:
+        if _tipo_intensif(ins.periodo) == tipo and ins.estado == 'DESAPROBADA':
+            return True
+    return False
+
+
 def _intensif_habilitada(instancia):
     """Reglas académicas de habilitación de intensificaciones:
     - 1°C habilitada  -> desaprobó el Primer Cuatrimestre.
     - Diciembre habilitado -> desaprobó el Segundo Cuatrimestre
-                             O desaprobó la Intensificación 1°C.
-    - Febrero habilitado -> desaprobó la Intensificación de Diciembre.
+                             O ALGUNA Intensificación 1°C está DESAPROBADA.
+    - Febrero habilitado -> ALGUNA Intensificación de Diciembre está DESAPROBADA.
     Todo comienza bloqueado: sin condición cumplida, NO se habilita.
     """
     historial = instancia.id_historial
@@ -4479,12 +4488,10 @@ def _intensif_habilitada(instancia):
         return n1 is not None and n1 < NOTA_APROBACION
     if tipo == 'DICIEMBRE':
         n2 = _nota_cuatrimestre(historial, 2)
-        intensif_1c = _intensif_por_tipo(hermanas, '1C')
-        desaprobo_1c = intensif_1c is not None and intensif_1c.estado == 'DESAPROBADA'
+        desaprobo_1c = _intensif_alguna_desaprobada(hermanas, '1C')
         return (n2 is not None and n2 < NOTA_APROBACION) or desaprobo_1c
     if tipo == 'FEBRERO':
-        intensif_dic = _intensif_por_tipo(hermanas, 'DICIEMBRE')
-        return intensif_dic is not None and intensif_dic.estado == 'DESAPROBADA'
+        return _intensif_alguna_desaprobada(hermanas, 'DICIEMBRE')
     return False
 
 

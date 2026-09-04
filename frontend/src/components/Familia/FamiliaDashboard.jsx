@@ -21,7 +21,6 @@ import { viewDesdeDestino } from '../../utils/navDestinos';
 function FamiliaDashboard({ user, onLogout }) {
   const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj, navIntent, navegarDesdeNotificacion } = useData();
   const [view, setView] = useState('perfil');
-  const [hijoId, setHijoId] = useState(() => hijos.length > 0 ? String(hijos[0].id) : '');
 
   const miTutor = useMemo(
     () => padresTutores.find((pt) => pt.id_usuario === user?.id) || null,
@@ -42,6 +41,8 @@ function FamiliaDashboard({ user, onLogout }) {
       };
     });
   }, [hijosFamilia, getAlumnoById, nombreCompleto, miTutor]);
+
+  const [hijoId, setHijoId] = useState(() => hijos.length > 0 ? String(hijos[0].id) : '');
 
   // Parte 8: manejar navegación desde notificaciones.
   // Traduce el destino semántico a una vista válida del dashboard de familia y,

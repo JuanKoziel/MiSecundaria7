@@ -128,7 +128,7 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
 
     setLoadingAct(true);
     try {
-      let archivoUrl = archivoActual;
+      let archivoUrl = archivoActual || '';
       if (archivo) {
         archivoUrl = (await uploadFile(archivo, 'materias_adeudadas')).url;
       }

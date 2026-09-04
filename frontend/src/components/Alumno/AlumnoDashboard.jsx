@@ -4,6 +4,7 @@ import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
+import AsistenciasUnificada from '../Shared/AsistenciasUnificada';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
@@ -12,7 +13,6 @@ import BoletinExtras from '../BoletinExtras';
 import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
-import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
 import PanelAlumno from './PanelAlumno';
 import PanelPreviasAlumno from './PanelPreviasAlumno';
 import Sidebar from './Sidebar';
@@ -268,38 +268,11 @@ function AlumnoDashboard({ user, onLogout }) {
 
             {view === 'asistencias' && (
               <div className="card">
-                <div className="card-header-flex">
-                  <h3>Mis Asistencias</h3>
-                  <span className="badge role-badge-display">Solo lectura</span>
-                </div>
-
-                <div className="flex-gap-16--wrap mb-16">
-                  <div className="asistencia-badge ausencias">
-                    <strong>{resumenAsistencia.ausencias}</strong> Inasistencias
-                  </div>
-                  <div className="asistencia-badge tardanzas">
-                    <strong>{resumenAsistencia.tardanzas}</strong> Tardanzas
-                  </div>
-                  <div className="asistencia-badge presentes">
-                    <strong>{resumenAsistencia.presentes}</strong> Presentes
-                  </div>
-                </div>
-
-                <div className="card mt-16">
-                  <div className="card-header-flex">
-                    <h3>Historial</h3>
-                  </div>
-
-                  {miAlumno ? (
-                    <AsistenciaMateriaDetalle
-                      alumnoId={miAlumno.id}
-                      cursoMateria={cursoMateria}
-                      idCurso={miAlumno.id_curso}
-                    />
-                  ) : (
-                    <p className="empty-state-message">No se pudo identificar al estudiante.</p>
-                  )}
-                </div>
+                <AsistenciasUnificada
+                  alumnoId={miAlumno.id}
+                  cursoMateria={cursoMateria}
+                  idCurso={miAlumno.id_curso}
+                />
               </div>
             )}
           </div>

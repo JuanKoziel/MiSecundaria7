@@ -34,20 +34,21 @@ export function clampNota(value) {
 
 // Reglas académicas de habilitación (TODO bloqueado por defecto):
 //  1°C  habilitado <=> desaprobó el Primer Cuatrimestre.
-//  Dic  habilitado <=> desaprobó el Segundo Cuatrimestre O desaprobó 1°C.
-//  Feb  habilitado <=> desaprobó la Intensificación de Diciembre.
+//  Dic  habilitado <=> desaprobó el Segundo Cuatrimestre O ALGUNA 1°C está DESAPROBADA.
+//  Feb  habilitado <=> ALGUNA Intensificación de Diciembre está DESAPROBADA.
 export function tiposIntensifHabilitados(nota1, nota2, instancias) {
-  const estadoTipo = {};
+  const estadoTipo = { '1C': [], DICIEMBRE: [], FEBRERO: [] };
   (instancias || []).forEach((ins) => {
-    if (ins.estado && TIPO_POR_BUCKET[BUCKET_POR_PERIODO[ins.periodo]]) {
-      estadoTipo[TIPO_POR_BUCKET[BUCKET_POR_PERIODO[ins.periodo]]] = ins.estado;
+    const tipo = TIPO_POR_BUCKET[BUCKET_POR_PERIODO[ins.periodo]];
+    if (ins.estado && tipo) {
+      estadoTipo[tipo].push(ins.estado);
     }
   });
 
   const hab1c = nota1 != null && nota1 < NOTA_APROBACION;
   const habDic =
-    (nota2 != null && nota2 < NOTA_APROBACION) || estadoTipo['1C'] === 'DESAPROBADA';
-  const habFeb = estadoTipo['DICIEMBRE'] === 'DESAPROBADA';
+    (nota2 != null && nota2 < NOTA_APROBACION) || estadoTipo['1C'].includes('DESAPROBADA');
+  const habFeb = estadoTipo['DICIEMBRE'].includes('DESAPROBADA');
 
   return {
     '1C': hab1c,

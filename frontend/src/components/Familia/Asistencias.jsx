@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
+import AsistenciasUnificada from '../Shared/AsistenciasUnificada';
 
 function Asistencias({ hijo }) {
   const { alumnos, cursoMateria } = useData();
@@ -12,25 +12,20 @@ function Asistencias({ hijo }) {
 
   return (
     <div className="card">
-      <div className="card-header-flex">
-        <h3>Historial de Asistencias — {hijo.nombre}</h3>
-      </div>
-
-      <div className="card mt-16">
-        <div className="card-header-flex">
-          <h3>Historial</h3>
-        </div>
-
-        {alumno ? (
-          <AsistenciaMateriaDetalle
-            alumnoId={alumno.id}
-            cursoMateria={cursoMateria}
-            idCurso={alumno.id_curso}
-          />
-        ) : (
+      {alumno ? (
+        <AsistenciasUnificada
+          alumnoId={alumno.id}
+          cursoMateria={cursoMateria}
+          idCurso={alumno.id_curso}
+        />
+      ) : (
+        <>
+          <div className="card-header-flex">
+            <h3>Historial de Asistencias — {hijo.nombre}</h3>
+          </div>
           <p className="empty-state-message">No se pudo obtener la información del estudiante.</p>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }

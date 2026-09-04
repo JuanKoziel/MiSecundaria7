@@ -9,7 +9,7 @@ export const menuItems = [
   { id: 'adelantos-horas', label: 'Adelantos de Horas', icon: 'fa-forward' },
   { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },
   { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
-  { id: 'notas', label: 'Notas', icon: 'fa-clipboard-list' },
+  { id: 'notas', label: 'Calificaciones', icon: 'fa-clipboard-list' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
   { id: 'cursos', label: 'Cursos', icon: 'fa-school' },
   { id: 'materias', label: 'Materias', icon: 'fa-book' },
