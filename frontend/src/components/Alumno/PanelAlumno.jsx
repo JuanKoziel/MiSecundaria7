@@ -15,7 +15,7 @@ function StatCard({ icon, value, label, color }) {
   );
 }
 
-function PanelAlumno({ miAlumno, user }) {
+function PanelAlumno({ miAlumno, user, recursadas = [] }) {
   const { materiasPorCurso, calificacionesCompletas, asistenciasAdmin, periodos } = useData();
 
   const stats = useMemo(() => {
@@ -41,7 +41,7 @@ function PanelAlumno({ miAlumno, user }) {
       else estadoAcademico = 'En seguimiento';
     }
 
-    return { promedio, inasistencias, estadoAcademico };
+    return { promedio, inasistencias, estadoAcademico, notasCount: notasNumericas.length };
   }, [miAlumno, calificacionesCompletas, asistenciasAdmin]);
 
   if (!miAlumno) {
@@ -54,7 +54,6 @@ function PanelAlumno({ miAlumno, user }) {
     );
   }
 
-  const division = miAlumno.curso ? miAlumno.curso.split('°')[1] || '' : '';
   const materiasDelCurso = materiasPorCurso[miAlumno.curso] || [];
 
   return (
@@ -105,55 +104,41 @@ function PanelAlumno({ miAlumno, user }) {
 
       <div className="stats-grid">
         {miAlumno.curso && <StatCard icon="fa-users" value={cursoConOrientacion(miAlumno.curso)} label="Curso actual" />}
-        <StatCard icon="fa-layer-group" value={division || '—'} label="División" />
         <StatCard icon="fa-calendar" value={miAlumno.ciclo_anio || '—'} label="Ciclo lectivo" />
         <StatCard icon="fa-book" value={materiasDelCurso.length} label="Materias" />
-        <StatCard icon="fa-star" value={stats.promedio ?? 'Sin info'} label="Promedio general" />
+        {stats.notasCount >= 3 && <StatCard icon="fa-star" value={stats.promedio} label="Promedio general" />}
         <StatCard icon="fa-calendar-times" value={stats.inasistencias} label="Inasistencias" color={stats.inasistencias > 10 ? '#b91c1c' : stats.inasistencias > 5 ? '#e65100' : '#15803d'} />
-        <StatCard
-          icon={stats.estadoAcademico === 'Promocionado' ? 'fa-check-circle' : stats.estadoAcademico === 'Regular' ? 'fa-minus-circle' : stats.estadoAcademico === 'En seguimiento' ? 'fa-exclamation-circle' : 'fa-question-circle'}
-          value={stats.estadoAcademico}
-          label="Estado académico"
-          color={stats.estadoAcademico === 'Promocionado' ? '#15803d' : stats.estadoAcademico === 'Regular' ? '#e65100' : '#b91c1c'}
-        />
       </div>
 
-      <div className="info-box mb-28">
-        <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
-        Desde este perfil puede consultar calificaciones, asistencias, horarios, comunicados y toda su información académica.
-      </div>
+      {recursadas && recursadas.length > 0 && (
+      <>
+        <div className="card-header-flex">
+          <h4>Cursando (Recursada)</h4>
+        </div>
 
-      <div className="card-header-flex">
-        <h4>Cursando</h4>
-      </div>
-
-      <div className="table-responsive mt-10">
-        <table>
-          <thead>
-            <tr>
-              <th className="text-left">Curso / División</th>
-              <th>Año Lectivo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {miAlumno.curso ? (
+        <div className="table-responsive mt-10">
+          <table>
+            <thead>
               <tr>
-                <td className="text-left font-bold">
-                  <i className="fas fa-users icon-muted" aria-hidden="true" />
-                  {cursoConOrientacion(miAlumno.curso)}
-                </td>
-                <td className="text-muted">{miAlumno.ciclo_anio || '—'}</td>
+                <th className="text-left">Curso / División</th>
+                <th>Año Lectivo</th>
               </tr>
-            ) : (
-              <tr>
-                <td colSpan={2} className="empty-state-message">
-                  No está asignado a ningún curso.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {recursadas.map((r) => (
+                <tr key={r.id_curso || r.id || r.curso}>
+                  <td className="text-left font-bold">
+                    <i className="fas fa-users icon-muted" aria-hidden="true" />
+                    {r.curso || r.curso_nombre || 'Curso en recursada'}
+                  </td>
+                  <td className="text-muted">{r.ciclo_anio || r.anio || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    )}
     </div>
   );
 }

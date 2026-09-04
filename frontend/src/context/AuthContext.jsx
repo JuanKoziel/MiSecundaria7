@@ -12,12 +12,16 @@ const ROL_STORAGE_PREFIX = 'rol_activo_';
 
 function buildUser(data, rolActivo) {
   const roles = Array.isArray(data.roles) ? data.roles : [];
+  const perfil = data.perfil || {};
   return {
     id: data.id_usuario,
     id_usuario: data.id_usuario,
     username: data.usuario,
     roles,
     role: rolActivo || '',
+    nombreCompleto: perfil.nombre_completo || null,
+    nombre: perfil.nombre || null,
+    apellido: perfil.apellido || null,
   };
 }
 

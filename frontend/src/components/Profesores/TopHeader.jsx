@@ -1,6 +1,7 @@
-function TopHeader({ cursoSeleccionado, materiaSeleccionada, user }) {
+function TopHeader({ cursoSeleccionado, materiaSeleccionada, user, nombreCompleto }) {
   const inicial = user?.username ? user.username.charAt(0) : 'U';
   const rol = user?.role ? user.role.toUpperCase() : 'DOCENTE';
+  const saludo = nombreCompleto ? `Bienvenido, ${nombreCompleto}` : `Bienvenido, ${user?.username ?? 'Usuario'}`;
 
   let subtitulo = 'Panel de Gestión Docente — seleccioná curso y materia';
   if (cursoSeleccionado) {
@@ -8,7 +9,7 @@ function TopHeader({ cursoSeleccionado, materiaSeleccionada, user }) {
     if (materiaSeleccionada) {
       subtitulo = (
         <div>
-          {cursoSeleccionado} &gt; <span className="font-accent">{materiaSeleccionada}</span>
+          {cursoSeleccionado} {' > '} <span className="font-accent">{materiaSeleccionada}</span>
         </div>
       );
     }
@@ -17,7 +18,7 @@ function TopHeader({ cursoSeleccionado, materiaSeleccionada, user }) {
   return (
     <header className="main-header">
       <div>
-        <h2>Bienvenido, {user?.username ?? 'Usuario'}</h2>
+        <h2>{saludo}</h2>
         <p className="main-header-subtitle">{subtitulo}</p>
       </div>
       <div className="user-profile-info">

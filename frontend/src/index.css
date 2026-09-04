@@ -3308,3 +3308,357 @@ tbody tr:last-child td {
         max-height: calc(100vh - 32px);
     }
 }
+
+/* ==========================================================================
+   DDJJ (Declaración Jurada) - Panel Docente
+   ========================================================================== */
+.ddjj-card {
+    background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.3s ease, border-left-color 0.3s ease;
+}
+
+.ddjj-card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.ddjj-icon-wrapper {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.ddjj-icon-wrapper.ddjj-presentada {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+    box-shadow: 0 2px 8px rgba(21, 87, 36, 0.25);
+}
+
+.ddjj-icon-wrapper.ddjj-pendiente {
+    background: linear-gradient(135deg, #fde2e2 0%, #fecaca 100%);
+    color: #991b1b;
+    box-shadow: 0 2px 8px rgba(153, 27, 27, 0.25);
+}
+
+.ddjj-badge {
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    font-weight: 600;
+    gap: 6px;
+}
+
+.ddjj-content {
+    padding: 24px 28px;
+    background: var(--white);
+}
+
+.ddjj-upload-section {
+    text-align: center;
+    padding: 32px 24px;
+    background: linear-gradient(135deg, #fff8f0 0%, #fff3e6 100%);
+    border-radius: 10px;
+    border: 2px dashed var(--primary-color);
+}
+
+.ddjj-upload-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: var(--white);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 16px rgba(253, 126, 20, 0.3);
+}
+
+.ddjj-upload-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.ddjj-upload-text {
+    margin: 0 0 20px;
+    color: var(--text-light);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.ddjj-upload-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.ddjj-upload-actions .btn-lg {
+    padding: 14px 28px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(253, 126, 20, 0.3);
+}
+
+.ddjj-upload-actions .btn-lg:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(253, 126, 20, 0.4);
+}
+
+.ddjj-presentada-section {
+    text-align: center;
+    padding: 28px 24px;
+    background: linear-gradient(135deg, #e8f5e9 0%, #d4edda 100%);
+    border-radius: 10px;
+    border: 1px solid #c3e6cb;
+}
+
+.ddjj-presentada-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.ddjj-presentada-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    box-shadow: 0 4px 16px rgba(40, 167, 69, 0.3);
+}
+
+.ddjj-presentada-title {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #155724;
+    text-align: left;
+}
+
+.ddjj-presentada-subtitle {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #2e7d32;
+    text-align: left;
+    opacity: 0.9;
+}
+
+.ddjj-presentada-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.ddjj-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.ddjj-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+}
+
+.ddjj-info-item.success {
+    background: linear-gradient(135deg, #e8f5e9 0%, #d4edda 100%);
+    border-color: #c3e6cb;
+}
+
+.ddjj-info-item.warning {
+    background: linear-gradient(135deg, #fff8f0 0%, #fff3e6 100%);
+    border-color: var(--primary-color);
+}
+
+.ddjj-info-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+.ddjj-info-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ddjj-info-value i {
+    font-size: 0.9rem;
+}
+
+.ddjj-info-item.success .ddjj-info-value {
+    color: #155724;
+}
+
+.ddjj-info-item.warning .ddjj-info-value {
+    color: #854d0e;
+}
+
+.ddjj-message {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    margin-top: 20px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    animation: fadeIn 0.3s ease;
+}
+
+.ddjj-message.success {
+    background: #e8f7ee;
+    color: #1e7e34;
+    border: 1px solid #b6e3c0;
+}
+
+.ddjj-message.error {
+    background: #fdecea;
+    color: #c0392b;
+    border: 1px solid #f5c6cb;
+}
+
+@media (max-width: 768px) {
+    .ddjj-content {
+        padding: 20px;
+    }
+    
+    .ddjj-upload-section,
+    .ddjj-presentada-section {
+        padding: 24px 16px;
+    }
+    
+    .ddjj-info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   FAMILIA - Panel Familias (Estudiantes asociados)
+   ========================================================================== */
+.familia-hijos-section {
+    background: #f8f9fa;
+    border-left: 4px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 28px;
+}
+
+.familia-hijos-title {
+    margin: 0 0 16px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.familia-hijo-card {
+    padding: 12px 0;
+    transition: background 0.2s ease;
+}
+
+.familia-hijo-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+}
+
+.familia-hijo-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.familia-hijo-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.familia-hijo-nombre {
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+}
+
+.familia-hijo-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 0.82rem;
+    color: var(--text-light);
+}
+
+.familia-hijo-meta strong {
+    color: var(--text-dark);
+}
+
+.familia-hijo-extra {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 8px;
+    margin-left: 58px;
+    border-top: 1px solid var(--border-color);
+}
+
+.familia-hijo-extra-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-light);
+}
+
+.familia-hijo-extra-item i {
+    color: var(--primary-color);
+    font-size: 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .familia-hijo-extra {
+        margin-left: 0;
+        flex-direction: column;
+        gap: 8px;
+    }
+}

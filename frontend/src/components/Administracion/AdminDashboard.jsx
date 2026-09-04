@@ -58,6 +58,7 @@ function AdminDashboard({ user, onLogout }) {
   }, []);
 
   const miDirectivo = directivos.find((d) => d.id_usuario === user?.id) || null;
+  const nombreCompletoAdmin = miDirectivo ? `${miDirectivo.apellido}, ${miDirectivo.nombre}` : null;
 
   const renderView = () => {
     switch (view) {
@@ -109,7 +110,7 @@ function AdminDashboard({ user, onLogout }) {
       <Sidebar view={view} setView={setView} onLogout={onLogout} />
 
       <main className="main-content">
-        <Header user={user} />
+        <Header user={user} nombreCompleto={nombreCompletoAdmin} />
         <div className="view-section active">{renderView()}</div>
       </main>
     </div>

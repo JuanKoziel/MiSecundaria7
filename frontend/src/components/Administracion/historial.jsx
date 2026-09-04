@@ -98,7 +98,11 @@ function Historial({ ocultarRegistro = false }) {
 
   const nombreUsuario = (id) => {
     const u = usuarios.find((us) => us.id_usuario === id);
-    return u ? u.usuario : `#${id}`;
+    if (!u) return `#${id}`;
+    // Si el usuario tiene nombre y apellido (vienen del serializer de Usuarios), usarlos
+    if (u.nombre && u.apellido) return `${u.apellido}, ${u.nombre}`;
+    // Fallback al username
+    return u.usuario;
   };
 
   return (

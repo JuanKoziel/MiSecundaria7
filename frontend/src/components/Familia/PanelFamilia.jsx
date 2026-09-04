@@ -1,4 +1,5 @@
 import { formatDNI } from '../../utils/dni';
+import { useData } from '../../context/DataContext';
 
 function StatCard({ icon, value, label, color }) {
   return (
@@ -15,6 +16,8 @@ function StatCard({ icon, value, label, color }) {
 }
 
 function PanelFamilia({ miTutor, user, hijos }) {
+  const { getAlumnoById } = useData();
+
   if (!miTutor) {
     return (
       <div className="card">
@@ -70,7 +73,7 @@ function PanelFamilia({ miTutor, user, hijos }) {
             Usuario
           </label>
           <p className="profile-value">
-            {user?.username || '—'}
+            {miTutor ? `${miTutor.apellido}, ${miTutor.nombre}` : (user?.username || '—')}
           </p>
         </div>
         <div>
@@ -89,42 +92,53 @@ function PanelFamilia({ miTutor, user, hijos }) {
       </div>
 
       {hijos.length > 0 && (
-        <div
-          style={{
-            background: '#f8f9fa',
-            borderLeft: '4px solid var(--primary-color)',
-            borderRadius: '8px',
-            padding: '16px 20px',
-            marginBottom: '28px',
-          }}
-        >
-          <strong style={{ fontSize: '0.9rem', color: '#444', display: 'block', marginBottom: '10px' }}>
+        <div className="familia-hijos-section">
+          <h4 className="familia-hijos-title">
             <i className="fas fa-users icon-primary" aria-hidden="true" />
             Estudiantes asociados
-          </strong>
-          {hijos.map((hijo, idx) => (
-            <div key={hijo.id} style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '6px 0',
-              borderBottom: idx < hijos.length - 1 ? '1px solid var(--border-color)' : 'none',
-              fontSize: '0.9rem',
-            }}>
-              <span className="font-bold">
-                <i className="fas fa-user-graduate" style={{ color: 'var(--primary-color)', marginRight: '8px', fontSize: '0.8rem' }} aria-hidden="true" />
-                {hijo.nombre}
-              </span>
-              <span className="text-muted">Curso: <strong>{hijo.curso || '—'}</strong></span>
-            </div>
-          ))}
+          </h4>
+          {hijos.map((hijo, idx) => {
+            const alumnoCompleto = getAlumnoById(hijo.alumnoId);
+            return (
+              <div key={hijo.id} className="familia-hijo-card" style={{ borderBottom: idx < hijos.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                <div className="familia-hijo-main">
+                  <div className="familia-hijo-avatar">
+                    <i className="fas fa-user-graduate" aria-hidden="true" />
+                  </div>
+                  <div className="familia-hijo-info">
+                    <span className="familia-hijo-nombre">{hijo.nombre}</span>
+                    <div className="familia-hijo-meta">
+                      <span>Curso: <strong>{hijo.curso || '—'}</strong></span>
+                      {alumnoCompleto && alumnoCompleto.dni && (
+                        <span>DNI: <strong>{formatDNI(alumnoCompleto.dni)}</strong></span>
+                      )}
+                      {alumnoCompleto && alumnoCompleto.fecha_nacimiento && (
+                        <span>Nac.: <strong>{alumnoCompleto.fecha_nacimiento}</strong></span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {alumnoCompleto && (alumnoCompleto.telefono || alumnoCompleto.direccion) && (
+                  <div className="familia-hijo-extra">
+                    {alumnoCompleto.telefono && (
+                      <span className="familia-hijo-extra-item">
+                        <i className="fas fa-phone" aria-hidden="true" />
+                        {alumnoCompleto.telefono}
+                      </span>
+                    )}
+                    {alumnoCompleto.direccion && (
+                      <span className="familia-hijo-extra-item">
+                        <i className="fas fa-map-marker-alt" aria-hidden="true" />
+                        {alumnoCompleto.direccion}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
-
-      <div className="info-box mb-28">
-        <i className="fas fa-info-circle icon-primary" aria-hidden="true" />
-        Desde aquí puede realizar el seguimiento académico de sus hijos, visualizar comunicados, asistencias y calificaciones.
-      </div>
 
     </div>
   );

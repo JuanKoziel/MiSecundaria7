@@ -35,7 +35,7 @@ function SeleccionRol() {
             <Logo />
           </div>
           <h2>MiSecundaria 7</h2>
-          <p>Hola, {user?.username}</p>
+          <p>Hola, {user?.nombreCompleto || user?.username}</p>
           <div className="rol-sin-roles">
             Tu usuario no tiene ningún rol asignado.
             <br />
@@ -57,7 +57,7 @@ function SeleccionRol() {
         </div>
         <h2>Seleccioná tu perfil</h2>
         <p className="rol-selector-saludo">
-          Hola, {user?.username}. ¿Con qué perfil querés ingresar?
+          Hola, {user?.nombreCompleto || user?.username}. ¿Con qué perfil querés ingresar?
         </p>
 
         <div className="rol-selector-grid">

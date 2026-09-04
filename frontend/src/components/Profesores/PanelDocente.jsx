@@ -137,8 +137,8 @@ function PanelDocente({ miDocente, mapSuplencias }) {
     <div className="card">
       <div className="card-header-flex card-header-flex--compact">
         <h3>Perfil del Docente</h3>
-        <span className="badge badge-presente badge--header">
-          <i className="fas fa-check-circle" aria-hidden="true" /> Activo
+        <span className={`badge badge--header ${stats.estado === 'Activo' ? 'badge-presente' : 'badge-ausente'}`}>
+          <i className={`fas ${stats.estado === 'Activo' ? 'fa-check-circle' : 'fa-exclamation-circle'}`} aria-hidden="true" /> {stats.estado}
         </span>
       </div>
 
@@ -188,77 +188,99 @@ function PanelDocente({ miDocente, mapSuplencias }) {
         <StatCard icon="fa-users" value={stats.alumnos} label="Estudiantes a cargo" />
         <StatCard icon="fa-folder-open" value={stats.proyectos} label="Proyectos creados" />
         <StatCard icon="fa-file-signature" value={stats.actas} label="Actas realizadas" />
-        <StatCard icon="fa-clock" value="—" label="Último ingreso" />
-        <StatCard
-          icon={stats.estado === 'Activo' ? 'fa-check-circle' : 'fa-exclamation-circle'}
-          value={stats.estado}
-          label="Estado de la cuenta"
-          color={stats.estado === 'Activo' ? '#15803d' : '#b91c1c'}
-        />
       </div>
 
-      <div className="info-box">
-        <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
-        Desde este panel puede administrar calificaciones, asistencias, proyectos, actas y el seguimiento académico de sus cursos.
-      </div>
+      <div className="card ddjj-card mb-28" style={{ borderLeft: ddjjPresentada ? '4px solid #15803d' : '4px solid #b91c1c' }}>
+        <div className="card-header-flex card-header-flex--compact">
+          <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className={`ddjj-icon-wrapper ${ddjjPresentada ? 'ddjj-presentada' : 'ddjj-pendiente'}`}>
+              <i className="fas fa-file-signature" aria-hidden="true" />
+            </div>
+            <span>Declaración Jurada (D.D.J.J.)</span>
+          </h4>
+          <span className={`badge ddjj-badge ${ddjjPresentada ? 'badge-success' : 'badge-danger'}`}>
+            <i className={`fas ${ddjjPresentada ? 'fa-check-circle' : 'fa-clock'}`} aria-hidden="true" />
+            {ddjjPresentada ? 'Presentada' : 'Pendiente'}
+          </span>
+        </div>
 
-      <div className="flex-row--center mb-28">
-        <div className="text-center"
-          style={{
-            width: '100%',
-            maxWidth: '720px',
-            padding: '18px',
-            border: '1px solid var(--border-color)',
-            borderRadius: '8px',
-            background: 'var(--card-bg)',
-          }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px', gap: '10px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className={`btn btn-sm ${ddjjPresentada ? 'btn-success' : 'btn-danger'}`}
-              onClick={() => {
-                if (!ddjjPresentada) {
-                  fileInputRef.current?.click();
-                }
-              }}
-              disabled={subiendo || ddjjPresentada}
-            >
-              <i className="fas fa-file-upload" aria-hidden="true" /> {ddjjPresentada ? 'D.D.J.J. presentada' : 'D.D.J.J. pendiente'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-secondary"
-              onClick={() => window.open(archivoHref, '_blank', 'noopener,noreferrer')}
-              disabled={!archivoHref}
-            >
-              <i className="fas fa-eye" aria-hidden="true" /> Ver archivo
-            </button>
+        <div className="ddjj-content">
+          {!ddjjPresentada ? (
+            <div className="ddjj-upload-section">
+              <div className="ddjj-upload-icon">
+                <i className="fas fa-file-upload" aria-hidden="true" />
+              </div>
+              <h5 className="ddjj-upload-title">Cargar Declaración Jurada</h5>
+              <p className="ddjj-upload-text">Seleccioná el archivo PDF de tu D.D.J.J. para presentarla oficialmente.</p>
+              <div className="ddjj-upload-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-lg"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={subiendo}
+                >
+                  <i className="fas fa-file-upload" aria-hidden="true" /> {subiendo ? 'Subiendo...' : 'Seleccionar y Subir Archivo'}
+                </button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  handleSubir(file);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+          ) : (
+            <div className="ddjj-presentada-section">
+              <div className="ddjj-presentada-header">
+                <div className="ddjj-presentada-icon">
+                  <i className="fas fa-check-circle" aria-hidden="true" />
+                </div>
+                <div>
+                  <h5 className="ddjj-presentada-title">D.D.J.J. Presentada Correctamente</h5>
+                  <p className="ddjj-presentada-subtitle">Tu declaración jurada fue recibida y registrada en el sistema.</p>
+                </div>
+              </div>
+              <div className="ddjj-presentada-actions">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={() => window.open(archivoHref, '_blank', 'noopener,noreferrer')}
+                  disabled={!archivoHref}
+                >
+                  <i className="fas fa-eye" aria-hidden="true" /> Ver Archivo
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="ddjj-info-grid">
+            <div className={`ddjj-info-item ${ddjjPresentada ? 'success' : 'warning'}`}>
+              <span className="ddjj-info-label">Estado</span>
+              <span className="ddjj-info-value">
+                <i className={`fas ${ddjjPresentada ? 'fa-check-circle' : 'fa-clock'}`} aria-hidden="true" />
+                {ddjjPresentada ? 'Presentada' : 'Pendiente de presentación'}
+              </span>
+            </div>
+            <div className="ddjj-info-item">
+              <span className="ddjj-info-label">Fecha de carga</span>
+              <span className="ddjj-info-value">{fechaCarga || '—'}</span>
+            </div>
+            <div className="ddjj-info-item">
+              <span className="ddjj-info-label">Archivo</span>
+              <span className="ddjj-info-value">{nombreArchivo || '—'}</span>
+            </div>
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              handleSubir(file);
-              e.target.value = '';
-            }}
-          />
-
-          <p className="m-0 mt-10 font-bold">
-            Estado: {ddjjPresentada ? 'D.D.J.J. presentada' : 'D.D.J.J. pendiente'}
-          </p>
-          <p style={{ margin: '6px 0 0' }}>
-            Fecha de carga: {fechaCarga || '—'}
-          </p>
-          <p style={{ margin: '6px 0 0' }}>
-            Archivo: {nombreArchivo || '—'}
-          </p>
           {mensaje && (
-            <p className="m-0 mt-10" style={{ color: mensaje.startsWith('Error') ? '#b91c1c' : '#15803d' }}>
+            <div className={`ddjj-message ${mensaje.startsWith('Error') ? 'error' : 'success'}`}>
+              <i className={`fas ${mensaje.startsWith('Error') ? 'fa-exclamation-circle' : 'fa-check-circle'}`} aria-hidden="true" />
               {mensaje}
-            </p>
+            </div>
           )}
         </div>
       </div>

@@ -78,7 +78,7 @@ function PanelAdmin({ miDirectivo, user }) {
         )}
         <div>
           <label className="profile-label">Usuario</label>
-          <p className="profile-value">{user?.username || '—'}</p>
+          <p className="profile-value">{miDirectivo ? `${miDirectivo.apellido}, ${miDirectivo.nombre}` : (user?.username || '—')}</p>
         </div>
         <div>
           <label className="profile-label">Rol</label>

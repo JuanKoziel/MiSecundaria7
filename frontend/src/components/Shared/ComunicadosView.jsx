@@ -160,7 +160,21 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
   };
 
   const getNombreAutor = (usuarioId) => {
-    return usuarioId ? `Usuario #${usuarioId}` : '—';
+    if (!usuarioId) return '—';
+    // Buscar en docentes
+    const docente = docentes?.find((d) => d.id_usuario === usuarioId);
+    if (docente) return `${docente.apellido}, ${docente.nombre}`;
+    // Buscar en preceptores
+    const preceptor = preceptores?.find((p) => p.id_usuario === usuarioId);
+    if (preceptor) return `${preceptor.apellido}, ${preceptor.nombre}`;
+    // Buscar en padres/tutores
+    const tutor = padresTutores?.find((pt) => pt.id_usuario === usuarioId);
+    if (tutor) return `${tutor.apellido}, ${tutor.nombre}`;
+    // Buscar en alumnos
+    const alumno = alumnos?.find((a) => a.id_usuario === usuarioId);
+    if (alumno) return `${alumno.apellido}, ${alumno.nombre}`;
+    // Fallback
+    return `Usuario #${usuarioId}`;
   };
 
   if (selectedComunicado) {

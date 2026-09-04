@@ -21,12 +21,13 @@ import { viewDesdeDestino } from '../../utils/navDestinos';
 function FamiliaDashboard({ user, onLogout }) {
   const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj, navIntent, navegarDesdeNotificacion } = useData();
   const [view, setView] = useState('perfil');
-  const [hijoId, setHijoId] = useState('');
+  const [hijoId, setHijoId] = useState(() => hijos.length > 0 ? String(hijos[0].id) : '');
 
   const miTutor = useMemo(
     () => padresTutores.find((pt) => pt.id_usuario === user?.id) || null,
     [padresTutores, user],
   );
+  const nombreCompletoTutor = miTutor ? `${miTutor.apellido}, ${miTutor.nombre}` : null;
 
   const hijos = useMemo(() => {
     const filtered = miTutor
@@ -147,55 +148,8 @@ function FamiliaDashboard({ user, onLogout }) {
         <Header
           user={user}
           hijoSeleccionado={hijoSeleccionado}
+          nombreCompleto={nombreCompletoTutor}
         />
-
-        {/* ===================================================== */}
-        {/* SELECTOR DE ALUMNO                                   */}
-        {/* ===================================================== */}
-
-        <div className="card">
-
-          <div className="card-header-flex">
-            <h3>Estudiante vinculado</h3>
-          </div>
-
-          <div className="filter-row">
-
-            <div className="form-group-filter">
-
-              <label htmlFor="hijo-select">
-                Seleccionar estudiante
-              </label>
-
-              <select
-                id="hijo-select"
-                value={hijoId}
-                onChange={(e) => setHijoId(e.target.value)}
-              >
-                <option value="" disabled hidden>
-                  Seleccione un estudiante...
-                </option>
-
-                {hijos.map((hijo) => (
-                  <option
-                    key={hijo.id}
-                    value={hijo.id}
-                  >
-                    {getHijoLabel(hijo)}
-                  </option>
-                ))}
-
-              </select>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* ===================================================== */}
-        {/* CONTENIDO PRINCIPAL                                   */}
-        {/* ===================================================== */}
 
         {view === 'perfil' ? (
 

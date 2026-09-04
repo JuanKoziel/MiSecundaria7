@@ -27,6 +27,7 @@ function PreceptorDashboard({ user, onLogout }) {
     () => preceptores.find((p) => p.id_usuario === userId) || null,
     [preceptores, userId],
   );
+  const nombreCompletoPreceptor = miPreceptor ? `${miPreceptor.apellido}, ${miPreceptor.nombre}` : null;
 
   const [view, setView] = useState('perfil');
 
@@ -161,7 +162,7 @@ function PreceptorDashboard({ user, onLogout }) {
 
       <main className="main-content">
 
-        <Header user={user} />
+        <Header user={user} nombreCompleto={nombreCompletoPreceptor} />
 
         {/* ===================================================== */}
         {/* CONTENIDO PRINCIPAL                                   */}

@@ -1,9 +1,10 @@
-function Header({ user }) {
+function Header({ user, nombreCompleto }) {
   const inicial = user.username ? user.username.charAt(0) : 'U';
+  const saludo = nombreCompleto ? `Bienvenido, ${nombreCompleto}` : `Bienvenido, ${user.username}`;
   return (
     <header className="main-header">
       <div>
-        <h2>Bienvenido, {user.username}</h2>
+        <h2>{saludo}</h2>
         <p className="main-header-subtitle">Panel de Gestión Escolar</p>
       </div>
 

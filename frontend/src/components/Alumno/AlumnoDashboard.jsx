@@ -176,7 +176,7 @@ function AlumnoDashboard({ user, onLogout }) {
 
         {view === 'perfil' ? (
           <div className="view-section active">
-            <PanelAlumno miAlumno={miAlumno} user={user} />
+            <PanelAlumno miAlumno={miAlumno} user={user} recursadas={recursadas} />
           </div>
         ) : view === 'previas' ? (
           <div className="view-section active">

@@ -55,8 +55,8 @@ function PanelPreceptor({ miPreceptor }) {
     <div className="card">
       <div className="card-header-flex card-header-flex--compact">
         <h3>Perfil del Preceptor</h3>
-        <span className="badge badge-presente badge--header">
-          <i className="fas fa-check-circle" aria-hidden="true" /> Activo
+        <span className={`badge badge--header ${stats.estado === 'Activo' ? 'badge-presente' : 'badge-ausente'}`}>
+          <i className={`fas ${stats.estado === 'Activo' ? 'fa-check-circle' : 'fa-exclamation-circle'}`} aria-hidden="true" /> {stats.estado}
         </span>
       </div>
 
@@ -88,18 +88,7 @@ function PanelPreceptor({ miPreceptor }) {
         <StatCard icon="fa-users" value={stats.alumnos} label="Estudiantes bajo seguimiento" />
         <StatCard icon="fa-bullhorn" value={stats.comunicados} label="Comunicados" />
         <StatCard icon="fa-chart-bar" value={stats.diagnosticos} label="Diagnósticos grupales" />
-        <StatCard
-          icon={stats.estado === 'Activo' ? 'fa-check-circle' : 'fa-exclamation-circle'}
-          value={stats.estado}
-          label="Estado de la cuenta"
-          color={stats.estado === 'Activo' ? '#15803d' : '#b91c1c'}
-        />
-      </div>
-
-      <div className="info-box mb-28">
-        <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
-        Responsable del seguimiento diario de los estudiantes, asistencia, comunicación institucional y acompañamiento escolar.
-      </div>
+        </div>
 
       <div className="card-header-flex">
         <h4>Cursos Asignados</h4>

@@ -70,6 +70,7 @@ function PanelProfesores({ user, onLogout }) {
     () => docentes.find((d) => d.id_usuario === userId) || null,
     [docentes, userId],
   );
+  const nombreCompletoDocente = miDocente ? `${miDocente.apellido}, ${miDocente.nombre}` : null;
 
   const mapSuplencias = useMemo(
     () => suplenciasActivasEnFecha(suplencias),
@@ -156,6 +157,7 @@ function PanelProfesores({ user, onLogout }) {
           user={user}
           cursoSeleccionado={cursoNombre}
           materiaSeleccionada={materiaSeleccionada}
+          nombreCompleto={nombreCompletoDocente}
         />
 
         {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && seccionActiva !== 'comunicados' && seccionActiva !== 'info' && seccionActiva !== 'calendario' && seccionActiva !== 'actas' && (
