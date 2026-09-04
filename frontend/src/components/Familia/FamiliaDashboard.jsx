@@ -16,20 +16,12 @@ import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import PanelFamilia from './PanelFamilia';
 import { useData } from '../../context/DataContext';
+import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function FamiliaDashboard({ user, onLogout }) {
   const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj, navIntent, navegarDesdeNotificacion } = useData();
   const [view, setView] = useState('perfil');
   const [hijoId, setHijoId] = useState('');
-
-  // Parte 8: manejar navegación desde notificaciones
-  useEffect(() => {
-    if (navIntent && navIntent.destino) {
-      setView(navIntent.destino);
-      // Limpiar el intent después de navegar
-      // Nota: en una implementación real, esto se haría en el contexto
-    }
-  }, [navIntent]);
 
   const miTutor = useMemo(
     () => padresTutores.find((pt) => pt.id_usuario === user?.id) || null,
@@ -49,6 +41,24 @@ function FamiliaDashboard({ user, onLogout }) {
       };
     });
   }, [hijosFamilia, getAlumnoById, nombreCompleto, miTutor]);
+
+  // Parte 8: manejar navegación desde notificaciones.
+  // Traduce el destino semántico a una vista válida del dashboard de familia y,
+  // si la notificación refiere a un alumno concreto, selecciona el hijo
+  // correspondiente para que la vista muestre la información correcta.
+  // Se declara tras `hijos` porque depende de esa constante.
+  useEffect(() => {
+    if (navIntent && navIntent.destino) {
+      const vista = viewDesdeDestino(navIntent.destino, 'familia');
+      if (!vista) return;
+      setView(vista);
+      const alumnoId = navIntent.params?.alumnoId;
+      if (alumnoId != null) {
+        const hijo = hijos.find((h) => Number(h.alumnoId) === Number(alumnoId));
+        if (hijo) setHijoId(String(hijo.id));
+      }
+    }
+  }, [navIntent, hijos]);
 
   const hijoSeleccionado = hijos.find((h) => String(h.id) === hijoId) ?? null;
 

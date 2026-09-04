@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 import Sidebar from './sidebar';
 import Header from './header';
@@ -16,10 +16,11 @@ import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import AdelantosHoras from '../Shared/AdelantosHoras';
 import PanelPreceptor from './PanelPreceptor';
 import { useData } from '../../context/DataContext';
+import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function PreceptorDashboard({ user, onLogout }) {
 
-  const { preceptores } = useData();
+  const { preceptores, navIntent } = useData();
 
   const userId = user?.id_usuario ?? user?.id ?? null;
   const miPreceptor = useMemo(
@@ -28,6 +29,14 @@ function PreceptorDashboard({ user, onLogout }) {
   );
 
   const [view, setView] = useState('perfil');
+
+  // Parte 8: manejar navegación desde notificaciones.
+  useEffect(() => {
+    if (navIntent && navIntent.destino) {
+      const vista = viewDesdeDestino(navIntent.destino, 'preceptor');
+      if (vista) setView(vista);
+    }
+  }, [navIntent]);
 
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');

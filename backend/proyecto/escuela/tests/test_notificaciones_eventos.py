@@ -29,6 +29,7 @@ from .factories import (
     crear_docente,
     crear_estado_asistencia,
     crear_materia,
+    crear_preceptor,
     crear_tutor,
     crear_usuario,
 )
@@ -196,3 +197,166 @@ class NotificacionesE7ComunicadoTests(TestCase):
             Notificacion.objects.filter(id_usuario=self.user_a1, titulo='Reunión de padres').count(),
             1,
         )
+
+
+class NotificacionesE7ComunicadoAlcancePersonalTests(TestCase):
+    """Corrección posterior E7 — los comunicados también deben llegar a los
+    Docentes y Preceptores afectados, respetando el alcance real del comunicado.
+
+    Casos:
+    - curso: docentes con materias en ese curso + preceptor del curso;
+    - año completo: docentes y preceptores de todos los cursos alcanzados;
+    - curso + materia: solo el/los docentes con esa materia asignada a ese curso.
+    """
+
+    def setUp(self):
+        self.curso1 = crear_curso('1°1')
+        self.curso2 = crear_curso('2°1')
+        self.materia_a = crear_materia('Matemática')
+        self.materia_b = crear_materia('Lengua')
+
+        self.user_doc1 = crear_usuario('com_doc1', roles=('docente',))
+        self.user_doc2 = crear_usuario('com_doc2', roles=('docente',))
+        self.docente1 = crear_docente(id_usuario=self.user_doc1)
+        self.docente2 = crear_docente(id_usuario=self.user_doc2)
+
+        # Docente1: Materia A en curso1 | Docente2: Materia A en curso2
+        self.cm1 = crear_curso_materia(self.curso1, self.materia_a, self.docente1)
+        crear_curso_materia(self.curso2, self.materia_a, self.docente2)
+
+        self.user_prec1 = crear_usuario('com_prec1', roles=('preceptor',))
+        self.preceptor1 = crear_preceptor(id_usuario=self.user_prec1)
+        self.curso1.id_preceptor = self.preceptor1
+        self.curso1.save()
+
+    def _comunicado(self, alcances):
+        c = Comunicado.objects.create(
+            id_usuario_creador=None,
+            titulo='Reunión de padres',
+            cuerpo='Convocatoria para el viernes.',
+        )
+        for a in alcances:
+            ComunicadoAlcance.objects.create(
+                id_comunicado=c,
+                id_ciclo=a.get('id_ciclo'),
+                curso=a.get('curso'),
+                division=a.get('division'),
+                id_materia=a.get('id_materia'),
+            )
+        return c
+
+    def test_alcance_curso_notifica_docente_y_preceptor_del_curso(self):
+        """Caso curso: el docente con materia en el curso y el preceptor del
+        curso reciben; el docente de otro curso no recibe."""
+        c = self._comunicado([
+            {'id_ciclo': self.curso1.id_ciclo, 'curso': 1, 'division': 1},
+        ])
+        _notificar_comunicado_publicado(c)
+
+        # Docente con materia en curso1 recibe
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_doc1, titulo='Reunión de padres').count(),
+            1,
+        )
+        # Docente solo con materia en curso2 NO recibe
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_doc2, titulo='Reunión de padres').count(),
+            0,
+        )
+        # Preceptor de curso1 recibe
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_prec1, titulo='Reunión de padres').count(),
+            1,
+        )
+
+    def test_alcance_anio_completo_notifica_a_todos_los_afectados(self):
+        """Caso año completo: docentes y preceptores de todos los cursos
+        alcanzados reciben."""
+        user_prec2 = crear_usuario('com_prec2', roles=('preceptor',))
+        preceptor2 = crear_preceptor(id_usuario=user_prec2)
+        self.curso2.id_preceptor = preceptor2
+        self.curso2.save()
+
+        c = self._comunicado([{}])
+        _notificar_comunicado_publicado(c)
+
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_doc1, titulo='Reunión de padres').count(),
+            1,
+        )
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_doc2, titulo='Reunión de padres').count(),
+            1,
+        )
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_prec1, titulo='Reunión de padres').count(),
+            1,
+        )
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=user_prec2, titulo='Reunión de padres').count(),
+            1,
+        )
+
+    def test_alcance_curso_materia_solo_notifica_docente_de_esa_materia(self):
+        """Caso curso + materia: solo el docente que tiene ESA materia asignada
+        a ESE curso recibe. El preceptor del curso alcanzado también recibe."""
+        # Docente1 tiene Materia A en curso1; agregamos Materia B en curso1 al docente2
+        crear_curso_materia(self.curso1, self.materia_b, self.docente2)
+
+        c = self._comunicado([
+            {
+                'id_ciclo': self.curso1.id_ciclo,
+                'curso': 1,
+                'division': 1,
+                'id_materia': self.materia_a,
+            },
+        ])
+        _notificar_comunicado_publicado(c)
+
+        # Docente1 (Materia A en curso1) recibe
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_doc1, titulo='Reunión de padres').count(),
+            1,
+        )
+        # Docente2 (Materia B en curso1, pero la materia del alcance es A) NO recibe
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_doc2, titulo='Reunión de padres').count(),
+            0,
+        )
+        # Preceptor del curso alcanzado recibe
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_prec1, titulo='Reunión de padres').count(),
+            1,
+        )
+
+    def test_preceptor_sin_asignacion_no_notifica(self):
+        """Un preceptor no asignado a ningún curso alcanzado no recibe."""
+        # curso2 sin preceptor asignado; docentes de curso1 reciben
+        c = self._comunicado([
+            {'id_ciclo': self.curso1.id_ciclo, 'curso': 1, 'division': 1},
+        ])
+        _notificar_comunicado_publicado(c)
+
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_doc1, titulo='Reunión de padres').count(),
+            1,
+        )
+        # No hay preceptor para curso2 asignado, y el alcance es curso1
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.user_prec1, titulo='Reunión de padres').count(),
+            1,
+        )
+
+    def test_docente_sin_usuario_no_rompe(self):
+        """Un docente sin id_usuario (sin cuenta) no genera error."""
+        user_extra = crear_usuario('com_doc3', roles=('docente',))
+        docente3 = crear_docente(id_usuario=user_extra)
+        # Al comunicado global, un docente sin usuario no debe romper
+        crear_curso_materia(self.curso1, self.materia_b, docente3)
+        # Desvinculamos el usuario para simular docente sin cuenta
+        docente3.id_usuario = None
+        docente3.save()
+
+        c = self._comunicado([{}])
+        # No debe lanzar excepción
+        _notificar_comunicado_publicado(c)

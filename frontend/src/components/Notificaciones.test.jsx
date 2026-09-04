@@ -123,4 +123,35 @@ describe('Notificaciones', () => {
     fireEvent.click(screen.getByRole('button', { name: /Marcar todas como leídas/ }))
     expect(marcarTodasNotificacionesLeidas).toHaveBeenCalledTimes(1)
   })
+
+  it('propaga destino y params SEMANTICOS al navegar (sin premapear)', () => {
+    const navegarDesdeNotificacion = vi.fn()
+    mockUseData({
+      notificaciones: [
+        {
+          id: 9,
+          id_usuario: 10,
+          id_alumno: 100,
+          titulo: 'Evento institucional',
+          mensaje: 'Jornada institucional el 05/09/2026',
+          fecha: '2026-09-01T10:30:00Z',
+          leida: false,
+          nav_destino: 'eventos',
+          nav_params: { eventoId: 3 },
+        },
+      ],
+      navegarDesdeNotificacion,
+    })
+    render(<Notificaciones />)
+    fireEvent.click(screen.getByText('Evento institucional'))
+    expect(navegarDesdeNotificacion).toHaveBeenCalledWith('eventos', { eventoId: 3 })
+  })
+
+  it('no navega si la notificacion no tiene nav_destino', () => {
+    const navegarDesdeNotificacion = vi.fn()
+    mockUseData({ navegarDesdeNotificacion })
+    render(<Notificaciones />)
+    fireEvent.click(screen.getByText('Nueva calificación'))
+    expect(navegarDesdeNotificacion).not.toHaveBeenCalled()
+  })
 })

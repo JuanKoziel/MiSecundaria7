@@ -29,6 +29,7 @@ from .factories import (
     crear_docente,
     crear_materia,
     crear_preceptor,
+    crear_tutor,
     crear_usuario,
 )
 
@@ -84,6 +85,68 @@ class Parte5AdelantoHorasTests(TestCase):
         _notificar_adelanto_aprobado(adelanto)
         self.assertEqual(Notificacion.objects.count(), 0)
 
+    def test_adelanto_notifica_a_estudiantes_y_familia(self):
+        """Corrección posterior — el adelanto también notifica a los
+        estudiantes del curso afectado y a sus familias, con id_alumno."""
+        user_alumno = crear_usuario('alum_adelanto', roles=('alumno',))
+        tutor = crear_tutor(id_usuario=crear_usuario('fam_adelanto', roles=('familia',)))
+        alumno = crear_alumno(
+            id_usuario=user_alumno, id_tutor=tutor, id_curso=self.curso,
+        )
+
+        adelanto = AdelantoHoras.objects.create(
+            id_curso=self.curso,
+            id_materia=self.materia,
+            id_docente=self.docente,
+            fecha_adelanto=timezone.now().date(),
+            hora_inicio=timezone.now().time(),
+            hora_fin=(timezone.now() + timezone.timedelta(hours=1)).time(),
+            id_usuario_autorizador=self.preceptor_user,
+        )
+
+        _notificar_adelanto_aprobado(adelanto)
+
+        # El estudiante recibe con id_alumno correspondiente
+        n_al = Notificacion.objects.get(id_usuario=user_alumno)
+        self.assertEqual(n_al.id_alumno_id, alumno.id_alumno)
+        self.assertEqual(n_al.titulo, 'Adelanto de horas aprobado')
+        self.assertIn('Matemática', n_al.mensaje)
+        self.assertIn('1°1', n_al.mensaje)
+
+        # La familia recibe con id_alumno correspondiente
+        n_fam = Notificacion.objects.get(id_usuario=tutor.id_usuario)
+        self.assertEqual(n_fam.id_alumno_id, alumno.id_alumno)
+
+        # El docente sigue recibiendo su notificación profesional
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.docente_user).count(),
+            1,
+        )
+
+    def test_adelanto_no_notifica_a_alumno_de_otro_curso(self):
+        """Los estudiantes de otros cursos no reciben la notificación del
+        adelanto."""
+        user_fuera = crear_usuario('alum_adelanto2', roles=('alumno',))
+        curso2 = crear_curso('2°1')
+        crear_alumno(id_usuario=user_fuera, id_curso=curso2)
+
+        adelanto = AdelantoHoras.objects.create(
+            id_curso=self.curso,
+            id_materia=self.materia,
+            id_docente=self.docente,
+            fecha_adelanto=timezone.now().date(),
+            hora_inicio=timezone.now().time(),
+            hora_fin=(timezone.now() + timezone.timedelta(hours=1)).time(),
+            id_usuario_autorizador=self.preceptor_user,
+        )
+
+        _notificar_adelanto_aprobado(adelanto)
+
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=user_fuera).count(),
+            0,
+        )
+
 
 class Parte5SuplenciaTests(TestCase):
     """E17 — Suplencia asignada."""
@@ -133,6 +196,65 @@ class Parte5SuplenciaTests(TestCase):
 
         _notificar_suplencia_asignada(suplencia)
         self.assertEqual(Notificacion.objects.count(), 0)
+
+    def test_suplencia_notifica_a_estudiantes_y_familia(self):
+        """Corrección posterior — la suplencia también notifica a los
+        estudiantes del curso y a sus familias, con id_alumno."""
+        user_alumno = crear_usuario('alum_sup', roles=('alumno',))
+        tutor = crear_tutor(id_usuario=crear_usuario('fam_sup', roles=('familia',)))
+        alumno = crear_alumno(
+            id_usuario=user_alumno, id_tutor=tutor, id_curso=self.curso,
+        )
+
+        suplencia = SuplenciaDocente.objects.create(
+            id_curso_materia=self.cm,
+            id_docente_suplente=self.suplente,
+            nivel=1,
+            fecha_inicio=timezone.now().date(),
+            fecha_fin=(timezone.now() + timezone.timedelta(days=7)).date(),
+            estado=True,
+        )
+
+        _notificar_suplencia_asignada(suplencia)
+
+        # El estudiante recibe con id_alumno correspondiente
+        n_al = Notificacion.objects.get(id_usuario=user_alumno)
+        self.assertEqual(n_al.id_alumno_id, alumno.id_alumno)
+        self.assertEqual(n_al.titulo, 'Suplencia asignada')
+        self.assertIn('Lengua', n_al.mensaje)
+
+        # La familia recibe con id_alumno correspondiente
+        n_fam = Notificacion.objects.get(id_usuario=tutor.id_usuario)
+        self.assertEqual(n_fam.id_alumno_id, alumno.id_alumno)
+
+        # El suplente sigue recibiendo su notificación profesional
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=self.suplente_user).count(),
+            1,
+        )
+
+    def test_suplencia_no_notifica_a_alumno_de_otro_curso(self):
+        """Los estudiantes de otros cursos no reciben la notificación de la
+        suplencia."""
+        user_fuera = crear_usuario('alum_sup2', roles=('alumno',))
+        curso2 = crear_curso('2°1')
+        crear_alumno(id_usuario=user_fuera, id_curso=curso2)
+
+        suplencia = SuplenciaDocente.objects.create(
+            id_curso_materia=self.cm,
+            id_docente_suplente=self.suplente,
+            nivel=1,
+            fecha_inicio=timezone.now().date(),
+            fecha_fin=(timezone.now() + timezone.timedelta(days=7)).date(),
+            estado=True,
+        )
+
+        _notificar_suplencia_asignada(suplencia)
+
+        self.assertEqual(
+            Notificacion.objects.filter(id_usuario=user_fuera).count(),
+            0,
+        )
 
 
 class Parte5PlanificacionTests(TestCase):

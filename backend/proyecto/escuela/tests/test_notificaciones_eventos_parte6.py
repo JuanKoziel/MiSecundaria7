@@ -29,6 +29,7 @@ from .factories import (
     crear_curso_materia,
     crear_docente,
     crear_materia,
+    crear_preceptor,
     crear_tipo_acta,
     crear_tutor,
     crear_usuario,
@@ -139,7 +140,12 @@ class Parte6UsuarioEstadoTests(TestCase):
 
 
 class Parte6EventoInstitucionalTests(TestCase):
-    """E16 — Evento institucional."""
+    """E16 — Evento institucional.
+
+    Correcciones posteriores: el evento no se limita a estudiantes/familias,
+    alcanza a todas las personas afectadas (Docentes, Preceptores, Jefe de
+    Preceptores, Directivos, Admin) y el mensaje muestra la fecha del evento.
+    """
 
     def setUp(self):
         self.curso = crear_curso('1°1')
@@ -150,37 +156,79 @@ class Parte6EventoInstitucionalTests(TestCase):
             id_usuario=self.alumno_user, id_tutor=self.tutor, id_curso=self.curso,
         )
 
-    def test_evento_todo_dia_notifica_alumnos_y_familia(self):
-        """Evento todo_dia notifica a alumnos del curso y sus familias."""
-        evento = EventoInstitucional.objects.create(
-            tipo_evento='Feriado',
-            descripcion='Día de la Soberanía',
-            fecha=timezone.now().date(),
+        # Docentes
+        self.doc_user = crear_usuario('doc_p6ev', roles=('docente',))
+        self.docente = crear_docente(id_usuario=self.doc_user)
+
+        # Preceptores / Jefe de Preceptores
+        self.prec_user = crear_usuario('prec_p6ev', roles=('preceptor',))
+        self.preceptor = crear_preceptor(id_usuario=self.prec_user)
+
+        # Directivos / Admin
+        self.admin_user = crear_usuario('admin_p6ev', roles=('admin',))
+        self.director_user = crear_usuario('dir_p6ev', roles=('director',))
+
+    def _evento(self, tipo='Feriado', descripcion='Día de la Soberanía', fecha=None):
+        return EventoInstitucional.objects.create(
+            tipo_evento=tipo,
+            descripcion=descripcion,
+            fecha=fecha or timezone.now().date(),
             alcance='todo_dia',
             estado=True,
         )
 
+    def test_evento_todo_dia_notifica_alumnos_y_familia(self):
+        """Evento todo_dia notifica a alumnos del curso y sus familias."""
+        evento = self._evento()
         _notificar_evento_institucional(evento)
 
         self.assertTrue(Notificacion.objects.filter(id_usuario=self.alumno_user).exists())
         self.assertTrue(Notificacion.objects.filter(id_usuario=self.tutor_user).exists())
         n = Notificacion.objects.get(id_usuario=self.alumno_user)
-        self.assertEqual(n.titulo, 'Evento: Feriado')
+        self.assertEqual(n.titulo, 'Feriado')
         self.assertIn('Soberanía', n.mensaje)
+        # La fecha del evento aparece en el mensaje
+        self.assertIn(evento.fecha.strftime('%d/%m/%Y'), n.mensaje)
+
+    def test_evento_notifica_a_docentes_preceptores_y_directivos(self):
+        """Corrección posterior — el evento también llega a Docentes,
+        Preceptores, Directivos y Admin."""
+        evento = self._evento(tipo='Suspension', descripcion='por falta de luz')
+        _notificar_evento_institucional(evento)
+
+        # Docente
+        n = Notificacion.objects.get(id_usuario=self.doc_user)
+        self.assertEqual(n.titulo, 'Suspensión de clases')
+        self.assertIn('por falta de luz', n.mensaje)
+
+        # Preceptor
+        self.assertTrue(Notificacion.objects.filter(id_usuario=self.prec_user).exists())
+
+        # Directivo / Admin
+        self.assertTrue(Notificacion.objects.filter(id_usuario=self.director_user).exists())
+        self.assertTrue(Notificacion.objects.filter(id_usuario=self.admin_user).exists())
+
+    def test_mensaje_muestra_fecha_del_evento(self):
+        """El mensaje informa la fecha en que ocurre el evento, no la de
+        creación. No debe verse el patrón 'Evento: ...' ni una fecha/hora de
+        creación."""
+        fecha_evento = timezone.localdate()
+        evento = self._evento(tipo='Suspension', descripcion='por falta de luz', fecha=fecha_evento)
+        _notificar_evento_institucional(evento)
+
+        n = Notificacion.objects.get(id_usuario=self.alumno_user)
+        self.assertNotIn('Evento:', n.titulo)
+        self.assertIn(fecha_evento.strftime('%d/%m/%Y'), n.mensaje)
+        self.assertIn('Se suspenden las clases', n.mensaje)
+        self.assertIn('por falta de luz', n.mensaje)
 
     def test_evita_duplicados(self):
         """Re-exponer el mismo evento no duplica notificaciones."""
-        evento = EventoInstitucional.objects.create(
-            tipo_evento='Jornada Institucional',
-            descripcion='Jornada de reflexión',
-            fecha=timezone.now().date(),
-            alcance='todo_dia',
-            estado=True,
-        )
+        evento = self._evento(tipo='Jornada Institucional', descripcion='Jornada de reflexión')
         _notificar_evento_institucional(evento)
         _notificar_evento_institucional(evento)
         self.assertEqual(
-            Notificacion.objects.filter(id_usuario=self.alumno_user, titulo='Evento: Jornada Institucional').count(), 1
+            Notificacion.objects.filter(id_usuario=self.alumno_user, titulo='Jornada Institucional').count(), 1
         )
 
 

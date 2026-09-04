@@ -20,10 +20,21 @@ import AdelantosHoras from '../Shared/AdelantosHoras';
 import PanelAdmin from './PanelAdmin';
 import Actas from '../Preceptores/actas';
 import { getDirectivos } from '../../services/api';
+import { useData } from '../../context/DataContext';
+import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function AdminDashboard({ user, onLogout }) {
+  const { navIntent } = useData();
   const [view, setView] = useState('perfil');
   const [directivos, setDirectivos] = useState([]);
+
+  // Parte 8: manejar navegación desde notificaciones.
+  useEffect(() => {
+    if (navIntent && navIntent.destino) {
+      const vista = viewDesdeDestino(navIntent.destino, user.role);
+      if (vista) setView(vista);
+    }
+  }, [navIntent, user.role]);
 
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');

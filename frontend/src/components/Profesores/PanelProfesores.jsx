@@ -17,6 +17,7 @@ import PanelMateriasAdeudadasDocente from './PanelMateriasAdeudadasDocente';
 import { useData } from '../../context/DataContext';
 import { getSuplencias } from '../../services/api';
 import { suplenciasActivasEnFecha } from '../../utils/suplencias';
+import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function PanelProfesores({ user, onLogout }) {
   const { docentes, cursoMateria, cursosObj, navIntent } = useData();
@@ -29,10 +30,12 @@ function PanelProfesores({ user, onLogout }) {
   const [cursoActas, setCursoActas] = useState('');
   const [suplencias, setSuplencias] = useState([]);
 
-  // Parte 8: manejar navegación desde notificaciones
+  // Parte 8: manejar navegación desde notificaciones.
+  // Traduce el destino semántico a una sección válida del panel docente.
   useEffect(() => {
     if (navIntent && navIntent.destino) {
-      setSeccionActiva(navIntent.destino);
+      const vista = viewDesdeDestino(navIntent.destino, 'docente');
+      if (vista) setSeccionActiva(vista);
     }
   }, [navIntent]);
 

@@ -9,25 +9,6 @@ function formatearFecha(fecha) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Mapea destinos de notificación a vistas/secciones del dashboard (Parte 8)
-const DESTINO_A_VISTA = {
-  calificaciones: 'calificaciones',
-  boletin: 'boletin',
-  asistencias: 'asistencias',
-  intensificaciones: 'intensificaciones',
-  previas: 'previas',
-  rendiciones: 'rendiciones',
-  actas: 'actas',
-  comunicados: 'comunicados',
-  horarios: 'horarios',
-  eventos: 'eventos',
-  planificaciones: 'planificaciones',
-  adelantos: 'adelantos',
-  suplencias: 'suplencias',
-  ddjj: 'ddjj',
-  perfil: 'perfil',
-};
-
 function Notificaciones({ userRole, selectedChild }) {
   const {
     notificaciones = [],
@@ -60,13 +41,12 @@ function Notificaciones({ userRole, selectedChild }) {
     await marcarTodasNotificacionesLeidas(notificacionesActivas.map((n) => n.id));
   };
 
-  // Parte 8: manejo de click en notificación para navegación
+  // Parte 8: manejo de click en notificación para navegación.
+  // Se propaga el destino SEMÁNTICO tal cual lo emite el backend; el dashboard
+  // que recibe el navIntent lo traduce a su vista concreta según el rol.
   const handleNotificacionClick = (n) => {
     if (!n.nav_destino) return;
-    const vista = DESTINO_A_VISTA[n.nav_destino];
-    if (vista) {
-      navegarDesdeNotificacion(vista, n.nav_params || {});
-    }
+    navegarDesdeNotificacion(n.nav_destino, n.nav_params || {});
   };
 
   const renderLista = () => {

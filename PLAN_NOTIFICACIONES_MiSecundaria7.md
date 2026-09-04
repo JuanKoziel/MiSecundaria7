@@ -1267,6 +1267,39 @@ Pendientes:
 
 ---
 
+## Correcciones post-cierre — Navegación y documentación (2026-09-03)
+Estado: COMPLETADA (documentación) — no reabre las Partes 1–9
+Archivos modificados:
+- `frontend/src/utils/navDestinos.js` (NUEVO): mapeo destino semántico → vista real por rol (`viewDesdeDestino`).
+- `frontend/src/utils/navDestinos.test.js` (NUEVO): 12 tests de mapeo por rol.
+- `frontend/src/components/Notificaciones.jsx`: propaga `nav_destino`/`nav_params` semánticos (sin pre-mapear con `DESTINO_A_VISTA`, eliminado).
+- `frontend/src/components/Alumno/AlumnoDashboard.jsx`: mapa destino→vista (alumno) en el handler de `navIntent`.
+- `frontend/src/components/Familia/FamiliaDashboard.jsx`: mapa destino→vista (familia) + preselección del hijo por `params.alumnoId`.
+- `frontend/src/components/Profesores/PanelProfesores.jsx`: mapa destino→vista (docente) en `navIntent`.
+- `frontend/src/components/Preceptores/PreceptorDashboard.jsx`: NUEVO handler de `navIntent` (antes no navegaba).
+- `frontend/src/components/Administracion/AdminDashboard.jsx`: NUEVO handler de `navIntent` (antes no navegaba).
+- `frontend/src/components/Notificaciones.test.jsx`: +2 tests de propagación de destino/params semánticos.
+- `HISTORIAL.md`: §8 — corrección de navegación y documentación de E10/E3/E19.
+Cambios realizados:
+- La navegación dejó de depender de un nombre de vista genérico. `Notificaciones` emite el destino semántico del backend y **cada dashboard** lo traduce a su `view`/`seccionActiva` real (solo navega si existe vista válida; si no, el item no navega en vez de quedar en blanco).
+- Se incorporó la navegación en `PreceptorDashboard` y `AdminDashboard`, que antes no reaccionaban a `navIntent`.
+- `FamiliaDashboard` preselecciona el hijo cuando la notificación refiere a un `alumnoId` concreto.
+Tests ejecutados:
+- Frontend: `npm test` **137 OK** (14 archivos; incluye `navDestinos.test.js` y `Notificaciones.test.jsx`); `npm run build` OK.
+- Backend (sin cambios): suite de notificaciones intacta; se mantienen solo los 3 fallos PREEXISTENTES de `test_asistencias`.
+Documentación de eventos (correctos 7, 8 y 9):
+- **E10**: `_pasar_a_previa` ignora la bandera `created` de `get_or_create` y llama a `_notificar_previa` incondicionalmente; viola §17 #9 en reprocesos (duplicado solo oculto por dedup de contenido). **Documentado como issue aparte, sin tocar código** (requiere decisión: notificar solo si `created`).
+- **E3**: integración correcta en `AsistenciaViewSet.create`, pero la validación manual del flujo queda **pendiente** porque el endpoint arrastra los 3 fallos preexistentes (`201 != 400`).
+- **E19**: inspección de `BloqueoHorarioAlumnoViewSet` confirma comportamiento correcto (crear activo notifica; transición True→False notifica levantamiento; crear inactivo no notifica); **sin modificación requerida**.
+Decisiones tomadas:
+- Mapas de navegación centralizados en `utils/navDestinos.js`, role-aware; sin introducir React Router; sin inventar nombres de vistas (se reutilizan los existentes de cada dashboard).
+- Correcciones 7/8/9 son de documentación; E10 queda registrado como issue sin código; E3 pendiente de validación manual; E19 sin cambio.
+Pendientes:
+- Validación manual del flujo E3 una vez resuelta la deuda técnica de `AsistenciaViewSet.create`.
+- Resolver comportamiento deseado de E10 (issue aparte).
+
+---
+
 # 17. Criterios generales de aceptación
 
 El sistema final debe cumplir:

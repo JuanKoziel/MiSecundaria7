@@ -787,6 +787,80 @@ def _notificar_inasistencia(asistencia):
     })
 
 
+def _cursos_para_comunicado(comunicado):
+    """Devuelve los cursos alcanzados por un comunicado según su alcance real.
+
+    Cuando no hay alcances, devuelve todos los cursos activos. Reutiliza las
+    mismas reglas de `_curso_matches_alcance` que la visibilidad del sistema.
+    """
+    alcances = _get_comunicado_alcances(comunicado)
+    cursos = list(Curso.objects.filter(estado=True).select_related('id_preceptor'))
+    if not alcances:
+        return cursos
+    return [
+        curso for curso in cursos
+        if any(_curso_matches_alcance(curso, alcance) for alcance in alcances)
+    ]
+
+
+def _materia_en_alcance(comunicado, curso_obj, materia_id):
+    """Indica si una materia está alcanzada para un curso dado el comunicado.
+
+    Si el comunicado tiene alcances, y alguno de ellos especifica una materia
+    (`id_materia`), la materia coincide solo si ese alcance aplica al curso y
+    apunta a la misma materia. Si ningún alcance especifica materia, la materia
+    queda alcanzada en cualquier curso alcanzado.
+    """
+    alcances = _get_comunicado_alcances(comunicado)
+    if not alcances:
+        return curso_obj is not None
+    for alcance in alcances:
+        if not _curso_matches_alcance(curso_obj, alcance):
+            continue
+        materia_alcance = alcance.id_materia_id
+        if materia_alcance is None:
+            return True
+        if int(materia_alcance) == int(materia_id):
+            return True
+    return False
+
+
+def _docentes_para_comunicado(comunicado):
+    """Docentes que tienen materias asignadas a los cursos alcanzados.
+
+    Respeta el alcance real: para el caso "curso + materia" solo se notifica
+    al/los docentes que tengan esa materia asignada específicamente a ese
+    curso; en los demás casos, a todo docente con alguna materia en los cursos
+    alcanzados.
+    """
+    cursos = _cursos_para_comunicado(comunicado)
+    if not cursos:
+        return []
+    curso_ids = [c.id_curso for c in cursos]
+    cms = (
+        CursoMateria.objects.filter(id_curso__in=curso_ids, estado=True)
+        .select_related('id_curso', 'id_materia', 'id_docente')
+    )
+    docentes = {}
+    for cm in cms:
+        if cm.id_docente_id is None or cm.id_curso is None or cm.id_materia is None:
+            continue
+        if not _materia_en_alcance(comunicado, cm.id_curso, cm.id_materia_id):
+            continue
+        docentes[cm.id_docente_id] = cm.id_docente
+    return list(docentes.values())
+
+
+def _preceptores_para_comunicado(comunicado):
+    """Preceptores asignados a los cursos alcanzados por el comunicado."""
+    cursos = _cursos_para_comunicado(comunicado)
+    preceptores = {}
+    for curso in cursos:
+        if curso.id_preceptor_id is not None:
+            preceptores[curso.id_preceptor_id] = curso.id_preceptor
+    return list(preceptores.values())
+
+
 def _alumnos_para_comunicado(comunicado):
     """Reutiliza las reglas de visibilidad por alcance para devolver los
     alumnos alcanzados por un comunicado (curso + ciclo + división/materia)."""
@@ -807,8 +881,13 @@ def _alumnos_para_comunicado(comunicado):
 def _notificar_comunicado_publicado(comunicado):
     """E7 — Comunicado publicado.
 
-    Notifica a los estudiantes alcanzados por el alcance real del comunicado
-    y a sus familias, una notificación por destinatario. Se emite al publicar
+    Notifica a las personas alcanzadas por el alcance real del comunicado:
+    - estudiantes de los cursos alcanzados y sus familias;
+    - Docentes con materias asignadas a esos cursos (respetando el caso
+      "curso + materia");
+    - Preceptores asignados a esos cursos.
+
+    Una notificación por destinatario, sin duplicados. Se emite al publicar
     (crear) el comunicado, reutilizando las reglas de visibilidad existentes.
     """
     titulo = comunicado.titulo or 'Nuevo comunicado'
@@ -819,23 +898,38 @@ def _notificar_comunicado_publicado(comunicado):
             'comunicadoId': comunicado.id_comunicado,
         }
     }
+
+    def _notificar_usuario(usuario, id_alumno=None):
+        duplicado = Notificacion.objects.filter(
+            id_usuario=usuario,
+            id_alumno=id_alumno,
+            titulo=titulo,
+            mensaje=mensaje,
+        ).exists()
+        if duplicado:
+            return
+        notificar(
+            id_usuario=usuario,
+            id_alumno=id_alumno,
+            titulo=titulo,
+            mensaje=mensaje,
+            nav=nav,
+        )
+
+    # Estudiantes y sus familias
     for alumno in _alumnos_para_comunicado(comunicado):
         for usuario in _usuarios_destinatarios_de_alumno(alumno):
-            duplicado = Notificacion.objects.filter(
-                id_usuario=usuario,
-                id_alumno=alumno,
-                titulo=titulo,
-                mensaje=mensaje,
-            ).exists()
-            if duplicado:
-                continue
-            notificar(
-                id_usuario=usuario,
-                id_alumno=alumno,
-                titulo=titulo,
-                mensaje=mensaje,
-                nav=nav,
-            )
+            _notificar_usuario(usuario, id_alumno=alumno)
+
+    # Docentes con materias en los cursos alcanzados
+    for docente in _docentes_para_comunicado(comunicado):
+        if docente.id_usuario_id:
+            _notificar_usuario(docente.id_usuario)
+
+    # Preceptores asignados a los cursos alcanzados
+    for preceptor in _preceptores_para_comunicado(comunicado):
+        if preceptor.id_usuario_id:
+            _notificar_usuario(preceptor.id_usuario)
 
 
 def _notificar_calificacion(calificacion, accion='cargada'):
@@ -4393,7 +4487,12 @@ def _msg_intensif_no_habilitada(instancia):
 
 def _pasar_a_previa(historial):
     """Convierte la materia en PREVIA / ADEUDADA reutilizando el mecanismo
-    existente (`get_or_create` con curso de origen real, sin duplicar)."""
+    existente (`get_or_create` con curso de origen real, sin duplicar).
+    Nota (corrección post-cierre, documentada en HISTORIAL §8): se invoca
+    `_notificar_previa` sin depender de la bandera `created` de `get_or_create`;
+    el reproceso de una materia ya en previa re-intenta la notificación (oculta
+    por dedup de contenido). Queda registrado como issue aparte (no se modifica
+    aquí hasta decidir el comportamiento deseado)."""
     MateriaAdeudada.objects.get_or_create(
         id_alumno=historial.id_alumno,
         id_materia=historial.id_materia,
@@ -4882,53 +4981,105 @@ def _notificar_adelanto_aprobado(adelanto):
     """E15 — Adelanto de horas aprobado.
 
     Notifica al docente que recibirá el adelanto cuando un usuario autorizado
-    (preceptor, director, admin) crea el adelanto. El estado por defecto es
-    activo (estado=True), por lo que la creación equivale a la aprobación.
+    (preceptor, director, admin) crea el adelanto, y además a los estudiantes
+    de la materia/curso afectado y a sus familias (corrección posterior).
+
+    El estado por defecto es activo (estado=True), por lo que la creación
+    equivale a la aprobación.
     """
-    docente = adelanto.id_docente
-    if not docente or not getattr(docente, 'id_usuario_id', None):
-        return
     materia = adelanto.id_materia.nombre_materia if adelanto.id_materia else 'la materia'
     curso = adelanto.id_curso.nombre_curso if adelanto.id_curso else 'el curso'
-    titulo = 'Adelanto de horas aprobado'
-    mensaje = (
+    titulo_doc = 'Adelanto de horas aprobado'
+    mensaje_doc = (
         f'Se aprobó un adelanto de horas para la materia {materia} '
         f'({curso}) el {adelanto.fecha_adelanto} '
         f'de {adelanto.hora_inicio} a {adelanto.hora_fin}.'
     )
-    notificar(id_usuario=docente.id_usuario, id_alumno=None,
-              titulo=titulo, mensaje=mensaje, nav={
-                  'destino': 'adelantos',
-                  'params': {
-                      'adelantoId': adelanto.id_adelanto,
-                  }
-              })
+    nav = {
+        'destino': 'adelantos',
+        'params': {
+            'adelantoId': adelanto.id_adelanto,
+        }
+    }
+
+    # Notificación profesional al docente
+    docente = adelanto.id_docente
+    if docente and getattr(docente, 'id_usuario_id', None):
+        notificar(id_usuario=docente.id_usuario, id_alumno=None,
+                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
+
+    # Estudiantes de la materia/curso afectado y sus familias
+    if adelanto.id_curso_id is None:
+        return
+    alumnos = Alumno.objects.filter(
+        estado=True, id_curso_id=adelanto.id_curso_id,
+    ).select_related('id_tutor')
+    titulo_al = titulo_doc
+    for alumno in alumnos:
+        mensaje_al = (
+            f'La materia {materia} ({curso}) adelantará sus horas el '
+            f'{adelanto.fecha_adelanto} de {adelanto.hora_inicio} '
+            f'a {adelanto.hora_fin}.'
+        )
+        notificar_alumno(
+            alumno=alumno,
+            titulo=titulo_al,
+            mensaje=mensaje_al,
+            dedupe=True,
+            strategy='CONTENT',
+            nav=nav,
+        )
 
 
 def _notificar_suplencia_asignada(suplencia):
     """E17 — Suplencia asignada.
 
     Notifica al docente suplente cuando se crea una suplencia activa para una
-    materia. La creación con estado=True equivale a la asignación efectiva.
+    materia, y además a los estudiantes de ese curso y a sus familias
+    (corrección posterior). La creación con estado=True equivale a la
+    asignación efectiva.
     """
-    suplente = suplencia.id_docente_suplente
-    if not suplente or not getattr(suplente, 'id_usuario_id', None):
-        return
     cm = suplencia.id_curso_materia
     materia = cm.id_materia.nombre_materia if cm and cm.id_materia else 'la materia'
     curso = cm.id_curso.nombre_curso if cm and cm.id_curso else 'el curso'
-    titulo = 'Suplencia asignada'
-    mensaje = (
-        f'Se te ha asignado una suplencia para {materia} ({curso}) '
-        f'desde {suplencia.fecha_inicio} hasta {suplencia.fecha_fin}.'
-    )
-    notificar(id_usuario=suplente.id_usuario, id_alumno=None,
-              titulo=titulo, mensaje=mensaje, nav={
-                  'destino': 'suplencias',
-                  'params': {
-                      'suplenciaId': suplencia.id_suplencia,
-                  }
-              })
+    nav = {
+        'destino': 'suplencias',
+        'params': {
+            'suplenciaId': suplencia.id_suplencia,
+        }
+    }
+
+    # Notificación profesional al docente suplente
+    suplente = suplencia.id_docente_suplente
+    if suplente and getattr(suplente, 'id_usuario_id', None):
+        titulo_doc = 'Suplencia asignada'
+        mensaje_doc = (
+            f'Se te ha asignado una suplencia para {materia} ({curso}) '
+            f'desde {suplencia.fecha_inicio} hasta {suplencia.fecha_fin}.'
+        )
+        notificar(id_usuario=suplente.id_usuario, id_alumno=None,
+                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
+
+    # Estudiantes del curso afectado y sus familias
+    if cm is None or cm.id_curso_id is None:
+        return
+    alumnos = Alumno.objects.filter(
+        estado=True, id_curso_id=cm.id_curso_id,
+    ).select_related('id_tutor')
+    titulo_al = 'Suplencia asignada'
+    for alumno in alumnos:
+        mensaje_al = (
+            f'La materia {materia} ({curso}) será dictada por un docente '
+            f'suplente desde {suplencia.fecha_inicio} hasta {suplencia.fecha_fin}.'
+        )
+        notificar_alumno(
+            alumno=alumno,
+            titulo=titulo_al,
+            mensaje=mensaje_al,
+            dedupe=True,
+            strategy='CONTENT',
+            nav=nav,
+        )
 
 
 def _notificar_planificacion_para_revision(planificacion, accion='creada'):
@@ -5051,49 +5202,67 @@ def _notificar_usuario_estado(usuario, estado_anterior):
 def _notificar_evento_institucional(evento):
     """E16 — Evento institucional.
 
-    Notifica a los usuarios alcanzados según el alcance del evento.
-    Reutiliza la lógica de alcance de Acta para determinar los destinatarios.
-    """
-    from escuela.views import _curso_matches_alcance, _alumnos_para_comunicado
-    # Reutilizamos la lógica de alcance de comunicados/actas: alumno, familia, docentes, preceptores
-    # según el alcance (todo_dia, mañana, tarde, franja, permanente).
-    # Para simplicidad, notificamos a familias y alumnos del alcance.
-    # La lógica exacta de alcance se comparte con _alumnos_para_comunicado.
-    # Creamos un objeto tipo comunicado temporal para reutilizar la función.
-    class _FakeComunicado:
-        def __init__(self, ev):
-            self.alcance = ev.alcance
-            self.fecha = ev.fecha
-            self.permanente = ev.permanente
-            self.hora_inicio = ev.hora_inicio
-            self.hora_fin = ev.hora_fin
-            self.id_ciclo = None  # se filtra por curso/ciclo activo
+    Notifica a todas las personas afectadas por el evento según su alcance real
+    (`todo_dia`/`manana`/`tarde`/`franja`), que alcanza a toda la institución:
+    - estudiantes y sus familias;
+    - Docentes;
+    - Preceptores (incluye Jefe de Preceptores);
+    - Directivos y Admin.
 
-    fake = _FakeComunicado(evento)
-    titulo_evento = f'Evento: {evento.tipo_evento}'
+    El mensaje informa la FECHA en que ocurre el evento, no la fecha de
+    creación de la notificación.
+    """
+    fecha_str = evento.fecha.strftime('%d/%m/%Y')
+    titulo = evento.get_tipo_evento_display()
+    frase = {
+        'Suspension': 'Se suspenden las clases',
+        'Feriado': 'Feriado',
+        'Jornada Institucional': 'Jornada Institucional',
+        'Otro': titulo,
+    }.get(evento.tipo_evento, titulo)
+    desc = f' {evento.descripcion}' if evento.descripcion else ''
+    mensaje = f'{frase} el {fecha_str}{desc}'
+
     nav = {
         'destino': 'eventos',
         'params': {
             'eventoId': evento.id_evento,
         }
     }
-    for alumno in _alumnos_para_comunicado(fake):
+
+    def _emitir(usuario, id_alumno=None):
+        duplicado = Notificacion.objects.filter(
+            id_usuario=usuario,
+            id_alumno=id_alumno,
+            titulo=titulo,
+            mensaje=mensaje,
+        ).exists()
+        if duplicado:
+            return
+        notificar(
+            id_usuario=usuario,
+            id_alumno=id_alumno,
+            titulo=titulo,
+            mensaje=mensaje,
+            nav=nav,
+        )
+
+    # Estudiantes y sus familias
+    for alumno in Alumno.objects.filter(estado=True).select_related('id_tutor'):
         for usuario in _usuarios_destinatarios_de_alumno(alumno):
-            duplicado = Notificacion.objects.filter(
-                id_usuario=usuario,
-                id_alumno=alumno,
-                titulo=titulo_evento,
-                mensaje=evento.descripcion,
-            ).exists()
-            if duplicado:
-                continue
-            notificar(
-                id_usuario=usuario,
-                id_alumno=alumno,
-                titulo=titulo_evento,
-                mensaje=evento.descripcion,
-                nav=nav,
-            )
+            _emitir(usuario, id_alumno=alumno)
+
+    # Docentes con cuenta
+    for docente in Docente.objects.exclude(id_usuario=None).select_related('id_usuario'):
+        _emitir(docente.id_usuario)
+
+    # Preceptores con cuenta (preceptor y jefe de preceptores)
+    for preceptor in Preceptor.objects.exclude(id_usuario=None).select_related('id_usuario'):
+        _emitir(preceptor.id_usuario)
+
+    # Directivos y Admin
+    for usuario in _usuarios_directivos():
+        _emitir(usuario)
 
 
 def _notificar_bloqueo_horario(bloqueo, accion='creado'):

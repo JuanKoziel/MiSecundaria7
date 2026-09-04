@@ -1919,6 +1919,7 @@ class DiagnosticoGrupalSerializer(serializers.ModelSerializer):
 # ---------- Notificaciones ----------
 
 import json
+import re
 
 class NotificacionSerializer(serializers.ModelSerializer):
     """Serializa una notificación.
@@ -1928,8 +1929,12 @@ class NotificacionSerializer(serializers.ModelSerializer):
     desde la API pública. La autorización no depende de estos campos sino
     del usuario autenticado.
 
-    Campos de navegación (Parte 8): se extraen del mensaje si están presentes.
+    Corrección posterior: los marcadores internos [ref:...] y [nav:...] se
+    almacenan en la base de datos (para deduplicación y navegación) pero se
+    ocultan al cliente. El campo ``mensaje`` expone el texto visible limpio,
+    y ``nav_destino``/``nav_params`` exponen los metadatos de navegación.
     """
+    mensaje = serializers.SerializerMethodField()
     nav_destino = serializers.SerializerMethodField()
     nav_params = serializers.SerializerMethodField()
 
@@ -1938,12 +1943,20 @@ class NotificacionSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('id_notificacion', 'id_usuario', 'id_alumno')
 
+    @staticmethod
+    def _limpiar_mensaje(mensaje):
+        """Elimina marcadores internos [ref:...] y [nav:...] para visualización."""
+        if not mensaje:
+            return ''
+        mensaje = re.sub(r'\s*\[ref:[^\]]+\]', '', mensaje)
+        mensaje = re.sub(r'\s*\[nav:\{.*?\}\s*\]', '', mensaje)
+        return mensaje.strip()
+
     def _extraer_nav(self, obj):
         """Extrae metadatos de navegación del mensaje si están presentes."""
         if not obj.mensaje:
             return {}
         # Buscar bloque de navegación al final del mensaje: [nav:{...}]
-        import re
         match = re.search(r'\[nav:(\{.*?\})\s*\]', obj.mensaje)
         if match:
             try:
@@ -1951,6 +1964,9 @@ class NotificacionSerializer(serializers.ModelSerializer):
             except json.JSONDecodeError:
                 pass
         return {}
+
+    def get_mensaje(self, obj):
+        return self._limpiar_mensaje(obj.mensaje)
 
     def get_nav_destino(self, obj):
         nav = self._extraer_nav(obj)

@@ -5,6 +5,7 @@ import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
 import { cursoConOrientacion } from '../../utils/orientacion';
+import { viewDesdeDestino } from '../../utils/navDestinos';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
 import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
 import BoletinExtras from '../BoletinExtras';
@@ -29,10 +30,12 @@ function AlumnoDashboard({ user, onLogout }) {
   } = useData();
   const [view, setView] = useState('perfil');
 
-  // Parte 8: manejar navegación desde notificaciones
+  // Parte 8: manejar navegación desde notificaciones.
+  // Traduce el destino semántico a una vista válida del dashboard de Alumno.
   useEffect(() => {
     if (navIntent && navIntent.destino) {
-      setView(navIntent.destino);
+      const vista = viewDesdeDestino(navIntent.destino, 'alumno');
+      if (vista) setView(vista);
     }
   }, [navIntent]);
   const miAlumno = useMemo(

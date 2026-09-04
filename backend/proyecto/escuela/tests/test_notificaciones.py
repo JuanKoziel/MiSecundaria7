@@ -247,3 +247,66 @@ class NotificacionesMarcarTodasTests(TestCase):
         personal.refresh_from_db()
         self.assertTrue(del_hijo.leida)
         self.assertFalse(personal.leida)
+
+
+class NotificacionesMetadataTests(TestCase):
+    """Corrección posterior: ocultar marcadores internos [ref:...]/[nav:...].
+
+    Verifica que el usuario recibe el mensaje limpio, sin marcadores internos,
+    mientras `nav_destino`/`nav_params` y el mensaje crudo siguen existiendo
+    internamente para deduplicación y navegación.
+    """
+
+    def setUp(self):
+        self.usuario = crear_usuario('meta_user')
+
+    def test_mensaje_limpio_sin_marcadores_y_nav_disponible(self):
+        """Con [ref:...] y [nav:...] presentes, la API expone el mensaje limpio
+        y además los campos nav_destino/nav_params para navegación."""
+        notificar(
+            id_usuario=self.usuario,
+            titulo='Calificación',
+            mensaje='Tu calificación fue cargada. [ref:calificacion_166]',
+            dedupe_key='calificacion_166',
+            nav={'destino': 'calificaciones', 'params': {'alumnoId': 5}},
+        )
+        resp = cliente_para('meta_user').get('/api/notificaciones/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(len(data), 1)
+        n = data[0]
+
+        # El mensaje visible NO debe contener marcadores internos
+        self.assertNotIn('[ref:', n['mensaje'])
+        self.assertNotIn('[nav:', n['mensaje'])
+        self.assertEqual(n['mensaje'], 'Tu calificación fue cargada.')
+
+        # La navegación sigue disponible
+        self.assertEqual(n['nav_destino'], 'calificaciones')
+        self.assertEqual(n['nav_params'], {'alumnoId': 5})
+
+    def test_ref_se_elimina_del_mensaje_visible(self):
+        """El marcador [ref:...] se elimina del mensaje visible pero permanece
+        en el mensaje crudo (para deduplicación) en la base de datos."""
+        n = notificar(
+            id_usuario=self.usuario,
+            titulo='Aviso',
+            mensaje='Mensaje sin marcador. [ref:acta_88]',
+            dedupe_key='acta_88',
+        )
+        # En la DB el marcador [ref:] existe para deduplicación
+        self.assertIn('[ref:acta_88]', n.mensaje)
+
+        resp = cliente_para('meta_user').get('/api/notificaciones/')
+        data = resp.json()[0]
+        self.assertNotIn('[ref:acta_88]', data['mensaje'])
+        self.assertEqual(data['mensaje'], 'Mensaje sin marcador.')
+
+    def test_mensaje_sin_marcadores_queda_igual(self):
+        """Un mensaje sin marcadores no se altera y el nav queda vacío."""
+        notificar(id_usuario=self.usuario, titulo='Simple', mensaje='Texto simple.')
+        resp = cliente_para('meta_user').get('/api/notificaciones/')
+        data = resp.json()[0]
+        self.assertEqual(data['mensaje'], 'Texto simple.')
+        self.assertIsNone(data['nav_destino'])
+        self.assertEqual(data['nav_params'], {})

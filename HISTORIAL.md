@@ -252,4 +252,92 @@ Al intentar guardar una nota de Intensificaciones en `Docente → Calificaciones
 
 ---
 
-*Documento actualizado el 2026-09-02 · Proyecto Mi Secundaria 7*
+## 8. Navegación desde notificaciones y documentación de eventos E10/E3/E19 (2026-09-03)
+
+Correcciones post-cierre del Plan Maestro de Notificaciones (§16). No se reabrió
+ninguna parte de las 1–9; solo se corrigió la navegación y se documentaron los
+eventos.
+
+### 8.1 Corrección 6 — Navegación desde notificaciones (arreglo)
+
+**Problema:** `DESTINO_A_VISTA` (en `Notificaciones.jsx`) traducía el destino
+semántico del backend a un nombre de vista genérico y cada dashboard lo usaba
+directamente como `view`/`seccionActiva`. Esto producía destinos inexistentes
+(p. ej. `eventos` en vez de `calendario`, `planificaciones` en vez de `planif`,
+`boletin`/`intensificaciones`/`rendiciones`/`ddjj` sin vista real) y, además,
+los dashboards de **Preceptor** y **Admin** no consumían `navIntent` en absoluto.
+Resultado: muchos clics en notificaciones derivaban a una sección en blanco.
+
+**Solución:**
+- Nuevo util `frontend/src/utils/navDestinos.js` con `viewDesdeDestino(destino, rol)`
+  que mapea el destino **semántico** al nombre de vista **real** de cada rol.
+- `Notificaciones.jsx` ahora propaga `nav_destino`/`nav_params` **sin pre-mapear**;
+  cada dashboard traduce con su rol.
+- Dashboards actualizados: `AlumnoDashboard`, `FamiliaDashboard`, `PanelProfesores`
+  (docente), `PreceptorDashboard` y `AdminDashboard` mapean el destino y solo
+  navegan si existe una vista válida (si no, el item no navega, no queda en blanco).
+- `FamiliaDashboard` además preselecciona el hijo cuando `nav_params.alumnoId`
+  coincide con un hijo vinculado.
+- Tests: `frontend/src/utils/navDestinos.test.js` (nuevo, 12 tests) + 2 tests de
+  propagación en `Notificaciones.test.jsx`. Frontend total: **137 OK**; build OK.
+
+### 8.2 Documentación de eventos (correcciones 7, 8, 9)
+
+#### E10 — Materia pasa a Previa (registrado como issue aparte)
+
+`_pasar_a_previa(historial)` (`backend/proyecto/escuela/views.py:4488`) invoca
+`MateriaAdeudada.objects.get_or_create(...)`, pero **ignora la bandera `created`**
+y llama a `_notificar_previa(...)` de forma incondicional. Por lo tanto, cada vez
+que se reprocesa una materia que ya está en PREVIA, se vuelve a intentar emitir la
+notificación, aunque no haya una transición real.
+
+- En la práctica la deduplicación por contenido (`notificar_alumno`, estrategia
+  CONTENT) oculta la mayoría de los duplicados idénticos, por lo que el test
+  `test_previa_evita_duplicados` pasa.
+- Sin embargo, no se cumple estrictamente el criterio §17 #9 ("solo notificación
+  ante cambios efectivos"): si el historial de la notificación previa se purga o
+  se elimina, el reproceso volvería a crear una notificación para un estado ya
+  existente.
+- **Decisión:** se documenta como issue aparte (**sin corrección de código** en
+  este alcance). Requiere decidir el comportamiento deseado antes de tocar
+  `_pasar_a_previa` (p. ej. notificar solo cuando `created` es `True`).
+
+#### E3 — Inasistencia registrada (validación manual pendiente)
+
+El emisor `_notificar_inasistencia(...)` está correctamente integrado en
+`AsistenciaViewSet.create` (`backend/proyecto/escuela/views.py:3043,3048`), tanto
+para la ruta de actualización de una asistencia existente como para la creación.
+Los tests unitarios de E3 llaman a la función directamente y **pasan**.
+
+Sin embargo, el endpoint `AsistenciaViewSet.create` arrastra los **3 fallos
+PREEXISTENTES** de `test_asistencias` (el endpoint retorna `201` en lugar de `400`
+en validaciones de docente), que impiden validar el disparo de E3 a través de la
+API real de forma automatizada.
+
+- **Decisión:** se documenta que la validación **manual** del flujo completo
+  (registrar una ausencia por la UI de Asistencias y comprobar la notificación)
+  queda **pendiente** hasta resolver la deuda técnica del endpoint. La lógica
+  unitaria de E3 está cubierta por tests y no presenta defectos propios.
+
+#### E19 — Bloqueo/modificación de horario (inspección sin modificación)
+
+Se inspeccionó `BloqueoHorarioAlumnoViewSet` (`backend/proyecto/escuela/views.py:4878`):
+
+- `perform_create` → `_notificar_bloqueo_horario(..., accion='creado')`: notifica
+  solo si `estado=True` (bloqueo activo). Crear un bloqueo inactivo no notifica.
+- `perform_update` → notifica con `accion='desactivado'` **solo** en la transición
+  `True → False` (levantamiento del bloqueo), que es el evento definido.
+- Escritura restringida a `IsAdminOrDirectorForWrite`; la lectura respeta
+  `alumnos_permitidos(request)`.
+- Los 3 tests de `test_notificaciones_eventos_parte6.py` (E19) cubren crear
+  activo, desactivar, y crear inactivo (no notifica) — **pasan**.
+
+**Conclusión:** el comportamiento de E19 es correcto y coherente con el plan
+(§5.6.2 y §E19); **no requiere modificación de código**. Se documenta el resultado
+de la inspección. Nota: no se notifica la *reactivación* (`False → True`), lo cual
+es coherente con el plan (no está definido como evento); ante requerimientos
+futuros se podría agregar.
+
+---
+
+*Documento actualizado el 2026-09-03 · Proyecto Mi Secundaria 7*
