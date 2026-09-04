@@ -52,17 +52,49 @@ class Parte6ActaConductaTests(TestCase):
 
     def test_acta_conducta_notifica_a_alumno_y_familia(self):
         """Al asociar un acta de tipo conducta, notifica a alumno y familia."""
+        self._crear_acta_conducta('Apercibimiento por comportamiento', 'Incidente en el patio')
+        self._notificar_y_verificar()
+
+    def test_acta_conducta_notifica_al_preceptor_del_curso(self):
+        """Corrección posterior — el preceptor del curso del alumno también es
+        notificado (gestiona las actas de conducta de su curso)."""
+        preceptor_user = crear_usuario('prec_p6a', roles=('preceptor',))
+        preceptor = crear_preceptor(id_usuario=preceptor_user)
+        self.curso.id_preceptor = preceptor
+        self.curso.save()
+
+        preceptor_otro_user = crear_usuario('prec_p6a_otro', roles=('preceptor',))
+        preceptor_otro = crear_preceptor(id_usuario=preceptor_otro_user)
+
+        self._crear_acta_conducta('Apercibimiento por comportamiento', 'Incidente en el patio')
+
+        acta = Acta.objects.last()
+        acta_alumno = ActaAlumno.objects.get(id_acta=acta)
+        _notificar_acta_conducta(acta_alumno)
+
+        # El preceptor del curso del alumno recibe la notificación
+        n = Notificacion.objects.get(id_usuario=preceptor_user)
+        self.assertEqual(n.titulo, 'Acta de Apercibimiento')
+        self.assertIn('Apercibimiento por comportamiento', n.mensaje)
+        self.assertIn('para Alumno, Lucas', n.mensaje)
+        # El marcador de navegación apunta a la vista 'actas'
+        self.assertIn('[nav:{"destino":"actas"', n.mensaje)
+
+        # El preceptor de otro curso no recibe nada
+        self.assertFalse(Notificacion.objects.filter(id_usuario=preceptor_otro_user).exists())
+
+    def _crear_acta_conducta(self, titulo, descripcion):
         creador = crear_usuario('creador_acta', roles=('docente',))
         acta = Acta.objects.create(
             id_tipo_acta=self.tipo_conducta,
             id_usuario_creador=creador,
-            titulo='Apercibimiento por comportamiento',
-            descripcion='Incidente en el patio',
+            titulo=titulo,
+            descripcion=descripcion,
         )
         acta_alumno = ActaAlumno.objects.create(id_acta=acta, id_alumno=self.alumno)
-
         _notificar_acta_conducta(acta_alumno)
 
+    def _notificar_y_verificar(self):
         self.assertTrue(Notificacion.objects.filter(id_usuario=self.alumno_user).exists())
         self.assertTrue(Notificacion.objects.filter(id_usuario=self.tutor_user).exists())
         n = Notificacion.objects.get(id_usuario=self.alumno_user)

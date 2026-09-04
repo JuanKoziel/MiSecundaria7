@@ -43,6 +43,7 @@ const MAPA_POR_ROL = {
   },
   preceptor: {
     adelantos: 'adelantos-horas',
+    actas: 'actas',
     comunicados: 'comunicados',
     eventos: 'calendario',
     perfil: 'perfil',

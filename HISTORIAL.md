@@ -2,7 +2,7 @@
 
 > **Propósito:** Registro de todas las auditorías, correcciones y decisiones significativas tomadas en el proyecto. Este archivo preserva el trabajo ya realizado para referencia futura.
 >
-> **Última actualización:** 2026-09-02
+> **Última actualización:** 2026-09-04
 
 ---
 
@@ -338,6 +338,63 @@ de la inspección. Nota: no se notifica la *reactivación* (`False → True`), l
 es coherente con el plan (no está definido como evento); ante requerimientos
 futuros se podría agregar.
 
+## 9. Destinatarios Preceptor y navegación E4 (2026-09-04)
+
+Segunda ronda de correcciones post-cierre del Plan Maestro de Notificaciones
+(§16). No se reabrieron las Partes 1–9. Sin cambios de base de datos ni
+migraciones.
+
+### 9.1 Determinación de destinatarios del Preceptor (Problema 1)
+
+Se auditó qué eventos deben notificar al Preceptor según el alcance real de cada
+evento y la relación real `Alumno.id_curso → Curso.id_preceptor`:
+
+| Evento | ¿Notifica al Preceptor? | Resultado |
+|--------|------------------------|-----------|
+| E7 Comunicados | Sí | Ya cubierto (curso-scoped; tests actuales) |
+| E16 Eventos institucionales | Sí | Ya cubierto (alcance institucional) |
+| **E4 Conducta/apercibimientos** | **Sí (añadido)** | Se notifica al preceptor del curso del alumno |
+| E3 Asistencias | No (diferido) | Requiere resumen diario [REQUIERE DECISIÓN]; fuera de alcance |
+| E10 Previa | No | Issue aparte (§8.2); no tocar |
+| E19 Bloqueo horario | No | Fuera de alcance (§8.2) |
+| E5 Actas, E11/E12/E13/E18 académicos | No | Plan §5.2: alumno+familia (+ docentes) |
+
+**Cambio de código (E4):**
+- Nuevo helper compartido `_preceptores_para_cursos(curso_ids)`
+  (`backend/proyecto/escuela/views.py`) que devuelve los preceptores únicos
+  (`Curso.id_preceptor`) con su `id_usuario`, deduplicados.
+- `_notificar_acta_conducta(...)` ahora, además de alumno y familia, notifica al
+  preceptor del curso del alumno (mensaje con el nombre del alumno y el mismo
+  `nav` al destino `actas`). Usa la puerta única `notificar()` (conserva
+  anti-spam y dedup del § Parte 7).
+- `_preceptores_para_comunicado(...)` se refactorizó para reutilizar el helper
+  (mismo resultado; solo reduce duplicación).
+
+**Test añadido:** `test_acta_conducta_notifica_al_preceptor_del_curso`
+(`test_notificaciones_eventos_parte6.py`) — verifica que el preceptor del curso
+del alumno recibe la notificación con el `nav` a `actas`, y que el preceptor de
+otro curso no recibe nada. Suite E4: **4 OK**.
+
+### 9.2 Navegación clicable y verificación completa (Problema 2)
+
+Se completó la navegación para el nuevo destinatario preceptor: se añadió
+`actas: 'actas'` al mapa de `preceptor` en `utils/navDestinos.js`, de modo que
+los preceptores puedan abrir la vista **Actas** (módulo existente del
+`PreceptorDashboard`) al hacer clic en una notificación de conducta.
+
+Flujo verificado de punta a punta: clic → `nav_destino` semántico + `nav_params`
+(emitidos por el backend) → `viewDesdeDestino(destino, rol)` por dashboard → vista
+real del panel (solo navega si existe; si no, el item no navega y nunca queda una
+pantalla en blanco). No se muestran marcadores `[nav:...]`/`[ref:...]` en la UI
+(el serializer los separa del `mensaje`).
+
+### 9.3 Verificación
+
+- Backend: suites de notificaciones completas **86 OK**; suite completa **234
+  tests con solo los 3 fallos PREEXISTENTES** de `test_asistencias` (`201 != 400`),
+  ajenos a estos cambios. `manage.py check`: solo warning W342 preexistente.
+- Frontend: `npm test` **137 OK** (14 archivos); `npm run build` OK.
+
 ---
 
-*Documento actualizado el 2026-09-03 · Proyecto Mi Secundaria 7*
+*Documento actualizado el 2026-09-04 · Proyecto Mi Secundaria 7*

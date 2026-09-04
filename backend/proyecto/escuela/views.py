@@ -854,7 +854,20 @@ def _docentes_para_comunicado(comunicado):
 def _preceptores_para_comunicado(comunicado):
     """Preceptores asignados a los cursos alcanzados por el comunicado."""
     cursos = _cursos_para_comunicado(comunicado)
+    return _preceptores_para_cursos([curso.id_curso for curso in cursos])
+
+
+def _preceptores_para_cursos(curso_ids):
+    """Preceptores únicos asignados a los cursos dados (`Curso.id_preceptor`).
+
+    Recurso compartido para notificar al preceptor de los cursos afectados por
+    un evento (p. ej. E4, un acta de conducta asociada a un alumno).
+    """
+    curso_ids = [cid for cid in curso_ids if cid]
+    if not curso_ids:
+        return []
     preceptores = {}
+    cursos = Curso.objects.filter(id_curso__in=curso_ids).select_related('id_preceptor')
     for curso in cursos:
         if curso.id_preceptor_id is not None:
             preceptores[curso.id_preceptor_id] = curso.id_preceptor
@@ -5158,7 +5171,9 @@ def _notificar_acta_conducta(acta_alumno):
     """E4 — Conducta/apercibimientos.
 
     Notifica al estudiante y a su familia cuando se asocia un acta de tipo
-    conducta/apercibimiento a un alumno (creación de ActaAlumno).
+    conducta/apercibimiento a un alumno (creación de ActaAlumno). Además
+    notifica al preceptor del curso del alumno, que gestiona las actas de su
+    curso.
     """
     acta = acta_alumno.id_acta
     if not _es_tipo_acta_conducta(acta):
@@ -5166,16 +5181,36 @@ def _notificar_acta_conducta(acta_alumno):
     alumno = acta_alumno.id_alumno
     tipo = acta.id_tipo_acta.nombre_tipo if acta.id_tipo_acta else 'acta'
     titulo = f'Acta de {tipo}'
-    mensaje = (
-        f'Se ha registrado un acta de {tipo} a tu nombre: '
-        f'{acta.titulo or acta.descripcion or "sin detalles"}.'
-    )
-    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
+    detalle = acta.titulo or acta.descripcion or 'sin detalles'
+    nav = {
         'destino': 'actas',
         'params': {
             'actaId': acta.id_acta,
         }
-    })
+    }
+    notificar_alumno(
+        alumno=alumno,
+        titulo=titulo,
+        mensaje=f'Se ha registrado un acta de {tipo} a tu nombre: {detalle}.',
+        nav=nav,
+    )
+
+    if alumno is not None:
+        preceptores = _preceptores_para_cursos([alumno.id_curso_id])
+        if preceptores:
+            nombre = f'{alumno.apellido}, {alumno.nombre}'
+            mensaje_preceptor = (
+                f'Se ha registrado un acta de {tipo} para {nombre}: {detalle}.'
+            )
+            for preceptor in preceptores:
+                if preceptor.id_usuario_id:
+                    notificar(
+                        id_usuario=preceptor.id_usuario,
+                        id_alumno=None,
+                        titulo=titulo,
+                        mensaje=mensaje_preceptor,
+                        nav=nav,
+                    )
 
 
 def _notificar_usuario_estado(usuario, estado_anterior):

@@ -1300,6 +1300,46 @@ Pendientes:
 
 ---
 
+## Correcciones post-cierre (2) — Destinatarios Preceptor y navegación E4 (2026-09-04)
+Estado: COMPLETADA — no reabre las Partes 1–9. Sin cambios de DB ni migraciones.
+
+Alcance (Problema 1 — preceptores y sus notificaciones):
+- Se auditó el alcance real de cada evento para decidir si debe notificar al Preceptor.
+  - **E7** y **E16** ya notificaban al preceptor (cubierto por tests) — sin cambio.
+  - **E4 (Conducta/apercibimientos)**: SE AÑADE la notificación al preceptor del curso
+    del alumno (relación real `Alumno.id_curso → Curso.id_preceptor`).
+  - **E3** queda diferido [REQUIERE DECISIÓN resumen diario], **E10** issue aparte y
+    **E19** fuera de alcance (no se tocan, como se acordó).
+  - **E5, E11, E12, E13, E18**: sin preceptor (plan §5.2: alumno+familia/docentes).
+- Archivos modificados:
+  - `backend/proyecto/escuela/views.py`: nuevo helper `_preceptores_para_cursos(curso_ids)`;
+    `_notificar_acta_conducta` ahora notifica también al preceptor del curso del alumno
+    (vía la puerta única `notificar()`, conservando anti-spam/dedup); `_preceptores_para_comunicado`
+    refactorizado para reutilizar el helper (mismo resultado).
+  - `backend/proyecto/escuela/tests/test_notificaciones_eventos_parte6.py`: nuevo test
+    `test_acta_conducta_notifica_al_preceptor_del_curso` (suite E4 → 4 OK).
+  - `frontend/src/utils/navDestinos.js`: mapa `preceptor` += `actas: 'actas'`.
+
+Alcance (Problema 2 — notificaciones clicables que navegan):
+- El preceptor ahora puede abrir la vista **Actas** (existente en su dashboard) al hacer
+  clic en una notificación de conducta. Flujo verificado: clic → `nav_destino` semántico +
+  `nav_params` → `viewDesdeDestino(destino, rol)` → vista real del dashboard (solo navega
+  si la vista existe; nunca pantalla en blanco). No se muestran `[nav:...]`/`[ref:...]` en la UI.
+
+Tests ejecutados:
+- Backend: suites de notificaciones completas **86 OK**; suite completa **234 tests** con
+  solo los 3 fallos PREEXISTENTES de `test_asistencias` (`201 != 400`) ajenos a este cambio;
+  `manage.py check` solo W342 preexistente.
+- Frontend: `npm test` **137 OK**; `npm run build` OK.
+
+Decisiones:
+- El preceptor de un curso es destinatario real de las actas de conducta de sus alumnos
+  (gestión de actas en su módulo). No se inventaron relaciones; se reutiliza la real
+  `Curso.id_preceptor`.
+- Se mantiene el criterio §17 (puerta única, anti-spam, dedup, navegación solo a vistas reales).
+
+---
+
 # 17. Criterios generales de aceptación
 
 El sistema final debe cumplir:
