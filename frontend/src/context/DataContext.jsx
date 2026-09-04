@@ -23,6 +23,8 @@ import {
   getComunicados,
   getDiagnosticosGrupales,
   getPlanificaciones,
+  marcarLeida,
+  marcarTodasLeidas,
 } from '../services/api';
 
 const DataContext = createContext(null);
@@ -76,6 +78,8 @@ export function DataProvider({ children }) {
   const [adminCursos, setAdminCursos] = useState([]);
   const [adminMaterias, setAdminMaterias] = useState([]);
   const [adminCursoMateria, setAdminCursoMateria] = useState([]);
+  // Parte 8: navegación desde notificaciones
+  const [navIntent, setNavIntent] = useState(null);
   const hasLoadedRef = useRef(false);
 
   const fetchData = useCallback(async () => {
@@ -544,6 +548,16 @@ export function DataProvider({ children }) {
         fecha_subida: p.fecha_subida || null,
       }));
 
+      const notificaciones = (Array.isArray(notificacionesRaw) ? notificacionesRaw : []).map((n) => ({
+        id: n.id_notificacion,
+        id_usuario: n.id_usuario ?? null,
+        id_alumno: n.id_alumno ?? null,
+        titulo: n.titulo || '',
+        mensaje: n.mensaje || '',
+        fecha: n.fecha || null,
+        leida: Boolean(n.leida),
+      }));
+
 
 
       hasLoadedRef.current = true;
@@ -579,6 +593,7 @@ export function DataProvider({ children }) {
         comunicados,
         diagnosticos,
         planificaciones,
+        notificaciones,
         padresTutores,
         nombreCompleto,
         nombreCorto,
@@ -630,6 +645,48 @@ export function DataProvider({ children }) {
     fetchData();
   }, [fetchData]);
 
+  const marcarNotificacionLeida = useCallback(async (id) => {
+    try {
+      await marcarLeida(id);
+    } catch {
+      return false;
+    }
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        notificaciones: prev.notificaciones.map((n) =>
+          n.id === id ? { ...n, leida: true } : n
+        ),
+      };
+    });
+    return true;
+  }, []);
+
+  const marcarTodasNotificacionesLeidas = useCallback(async (ids) => {
+    try {
+      await marcarTodasLeidas();
+    } catch {
+      return false;
+    }
+    setData((prev) => {
+      if (!prev) return prev;
+      const idsSet = new Set(ids);
+      return {
+        ...prev,
+        notificaciones: prev.notificaciones.map((n) =>
+          idsSet.has(n.id) ? { ...n, leida: true } : n
+        ),
+      };
+    });
+    return true;
+  }, []);
+
+  // Parte 8: navegación desde notificaciones
+  const navegarDesdeNotificacion = useCallback((destino, params = {}) => {
+    setNavIntent({ destino, params, timestamp: Date.now() });
+  }, []);
+
   if (data) {
     data.refreshData = fetchData;
   }
@@ -639,6 +696,10 @@ export function DataProvider({ children }) {
       data, loading, refreshing, error, refreshData: fetchData,
       adminCursos, adminMaterias, adminCursoMateria,
       refreshAdminCursos, refreshAdminMaterias, refreshAdminCursoMateria,
+      marcarNotificacionLeida,
+      marcarTodasNotificacionesLeidas,
+      navegarDesdeNotificacion,
+      navIntent,
     }}>
       {children}
     </DataContext.Provider>
@@ -681,6 +742,7 @@ export function useData() {
       comunicados: [],
       diagnosticos: [],
       planificaciones: [],
+      notificaciones: [],
       calificacionesCompletas: [],
       periodos: [],
       padresTutores: [],
@@ -700,6 +762,8 @@ export function useData() {
       refreshAdminCursos: () => {},
       refreshAdminMaterias: () => {},
       refreshAdminCursoMateria: () => {},
+      marcarNotificacionLeida: () => {},
+      marcarTodasNotificacionesLeidas: () => {},
     };
   }
   return {
@@ -712,5 +776,7 @@ export function useData() {
     refreshAdminCursos: ctx.refreshAdminCursos,
     refreshAdminMaterias: ctx.refreshAdminMaterias,
     refreshAdminCursoMateria: ctx.refreshAdminCursoMateria,
+    marcarNotificacionLeida: ctx.marcarNotificacionLeida,
+    marcarTodasNotificacionesLeidas: ctx.marcarTodasNotificacionesLeidas,
   };
 }

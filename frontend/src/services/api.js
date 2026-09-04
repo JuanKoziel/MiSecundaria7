@@ -394,6 +394,16 @@ export async function getNotificaciones(params) {
   return data;
 }
 
+export async function marcarLeida(id) {
+  const { data } = await api.patch(`/notificaciones/${id}/marcar_leida/`);
+  return data;
+}
+
+export async function marcarTodasLeidas(params) {
+  const { data } = await api.patch('/notificaciones/marcar_todas_leidas/', null, { params });
+  return data;
+}
+
 export async function getPlanificaciones(params) {
   const { data } = await api.get('/planificaciones/', { params });
   return data;

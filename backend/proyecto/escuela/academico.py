@@ -7,6 +7,7 @@ from escuela.models import (
     RecursadaMateria, BloqueoHorarioAlumno, RegistroRendicionPrevia,
     RendicionMateriaAdeudada, SituacionMateriaAlumno, Horario, HorariosEspeciales
 )
+from escuela.notifications import notificar_alumno
 
 
 def consolidar_historial_alumno(alumno, anio_lectivo):
@@ -72,6 +73,35 @@ def consolidar_historial_alumno(alumno, anio_lectivo):
                     'fecha_generacion': timezone.now()
                 }
             )
+
+        _notificar_consolidacion(alumno, cm, estado_materia)
+
+
+def _notificar_consolidacion(alumno, cm, estado_materia):
+    """E13 — Promoción / no promoción (por materia) durante el cierre del ciclo.
+
+    Se emite durante la consolidación del ciclo: cuando una materia queda
+    `aprobada` (promoción) o `adeudada` (no promoción) se notifica al
+    estudiante y a su familia por materia. La deduplicación por contenido
+    evita repetir la notificación si el cierre se vuelve a procesar.
+    """
+    if estado_materia not in ('aprobada', 'adeudada'):
+        return
+    materia = cm.id_materia
+    nombre = materia.nombre_materia if materia else 'la materia'
+    if estado_materia == 'aprobada':
+        titulo = 'Materia aprobada'
+        mensaje = f'Resultado del ciclo: la materia {nombre} fue aprobada.'
+    else:
+        titulo = 'Materia adeudada'
+        mensaje = f'Resultado del ciclo: la materia {nombre} quedó adeudada.'
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
+        'destino': 'boletin',
+        'params': {
+            'materiaId': materia.id_materia if materia else None,
+            'estado': estado_materia,
+        }
+    })
 
 
 @transaction.atomic

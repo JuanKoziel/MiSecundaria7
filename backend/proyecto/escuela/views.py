@@ -1,5 +1,5 @@
 ﻿import os
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from django.contrib.auth import authenticate
 from django.db import models
 from django.http import FileResponse
@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from escuela.auth_backend import get_roles_for_usuario
+from escuela.notifications import notificar, notificar_alumno
 from escuela.permissions import (
     IsAdminOrDirectorForWrite,
     PuedeVerHistorial,
@@ -27,8 +28,10 @@ from escuela.permissions import (
     PuedePublicarComunicados,
     alumnos_permitidos,
     alumno_del_usuario,
+    alumno_ids_familia,
     docente_del_usuario,
     es_rol_amplio,
+    get_usuario,
 )
 from escuela.utils import (
     ACCION_CAMBIO_CONTRASENA,
@@ -102,6 +105,7 @@ from escuela.models import (
     SituacionMateriaAlumno,
     PERIODO_ORDEN,
     PERIODO_LABELS,
+    PERIODO_DISPLAY,
     NOTA_APROBACION,
 )
 from escuela.serializers import (
@@ -691,6 +695,195 @@ def _filter_visible_comunicados(request, qs):
     ]
     return qs.filter(id_comunicado__in=visible_ids).distinct()
 
+
+# =========================================================================
+# Eventos de notificación (Parte 3 — Comunicados y asistencias)
+# -------------------------------------------------------------------------
+# Toda creación pasa por `notifications.notificar` (puerta única). La
+# autorización no depende de estos helpers: son solo emisores que respetan
+# las mismas reglas de visibilidad por alcance que ya usa el sistema.
+# =========================================================================
+
+def _usuarios_destinatarios_de_alumno(alumno):
+    """Usuarios a notificar por hechos que conciernen a un alumno: el propio
+    alumno y, si existe, el usuario de su tutor/familia."""
+    usuarios = []
+    if alumno is not None and alumno.id_usuario_id:
+        usuarios.append(alumno.id_usuario)
+    tutor = getattr(alumno, 'id_tutor', None) if alumno else None
+    if tutor is not None and tutor.id_usuario_id:
+        usuarios.append(tutor.id_usuario)
+    return usuarios
+
+
+def _registrar_o_acumular_ausencia(usuario, alumno, fecha, titulo, mensaje):
+    """Agrupa las inasistencias por (destinatario, alumno, fecha): si ya
+    existe una notificación de inasistencia para ese día, acumula la materia
+    en el mensaje en lugar de crear una notificación nueva.
+
+    `Notificacion.fecha` se guarda en UTC, por lo que el día se compara con
+    un rango horario local (medianoche del día de la ausencia → medianoche
+    siguiente) para no fallar por diferencias de zona horaria.
+    """
+    inicio = timezone.make_aware(datetime.combine(fecha, time.min))
+    fin = inicio + timedelta(days=1)
+    ya = Notificacion.objects.filter(
+        id_usuario=usuario,
+        id_alumno=alumno,
+        fecha__gte=inicio,
+        fecha__lt=fin,
+        titulo=titulo,
+    ).first()
+    if ya is not None:
+        if str(mensaje) not in (ya.mensaje or ''):
+            ya.mensaje = f'{ya.mensaje}\n{mensaje}' if ya.mensaje else mensaje
+            ya.save()
+        return ya
+    return notificar(
+        id_usuario=usuario,
+        id_alumno=alumno,
+        titulo=titulo,
+        mensaje=mensaje,
+    )
+
+
+def _notificar_inasistencia(asistencia):
+    """E3 — Inasistencia registrada.
+
+    Si la asistencia corresponde a una ausencia efectiva (estado "Ausente"),
+    notifica al estudiante y a su familia, agrupando por día: no se genera una
+    notificación independiente por cada ausencia del mismo alumno y fecha.
+    Usa la estrategia DAILY de notificar_alumno para deduplicación diaria.
+    """
+    if getattr(asistencia, 'id_estado_asistencia_id', None):
+        ausente_id = EstadoAsistencia.objects.filter(
+            nombre_estado='Ausente',
+        ).values_list('id_estado_asistencia', flat=True).first()
+        if not ausente_id or asistencia.id_estado_asistencia_id != ausente_id:
+            return
+
+    alumno = asistencia.id_alumno
+    if alumno is None:
+        return
+
+    cm = asistencia.id_curso_materia
+    materia = ''
+    if cm is not None and cm.id_materia_id:
+        materia = getattr(cm.id_materia, 'nombre_materia', '') or ''
+    materia_txt = f' en {materia}' if materia else ''
+    titulo = 'Inasistencia registrada'
+    mensaje = (
+        f'{alumno.apellido}, {alumno.nombre} fue registrado como Ausente'
+        f'{materia_txt} el {asistencia.fecha.isoformat()}.'
+    )
+
+    # Usar notificar_alumno con estrategia DAILY (agrupa por día)
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, strategy='DAILY', nav={
+        'destino': 'asistencias',
+        'params': {
+            'alumnoId': alumno.id_alumno,
+            'fecha': asistencia.fecha.isoformat() if asistencia.fecha else None,
+        }
+    })
+
+
+def _alumnos_para_comunicado(comunicado):
+    """Reutiliza las reglas de visibilidad por alcance para devolver los
+    alumnos alcanzados por un comunicado (curso + ciclo + división/materia)."""
+    alcances = _get_comunicado_alcances(comunicado)
+    alumnos = list(
+        Alumno.objects.filter(estado=True)
+        .select_related('id_curso', 'id_tutor')
+    )
+    if not alcances:
+        return alumnos
+    return [
+        alumno for alumno in alumnos
+        if alumno.id_curso is not None
+        and any(_curso_matches_alcance(alumno.id_curso, alcance) for alcance in alcances)
+    ]
+
+
+def _notificar_comunicado_publicado(comunicado):
+    """E7 — Comunicado publicado.
+
+    Notifica a los estudiantes alcanzados por el alcance real del comunicado
+    y a sus familias, una notificación por destinatario. Se emite al publicar
+    (crear) el comunicado, reutilizando las reglas de visibilidad existentes.
+    """
+    titulo = comunicado.titulo or 'Nuevo comunicado'
+    mensaje = comunicado.cuerpo or ''
+    nav = {
+        'destino': 'comunicados',
+        'params': {
+            'comunicadoId': comunicado.id_comunicado,
+        }
+    }
+    for alumno in _alumnos_para_comunicado(comunicado):
+        for usuario in _usuarios_destinatarios_de_alumno(alumno):
+            duplicado = Notificacion.objects.filter(
+                id_usuario=usuario,
+                id_alumno=alumno,
+                titulo=titulo,
+                mensaje=mensaje,
+            ).exists()
+            if duplicado:
+                continue
+            notificar(
+                id_usuario=usuario,
+                id_alumno=alumno,
+                titulo=titulo,
+                mensaje=mensaje,
+                nav=nav,
+            )
+
+
+def _notificar_calificacion(calificacion, accion='cargada'):
+    """E1/E6 — Calificación cargada / actualizada.
+
+    No existe un campo "publicada" en `Calificacion`: la nota queda visible
+    para la familia en cuanto se guarda. Por eso se notifica al guardar, tanto
+    al crear (E1) como al corregir (E6). La deduplicación por contenido idéntico
+    evita notificaciones repetidas cuando se vuelve a guardar la misma nota
+    (misma materia, mismo período, mismo valor).
+    """
+    alumno = calificacion.id_alumno
+    materia = (
+        calificacion.id_curso_materia.id_materia.nombre_materia
+        if calificacion.id_curso_materia and calificacion.id_curso_materia.id_materia
+        else None
+    )
+    periodo = calificacion.id_periodo.nombre_periodo if calificacion.id_periodo else None
+
+    if accion == 'actualizada':
+        titulo = 'Calificación actualizada'
+        detalle = 'fue actualizada'
+    else:
+        titulo = 'Nueva calificación'
+        detalle = 'fue cargada'
+    partes = []
+    if materia:
+        partes.append(f'Materia: {materia}')
+    if periodo:
+        partes.append(f'Período: {periodo}')
+    if calificacion.nota_numerica is not None:
+        partes.append(f'Nota: {calificacion.nota_numerica}')
+    mensaje = f'Tu calificación {detalle}. ' + ' | '.join(partes) if partes else f'Tu calificación {detalle}.'
+
+    # Estrategia REFERENCE: dedupe por PK de calificación (evita duplicados
+    # aunque cambie diagnóstico o se re-guarde con mismo contenido)
+    dedupe_key = f'calificacion_{calificacion.pk}'
+    nav = {
+        'destino': 'calificaciones',
+        'params': {
+            'alumnoId': alumno.id_alumno if alumno else None,
+            'materiaId': calificacion.id_curso_materia.id_materia.id_materia if calificacion.id_curso_materia and calificacion.id_curso_materia.id_materia else None,
+            'cursoMateriaId': calificacion.id_curso_materia_id,
+        }
+    }
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje,
+                     strategy='REFERENCE', dedupe_key=dedupe_key, nav=nav)
+
 # ============================================================
 # Login / Autenticación
 # ============================================================
@@ -1066,7 +1259,9 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
         if 'admin' in requested_roles and 'director' not in roles:
             raise PermissionDenied("Solo directores pueden asignar rol administrador")
 
+        estado_anterior = serializer.instance.estado
         super().perform_update(serializer)
+        _notificar_usuario_estado(serializer.instance, estado_anterior)
 
     def perform_destroy(self, instance):
         from escuela.auth_backend import get_roles_for_usuario
@@ -1323,6 +1518,7 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         instance = serializer.save(id_docente=docente)
+        _notificar_ddjj_presentada(instance)
         return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -1878,6 +2074,10 @@ class SuplenciaDocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
         )
         return qs
 
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        _notificar_suplencia_asignada(serializer.instance)
+
     @action(detail=True, methods=['post'], url_path='finalizar')
     def finalizar(self, request, pk=None):
         suplencia = self.get_object()
@@ -1966,6 +2166,7 @@ class AdelantoHorasViewSet(HistorialMixin, viewsets.ModelViewSet):
         usuario = self._historial_usuario_actual()
         serializer.save(id_usuario_autorizador=usuario)
         self._historial_alta(serializer)
+        _notificar_adelanto_aprobado(serializer.instance)
 
     def perform_update(self, serializer):
         instancia = serializer.instance
@@ -2175,12 +2376,14 @@ class CalificacionViewSet(viewsets.ModelViewSet):
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
         super().perform_create(serializer)
+        _notificar_calificacion(serializer.instance, accion='cargada')
 
     def perform_update(self, serializer):
         cm = serializer.validated_data.get('id_curso_materia') or serializer.instance.id_curso_materia
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
         super().perform_update(serializer)
+        _notificar_calificacion(serializer.instance, accion='actualizada')
 
     def perform_destroy(self, instance):
         cm = instance.id_curso_materia
@@ -2742,11 +2945,13 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         if existing:
             serializer = self.get_serializer(existing, data=data, partial=True)
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+            asistencia = serializer.save()
+            _notificar_inasistencia(asistencia)
             return Response(serializer.data, status=status.HTTP_200_OK)
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        _notificar_inasistencia(serializer.instance)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -3145,6 +3350,7 @@ class EventoInstitucionalViewSet(HistorialMixin, viewsets.ModelViewSet):
                 )
         serializer.save(id_usuario_creador=usuario)
         self._historial_alta(serializer)
+        _notificar_evento_institucional(serializer.instance)
 
     def perform_update(self, serializer):
         from rest_framework.exceptions import ValidationError
@@ -3329,6 +3535,10 @@ class ActaAlumnoViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     serializer_class = ActaAlumnoSerializer
     permission_classes = [IsAuthenticated, PuedeGestionarActas]
 
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        _notificar_acta_conducta(serializer.instance)
+
 
 class ActaCursoViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     queryset = ActaCurso.objects.select_related('id_acta', 'id_curso').all()
@@ -3354,6 +3564,10 @@ class ComunicadoViewSet(HistorialMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         return _filter_visible_comunicados(self.request, qs)
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        _notificar_comunicado_publicado(serializer.instance)
 
 
 class ComunicadoArchivoViewSet(viewsets.ModelViewSet):
@@ -3481,6 +3695,9 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
                     save_kwargs['id_docente'] = activo.docente
         planificacion = serializer.save(**save_kwargs)
 
+        if 'docente' in roles:
+            _notificar_planificacion_para_revision(planificacion, accion='creada')
+
         pdf_url = self._generar_pdf(
             planificacion,
             planificacion.contenido or '',
@@ -3516,6 +3733,9 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
                 if activo.docente:
                     save_kwargs['id_docente'] = activo.docente
         planificacion = serializer.save(**save_kwargs)
+
+        if 'docente' in roles:
+            _notificar_planificacion_para_revision(planificacion, accion='actualizada')
 
         # Remove old PDF file if it exists
         if planificacion.ruta_archivo:
@@ -3857,23 +4077,63 @@ class DiagnosticoGrupalViewSet(HistorialMixin, viewsets.ModelViewSet):
         self._historial_alta(serializer)
 
 
-class NotificacionViewSet(viewsets.ModelViewSet):
+class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Notificaciones del usuario autenticado (solo lectura).
+
+    - `get_queryset` restringe SIEMPRE a `id_usuario` = usuario autenticado:
+      nadie puede leer notificaciones ajenas, ni siquiera enviando `?usuario=`.
+    - `?id_alumno=` solo sub-conjunta las notificaciones propias. Para el rol
+      Familia se valida además que el `id_alumno` solicitado sea realmente uno
+      de sus hijos; si no lo es, se devuelve vacío (nunca se concede acceso
+      mediante `id_alumno`).
+    - La creación es interna (módulo `notifications.notificar`) y no se expone
+      por esta API: un usuario autenticado no puede crear notificaciones para
+      otro usuario.
+    """
+
     queryset = Notificacion.objects.all()
     serializer_class = NotificacionSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        usuario = self.request.query_params.get('usuario')
-        if usuario:
-            qs = qs.filter(id_usuario=usuario)
-        return qs
+        usuario = get_usuario(self.request)
+        if not usuario:
+            return Notificacion.objects.none()
+        qs = Notificacion.objects.filter(id_usuario=usuario)
+        alumno_id = self.request.query_params.get('id_alumno')
+        if alumno_id:
+            qs = self._aplicar_filtro_alumno(qs, alumno_id)
+        return qs.order_by('-fecha')
+
+    def _aplicar_filtro_alumno(self, qs, alumno_id):
+        # La frontera de seguridad ya es `id_usuario` (solo las propias).
+        # En Familia se valida que el `id_alumno` pedido sea un hijo real.
+        try:
+            alumno_id_int = int(alumno_id)
+        except (TypeError, ValueError):
+            return qs.none()
+        hijos = set(alumno_ids_familia(self.request))
+        if hijos:
+            if alumno_id_int not in hijos:
+                return qs.none()
+        return qs.filter(id_alumno=alumno_id_int)
 
     @action(detail=True, methods=['patch'])
     def marcar_leida(self, request, pk=None):
+        # `get_object()` usa `get_queryset()`, por lo que solo se puede
+        # marcar una notificación propia (las ajenas dan 404).
         notif = self.get_object()
         notif.leida = True
         notif.save()
         return Response(NotificacionSerializer(notif).data)
+
+    @action(detail=False, methods=['patch'])
+    def marcar_todas_leidas(self, request):
+        # Solo las propias: get_queryset restringe a id_usuario autenticado y
+        # a un eventual filtro por id_alumno (para la vista "Del Estudiante"
+        # de Familia, que solo afecta a las de su hijo seleccionado).
+        cantidad = self.get_queryset().filter(leida=False).update(leida=True)
+        return Response({'actualizadas': cantidad})
 
 
 class TipoAccionViewSet(viewsets.ReadOnlyModelViewSet):
@@ -4149,6 +4409,26 @@ def _pasar_a_previa(historial):
         periodo_aprobacion='febrero_marzo',
         es_recursada=False,
     )
+    _notificar_previa(historial.id_alumno, historial.id_materia)
+
+
+def _notificar_previa(alumno, materia):
+    """E10 — Materia pasa a Previa.
+
+    Notifica al estudiante y a su familia cuando la materia pasa a PREVIA /
+    ADEUDADA tras una instancia de febrero desaprobada. Se emite únicamente
+    ante la transición real (reutilizando `_pasar_a_previa`); la
+    deduplicación por contenido evita repetidos ante reprocesamientos.
+    """
+    nombre = materia.nombre_materia if materia else 'la materia'
+    titulo = 'Materia en condición de previa'
+    mensaje = f'La materia {nombre} quedó en condición de PREVIA y deberá rendirse en próximas instancias.'
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
+        'destino': 'previas',
+        'params': {
+            'materiaId': materia.id_materia if materia else None,
+        }
+    })
 
 
 def _resolver_o_crear_historial(id_alumno, id_curso_materia, anio_lectivo):
@@ -4216,6 +4496,7 @@ class IntensificacionAcademicaViewSet(viewsets.ModelViewSet):
                 return Response({'error': resultado}, status=status.HTTP_400_BAD_REQUEST)
             instancia.estado = resultado
             instancia.save(update_fields=['estado'])
+            _notificar_intensificacion(instancia)
         return Response(IntensificacionAcademicaSerializer(instancia).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -4234,6 +4515,8 @@ class IntensificacionAcademicaViewSet(viewsets.ModelViewSet):
             serializer.validated_data['estado'] = resultado
 
         self.perform_update(serializer)
+        if 'nota' in serializer.validated_data and serializer.validated_data.get('nota') is not None:
+            _notificar_intensificacion(serializer.instance)
         return Response(serializer.data)
 
 
@@ -4351,7 +4634,56 @@ class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
                 nota_final=nota_num
             )
 
+        _notificar_rendicion(ma, rendicion)
+
         return Response(RendicionMateriaAdeudadaSerializer(rendicion).data)
+
+
+def _notificar_rendicion(ma, rendicion):
+    """E11 — Rendición de materia adeudada.
+
+    Notifica al estudiante y a su familia cuando la rendición de una materia
+    adeudada queda efectivamente registrada (incluye la instancia, la nota y
+    el resultado derivado por las reglas académicas existentes).
+    """
+    alumno = ma.id_alumno
+    nombre = ma.id_materia.nombre_materia if ma.id_materia else 'la materia'
+    periodo = PERIODO_DISPLAY.get(rendicion.periodo, rendicion.periodo)
+    resultado = 'APROBADA' if rendicion.estado == 'APROBADA' else 'DESAPROBADA'
+    titulo = 'Rendición de materia adeudada'
+    mensaje = (
+        f'Se registró la rendición de {nombre} ({periodo} {rendicion.anio_rendicion}). '
+        f'Nota: {rendicion.nota} — Resultado: {resultado}.'
+    )
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
+        'destino': 'rendiciones',
+        'params': {
+            'materiaId': ma.id_materia.id_materia if ma.id_materia else None,
+            'materiaAdeudadaId': ma.id_materia_adeudada,
+            'rendicionId': rendicion.id_rendicion,
+        }
+    })
+
+
+def _notificar_intensificacion(instancia):
+    """E12 — Intensificación (carga/resultado).
+
+    Notifica al estudiante y a su familia cuando una instancia de
+    intensificación (marzo, julio, agosto, diciembre 1/2, febrero) queda con
+    un resultado derivado por las reglas académicas existentes. La
+    deduplicación por contenido evita repetidos ante guardados repetidos.
+    """
+    alumno = instancia.id_historial.id_alumno
+    materia = instancia.id_historial.id_materia
+    nombre = materia.nombre_materia if materia else 'la materia'
+    periodo = PERIODO_DISPLAY.get(instancia.periodo, instancia.periodo)
+    resultado = 'APROBADA' if instancia.estado == 'APROBADA' else 'DESAPROBADA'
+    titulo = 'Intensificación'
+    mensaje = (
+        f'Se registró el resultado de la intensificación de {nombre} '
+        f'({periodo} {instancia.anio_rendicion}). Nota: {instancia.nota} — Resultado: {resultado}.'
+    )
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje)
 
 
 class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
@@ -4461,6 +4793,16 @@ class BloqueoHorarioAlumnoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_alumno__in=permitidos)
         return qs
 
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        _notificar_bloqueo_horario(serializer.instance, accion='creado')
+
+    def perform_update(self, serializer):
+        estado_anterior = serializer.instance.estado
+        super().perform_update(serializer)
+        if estado_anterior and not serializer.instance.estado:
+            _notificar_bloqueo_horario(serializer.instance, accion='desactivado')
+
 
 class PromocionAlumnoViewSet(viewsets.ModelViewSet):
     queryset = PromocionAlumno.objects.select_related('id_alumno', 'curso_origen', 'curso_destino').all()
@@ -4479,6 +4821,314 @@ class RecursadaMateriaViewSet(viewsets.ModelViewSet):
         if permitidos is not None:
             qs = qs.filter(id_alumno__in=permitidos)
         return qs
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        _notificar_recursada(serializer.instance, 'cargada')
+
+    def perform_update(self, serializer):
+        instancia = serializer.instance
+        estado_anterior = instancia.estado
+        super().perform_update(serializer)
+        estado_nuevo = serializer.instance.estado
+        if estado_nuevo != estado_anterior and estado_nuevo in ('APROBADA', 'DESAPROBADA'):
+            _notificar_recursada(serializer.instance, 'resultado')
+
+
+def _notificar_recursada(recursada, accion):
+    """E18 — Recursada (carga / resultado).
+
+    Notifica al estudiante y a su familia cuando se carga una recursada
+    (accion='cargada') y cuando su estado pasa a APROBADA o DESAPROBADA
+    (accion='resultado'), ambos derivados por las reglas académicas existentes.
+    """
+    alumno = recursada.id_alumno
+    nombre = recursada.id_materia.nombre_materia if recursada.id_materia else 'la materia'
+    if accion == 'resultado':
+        titulo = 'Resultado de recursada'
+        resultado = 'APROBADA' if recursada.estado == 'APROBADA' else 'DESAPROBADA'
+        mensaje = f'La materia {nombre} quedó {resultado} en la recursada.'
+        nav_destino = 'recursadas'
+        params = {
+            'recursadaId': recursada.id_recursada,
+        }
+    else:
+        titulo = 'Recursada cargada'
+        mensaje = f'Se registró la recursada de la materia {nombre}.'
+        nav_destino = 'recursadas'
+        params = {
+            'recursadaId': recursada.id_recursada,
+        }
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
+        'destino': nav_destino,
+        'params': params
+    })
+
+
+def _usuarios_directivos():
+    """Obtiene los usuarios con roles de Director o Admin para notificaciones
+    de revisión/presentación (E8, E9)."""
+    roles_directivos = ['admin', 'director']
+    usuarios = Usuario.objects.filter(estado=True)
+    usuarios_ids = []
+    for u in usuarios:
+        roles = get_roles_for_usuario(u.usuario)
+        if any(r in roles_directivos for r in roles):
+            usuarios_ids.append(u)
+    return usuarios_ids
+
+
+def _notificar_adelanto_aprobado(adelanto):
+    """E15 — Adelanto de horas aprobado.
+
+    Notifica al docente que recibirá el adelanto cuando un usuario autorizado
+    (preceptor, director, admin) crea el adelanto. El estado por defecto es
+    activo (estado=True), por lo que la creación equivale a la aprobación.
+    """
+    docente = adelanto.id_docente
+    if not docente or not getattr(docente, 'id_usuario_id', None):
+        return
+    materia = adelanto.id_materia.nombre_materia if adelanto.id_materia else 'la materia'
+    curso = adelanto.id_curso.nombre_curso if adelanto.id_curso else 'el curso'
+    titulo = 'Adelanto de horas aprobado'
+    mensaje = (
+        f'Se aprobó un adelanto de horas para la materia {materia} '
+        f'({curso}) el {adelanto.fecha_adelanto} '
+        f'de {adelanto.hora_inicio} a {adelanto.hora_fin}.'
+    )
+    notificar(id_usuario=docente.id_usuario, id_alumno=None,
+              titulo=titulo, mensaje=mensaje, nav={
+                  'destino': 'adelantos',
+                  'params': {
+                      'adelantoId': adelanto.id_adelanto,
+                  }
+              })
+
+
+def _notificar_suplencia_asignada(suplencia):
+    """E17 — Suplencia asignada.
+
+    Notifica al docente suplente cuando se crea una suplencia activa para una
+    materia. La creación con estado=True equivale a la asignación efectiva.
+    """
+    suplente = suplencia.id_docente_suplente
+    if not suplente or not getattr(suplente, 'id_usuario_id', None):
+        return
+    cm = suplencia.id_curso_materia
+    materia = cm.id_materia.nombre_materia if cm and cm.id_materia else 'la materia'
+    curso = cm.id_curso.nombre_curso if cm and cm.id_curso else 'el curso'
+    titulo = 'Suplencia asignada'
+    mensaje = (
+        f'Se te ha asignado una suplencia para {materia} ({curso}) '
+        f'desde {suplencia.fecha_inicio} hasta {suplencia.fecha_fin}.'
+    )
+    notificar(id_usuario=suplente.id_usuario, id_alumno=None,
+              titulo=titulo, mensaje=mensaje, nav={
+                  'destino': 'suplencias',
+                  'params': {
+                      'suplenciaId': suplencia.id_suplencia,
+                  }
+              })
+
+
+def _notificar_planificacion_para_revision(planificacion, accion='creada'):
+    """E8 — Planificación pendiente de revisión.
+
+    Notifica a los directivos (Admin/Director) cuando un docente crea o
+    actualiza una planificación (estado 'Borrador'). La revisión formal queda
+    pendiente de decisión (Parte 7); aquí se avisa que hay contenido nuevo
+    para revisar.
+    """
+    usuarios = _usuarios_directivos()
+    if not usuarios:
+        return
+    cm = planificacion.id_curso_materia
+    if not cm:
+        return
+    materia = cm.id_materia.nombre_materia if cm.id_materia else 'la materia'
+    curso = cm.id_curso.nombre_curso if cm.id_curso else 'el curso'
+    docente = planificacion.id_docente
+    docente_nombre = f"{docente.nombre} {docente.apellido}" if docente else 'un docente'
+    if accion == 'actualizada':
+        titulo = 'Planificación actualizada'
+        verbo = 'actualizó'
+    else:
+        titulo = 'Planificación para revisión'
+        verbo = 'creó'
+    mensaje = (
+        f'El docente {docente_nombre} {verbo} la planificación de '
+        f'{materia} ({curso}). Pendiente de revisión.'
+    )
+    for u in usuarios:
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav={
+            'destino': 'planificaciones',
+            'params': {
+                'planificacionId': planificacion.id_planificacion,
+            }
+        })
+
+
+def _notificar_ddjj_presentada(ddjj):
+    """E9 — DDJJ presentada.
+
+    Notifica a los directivos (Admin/Director) cuando un docente presenta
+    su Declaración Jurada.
+    """
+    usuarios = _usuarios_directivos()
+    if not usuarios:
+        return
+    docente = ddjj.id_docente
+    docente_nombre = f"{docente.nombre} {docente.apellido}" if docente else 'un docente'
+    titulo = 'DDJJ presentada'
+    mensaje = f'El docente {docente_nombre} ha presentado su Declaración Jurada.'
+    for u in usuarios:
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav={
+            'destino': 'ddjj',
+            'params': {
+                'ddjjId': ddjj.id_ddjj,
+            }
+        })
+
+
+# ============================================================
+# Parte 6 — Administración, actas y eventos institucionales
+# ============================================================
+
+TIPOS_ACTA_CONDUCTA = {'Apercibimiento', 'Conducta', 'Amonestación', 'Sanción'}
+
+def _es_tipo_acta_conducta(acta):
+    """Verifica si un acta es de tipo conducta/apercibimiento."""
+    if not acta or not acta.id_tipo_acta:
+        return False
+    return acta.id_tipo_acta.nombre_tipo in TIPOS_ACTA_CONDUCTA
+
+
+def _notificar_acta_conducta(acta_alumno):
+    """E4 — Conducta/apercibimientos.
+
+    Notifica al estudiante y a su familia cuando se asocia un acta de tipo
+    conducta/apercibimiento a un alumno (creación de ActaAlumno).
+    """
+    acta = acta_alumno.id_acta
+    if not _es_tipo_acta_conducta(acta):
+        return
+    alumno = acta_alumno.id_alumno
+    tipo = acta.id_tipo_acta.nombre_tipo if acta.id_tipo_acta else 'acta'
+    titulo = f'Acta de {tipo}'
+    mensaje = (
+        f'Se ha registrado un acta de {tipo} a tu nombre: '
+        f'{acta.titulo or acta.descripcion or "sin detalles"}.'
+    )
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
+        'destino': 'actas',
+        'params': {
+            'actaId': acta.id_acta,
+        }
+    })
+
+
+def _notificar_usuario_estado(usuario, estado_anterior):
+    """E14 — Usuario habilitado/deshabilitado.
+
+    Notifica al usuario cuando su estado (habilitado/deshabilitado) cambia.
+    """
+    if not getattr(usuario, 'pk', None):
+        return
+    if estado_anterior is None or estado_anterior == usuario.estado:
+        return
+    if usuario.estado:
+        titulo = 'Cuenta habilitada'
+        mensaje = 'Tu cuenta de usuario ha sido habilitada. Ya puedes acceder al sistema.'
+    else:
+        titulo = 'Cuenta deshabilitada'
+        mensaje = 'Tu cuenta de usuario ha sido deshabilitada. Contacta a la administración para más información.'
+    notificar(id_usuario=usuario, id_alumno=None, titulo=titulo, mensaje=mensaje, nav={
+        'destino': 'perfil',
+        'params': {}
+    })
+
+
+def _notificar_evento_institucional(evento):
+    """E16 — Evento institucional.
+
+    Notifica a los usuarios alcanzados según el alcance del evento.
+    Reutiliza la lógica de alcance de Acta para determinar los destinatarios.
+    """
+    from escuela.views import _curso_matches_alcance, _alumnos_para_comunicado
+    # Reutilizamos la lógica de alcance de comunicados/actas: alumno, familia, docentes, preceptores
+    # según el alcance (todo_dia, mañana, tarde, franja, permanente).
+    # Para simplicidad, notificamos a familias y alumnos del alcance.
+    # La lógica exacta de alcance se comparte con _alumnos_para_comunicado.
+    # Creamos un objeto tipo comunicado temporal para reutilizar la función.
+    class _FakeComunicado:
+        def __init__(self, ev):
+            self.alcance = ev.alcance
+            self.fecha = ev.fecha
+            self.permanente = ev.permanente
+            self.hora_inicio = ev.hora_inicio
+            self.hora_fin = ev.hora_fin
+            self.id_ciclo = None  # se filtra por curso/ciclo activo
+
+    fake = _FakeComunicado(evento)
+    titulo_evento = f'Evento: {evento.tipo_evento}'
+    nav = {
+        'destino': 'eventos',
+        'params': {
+            'eventoId': evento.id_evento,
+        }
+    }
+    for alumno in _alumnos_para_comunicado(fake):
+        for usuario in _usuarios_destinatarios_de_alumno(alumno):
+            duplicado = Notificacion.objects.filter(
+                id_usuario=usuario,
+                id_alumno=alumno,
+                titulo=titulo_evento,
+                mensaje=evento.descripcion,
+            ).exists()
+            if duplicado:
+                continue
+            notificar(
+                id_usuario=usuario,
+                id_alumno=alumno,
+                titulo=titulo_evento,
+                mensaje=evento.descripcion,
+                nav=nav,
+            )
+
+
+def _notificar_bloqueo_horario(bloqueo, accion='creado'):
+    """E19 — Bloqueo/modificación de horario del estudiante.
+
+    Notifica al estudiante y a su familia cuando se crea un bloqueo
+    (accion='creado') o cuando se desactiva (accion='desactivado').
+    """
+    alumno = bloqueo.id_alumno
+    materia_bloq = bloqueo.id_materia_bloqueada
+    materia_prio = bloqueo.id_materia_prioritaria
+    if accion == 'creado' and not bloqueo.estado:
+        return
+    if accion == 'desactivado':
+        titulo = 'Bloqueo de horario levantado'
+        mensaje = (
+            f'Se ha levantado el bloqueo de la materia '
+            f'{materia_bloq.nombre_materia if materia_bloq else "desconocida"} '
+            f'(conflicto con {materia_prio.nombre_materia if materia_prio else "materia recursada"} resuelto).'
+        )
+    else:
+        titulo = 'Bloqueo de horario por superposición'
+        mensaje = (
+            f'La materia {materia_bloq.nombre_materia if materia_bloq else "desconocida"} '
+            f'ha sido bloqueada por superposición de horario con la recursada de '
+            f'{materia_prio.nombre_materia if materia_prio else "materia recursada"}.'
+)
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
+        'destino': 'horarios',
+        'params': {
+            'materiaBloqueadaId': materia_bloq.id_materia if materia_bloq else None,
+            'materiaPrioritariaId': materia_prio.id_materia if materia_prio else None,
+            'bloqueoId': bloqueo.id_bloqueo,
+        }
+    })
 
 
 class RecursadaCalificacionViewSet(viewsets.ModelViewSet):

@@ -19,7 +19,7 @@ import { getSuplencias } from '../../services/api';
 import { suplenciasActivasEnFecha } from '../../utils/suplencias';
 
 function PanelProfesores({ user, onLogout }) {
-  const { docentes, cursoMateria, cursosObj } = useData();
+  const { docentes, cursoMateria, cursosObj, navIntent } = useData();
   const [cursoId, setCursoId] = useState('');
   const [materiaSeleccionada, setMateriaSeleccionada] = useState('');
   const [seccionActiva, setSeccionActiva] = useState('docente');
@@ -28,6 +28,13 @@ function PanelProfesores({ user, onLogout }) {
   const [anioActas, setAnioActas] = useState('');
   const [cursoActas, setCursoActas] = useState('');
   const [suplencias, setSuplencias] = useState([]);
+
+  // Parte 8: manejar navegación desde notificaciones
+  useEffect(() => {
+    if (navIntent && navIntent.destino) {
+      setSeccionActiva(navIntent.destino);
+    }
+  }, [navIntent]);
 
   const handleAnioActasChange = (nuevoAnio) => {
     setAnioActas(nuevoAnio);

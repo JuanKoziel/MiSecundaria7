@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import Sidebar from './sidebar/sidebar';
 import Header from './header/header';
@@ -18,9 +18,18 @@ import PanelFamilia from './PanelFamilia';
 import { useData } from '../../context/DataContext';
 
 function FamiliaDashboard({ user, onLogout }) {
-  const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj } = useData();
+  const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj, navIntent, navegarDesdeNotificacion } = useData();
   const [view, setView] = useState('perfil');
   const [hijoId, setHijoId] = useState('');
+
+  // Parte 8: manejar navegación desde notificaciones
+  useEffect(() => {
+    if (navIntent && navIntent.destino) {
+      setView(navIntent.destino);
+      // Limpiar el intent después de navegar
+      // Nota: en una implementación real, esto se haría en el contexto
+    }
+  }, [navIntent]);
 
   const miTutor = useMemo(
     () => padresTutores.find((pt) => pt.id_usuario === user?.id) || null,

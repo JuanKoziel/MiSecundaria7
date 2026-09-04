@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
@@ -25,9 +25,16 @@ function AlumnoDashboard({ user, onLogout }) {
     materiasPorCurso,
     cursoMateria,
     cursosObj,
+    navIntent,
   } = useData();
-
   const [view, setView] = useState('perfil');
+
+  // Parte 8: manejar navegación desde notificaciones
+  useEffect(() => {
+    if (navIntent && navIntent.destino) {
+      setView(navIntent.destino);
+    }
+  }, [navIntent]);
   const miAlumno = useMemo(
     () => alumnos.find((a) => a.id_usuario === user?.id) || null,
     [alumnos, user],

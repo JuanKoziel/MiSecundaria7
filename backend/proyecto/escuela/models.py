@@ -706,6 +706,11 @@ class Notificacion(models.Model):
     id_notificacion = models.AutoField(primary_key=True)
     id_usuario = models.ForeignKey(
         Usuario, on_delete=models.CASCADE, db_column='id_usuario',
+        related_name='notificaciones_destinatario',
+    )
+    id_alumno = models.ForeignKey(
+        Alumno, on_delete=models.SET_NULL, db_column='id_alumno',
+        blank=True, null=True, related_name='notificaciones_alumno',
     )
     titulo = models.CharField(max_length=255, blank=True, null=True)
     mensaje = models.TextField(blank=True, null=True)

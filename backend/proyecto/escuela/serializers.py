@@ -1918,10 +1918,47 @@ class DiagnosticoGrupalSerializer(serializers.ModelSerializer):
 
 # ---------- Notificaciones ----------
 
+import json
+
 class NotificacionSerializer(serializers.ModelSerializer):
+    """Serializa una notificación.
+
+    `id_usuario` (destinatario) e `id_alumno` (alumno relacionado) son de
+    solo lectura: se fijan al crearse internamente la notificación, nunca
+    desde la API pública. La autorización no depende de estos campos sino
+    del usuario autenticado.
+
+    Campos de navegación (Parte 8): se extraen del mensaje si están presentes.
+    """
+    nav_destino = serializers.SerializerMethodField()
+    nav_params = serializers.SerializerMethodField()
+
     class Meta:
         model = Notificacion
         fields = '__all__'
+        read_only_fields = ('id_notificacion', 'id_usuario', 'id_alumno')
+
+    def _extraer_nav(self, obj):
+        """Extrae metadatos de navegación del mensaje si están presentes."""
+        if not obj.mensaje:
+            return {}
+        # Buscar bloque de navegación al final del mensaje: [nav:{...}]
+        import re
+        match = re.search(r'\[nav:(\{.*?\})\s*\]', obj.mensaje)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+        return {}
+
+    def get_nav_destino(self, obj):
+        nav = self._extraer_nav(obj)
+        return nav.get('destino')
+
+    def get_nav_params(self, obj):
+        nav = self._extraer_nav(obj)
+        return nav.get('params', {})
 
 
 # ---------- Historial ----------

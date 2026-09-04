@@ -429,6 +429,58 @@ body {
     font-size: 1rem;
 }
 
+/* Notificaciones (listado) */
+.notificaciones-acciones {
+    margin-bottom: 12px;
+}
+
+.notificaciones-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.notificacion-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+}
+
+.notificacion-item--no-leida {
+    border-left: 4px solid var(--primary-color);
+    background: #fff7ef;
+}
+
+.notificacion-item__encabezado {
+    align-items: flex-start;
+}
+
+.notificacion-item__titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.notificacion-item__fecha {
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.notificacion-item__mensaje {
+    margin-top: 8px;
+    font-size: 0.95rem;
+    color: var(--text-dark);
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.notificacion-item__accion {
+    margin-top: 10px;
+}
+
 /* ==========================================================================
    VISTAS, SECCIONES Y TABLAS
    ========================================================================== */
