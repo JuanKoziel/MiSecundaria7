@@ -14,6 +14,8 @@ const MAPA_POR_ROL = {
     boletin: 'calificaciones',
     asistencias: 'asistencias',
     previas: 'previas',
+    // Las rendiciones se consultan junto a las previas del alumno.
+    rendiciones: 'previas',
     recursadas: 'calificaciones',
     comunicados: 'comunicados',
     horarios: 'horarios',
@@ -38,17 +40,28 @@ const MAPA_POR_ROL = {
     actas: 'actas',
     eventos: 'calendario',
     materias_adeudadas: 'materias-adeudadas',
-    adelantos: 'docente',
+    // Las suplencias asignadas se consultan en el panel del docente
+    // (PanelDocente lista sus suplencias). Los adelantos no tienen apartado
+    // en este rol, por lo que quedan sin navegación.
     suplencias: 'docente',
   },
   preceptor: {
     adelantos: 'adelantos-horas',
     actas: 'actas',
+    asistencias: 'asistencias',
+    notas: 'notas',
+    horarios: 'horarios',
     comunicados: 'comunicados',
     eventos: 'calendario',
     perfil: 'perfil',
   },
   admin: {
+    adelantos: 'adelantos-horas',
+    suplencias: 'suplencias',
+    actas: 'actas',
+    asistencias: 'asistencias',
+    horarios: 'horarios',
+    notas: 'notas',
     comunicados: 'comunicados',
     eventos: 'calendario',
     perfil: 'perfil',

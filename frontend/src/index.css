@@ -481,6 +481,45 @@ body {
     margin-top: 10px;
 }
 
+/* Notificaciones navegables: affordance de clic (la tarjeta completa es activable).
+   Solo cuando el backend provee un destino válido (nav_destino). */
+.notificacion-item--navegable {
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notificacion-item--navegable:hover {
+    border-color: var(--primary-color);
+}
+
+.notificacion-item--navegable:active {
+    border-color: var(--primary-dark);
+}
+
+.notificacion-item--navegable:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Indicador "Ver →" visible de la acción de navegación. */
+.notificacion-item__nav-indicador {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 4px;
+    padding: 2px 9px;
+    border: 1px solid var(--primary-color);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--primary-dark);
+    background: #fff;
+}
+
+.notificacion-item__nav-indicador i {
+    font-size: 0.72rem;
+}
+
 /* ==========================================================================
    VISTAS, SECCIONES Y TABLAS
    ========================================================================== */

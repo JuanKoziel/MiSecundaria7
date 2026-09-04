@@ -142,7 +142,7 @@ describe('Notificaciones', () => {
       ],
       navegarDesdeNotificacion,
     })
-    render(<Notificaciones />)
+    render(<Notificaciones userRole="alumno" />)
     fireEvent.click(screen.getByText('Evento institucional'))
     expect(navegarDesdeNotificacion).toHaveBeenCalledWith('eventos', { eventoId: 3 })
   })
@@ -153,5 +153,158 @@ describe('Notificaciones', () => {
     render(<Notificaciones />)
     fireEvent.click(screen.getByText('Nueva calificación'))
     expect(navegarDesdeNotificacion).not.toHaveBeenCalled()
+  })
+
+  it('no muestra "Ver" ni navega si el rol no tiene una vista real para el destino', () => {
+    const navegarDesdeNotificacion = vi.fn()
+    mockUseData({
+      notificaciones: [
+        {
+          id: 14,
+          id_usuario: 10,
+          id_alumno: null,
+          titulo: 'Adelanto aprobado',
+          mensaje: 'Se aprobó un adelanto de horas.',
+          fecha: '2026-09-01T10:30:00Z',
+          leida: true,
+          nav_destino: 'adelantos',
+          nav_params: { adelantoId: 1 },
+        },
+      ],
+      navegarDesdeNotificacion,
+    })
+    // El rol docente NO tiene apartado de adelantos: no debe verse "Ver" ni
+    // comportarse como botón navegable aunque exista nav_destino.
+    render(<Notificaciones userRole="docente" />)
+    expect(screen.queryByText('Ver')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Adelanto aprobado'))
+    expect(navegarDesdeNotificacion).not.toHaveBeenCalled()
+  })
+
+  it('muestra "Ver" y navega si el rol tiene una vista real para el destino', () => {
+    const navegarDesdeNotificacion = vi.fn()
+    mockUseData({
+      notificaciones: [
+        {
+          id: 15,
+          id_usuario: 10,
+          id_alumno: null,
+          titulo: 'Acta cargada',
+          mensaje: 'Se registró un acta de conducta.',
+          fecha: '2026-09-01T10:30:00Z',
+          leida: false,
+          nav_destino: 'actas',
+          nav_params: {},
+        },
+      ],
+      navegarDesdeNotificacion,
+    })
+    // jefe_preceptores se resuelve al mapa de preceptor, que SÍ tiene 'actas'.
+    render(<Notificaciones userRole="jefe_preceptores" />)
+    expect(screen.getByText('Ver')).toBeInTheDocument()
+    const tarjeta = screen.getByRole('button', { name: /Acta cargada/ })
+    fireEvent.click(tarjeta)
+    expect(navegarDesdeNotificacion).toHaveBeenCalledWith('actas', {})
+  })
+
+  it('muestra la tarjeta como botón con indicador "Ver →" y navega al hacer clic', () => {
+    const navegarDesdeNotificacion = vi.fn()
+    mockUseData({
+      notificaciones: [
+        {
+          id: 10,
+          id_usuario: 10,
+          id_alumno: 100,
+          titulo: 'Evento institucional',
+          mensaje: 'Jornada institucional el 05/09/2026',
+          fecha: '2026-09-01T10:30:00Z',
+          leida: true,
+          nav_destino: 'eventos',
+          nav_params: { eventoId: 3 },
+        },
+      ],
+      navegarDesdeNotificacion,
+    })
+    render(<Notificaciones userRole="alumno" />)
+    const tarjeta = screen.getByRole('button', { name: /Evento institucional/ })
+    expect(tarjeta).toHaveAttribute('role', 'button')
+    expect(screen.getByText('Ver')).toBeInTheDocument()
+    fireEvent.click(tarjeta)
+    expect(navegarDesdeNotificacion).toHaveBeenCalledWith('eventos', { eventoId: 3 })
+  })
+
+  it('activa la navegación con Enter y con Space desde teclado', () => {
+    const navegarDesdeNotificacion = vi.fn()
+    mockUseData({
+      notificaciones: [
+        {
+          id: 11,
+          id_usuario: 10,
+          id_alumno: 100,
+          titulo: 'Evento institucional',
+          mensaje: 'Jornada institucional',
+          fecha: '2026-09-01T10:30:00Z',
+          leida: true,
+          nav_destino: 'eventos',
+          nav_params: { eventoId: 3 },
+        },
+      ],
+      navegarDesdeNotificacion,
+    })
+    render(<Notificaciones userRole="alumno" />)
+    const tarjeta = screen.getByRole('button', { name: /Evento institucional/ })
+
+    fireEvent.keyDown(tarjeta, { key: 'Enter', code: 13 })
+    fireEvent.keyDown(tarjeta, { key: ' ', code: 32 })
+    expect(navegarDesdeNotificacion).toHaveBeenCalledTimes(2)
+  })
+
+  it('"Marcar como leída" no dispara la navegación de la tarjeta (stopPropagation)', () => {
+    const navegarDesdeNotificacion = vi.fn()
+    const { marcarNotificacionLeida } = mockUseData({
+      notificaciones: [
+        {
+          id: 12,
+          id_usuario: 10,
+          id_alumno: 100,
+          titulo: 'Evento institucional',
+          mensaje: 'Jornada institucional',
+          fecha: '2026-09-01T10:30:00Z',
+          leida: false,
+          nav_destino: 'eventos',
+          nav_params: { eventoId: 3 },
+        },
+      ],
+      navegarDesdeNotificacion,
+    })
+    render(<Notificaciones userRole="alumno" />)
+    fireEvent.click(screen.getByRole('button', { name: /Marcar como leída/ }))
+    expect(marcarNotificacionLeida).toHaveBeenCalledTimes(1)
+    expect(navegarDesdeNotificacion).not.toHaveBeenCalled()
+  })
+
+  it('no expone metadata interna [nav:]/[ref:] al usuario', () => {
+    mockUseData({
+      notificaciones: [
+        {
+          id: 13,
+          id_usuario: 10,
+          id_alumno: 100,
+          titulo: 'Evento institucional',
+          mensaje: 'Jornada institucional el 05/09/2026',
+          fecha: '2026-09-01T10:30:00Z',
+          leida: true,
+          nav_destino: 'eventos',
+          nav_params: { eventoId: 3 },
+        },
+      ],
+    })
+    render(<Notificaciones />)
+    // El mensaje visible es solo el texto; los metadatos llegan como campos
+    // separados (nav_destino/nav_params) y nunca se inlinean en el UI.
+    expect(screen.queryByText(/\[nav:/, { selector: '*' })).toBeNull()
+    expect(screen.queryByText(/\[ref:/, { selector: '*' })).toBeNull()
+    expect(screen.queryByText(/eventoId/)).toBeNull()
+    expect(screen.getByText(/Jornada institucional el 05\/09\/2026/)).toBeInTheDocument()
   })
 })

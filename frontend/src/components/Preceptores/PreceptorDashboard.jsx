@@ -123,7 +123,7 @@ function PreceptorDashboard({ user, onLogout }) {
       case 'notificaciones':
         return (
           <div className="view-section active">
-            <Notificaciones />
+            <Notificaciones userRole="preceptor" />
           </div>
         );
 

@@ -1340,6 +1340,131 @@ Decisiones:
 
 ---
 
+## Correcciones post-cierre (3) — Notificaciones clickeables y accesibles desde la UI (2026-09-04)
+Estado: COMPLETADA — no reabre las Partes 1–9. Sin cambios de DB ni migraciones.
+
+Diagnóstico:
+- El flujo destino→`navIntent`→`viewDesdeDestino(rol)` ya existía y estaba cableado en
+  Alumno/Familia/Docente/Preceptor/Admin. El déficit real era (1) falta de **affordance
+  visual** (el CSS no estilaba `.notificacion-item--navegable` ni el indicador) y
+  (2) el rol **Jefe de Preceptores** no consumía `navIntent`.
+
+Archivos modificados:
+- `frontend/src/index.css`: cursor/hover/focus en la tarjeta navegable + "píldora" visible
+  para `.notificacion-item__nav-indicador`.
+- `frontend/src/components/Notificaciones.jsx`: indicador muestra **"Ver →"**; teclado
+  Enter/Space (con `preventDefault`); `aria-label` en la tarjeta navegable; el clic de la
+  tarjeta completa propaga destino semántico (sin pre-mapear); "Marcar como leída" mantiene
+  `stopPropagation` → no navega accidentalmente.
+- `frontend/src/components/JefePreceptores/JefePreceptorDashboard.jsx`: consume `navIntent`
+  con `viewDesdeDestino(..., 'preceptor')` (mapa normaliza `jefe_preceptores → preceptor`).
+
+Verificación:
+- `npm test`: 141 OK (14 archivos; `Notificaciones` ahora 16 tests). `npm run build`: OK.
+- Backend no modificado.
+
+---
+
+## Correcciones post-cierre (4) — Causa raíz de navegación: DataContext descartaba el nav (2026-09-04)
+Estado: COMPLETADA — no reabre las Partes 1–9. Sin cambios de DB ni migraciones.
+
+Diagnóstico (extremo a extremo):
+- Backend OK: `notificar()` guarda `[nav:{...}]` en `mensaje`; el serializer
+  `NotificacionSerializer` expone `nav_destino`/`nav_params` y devuelve el mensaje
+  limpio; `GET /api/notificaciones/` los entrega correctamente.
+- **Causa raíz:** el `.map()` en `frontend/src/context/DataContext.jsx` **descartaba
+  `nav_destino` y `nav_params`** al normalizar cada notificación. El componente
+  `Notificaciones.jsx` recibía `nav_destino = undefined` → `tieneNavegacion = false`
+  → sin "Ver →", tarjeta no clicable, `onClick` retornaba temprano.
+
+Cambios:
+- `frontend/src/context/DataContext.jsx`: el mapeo de notificaciones ahora reenvía
+  `nav_destino: n.nav_destino || null` y `nav_params: n.nav_params || {}`.
+- `backend/proyecto/escuela/tests/test_notificaciones.py`: nuevo test de extremo a
+  extremo con evento REAL (`_notificar_comunicado_publicado`) que comprueba que la
+  API devuelve `nav_destino='comunicados'` y `nav_params={'comunicadoId':...}` con
+  mensaje limpio.
+
+Verificación:
+- `test_notificaciones` → 19 OK (incluye el evento real). Suite notificaciones
+  backend → 87 OK. `manage.py check` solo W342 preexistente.
+- Frontend → `npm test` 141 OK; `npm run build` OK.
+
+Flujo final funcionando: evento real → `notificar()` → `[nav:{...}]` en DB →
+serializer (`nav_destino`/`nav_params`) → `GET /api/notificaciones/` → `DataContext`
+(reenvía nav) → `Notificaciones.jsx` ("Ver →" + tarjeta clicable/cursor/foco/
+Enter/Space) → `navegarDesdeNotificacion` → `navIntent` → `viewDesdeDestino(rol)`
+→ sección real. Familia auto-selecciona hijo por `params.alumnoId`. "Marcar como
+leída" con `stopPropagation` (no navega). Sin destino: texto normal, sin "Ver →".
+
+---
+
+## Correcciones post-cierre (5) — "Ver" autorizado por sección real del rol (2026-09-04)
+Estado: COMPLETADA — no reabre las Partes 1–9. Sin cambios de DB ni migraciones.
+
+Diagnóstico:
+- Tras el fix de la ronda (4), el componente mostraba "Ver →" con **cualquier**
+  `nav_destino` truthy, sin validar que el **rol actual tuviera una vista real**
+  para ese contenido. Como `viewDesdeDestino(destino, rol)` devuelve `null` para
+  muchas combinaciones, eso generaba tarjetas clickeables que **no hacían nada**
+  (el `onClick` solo revisaba `nav_destino`). Además algunos mapas apuntaban a una
+  vista "panel" que no mostraba el contenido (p. ej. `adelantos → 'docente'`).
+- **Regla solicitada:** mostrar "Ver"/navegar **solo** si el rol tiene un apartado
+  **real** y coherente con el contenido; el `nav_destino` por sí solo no autoriza.
+
+Cambios:
+- `frontend/src/utils/navDestinos.js`: mapas corregidos con las secciones reales de
+  cada rol (según `sidebarMenu.js` y los `switch`/render de cada dashboard):
+  `alumno` +`rendiciones → 'previas'`; `preceptor` +`asistencias/notas/horarios`;
+  `admin` +`adelantos → 'adelantos-horas'` y `suplencias/actas/asistencias/horarios/
+  notas`; `docente` conserva `suplencias → 'docente'` (el panel lista sus suplencias)
+  y **elimina** `adelantos` (sin apartado → sin navegación). Normalización
+  `jefe_preceptores → preceptor`, `director → admin`.
+- `frontend/src/components/Notificaciones.jsx`: "Ver →"/`role="button"`/`aria-label`/
+  `tabIndex` solo si `nav_destino` **y** `tieneVistaParaDestino(nav_destino, userRole)`;
+  `handleNotificacionClick`/`handleNotificacionKeyDown` no navegan sin vista real.
+- Se pasa `userRole` a `<Notificaciones />` desde `AlumnoDashboard`, `PreceptorDashboard`,
+  `AdminDashboard` (`user.role`), `JefePreceptorDashboard` (`"jefe_preceptores"`) y
+  `PanelProfesores` (`"docente"`); antes solo `Familia` lo pasaba.
+
+Verificación:
+- Frontend `npm test` → **148 OK** (14 archivos), incluidos los nuevos tests de
+  `navDestinos.test.js` (docente sin adelantos; admin adelantos-horas/suplencias/
+  actas/asistencias; preceptor notas/asistencias/horarios; alumno rendiciones→previas,
+  sin suplencias/adelantos) y de `Notificaciones.test.jsx` (rol sin vista → no "Ver"/
+  no navega; `jefe_preceptores` → "Ver" + navega a `actas`). `npm run build` → OK.
+- Backend `test_notificaciones` → **19 OK** (sin cambios de backend en esta ronda).
+  W342 preexistente.
+
+---
+
+## Correcciones post-cierre (6) — Causa raíz real: useData() no exponía la navegación (2026-09-04)
+Estado: COMPLETADA — no reabre las Partes 1–9. Sin cambios de DB ni migraciones.
+`tieneVistaParaDestino` no se modificó (validación correcta).
+
+Diagnóstico (prueba de aislamiento con `DataProvider` real + useEffect idéntico al
+de cada dashboard + `Notificaciones`):
+- Al hacer clic en una notificación navegable → `TypeError: navegarDesdeNotificacion
+  is not a function` y `navIntent` llega `undefined` al consumidor.
+- **Causa raíz:** el hook `useData()` (el puente `Provider` → consumidores) **nunca
+  exponía `navegarDesdeNotificacion` ni `navIntent`**; solo estaban en `Provider.value`,
+  pero `useData()` reconstruye el objeto y los dejaba fuera. Por eso el "Ver →" se veía
+  (viaja en `...ctx.data.notificaciones.nav_destino`) pero al hacer clic fallaba, y los
+  `useEffect` de navegación de los dashboards (`if (navIntent && navIntent.destino)`)
+  nunca se ejecutaban.
+
+Cambio: `frontend/src/context/DataContext.jsx` — en ambas ramas de `useData()` se
+agregan `navegarDesdeNotificacion` y `navIntent`. La navegación del menú no se tocó.
+
+Verificación:
+- Nuevo `frontend/src/components/NavIsolation.test.jsx`: Alumno, Preceptor,
+  JefePreceptor→preceptor, Docente, Admin, Director→admin navegan al clic; Familia
+  navega y fija el Estudiante por `params.alumnoId`; caso negativo (docente+adelantos)
+  no navega.
+- `npm test` → **156 OK (15 archivos)**; `npm run build` → OK. Backend sin cambios.
+
+---
+
 # 17. Criterios generales de aceptación
 
 El sistema final debe cumplir:

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import Sidebar from './sidebar';
 import Header from './header';
@@ -17,14 +17,25 @@ import EstadisticasPreceptoria from './EstadisticasPreceptoria';
 import Historial from '../Administracion/historial';
 import AdelantosHoras from '../Shared/AdelantosHoras';
 import { useData } from '../../context/DataContext';
+import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function JefePreceptorDashboard({ user, onLogout }) {
-  const { preceptores } = useData();
+  const { preceptores, navIntent } = useData();
 
   const userId = user?.id_usuario ?? user?.id ?? null;
   const miPreceptor = preceptores.find((p) => p.id_usuario === userId) || null;
 
   const [view, setView] = useState('perfil');
+
+  // Navegación desde notificaciones: el Jefe de Preceptores navega como
+  // preceptor (mismas vistas). Solo cambia de sección si existe una vista
+  // válida; si no, no navega (nunca pantalla en blanco).
+  useEffect(() => {
+    if (navIntent && navIntent.destino) {
+      const vista = viewDesdeDestino(navIntent.destino, 'preceptor');
+      if (vista) setView(vista);
+    }
+  }, [navIntent]);
 
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
@@ -130,7 +141,7 @@ function JefePreceptorDashboard({ user, onLogout }) {
       case 'notificaciones':
         return (
           <div className="view-section active">
-            <Notificaciones />
+            <Notificaciones userRole="jefe_preceptores" />
           </div>
         );
 

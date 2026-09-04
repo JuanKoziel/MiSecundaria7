@@ -224,7 +224,7 @@ function PanelProfesores({ user, onLogout }) {
 
         {seccionActiva === 'notificaciones' ? (
           <div className="view-section active">
-            <Notificaciones />
+            <Notificaciones userRole="docente" />
           </div>
         ) : seccionActiva === 'materias-adeudadas' ? (
           <div className="view-section active">

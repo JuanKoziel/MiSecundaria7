@@ -184,7 +184,7 @@ function AlumnoDashboard({ user, onLogout }) {
           </div>
         ) : view === 'notificaciones' ? (
           <div className="view-section active">
-            <Notificaciones />
+            <Notificaciones userRole="alumno" />
           </div>
         ) : view === 'horarios' ? (
           <div className="view-section active">

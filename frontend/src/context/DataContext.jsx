@@ -556,6 +556,10 @@ export function DataProvider({ children }) {
         mensaje: n.mensaje || '',
         fecha: n.fecha || null,
         leida: Boolean(n.leida),
+        // Parte 8: se reenvían los metadatos de navegación que expone el API,
+        // para que el componente pueda mostrar "Ver →" y navegar.
+        nav_destino: n.nav_destino || null,
+        nav_params: n.nav_params || {},
       }));
 
 
@@ -764,6 +768,8 @@ export function useData() {
       refreshAdminCursoMateria: () => {},
       marcarNotificacionLeida: () => {},
       marcarTodasNotificacionesLeidas: () => {},
+      navegarDesdeNotificacion: () => {},
+      navIntent: null,
     };
   }
   return {
@@ -778,5 +784,7 @@ export function useData() {
     refreshAdminCursoMateria: ctx.refreshAdminCursoMateria,
     marcarNotificacionLeida: ctx.marcarNotificacionLeida,
     marcarTodasNotificacionesLeidas: ctx.marcarTodasNotificacionesLeidas,
+    navegarDesdeNotificacion: ctx.navegarDesdeNotificacion,
+    navIntent: ctx.navIntent,
   };
 }

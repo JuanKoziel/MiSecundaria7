@@ -11,8 +11,9 @@ Cubren:
 
 from django.test import TestCase
 
-from escuela.models import Notificacion
+from escuela.models import Comunicado, Notificacion
 from escuela.notifications import notificar
+from escuela.views import _notificar_comunicado_publicado
 
 from .factories import (
     cliente_para,
@@ -310,3 +311,45 @@ class NotificacionesMetadataTests(TestCase):
         self.assertEqual(data['mensaje'], 'Texto simple.')
         self.assertIsNone(data['nav_destino'])
         self.assertEqual(data['nav_params'], {})
+
+
+class NotificacionEventoRealNavegableTests(TestCase):
+    """Extremo a extremo con un evento REAL (no artificial con metadata).
+
+    Genera la notificación mediante el notificador de comunicados (E7) y
+    verifica que la respuesta de `GET /api/notificaciones/` contenga
+    `nav_destino`/`nav_params` con destino navegable y el mensaje limpio.
+    """
+
+    def setUp(self):
+        self.curso = crear_curso('1°1')
+        self.alumno_user = crear_usuario('al_evnav', roles=('alumno',))
+        self.tutor = crear_tutor()
+        self.alumno = crear_alumno(
+            id_usuario=self.alumno_user, id_tutor=self.tutor, id_curso=self.curso,
+        )
+        self.creador = crear_usuario('cre_evnav', roles=('docente',))
+
+    def test_comunicado_real_expone_nav_navegable_en_api(self):
+        """Un comunicado real notifica con destino navegable que llega a la API."""
+        comunicado = Comunicado.objects.create(
+            id_usuario_creador=self.creador,
+            id_curso=self.curso,
+            titulo='Reunión de padres',
+            cuerpo='Reunión el viernes a las 18hs. [algo]',
+            estado=True,
+        )
+        _notificar_comunicado_publicado(comunicado)
+
+        resp = cliente_para('al_evnav').get('/api/notificaciones/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(len(data), 1)
+        n = data[0]
+        self.assertEqual(n['titulo'], 'Reunión de padres')
+        # El mensaje visible está limpio de metadata interna
+        self.assertNotIn('[nav:', n['mensaje'])
+        self.assertNotIn('[ref:', n['mensaje'])
+        # El destino navegable existe y es el correcto
+        self.assertEqual(n['nav_destino'], 'comunicados')
+        self.assertEqual(n['nav_params'], {'comunicadoId': comunicado.id_comunicado})

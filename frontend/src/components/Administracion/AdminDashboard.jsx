@@ -98,7 +98,7 @@ function AdminDashboard({ user, onLogout }) {
       case 'administradores':
         return <Administradores />;
       case 'notificaciones':
-        return <Notificaciones />;
+        return <Notificaciones userRole={user.role} />;
       default:
         return <Alumnos />;
     }

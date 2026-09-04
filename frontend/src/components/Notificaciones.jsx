@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
+import { tieneVistaParaDestino } from '../utils/navDestinos';
 
 function formatearFecha(fecha) {
   if (!fecha) return '—';
@@ -46,7 +47,20 @@ function Notificaciones({ userRole, selectedChild }) {
   // que recibe el navIntent lo traduce a su vista concreta según el rol.
   const handleNotificacionClick = (n) => {
     if (!n.nav_destino) return;
+    // Regla: solo se navega si el rol actual tiene una vista real para el
+    // destino (autorización por sección real, no por existencia del destino).
+    if (!tieneVistaParaDestino(n.nav_destino, userRole)) return;
     navegarDesdeNotificacion(n.nav_destino, n.nav_params || {});
+  };
+
+  // Enter o Space activan la navegación (tarjeta clickeable accesible por teclado).
+  // Se previene el default para que Space no haga scroll de la página.
+  const handleNotificacionKeyDown = (e, n) => {
+    if (!tieneVistaParaDestino(n.nav_destino, userRole)) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleNotificacionClick(n);
+    }
   };
 
   const renderLista = () => {
@@ -82,23 +96,29 @@ function Notificaciones({ userRole, selectedChild }) {
     }
 
     const items = notificacionesActivas.map(function(n) {
-      const tieneNavegacion = Boolean(n.nav_destino);
+      // "Ver" solo aparece si el rol actual tiene una vista real donde
+      // consultar el contenido del destino; un nav_destino por sí solo no
+      // implica que exista esa sección en este dashboard (regla de autorización
+      // por sección real, no por existencia del destino).
+      const tieneNavegacion = Boolean(n.nav_destino) &&
+        tieneVistaParaDestino(n.nav_destino, userRole);
       return (
         <div
           key={n.id}
           className={`notificacion-item ${n.leida ? '' : 'notificacion-item--no-leida'} ${tieneNavegacion ? 'notificacion-item--navegable' : ''}`}
           onClick={() => handleNotificacionClick(n)}
           role={tieneNavegacion ? 'button' : undefined}
+          aria-label={tieneNavegacion ? `${n.titulo || 'Notificación'} — Ir al apartado` : undefined}
           tabIndex={tieneNavegacion ? 0 : undefined}
-          onKeyDown={(e) => { if (tieneNavegacion && (e.key === 'Enter' || e.key === ' ')) handleNotificacionClick(n); }}
+          onKeyDown={(e) => handleNotificacionKeyDown(e, n)}
         >
           <div className="flex-row--between notificacion-item__encabezado">
             <span className="notificacion-item__titulo">
               <strong>{n.titulo || 'Sin título'}</strong>
               {!n.leida && <span className="badge">Nuevo</span>}
               {tieneNavegacion && (
-                <span className="notificacion-item__nav-indicador" title="Ir a la sección">
-                  <i className="fas fa-chevron-right" aria-hidden="true" />
+                <span className="notificacion-item__nav-indicador" title="Ir al apartado correspondiente">
+                  Ver <i className="fas fa-chevron-right" aria-hidden="true" />
                 </span>
               )}
             </span>
