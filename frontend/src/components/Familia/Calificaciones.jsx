@@ -121,6 +121,7 @@ function Calificaciones({ hijo }) {
         materias={calificacionesDisplay}
         intensificaciones_1c={intensificaciones_1c}
         bloqueos_por_materia={bloqueos_por_materia}
+        intensificaciones_posteriores={intensificaciones_posteriores}
       />
 
       <div className="boletin-firma-sello">

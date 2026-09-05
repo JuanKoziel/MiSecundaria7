@@ -1,48 +1,27 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
-import { createUsuario, deleteUsuario, getUsuarios, updateUsuario } from '../../services/api';
+import ModoCreacionPersona from '../../components/Shared/ModoCreacionPersona';
+import PersonaSelector from '../../components/Shared/PersonaSelector';
+import { createUsuario, deleteUsuario, getUsuarios, updateUsuario, getDocentes, getPreceptores, getDirectivos } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingScreen from '../Shared/LoadingScreen';
 
-function toInputDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
-
-function formatDateTime(value) {
-  if (!value) return '---';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '---';
-  return new Intl.DateTimeFormat('es-AR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date);
-}
-
-function estadoLabel(estado) {
-  return estado ? 'Habilitado' : 'Deshabilitado';
-}
-
-function getNextAction(usuario) {
-  if (usuario.estado && usuario.fecha_deshabilitacion_programada) {
-    return `Deshabilitar el ${formatDateTime(usuario.fecha_deshabilitacion_programada)}`;
-  }
-  if (!usuario.estado && usuario.fecha_habilitacion_programada) {
-    return `Habilitar el ${formatDateTime(usuario.fecha_habilitacion_programada)}`;
-  }
-  if (usuario.fecha_deshabilitacion_programada) {
-    return `Deshabilitar el ${formatDateTime(usuario.fecha_deshabilitacion_programada)}`;
-  }
-  if (usuario.fecha_habilitacion_programada) {
-    return `Habilitar el ${formatDateTime(usuario.fecha_habilitacion_programada)}`;
-  }
-  return '---';
-}
+const formVacio = {
+  usuario: '',
+  contrasena: '',
+  nombre: '',
+  apellido: '',
+  dni: '',
+  telefono: '',
+  cargo: 'Administrador',
+  estado: true,
+  fecha_deshabilitacion_programada: '',
+  fecha_habilitacion_programada: '',
+  id_usuario_existente: '',
+  modo_creacion: 'nuevo', // 'nuevo' | 'existente'
+};
 
 function Administradores() {
   const toast = useToast();
@@ -61,9 +40,72 @@ function Administradores() {
     estado: true,
     fecha_deshabilitacion_programada: '',
     fecha_habilitacion_programada: '',
+    id_usuario_existente: '',
+    modo_creacion: 'nuevo', // 'nuevo' | 'existente'
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Fetch personas disponibles para Admin (Docentes, Preceptores, Directivos)
+  const [personasDisponibles, setPersonasDisponibles] = useState([]);
+
+  const cargarPersonasDisponibles = useMemo(() => {
+    // We'll fetch this when modal opens
+  }, []);
+
+  const cargarPersonas = async () => {
+    try {
+      const [docentesData, preceptoresData, directivosData] = await Promise.all([
+        getDocentes(),
+        getPreceptores(),
+        getDirectivos(),
+      ]);
+      const personas = [];
+      (docentesData || []).forEach((d) => {
+        personas.push({
+          id: d.id_usuario,
+          tipo: 'docente',
+          label: `${d.apellido}, ${d.nombre} (Docente)`,
+          dni: d.dni,
+          nombre: d.nombre,
+          apellido: d.apellido,
+          correo: d.correo,
+          telefono: d.telefono,
+        });
+      });
+      (preceptoresData || []).forEach((p) => {
+        if (p.id_usuario && p.usuario) {
+          personas.push({
+            id: p.id_usuario,
+            tipo: 'preceptor',
+            label: `${p.apellido}, ${p.nombre} (Preceptor)`,
+            dni: p.dni,
+            nombre: p.nombre,
+            apellido: p.apellido,
+            correo: p.correo,
+            telefono: p.telefono,
+          });
+        }
+      });
+      (directivosData || []).forEach((a) => {
+        if (a.id_usuario) {
+          personas.push({
+            id: a.id_usuario,
+            tipo: 'administrador',
+            label: `${a.apellido}, ${a.nombre} (Administrador)`,
+            dni: a.dni,
+            nombre: a.nombre,
+            apellido: a.apellido,
+            correo: a.correo,
+            telefono: a.telefono,
+          });
+        }
+      });
+      setPersonasDisponibles(personas);
+    } catch (err) {
+      console.error('Error cargando personas:', err);
+    }
+  };
 
   const resetForm = () => ({
     usuario: '',
@@ -76,6 +118,8 @@ function Administradores() {
     estado: true,
     fecha_deshabilitacion_programada: '',
     fecha_habilitacion_programada: '',
+    id_usuario_existente: '',
+    modo_creacion: 'nuevo',
   });
 
   const fetchUsuarios = async () => {
@@ -107,6 +151,7 @@ function Administradores() {
     setFormData(resetForm());
     setError('');
     setSuccess('');
+    cargarPersonas();
     setShowModal(true);
   };
 
@@ -123,6 +168,8 @@ function Administradores() {
       estado: usuario.estado !== false,
       fecha_deshabilitacion_programada: toInputDateTime(usuario.fecha_deshabilitacion_programada),
       fecha_habilitacion_programada: toInputDateTime(usuario.fecha_habilitacion_programada),
+      id_usuario_existente: '',
+      modo_creacion: 'nuevo',
     });
     setError('');
     setSuccess('');
@@ -161,15 +208,32 @@ function Administradores() {
     setSuccess('');
 
     try {
+      const isExistingPersona = !editingUsuario && formData.modo_creacion === 'existente';
+      
       const normalisedPayload = {
         ...formData,
         fecha_deshabilitacion_programada: formData.fecha_deshabilitacion_programada || null,
         fecha_habilitacion_programada: formData.fecha_habilitacion_programada || null,
       };
+
       const payload = {
         ...normalisedPayload,
         roles: ['admin'],
       };
+
+      // Si es persona existente, reutilizar el usuario (no se tocan credenciales)
+      if (payload.modo_creacion === 'existente' && payload.id_usuario_existente) {
+        payload.id_usuario_existente = Number(payload.id_usuario_existente);
+        delete payload.contrasena;
+        delete payload.usuario;
+        delete payload.estado;
+        delete payload.fecha_deshabilitacion_programada;
+        delete payload.fecha_habilitacion_programada;
+      }
+
+      // Clean up fields not needed for API
+      delete payload.modo_creacion;
+      delete payload.id_usuario;
 
       if (editingUsuario) {
         if (!formData.contrasena) {
@@ -178,7 +242,8 @@ function Administradores() {
         await updateUsuario(editingUsuario.id_usuario, payload);
         toast.success('Administrador actualizado correctamente.');
       } else {
-        if (!formData.contrasena) {
+        // Validar contraseña solo si es creación nueva (no persona existente)
+        if (formData.modo_creacion !== 'existente' && !payload.contrasena) {
           toast.warning('La contrasena es obligatoria para crear un administrador.');
           return;
         }
@@ -201,6 +266,32 @@ function Administradores() {
     <FormModal title={editingUsuario ? 'Editar Administrador' : 'Nuevo Administrador'} onClose={cerrarModal}>
       <form onSubmit={handleSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+          {!editingUsuario && (
+            <ModoCreacionPersona
+              personas={personasDisponibles}
+              formData={formData}
+              setFormData={setFormData}
+              editing={editingUsuario}
+              label="Modo de creación"
+              onPersonaChange={(modo, id) => {
+                if (modo === 'existente' && id) {
+                  const persona = personasDisponibles.find((p) => String(p.id) === String(id));
+                  if (persona) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      nombre: persona.nombre || '',
+                      apellido: persona.apellido || '',
+                      dni: persona.dni || '',
+                      telefono: persona.telefono || '',
+                    }));
+                  }
+                } else if (modo === 'nuevo') {
+                  setFormData((prev) => ({ ...prev, nombre: '', apellido: '', dni: '', telefono: '' }));
+                }
+              }}
+            />
+          )}
+          
           <section className="preceptor-form-section">
             <h4>Datos de acceso</h4>
             <div className="preceptor-form-row preceptor-form-row--two">
@@ -212,7 +303,7 @@ function Administradores() {
                   value={formData.usuario}
                   onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
                   required
-                  disabled={!!editingUsuario}
+                  disabled={!!editingUsuario || (!editingUsuario && formData.modo_creacion === 'existente')}
                 />
               </div>
 
@@ -225,12 +316,13 @@ function Administradores() {
                   id="contrasena"
                   value={formData.contrasena}
                   onChange={(e) => setFormData({ ...formData, contrasena: e.target.value })}
-                  required={!editingUsuario}
+                  required={!editingUsuario && formData.modo_creacion === 'nuevo'}
+                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
                 />
               </div>
             </div>
           </section>
-
+          
           <section className="preceptor-form-section">
             <h4>Estado de la cuenta</h4>
             <div className="preceptor-form-row preceptor-form-row--status">
@@ -268,7 +360,7 @@ function Administradores() {
               </div>
             </div>
           </section>
-
+          
           <section className="preceptor-form-section">
             <h4>Datos personales</h4>
             <div className="preceptor-form-row preceptor-form-row--two">
@@ -280,6 +372,7 @@ function Administradores() {
                   value={formData.nombre}
                   onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   required
+                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
                 />
               </div>
 
@@ -291,6 +384,7 @@ function Administradores() {
                   value={formData.apellido}
                   onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
                   required
+                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
                 />
               </div>
             </div>
@@ -304,6 +398,7 @@ function Administradores() {
                   value={formData.dni}
                   onChange={(e) => setFormData({ ...formData, dni: formatDNI(e.target.value) })}
                   required
+                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
                 />
               </div>
 
@@ -314,11 +409,12 @@ function Administradores() {
                   id="telefono"
                   value={formData.telefono}
                   onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
                 />
               </div>
             </div>
           </section>
-
+          
           <section className="preceptor-form-section">
             <h4>Datos administrativos</h4>
             <div className="preceptor-form-row preceptor-form-row--two">

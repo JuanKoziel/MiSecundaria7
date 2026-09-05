@@ -4,7 +4,6 @@ import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
-import AsistenciasUnificada from '../Shared/AsistenciasUnificada';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
@@ -13,8 +12,8 @@ import BoletinExtras from '../BoletinExtras';
 import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
+import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
 import PanelAlumno from './PanelAlumno';
-import PanelPreviasAlumno from './PanelPreviasAlumno';
 import Sidebar from './Sidebar';
 
 function AlumnoDashboard({ user, onLogout }) {
@@ -178,10 +177,6 @@ function AlumnoDashboard({ user, onLogout }) {
           <div className="view-section active">
             <PanelAlumno miAlumno={miAlumno} user={user} recursadas={recursadas} />
           </div>
-        ) : view === 'previas' ? (
-          <div className="view-section active">
-            <PanelPreviasAlumno miAlumno={miAlumno} />
-          </div>
         ) : view === 'notificaciones' ? (
           <div className="view-section active">
             <Notificaciones userRole="alumno" />
@@ -235,6 +230,7 @@ function AlumnoDashboard({ user, onLogout }) {
                     materias={calsPorMateria}
                     intensificaciones_1c={intensificaciones_1c}
                     bloqueos_por_materia={bloqueos_por_materia}
+                    intensificaciones_posteriores={intensificaciones_posteriores}
                   />
                 )}
 

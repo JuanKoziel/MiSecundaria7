@@ -151,6 +151,9 @@ function FamiliaDashboard({ user, onLogout }) {
           hijoSeleccionado={hijoSeleccionado}
           nombreCompleto={nombreCompletoTutor}
           view={view}
+          hijos={hijos}
+          hijoId={hijoId}
+          setHijoId={setHijoId}
         />
 
         {view === 'perfil' ? (

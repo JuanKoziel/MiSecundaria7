@@ -1,4 +1,4 @@
-﻿import { useState, Fragment } from 'react';
+﻿import { useState, Fragment, useMemo } from 'react';
 import { formatDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
 import { createAlumno, updateAlumno, deleteAlumno } from '../../services/api';
@@ -6,6 +6,7 @@ import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
 import FormModal from '../../components/Shared/FormModal';
+import ModoCreacionPersona from '../../components/Shared/ModoCreacionPersona';
 import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
@@ -24,6 +25,8 @@ const formVacio = {
   fechaNacimiento: '',
   anioLectivo: '',
   curso: '',
+  id_usuario_existente: '',
+  modo_creacion: 'nuevo',
 };
 
 function toInputDateTime(value) {
@@ -74,7 +77,7 @@ function mensajeError(err) {
 }
 
 function Alumnos({ readOnly = false }) {
-  const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto, cursosObj, refreshData } = useData();
+  const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto, cursosObj, refreshData, docentes, preceptores, administradores, padresTutores } = useData();
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [anioLectivo, setAnioLectivo] = useState('');
@@ -86,6 +89,29 @@ function Alumnos({ readOnly = false }) {
   const [mensaje, setMensaje] = useState('');
   const [programando, setProgramando] = useState(null);
   const [progForm, setProgForm] = useState({ fecha_deshabilitacion_programada: '', fecha_habilitacion_programada: '' });
+
+  const personasDisponibles = useMemo(() => {
+    const personas = [];
+    const agregar = (list, tipo) => (list || []).forEach((p) => {
+      if (p.id_usuario) {
+        personas.push({
+          id: p.id_usuario,
+          tipo,
+          label: `${p.apellido}, ${p.nombre} (${tipo}) - DNI: ${p.dni || '—'}`,
+          dni: p.dni,
+          nombre: p.nombre,
+          apellido: p.apellido,
+          correo: p.correo || p.email || '',
+          telefono: p.telefono || '',
+        });
+      }
+    });
+    agregar(docentes, 'Docente');
+    agregar(preceptores, 'Preceptor');
+    agregar(administradores, 'Directivo');
+    agregar(padresTutores, 'Tutor');
+    return personas;
+  }, [docentes, preceptores, administradores, padresTutores]);
 
   const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
   const alumnoSel = lista.find((a) => String(a.id) === seleccionado);
@@ -114,18 +140,20 @@ function Alumnos({ readOnly = false }) {
     setMensaje('');
     try {
       if (modo === 'crear') {
-        if (!form.usuario_nombre || !form.contrasena || !form.dni || !form.nombre || !form.apellido) {
-          toast.warning('Completá usuario, contraseña, DNI, nombre y apellido.');
+        const esPersonaExistente = form.modo_creacion === 'existente' && form.id_usuario_existente;
+        if (!esPersonaExistente && (!form.usuario_nombre || !form.contrasena)) {
+          toast.warning('Completá usuario y contraseña.');
+          setGuardando(false);
+          return;
+        }
+        if (!form.dni || !form.nombre || !form.apellido) {
+          toast.warning('Completá DNI, nombre y apellido.');
           setGuardando(false);
           return;
         }
         const cursoObj = cursosObj.find((c) => c.nombre_curso === form.curso);
-        await createAlumno({
-          usuario_nombre: form.usuario_nombre,
-          contrasena: form.contrasena,
+        const alumnoPayload = {
           estado: form.estado,
-          fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
-          fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
@@ -133,7 +161,16 @@ function Alumnos({ readOnly = false }) {
           fecha_nacimiento: form.fechaNacimiento || null,
           telefono: form.telefono || null,
           id_curso: cursoObj?.id_curso || null,
-        });
+        };
+        if (esPersonaExistente) {
+          alumnoPayload.id_usuario_existente = Number(form.id_usuario_existente);
+        } else {
+          alumnoPayload.usuario_nombre = form.usuario_nombre;
+          alumnoPayload.contrasena = form.contrasena;
+          alumnoPayload.fecha_deshabilitacion_programada = form.fecha_deshabilitacion_programada || null;
+          alumnoPayload.fecha_habilitacion_programada = form.fecha_habilitacion_programada || null;
+        }
+        await createAlumno(alumnoPayload);
         toast.success('Estudiante creado correctamente.');
         setForm(formVacio);
       } else if (modo === 'modificar') {
@@ -363,7 +400,20 @@ function Alumnos({ readOnly = false }) {
 
     if (esCrear) {
       return (
-        <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
+        <div>
+          <ModoCreacionPersona
+            personas={personasDisponibles}
+            formData={form}
+            setFormData={setForm}
+            editing={false}
+            label="Modo de creación"
+            onPersonaChange={(nuevoModo, id) => {
+              if (nuevoModo === 'nuevo') {
+                setForm((p) => ({ ...p, nombre: '', apellido: '', dni: '', telefono: '', direccion: '' }));
+              }
+            }}
+          />
+          <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
           <div className="form-group-filter preceptor-form-full">
             <label htmlFor="alumno-usuario">Usuario</label>
             <input
@@ -372,6 +422,7 @@ function Alumnos({ readOnly = false }) {
               value={form.usuario_nombre}
               onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
               required
+              disabled={form.modo_creacion === 'existente'}
             />
           </div>
           <div className="form-group-filter">
@@ -381,7 +432,8 @@ function Alumnos({ readOnly = false }) {
               type="password"
               value={form.contrasena}
               onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
-              required
+              required={form.modo_creacion === 'nuevo'}
+              disabled={form.modo_creacion === 'existente'}
             />
           </div>
           <div className="form-group-filter">
@@ -511,6 +563,7 @@ function Alumnos({ readOnly = false }) {
               ))}
             </select>
           </div>
+        </div>
         </div>
       );
     }

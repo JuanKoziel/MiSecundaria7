@@ -13,7 +13,7 @@ import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
   if (estado === 'Ausente') return 'badge-ausente';
-  if (estado === 'Retiro') return 'badge-tarde';
+  if (estado === 'Retirado') return 'badge-tarde';
   return 'badge-tarde';
 }
 
@@ -357,7 +357,7 @@ function Asistencias() {
                             r.estado_nombre === 'Presente' ? 'badge-presente' :
                             r.estado_nombre === 'Ausente' ? 'badge-ausente' :
                             r.estado_nombre === 'Tarde' ? 'badge-tarde' :
-                            r.estado_nombre === 'Retiro' ? 'badge-tarde' : ''
+                            r.estado_nombre === 'Retirado' ? 'badge-tarde' : ''
                           }`}>
                             {r.estado_nombre}
                           </span>

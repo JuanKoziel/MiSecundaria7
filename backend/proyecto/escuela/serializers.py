@@ -82,6 +82,7 @@ def _build_usuario_account(
     role_name=None,
     require_password_on_create=True,
 ):
+    id_usuario_existente = validated_data.pop('id_usuario_existente', None)
     username = validated_data.pop(username_key, None)
     if username is None and username_key != 'usuario':
         username = validated_data.pop('usuario', None)
@@ -91,7 +92,15 @@ def _build_usuario_account(
     fecha_habilitacion_programada = validated_data.pop('fecha_habilitacion_programada', _sentinel)
 
     usuario = instance.id_usuario if getattr(instance, 'id_usuario_id', None) else None
+    if usuario is None and id_usuario_existente is not None:
+        try:
+            usuario = Usuario.objects.get(id_usuario=id_usuario_existente)
+        except Usuario.DoesNotExist:
+            raise serializers.ValidationError({
+                'id_usuario_existente': 'El usuario seleccionado no existe.'
+            })
     creating_usuario = usuario is None
+    reusing_existente = id_usuario_existente is not None and not creating_usuario
 
     if creating_usuario and not username:
         raise serializers.ValidationError({username_key: 'El usuario es obligatorio.'})
@@ -106,16 +115,17 @@ def _build_usuario_account(
             fecha_habilitacion_programada=None if fecha_habilitacion_programada is _sentinel else fecha_habilitacion_programada,
         )
     else:
-        if username is not None:
-            usuario.usuario = username
-        if estado is not None:
-            usuario.estado = estado
-        if fecha_deshabilitacion_programada is not _sentinel:
-            usuario.fecha_deshabilitacion_programada = fecha_deshabilitacion_programada
-        if fecha_habilitacion_programada is not _sentinel:
-            usuario.fecha_habilitacion_programada = fecha_habilitacion_programada
+        if not reusing_existente:
+            if username is not None:
+                usuario.usuario = username
+            if estado is not None:
+                usuario.estado = estado
+            if fecha_deshabilitacion_programada is not _sentinel:
+                usuario.fecha_deshabilitacion_programada = fecha_deshabilitacion_programada
+            if fecha_habilitacion_programada is not _sentinel:
+                usuario.fecha_habilitacion_programada = fecha_habilitacion_programada
 
-    if contrasena:
+    if contrasena and not reusing_existente:
         usuario.set_password(contrasena)
     elif creating_usuario and require_password_on_create:
         raise serializers.ValidationError({'contrasena': 'La contrasena es obligatoria para crear el usuario.'})
@@ -204,6 +214,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(write_only=True, required=False)
     telefono = serializers.CharField(write_only=True, required=False)
     cargo = serializers.CharField(write_only=True, required=False)
+    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
     estado_label = serializers.SerializerMethodField()
     proxima_accion_programada = serializers.SerializerMethodField()
     # Read-only fields from Directivo
@@ -217,6 +228,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         model = Usuario
         fields = [
             'id_usuario',
+            'id_usuario_existente',
             'usuario',
             'contrasena',
             'estado',
@@ -294,6 +306,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         contrasena = validated_data.pop('contrasena', None)
         roles = self.initial_data.get('roles', [])
+        id_usuario_existente = validated_data.pop('id_usuario_existente', None)
         nombre = validated_data.pop('nombre', None)
         apellido = validated_data.pop('apellido', None)
         dni = validated_data.pop('dni', None)
@@ -302,10 +315,17 @@ class UsuarioSerializer(serializers.ModelSerializer):
         telefono = validated_data.pop('telefono', None)
         cargo = validated_data.pop('cargo', None)
 
-        usuario = Usuario(**validated_data)
-        if contrasena:
-            usuario.set_password(contrasena)
-        usuario.save()
+        if id_usuario_existente is not None:
+            usuario = Usuario.objects.filter(id_usuario=id_usuario_existente).first()
+            if usuario is None:
+                raise serializers.ValidationError({
+                    'id_usuario_existente': 'El usuario seleccionado no existe.'
+                })
+        else:
+            usuario = Usuario(**validated_data)
+            if contrasena:
+                usuario.set_password(contrasena)
+            usuario.save()
 
         # Assign roles
         if roles:
@@ -316,14 +336,25 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
         # Create Directivo if fields are provided
         if nombre and apellido and dni:
-            Directivo.objects.create(
-                id_usuario=usuario,
-                nombre=nombre,
-                apellido=apellido,
-                dni=dni,
-                telefono=telefono or '',
-                cargo=cargo or 'Administrador'
-            )
+            directivo = Directivo.objects.filter(id_usuario=usuario).first()
+            if directivo is not None:
+                directivo.nombre = nombre
+                directivo.apellido = apellido
+                directivo.dni = dni
+                if telefono is not None:
+                    directivo.telefono = telefono
+                if cargo:
+                    directivo.cargo = cargo
+                directivo.save()
+            else:
+                Directivo.objects.create(
+                    id_usuario=usuario,
+                    nombre=nombre,
+                    apellido=apellido,
+                    dni=dni,
+                    telefono=telefono or '',
+                    cargo=cargo or 'Administrador'
+                )
 
         return usuario
 
@@ -381,6 +412,7 @@ class PadreTutorSerializer(serializers.ModelSerializer):
     estado = serializers.BooleanField(write_only=True, required=False)
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
     alumnos_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -399,6 +431,7 @@ class PadreTutorSerializer(serializers.ModelSerializer):
         fields = [
             'id_tutor',
             'id_usuario',
+            'id_usuario_existente',
             'usuario',
             'usuario_nombre',
             'contrasena',
@@ -498,6 +531,11 @@ class PadreTutorSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         alumnos_ids = validated_data.pop('alumnos_ids', [])
+        id_usuario_existente = validated_data.get('id_usuario_existente')
+        if id_usuario_existente is not None and PadreTutor.objects.filter(id_usuario_id=id_usuario_existente).exists():
+            raise serializers.ValidationError({
+                'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de tutor/familia.'
+            })
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or PadreTutor(),
             validated_data=validated_data,
@@ -534,6 +572,7 @@ class PreceptorSerializer(serializers.ModelSerializer):
     estado = serializers.BooleanField(write_only=True, required=False)
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
     cursos_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -551,6 +590,7 @@ class PreceptorSerializer(serializers.ModelSerializer):
         fields = [
             'id_preceptor',
             'id_usuario',
+            'id_usuario_existente',
             'usuario',
             'usuario_nombre',
             'contrasena',
@@ -646,6 +686,7 @@ class PreceptorSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         cursos_ids = validated_data.pop('cursos_ids', [])
+        es_jefe = self._role_name_from_context() == 'jefe_preceptores'
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or Preceptor(),
             validated_data=validated_data,
@@ -653,12 +694,22 @@ class PreceptorSerializer(serializers.ModelSerializer):
             role_name=self._role_name_from_context(),
         )
 
-        preceptor = Preceptor.objects.create(id_usuario=usuario, **validated_data)
-        Curso.objects.filter(id_curso__in=cursos_ids).update(id_preceptor=preceptor)
+        preceptor_existente = Preceptor.objects.filter(id_usuario=usuario).first()
+        if preceptor_existente is not None:
+            for attr, value in validated_data.items():
+                setattr(preceptor_existente, attr, value)
+            preceptor_existente.save()
+            preceptor = preceptor_existente
+        else:
+            preceptor = Preceptor.objects.create(id_usuario=usuario, **validated_data)
+
+        if not es_jefe and cursos_ids:
+            Curso.objects.filter(id_curso__in=cursos_ids).update(id_preceptor=preceptor)
         return preceptor
 
     def update(self, instance, validated_data):
         cursos_ids = validated_data.pop('cursos_ids', None)
+        es_jefe = self._role_name_from_context() == 'jefe_preceptores'
         usuario, validated_data = _build_usuario_account(
             instance=instance,
             validated_data=validated_data,
@@ -670,7 +721,7 @@ class PreceptorSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
 
-        if cursos_ids is not None:
+        if cursos_ids is not None and not es_jefe:
             Curso.objects.filter(id_preceptor=instance).update(id_preceptor=None)
             Curso.objects.filter(id_curso__in=cursos_ids).update(id_preceptor=instance)
 
@@ -941,6 +992,7 @@ class DocenteSerializer(serializers.ModelSerializer):
     estado = serializers.BooleanField(write_only=True, required=False)
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
     correo = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
     ddjj_id = serializers.SerializerMethodField()
     ruta_ddjj = serializers.SerializerMethodField()
@@ -959,6 +1011,7 @@ class DocenteSerializer(serializers.ModelSerializer):
         fields = [
             'id_docente',
             'id_usuario',
+            'id_usuario_existente',
             'usuario',
             'usuario_nombre',
             'contrasena',
@@ -1081,6 +1134,11 @@ class DocenteSerializer(serializers.ModelSerializer):
         return None
 
     def create(self, validated_data):
+        id_usuario_existente = validated_data.get('id_usuario_existente')
+        if id_usuario_existente is not None and Docente.objects.filter(id_usuario_id=id_usuario_existente).exists():
+            raise serializers.ValidationError({
+                'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de docente.'
+            })
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or Docente(),
             validated_data=validated_data,
@@ -1117,6 +1175,7 @@ class AlumnoSerializer(serializers.ModelSerializer):
     estado = serializers.BooleanField(write_only=True, required=False)
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
+    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
     curso_nombre = serializers.CharField(
         source='id_curso.nombre_curso', read_only=True, default=None,
     )
@@ -1132,6 +1191,7 @@ class AlumnoSerializer(serializers.ModelSerializer):
         fields = [
             'id_alumno',
             'id_usuario',
+            'id_usuario_existente',
             'usuario',
             'usuario_nombre',
             'contrasena',
@@ -1219,6 +1279,11 @@ class AlumnoSerializer(serializers.ModelSerializer):
         return None
 
     def create(self, validated_data):
+        id_usuario_existente = validated_data.get('id_usuario_existente')
+        if id_usuario_existente is not None and Alumno.objects.filter(id_usuario_id=id_usuario_existente).exists():
+            raise serializers.ValidationError({
+                'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de alumno.'
+            })
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or Alumno(),
             validated_data=validated_data,

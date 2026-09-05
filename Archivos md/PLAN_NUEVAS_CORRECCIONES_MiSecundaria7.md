@@ -390,14 +390,65 @@ Informar warnings preexistentes por separado.
 
 ---
 
+# AUDITORÍA DE ESTADO (2026-09-05)
+
+Auditoría sobre el código actual (working tree, incluye cambios sin commitear).
+
+## ✅ PARTE 1 — Usuarios, personas, roles y asignaciones → HECHO
+
+- **1.1 Persona existente o nueva**: aplicado a Alumno, Docente, Preceptor, Tutor/Familia, Jefe de Preceptores y Directivos/Administrador.
+  - Backend: campo `id_usuario_existente` (write-only) en `UsuarioSerializer`, `PadreTutorSerializer`, `PreceptorSerializer`, `DocenteSerializer`, `AlumnoSerializer`. Reutiliza el `Usuario` existente (valida que exista), no duplica, no toca contraseña/estado/fechas y permite múltiples roles vía `_assign_role`.
+  - Guardas anti-duplicado de persona: Preceptor reutiliza su propia fila (evita el conflicto OneToOne); Docente/Alumno/PadreTutor devuelven error si ya tienen perfil; Directivo se actualiza sin duplicarse.
+  - Frontend: `administradores.jsx`, `preceptores.jsx`, `AdminPreceptores.jsx`, `alumnos.jsx`, `docentes.jsx`, `tutores.jsx` envían `id_usuario_existente`, no piden contraseña en modo existente y autocompletan los datos.
+- **1.2 Jefe de Preceptores**: hecho. Al crear/editar un jefe `PreceptorSerializer.create/update` NO escribe `Curso.id_preceptor` → los Preceptores conservan sus cursos. El alcance del jefe es dinámico (todos los cursos) vía `_comunicado_visible_para_ctx` (`views.py:630` → `True`).
+- **1.3 Diseño visual**: hecho. Componente compartido `ModoCreacionPersona` + `PersonaSelector` en todos los flujos con elección clara "Persona existente / Nueva persona".
+- Verificación: `python manage.py check` OK (solo warning preexistente W342) y `npm run build` OK.
+
+## ⚠️ PARTE 2 — Calificaciones, Boletín y Previas → PARCIAL
+
+- **2.1 Boletín**: parcial. Boletín compartido (Alumno/Familia/Preceptor) muestra nota normal + Intensificación 1.º C en la tabla principal; Diciembre y Febrero quedan **vacíos en la tabla principal** (`BoletinTablaPrincipal.jsx:90-91`) y solo aparecen en las secciones extra y en el PDF (`BoletinExtras.jsx:189-205`, `utils/boletin.js`). El boletín de Administración es una tabla paralela con `BoletinExtras` vacío (`Administracion/notas.jsx:128-196`). El Jefe de Preceptores no tiene vista de boletín. El Docente no tiene vista de boletín.
+- **2.2 Error al guardar Febrero**: parcial. Backend valida "Febrero requiere Diciembre DESAPROBADA" por **mismo historial** (`views.py:4490-4491`); frontend desbloquea Febrero por **materia sin filtrar año/historial** (`frontend/src/utils/intensificaciones.js:51`) → si la Diciembre desaprobada es de otro historial, la UI habilita pero el backend rechaza, reproduciendo el error reportado.
+- **2.3 Previas**: parcial. Única carga funcional en Calificaciones (`Profesores/PanelAlumnos.jsx` → `rendirMateriaAdeudada`). La vía duplicada de `Profesores/PanelMateriasAdeudadasDocente.jsx` quedó desactivada (se removieron handlers) PERO dejó un formulario JSX residual roto con referencias a `deudas`/`selectedDeuda`/`handleRendirPrevia` inexistentes (líneas 83-177) → **limpiar ese bloque**.
+
+## ⚠️ PARTE 3 — Asistencias → PARCIAL
+
+- **3.1 Asistencia por día**: la tabla de verdad NO se cumple en las 4 combinaciones. Backend (`views.py:2852-2872`) y frontend (`AsistenciasUnificada.jsx:42-56`) combinan con `set`, que pierde el orden → **Faltó+Presente devuelve "Retiro" en vez de "Tarde"** (la regla de Tarde es inalcanzable). Además no hay `ORDER BY hora` → el registro 1/2 es indefinido. "Retiro/Retirado" es un estado inventado (no existe en `estados_asistencia`, cuyo seed es Presente/Ausente/Tarde/Justificado); el docente guarda "Retiro" como id 4 = "Justificado" (`PanelAsistencia.jsx:140-141`) y el preceptor recibe 400 al intentar guardar "Retiro" de docentes (`views.py:3260-3262`).
+
+## ⚠️ PARTE 4 — Actividades y Familia → PARCIAL
+
+- **4.1 Actividades estilo Classroom**: Nivel 1 HECHO — tarjetas Materia+Docente clickeables, sin fotos ni botones inferiores, filtradas por la combinación exacta (`ActividadesView.jsx:66-85,318-330`). Nivel 2 PARCIAL — lista filtrada por materia+docente y recuadros horizontales OK (`ActividadesView.jsx:234,266-291`), pero **faltan**: icono que distinga Material/Actividad (icono fijo `fa-clipboard-list`, `:273-275`), etiqueta de tipo, indicador "Editado" y menú de tres puntos. El backend no expone tipo ni fecha de edición en `ActividadDocente`.
+- **4.2 Familia — selectores de Alumno**: HECHO. Selector de hijo restaurado en el header (`FamiliaDashboard.jsx:149-157`, `Familia/header/header.jsx:1,23-38`); todas las vistas dependientes usan `hijoSeleccionado` (Calificaciones, Intensificaciones, Asistencias, Actividades, Horarios, Comunicados, Información académica, Actas, Resumen). Calendario Institucional correctamente sin selector (`header.jsx:5`).
+
+## ⚠️ PARTE 5 — Adelantos de horas y revisión visual → PARCIAL
+
+- **5.1 Adelanto de horas**: parcial. Se restauraron las columnas del encabezado de la tabla (Docente, Fecha, Horario, Módulos, Horario original, Motivo, Autorizado por, Estado — `AdelantosHoras.jsx:459-467`) pero **falta el bloque superior contextual** (filtros por curso/materia/fecha, selección, explicación ampliada, leyenda/datos): hoy solo hay un párrafo + botón + checkbox "solo activos" (`AdelantosHoras.jsx:421-441`). Nota: en el historial del repo nunca existió un bloque más rico para este componente; debe construirse según lo que pide el plan.
+- **5.2 Indicador Suplente**: HECHO. Reemplazado `dangerouslySetInnerHTML` por JSX (`AdelantosHoras.jsx:486-491`); hoy hay 0 usos de `dangerouslySetInnerHTML` en `frontend/src`; la lógica de detección de suplencia activa quedó intacta.
+
+## ⏳ PARTE 6 — Revisión final → PENDIENTE
+
+- Depende de cerrar Partes 2–5. Verificaciones técnicas ya ejecutadas y OK: `npm run build` y `python manage.py check` (solo warning W342 preexistente). Revisión integral de permisos pendiente.
+
+---
+
 # ESTADO
 
-- ⏳ Parte 1 — Usuarios, personas, roles y asignaciones
-- ⏳ Parte 2 — Calificaciones, Boletín y Previas
-- ⏳ Parte 3 — Asistencias
-- ⏳ Parte 4 — Actividades y Familia
-- ⏳ Parte 5 — Adelantos de horas y revisión visual
-- ⏳ Parte 6 — Revisión final
+- ✅ Parte 1 — Usuarios, personas, roles y asignaciones (HECHO)
+- ⚠️ Parte 2 — Calificaciones, Boletín y Previas (parcial: 2.1, 2.2, 2.3)
+- ⚠️ Parte 3 — Asistencias (parcial: 3.1)
+- ⚠️ Parte 4 — Actividades y Familia (4.1 parcial, 4.2 HECHO)
+- ⚠️ Parte 5 — Adelantos de horas y revisión visual (5.1 parcial, 5.2 HECHO)
+- ⏳ Parte 6 — Revisión final (pendiente)
+
+## Próximos pasos (lo que falta por hacer)
+
+1. **PARTE 2**:
+   - 2.1 Completar el boletín: mostrar Diciembre y Febrero en la tabla principal de `BoletinTablaPrincipal`; unificar el boletín de Administración con los componentes compartidos; agregar vistas de boletín para Jefe de Preceptores (y evaluar Docente).
+   - 2.2 Alinear frontend y backend con la misma regla de Febrero basada en el **historial** (no solo por materia/año).
+   - 2.3 Eliminar el formulario residual roto de `PanelMateriasAdeudadasDocente.jsx` (deudas/selectores/handler).
+2. **PARTE 3**: corregir la combinación diaria por **orden** (tuplas ordenadas por `hora`, no `set`) en `views.py:2852-2872` y `AsistenciasUnificada.jsx:42-56`; agregar `ORDER BY hora`; definir "Retiro/Retirado" como estado real o eliminarlo de las opciones de guardado; corregir el guardado de "Retiro" en `PanelAsistencia.jsx` y la opción de `Preceptores/asistencias.jsx:603`.
+3. **PARTE 4.1**: agregar en el Nivel 2 el icono y etiqueta de tipo (Material/Actividad), el indicador "Editado" y el menú de tres puntos; evaluar exponer tipo/fecha de edición en el backend.
+4. **PARTE 5.1**: construir el bloque superior contextual completo de Adelanto de Horas (filtros por curso/materia/fecha, selección, explicación y leyenda/datos).
+5. **PARTE 6**: revisión final de permisos y verificación integral (`npm run build`, `python manage.py check`).
 
 ## Criterio de cierre
 

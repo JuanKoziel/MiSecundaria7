@@ -7,6 +7,7 @@ import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
 import { formatDNI } from '../../utils/dni';
 import FormModal from '../../components/Shared/FormModal';
+import ModoCreacionPersona from '../../components/Shared/ModoCreacionPersona';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 
@@ -21,6 +22,8 @@ const formVacio = {
   apellido: '',
   correo: '',
   telefono: '',
+  id_usuario_existente: '',
+  modo_creacion: 'nuevo',
 };
 
 function toInputDateTime(value) {
@@ -286,6 +289,28 @@ function Docentes({ readOnly = false }) {
   const [programando, setProgramando] = useState(null);
   const [progForm, setProgForm] = useState({ fecha_deshabilitacion_programada: '', fecha_habilitacion_programada: '' });
 
+  const personasDisponibles = useMemo(() => {
+    const personas = [];
+    const agregar = (list, tipo) => (list || []).forEach((p) => {
+      if (p.id_usuario) {
+        personas.push({
+          id: p.id_usuario,
+          tipo,
+          label: `${p.apellido}, ${p.nombre} (${tipo}) - DNI: ${p.dni || '—'}`,
+          dni: p.dni,
+          nombre: p.nombre,
+          apellido: p.apellido,
+          correo: p.correo || p.email || '',
+          telefono: p.telefono || '',
+        });
+      }
+    });
+    agregar(dataCtx.preceptores, 'Preceptor');
+    agregar(dataCtx.administradores, 'Directivo');
+    agregar(dataCtx.padresTutores, 'Tutor');
+    return personas;
+  }, [dataCtx.preceptores, dataCtx.administradores, dataCtx.padresTutores]);
+
   const esCrear = modo === 'crear';
   const esVista = modo === 'vista';
   const necesitaFiltroVista = esVista;
@@ -327,23 +352,34 @@ function Docentes({ readOnly = false }) {
     setMensaje('');
     try {
       if (esCrear) {
-        if (!form.usuario_nombre || !form.contrasena || !form.dni || !form.nombre || !form.apellido) {
-          toast.warning('Completá usuario, contraseña, DNI, nombre y apellido.');
+        const esPersonaExistente = form.modo_creacion === 'existente' && form.id_usuario_existente;
+        if (!esPersonaExistente && (!form.usuario_nombre || !form.contrasena)) {
+          toast.warning('Completá usuario y contraseña.');
           setGuardando(false);
           return;
         }
-        const docente = await createDocente({
-          usuario_nombre: form.usuario_nombre,
-          contrasena: form.contrasena,
+        if (!form.dni || !form.nombre || !form.apellido) {
+          toast.warning('Completá DNI, nombre y apellido.');
+          setGuardando(false);
+          return;
+        }
+        const docentePayload = {
           estado: form.estado,
-          fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
-          fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
           correo: form.correo || null,
           telefono: form.telefono || null,
-        });
+        };
+        if (esPersonaExistente) {
+          docentePayload.id_usuario_existente = Number(form.id_usuario_existente);
+        } else {
+          docentePayload.usuario_nombre = form.usuario_nombre;
+          docentePayload.contrasena = form.contrasena;
+          docentePayload.fecha_deshabilitacion_programada = form.fecha_deshabilitacion_programada || null;
+          docentePayload.fecha_habilitacion_programada = form.fecha_habilitacion_programada || null;
+        }
+        const docente = await createDocente(docentePayload);
         const docenteId = docente.id_docente;
         let asigOk = 0;
         const errores = [];
@@ -646,6 +682,18 @@ function Docentes({ readOnly = false }) {
     if (esCrear) {
       return (
         <div style={{ maxWidth: 760 }}>
+          <ModoCreacionPersona
+            personas={personasDisponibles}
+            formData={form}
+            setFormData={setForm}
+            editing={false}
+            label="Modo de creación"
+            onPersonaChange={(nuevoModo, id) => {
+              if (nuevoModo === 'nuevo') {
+                setForm((p) => ({ ...p, nombre: '', apellido: '', dni: '', telefono: '', correo: '' }));
+              }
+            }}
+          />
           <div className="preceptor-form-grid">
             <div className="form-group-filter preceptor-form-full">
               <label htmlFor="doc-usuario">Usuario</label>
@@ -655,6 +703,7 @@ function Docentes({ readOnly = false }) {
                 value={form.usuario_nombre}
                 onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
                 required
+                disabled={form.modo_creacion === 'existente'}
               />
             </div>
             <div className="form-group-filter">
@@ -664,7 +713,8 @@ function Docentes({ readOnly = false }) {
                 type="password"
                 value={form.contrasena}
                 onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
-                required
+                required={form.modo_creacion === 'nuevo'}
+                disabled={form.modo_creacion === 'existente'}
               />
             </div>
             <div className="form-group-filter">

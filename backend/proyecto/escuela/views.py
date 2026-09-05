@@ -627,6 +627,8 @@ def _docente_tiene_materia_en_curso(docente_id, curso_obj, materia_id):
 def _comunicado_visible_para_ctx(comunicado, ctx):
     if 'admin' in ctx['roles'] or 'director' in ctx['roles']:
         return True
+    if 'jefe_preceptores' in ctx['roles']:
+        return True
 
     alcances = _get_comunicado_alcances(comunicado)
     if not alcances:
@@ -650,17 +652,6 @@ def _comunicado_visible_para_ctx(comunicado, ctx):
             for curso in cursos
             for alcance in alcances
         )
-
-    if 'jefe_preceptores' in ctx['roles'] and ctx['preceptor']:
-        cursos = Curso.objects.filter(id_preceptor=ctx['preceptor'].id_preceptor).select_related('id_ciclo')
-        return any(
-            _curso_matches_alcance(curso, alcance)
-            for curso in cursos
-            for alcance in alcances
-        )
-
-    if 'jefe_preceptores' in ctx['roles'] and not ctx['preceptor']:
-        return True
 
     if 'docente' in ctx['roles'] and ctx['docente']:
         asignaciones = CursoMateria.objects.filter(
@@ -2839,7 +2830,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         asistencias = Asistencia.objects.filter(
             id_curso_materia__in=cm_ids,
             fecha=fecha_str,
-        ).select_related('id_alumno', 'id_estado_asistencia')
+        ).select_related('id_alumno', 'id_estado_asistencia').order_by('hora')
 
         alumnos_del_curso = Alumno.objects.filter(
             id_curso=curso_obj,
@@ -2858,11 +2849,17 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             'Presente': 'Presente',
             'Ausente': 'Ausente',
         }
-        reglas = [
-            ({'Presente', 'Presente'}, 'Presente'),
-            ({'Presente', 'Ausente'}, 'Retiro'),
-            ({'Ausente', 'Presente'}, 'Tarde'),
-            ({'Ausente', 'Ausente'}, 'Ausente'),
+        # Tabla de verdad ORDENADA (los registros llegan por hora ascendente):
+        #   Faltó + Faltó      -> Ausente
+        #   Presente + Presente -> Presente
+        #   Faltó + Presente   -> Tarde
+        #   Presente + Faltó   -> Retirado
+        # Se comparan solo el primer y segundo registro en orden cronológico.
+        reglas_ordenadas = [
+            (['Ausente', 'Ausente'], 'Ausente'),
+            (['Presente', 'Presente'], 'Presente'),
+            (['Ausente', 'Presente'], 'Tarde'),
+            (['Presente', 'Ausente'], 'Retirado'),
         ]
 
         result = []
@@ -2873,10 +2870,10 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             elif len(estados) == 1:
                 estado_final = resultado.get(estados[0], estados[0])
             else:
-                conjunto = set(estados[:2])
+                par = estados[:2]
                 estado_final = 'Sin registro'
-                for regla_conjunto, regla_estado in reglas:
-                    if conjunto == regla_conjunto:
+                for regla_par, regla_estado in reglas_ordenadas:
+                    if par == regla_par:
                         estado_final = regla_estado
                         break
 
@@ -4412,6 +4409,7 @@ class HistorialAcademicoViewSet(viewsets.ModelViewSet):
         curso = self.request.query_params.get('curso')
         materia = self.request.query_params.get('materia')
         anio = self.request.query_params.get('anio')
+        curso_materia = self.request.query_params.get('curso_materia')
         if alumno:
             qs = qs.filter(id_alumno=alumno)
         if curso:
@@ -4420,6 +4418,8 @@ class HistorialAcademicoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_materia=materia)
         if anio:
             qs = qs.filter(anio_lectivo=anio)
+        if curso_materia:
+            qs = qs.filter(id_curso_materia=curso_materia)
         return qs
 
 

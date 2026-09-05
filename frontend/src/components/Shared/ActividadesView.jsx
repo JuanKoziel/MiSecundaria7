@@ -41,9 +41,10 @@ function ActividadesView({ userRole, selectedChild }) {
   const { user } = useAuth();
   const [actividades, setActividades] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMateria, setSelectedMateria] = useState('');
+  const [selectedMateriaDocente, setSelectedMateriaDocente] = useState(null);
   const [selectedActividad, setSelectedActividad] = useState(null);
   const [previewArchivo, setPreviewArchivo] = useState(null);
+  const [menuAbiertoId, setMenuAbiertoId] = useState(null);
 
   const cursoId = useMemo(() => {
     if (userRole === 'alumno') {
@@ -63,14 +64,54 @@ function ActividadesView({ userRole, selectedChild }) {
     return curso?.nombre_curso || '';
   }, [cursoId, cursosObj]);
 
-  const materiasDelCurso = useMemo(() => {
+  const materiasDocentesDelCurso = useMemo(() => {
     if (!cursoId) return [];
-    const nombres = cursoMateria
+    const mapa = new Map();
+    cursoMateria
       .filter((cm) => Number(cm.id_curso) === Number(cursoId))
-      .map((cm) => cm.materia_nombre)
-      .filter(Boolean);
-    return [...new Set(nombres)].sort();
+      .forEach((cm) => {
+        const key = `${cm.materia_nombre}|${cm.docente_nombre}|${cm.docente_apellido}`;
+        if (!mapa.has(key)) {
+          mapa.set(key, {
+            id: key,
+            materia: cm.materia_nombre || 'Sin materia',
+            docente: cm.docente_apellido ? `${cm.docente_apellido}, ${cm.docente_nombre}` : 'Sin docente',
+            docenteNombre: cm.docente_nombre,
+            docenteApellido: cm.docente_apellido,
+            materiaNombre: cm.materia_nombre,
+          });
+        }
+      });
+    return [...mapa.values()].sort((a, b) => a.materia.localeCompare(b.materia));
   }, [cursoId, cursoMateria]);
+
+  useEffect(() => {
+    if (materiasDocentesDelCurso.length === 0) {
+      setSelectedMateriaDocente(null);
+    } else if (
+      selectedMateriaDocente &&
+      !materiasDocentesDelCurso.some((md) => md.id === selectedMateriaDocente)
+    ) {
+      setSelectedMateriaDocente(null);
+    }
+  }, [materiasDocentesDelCurso, selectedMateriaDocente]);
+
+  const actividadesPorMateriaDocente = useMemo(() => {
+    const grupos = {};
+    actividades.forEach((act) => {
+      const key = `${act.materia_nombre}|${act.docente_apellido}|${act.docente_nombre}`;
+      if (!grupos[key]) grupos[key] = [];
+      grupos[key].push(act);
+    });
+    Object.keys(grupos).forEach((k) => {
+      grupos[k].sort((a, b) => {
+        const fa = a.fecha_creacion || '';
+        const fb = b.fecha_creacion || '';
+        return fb.localeCompare(fa);
+      });
+    });
+    return grupos;
+  }, [actividades]);
 
   useEffect(() => {
     if (!cursoId) {
@@ -81,6 +122,7 @@ function ActividadesView({ userRole, selectedChild }) {
     setLoading(true);
     setSelectedActividad(null);
     setPreviewArchivo(null);
+    setMenuAbiertoId(null);
     getActividades({ curso: cursoId })
       .then((data) => {
         const lista = Array.isArray(data) ? data : data.results || [];
@@ -89,33 +131,6 @@ function ActividadesView({ userRole, selectedChild }) {
       .catch(() => setActividades([]))
       .finally(() => setLoading(false));
   }, [cursoId]);
-
-  useEffect(() => {
-    if (materiasDelCurso.length > 0) {
-      if (!selectedMateria || !materiasDelCurso.includes(selectedMateria)) {
-        setSelectedMateria(materiasDelCurso[0]);
-      }
-    } else {
-      setSelectedMateria('');
-    }
-  }, [materiasDelCurso]);
-
-  const actividadesPorMateria = useMemo(() => {
-    const grupos = {};
-    actividades.forEach((act) => {
-      const materia = act.materia_nombre || 'Sin materia';
-      if (!grupos[materia]) grupos[materia] = [];
-      grupos[materia].push(act);
-    });
-    Object.keys(grupos).forEach((m) => {
-      grupos[m].sort((a, b) => {
-        const fa = a.fecha_creacion || '';
-        const fb = b.fecha_creacion || '';
-        return fb.localeCompare(fa);
-      });
-    });
-    return grupos;
-  }, [actividades]);
 
   if (selectedActividad) {
     const actividad = selectedActividad;
@@ -217,7 +232,113 @@ function ActividadesView({ userRole, selectedChild }) {
     );
   }
 
-  const acts = actividadesPorMateria[selectedMateria] || [];
+
+  const grupos = actividadesPorMateriaDocente[selectedMateriaDocente] || [];
+  const materiaDocenteSeleccionado = selectedMateriaDocente
+    ? materiasDocentesDelCurso.find((md) => md.id === selectedMateriaDocente)
+    : null;
+
+  if (materiaDocenteSeleccionado) {
+    return (
+      <div className="card">
+        <div className="card-header-flex">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setSelectedMateriaDocente(null)}
+          >
+            <i className="fas fa-arrow-left" aria-hidden="true" /> Volver
+          </button>
+          <h3>{materiaDocenteSeleccionado.materia} — {materiaDocenteSeleccionado.docente}</h3>
+        </div>
+
+        {cursoNombre && (
+          <p className="upload-hint m-0 mb-12">
+            Curso: <strong>{cursoNombre}</strong>
+          </p>
+        )}
+
+        {loading ? (
+          <LoadingSpinner text="Cargando actividades..." size="sm" inline />
+        ) : grupos.length === 0 ? (
+          <p className="empty-state-message empty-state-centered">
+            Sin actividades para esta materia y docente.
+          </p>
+        ) : (
+          <div className="actividades-publicaciones">
+            {grupos.map((act) => {
+              const archivos = Array.isArray(act.archivos) ? act.archivos : [];
+              const esActividad = archivos.length > 0 || Boolean(act.descripcion && act.descripcion.trim());
+              const iconoTipo = esActividad ? 'fa-clipboard-list' : 'fa-book-open';
+              const verboTipo = esActividad ? 'una nueva actividad' : 'un nuevo material';
+              const nombreDocente = act.docente_apellido
+                ? `${act.docente_apellido}, ${act.docente_nombre}`
+                : (materiaDocenteSeleccionado.docente || 'Docente');
+              const menuAbierto = menuAbiertoId === act.id_actividad;
+              const enlaceUnico = act.archivo_url || archivos[0]?.archivo_url || null;
+              return (
+                <article
+                  key={act.id_actividad}
+                  className="publicacion-box"
+                  onClick={() => setSelectedActividad(act)}
+                >
+                  <div className="publicacion-icon">
+                    <i className={`fas ${iconoTipo}`} aria-hidden="true" />
+                  </div>
+                  <div className="publicacion-contenido">
+                    <p className="publicacion-usuario">
+                      {nombreDocente} publicó {verboTipo}:
+                    </p>
+                    <h4 className="publicacion-titulo">
+                      {act.titulo}
+                    </h4>
+                    <p className="publicacion-fecha">
+                      {formatFecha(act.fecha_creacion)}
+                      {act.fecha_creacion ? ` · ${formatHora(act.fecha_creacion)}` : ''}
+                      {act.editado ? ' · Editado' : ''}
+                    </p>
+                  </div>
+                  <div className="publicacion-menu" style={{ position: 'relative', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      className="publicacion-menu-btn"
+                      style={{ border: 'none', background: 'transparent', color: 'var(--text-light)', padding: '6px 8px', fontSize: '1rem', cursor: 'pointer' }}
+                      onClick={(e) => { e.stopPropagation(); setMenuAbiertoId(menuAbierto ? null : act.id_actividad); }}
+                      aria-label="Opciones de la publicación"
+                    >
+                      <i className="fas fa-ellipsis-v" aria-hidden="true" />
+                    </button>
+                    {menuAbierto && (
+                      <div className="publicacion-menu-dropdown" style={{ position: 'absolute', right: 0, top: '100%', zIndex: 20, background: '#fff', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: '190px', padding: '4px' }}>
+                        <button
+                          type="button"
+                          style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', background: 'transparent', padding: '8px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
+                          onClick={() => { setMenuAbiertoId(null); setSelectedActividad(act); }}
+                        >
+                          <i className="fas fa-eye" aria-hidden="true" /> Ver detalle
+                        </button>
+                        {enlaceUnico && (
+                          <a
+                            href={resolveUrl(enlaceUnico)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '0.85rem', textDecoration: 'none', color: 'inherit' }}
+                            onClick={() => setMenuAbiertoId(null)}
+                          >
+                            <i className="fas fa-download" aria-hidden="true" /> Descargar adjunto
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="card">
@@ -234,136 +355,23 @@ function ActividadesView({ userRole, selectedChild }) {
 
       {loading ? (
         <LoadingSpinner text="Cargando actividades..." size="sm" inline />
-      ) : materiasDelCurso.length === 0 ? (
+      ) : materiasDocentesDelCurso.length === 0 ? (
         <p className="empty-state-message empty-state-centered">
           No hay materias disponibles.
         </p>
       ) : (
-        <div>
-          <div className="filter-row mb-20">
-            <div className="form-group-filter" style={{ maxWidth: '360px' }}>
-              <label htmlFor="materia-select">Materia</label>
-              <select
-                id="materia-select"
-                value={selectedMateria}
-                onChange={(e) => setSelectedMateria(e.target.value)}
-              >
-                {materiasDelCurso.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="actividades-grid">
-            {acts.length === 0 ? (
-              <p className="empty-state-message empty-state-centered" style={{ gridColumn: '1 / -1' }}>
-                Sin actividades para esta materia.
-              </p>
-            ) : (
-              acts.map((act) => {
-                const cantArchivos = Array.isArray(act.archivos) ? act.archivos.length : 0;
-                const hasFiles = cantArchivos > 0;
-                return (
-                  <article
-                    key={act.id_actividad}
-                    className="actividad-card"
-                    onClick={() => setSelectedActividad(act)}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      padding: '20px',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '12px',
-                      background: 'var(--card-bg)',
-                      cursor: 'pointer',
-                      transition: 'box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)';
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.borderColor = 'var(--primary-color)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.borderColor = 'var(--border-color)';
-                    }}
-                  >
-                    <div className="actividad-card-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span className="actividad-materia-badge" style={{
-                          display: 'inline-block',
-                          padding: '4px 10px',
-                          borderRadius: '20px',
-                          fontSize: '0.7rem',
-                          fontWeight: 600,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          background: 'rgba(253, 126, 20, 0.12)',
-                          color: 'var(--primary-dark)',
-                          marginBottom: '8px',
-                        }}>
-                          {act.materia_nombre || 'Sin materia'}
-                        </span>
-                        <h3 className="actividad-titulo" style={{ margin: '0 0 8px', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-dark)', wordBreak: 'break-word' }}>
-                          {act.titulo}
-                        </h3>
-                      </div>
-                      {hasFiles && (
-                        <span className="actividad-files-badge" style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '4px 10px',
-                          borderRadius: '20px',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          background: '#e8f5e9',
-                          color: '#2e7d32',
-                        }}>
-                          <i className="fas fa-paperclip" aria-hidden="true" style={{ fontSize: '0.7rem' }} />
-                          {cantArchivos}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="actividad-card-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <i className="fas fa-calendar-alt" aria-hidden="true" />
-                        {formatFecha(act.fecha_creacion)}
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <i className="fas fa-clock" aria-hidden="true" />
-                        {formatHora(act.fecha_creacion)}
-                      </span>
-                      {act.docente_apellido && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <i className="fas fa-chalkboard-teacher" aria-hidden="true" />
-                          {act.docente_apellido}, {act.docente_nombre}
-                        </span>
-                      )}
-                    </div>
-
-                    {act.descripcion && (
-                      <div className="actividad-descripcion-preview" style={{ marginTop: '12px', padding: '12px', background: '#fafafa', borderRadius: '8px', border: '1px solid #f0f0f0' }}>
-                        <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.5', color: 'var(--text-dark)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {act.descripcion}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="actividad-card-footer" style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span className="actividad-ver-mas" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--primary-color)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        Ver detalles <i className="fas fa-chevron-right" style={{ fontSize: '0.7rem' }} aria-hidden="true" />
-                      </span>
-                    </div>
-                  </article>
-                );
-              })
-            )}
-          </div>
+        <div className="materias-docentes-grid">
+          {materiasDocentesDelCurso.map((md) => (
+            <button
+              key={md.id}
+              type="button"
+              className="materia-docente-card"
+              onClick={() => setSelectedMateriaDocente(md.id)}
+            >
+              <span className="materia-docente-card-title">{md.materia}</span>
+              <span className="materia-docente-card-teacher">{md.docente}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>

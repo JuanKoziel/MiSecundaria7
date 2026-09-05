@@ -4,7 +4,7 @@ import { getServerTime, createAsistencia, getAsistencias } from '../../services/
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
-const ESTADOS = ['Presente', 'Ausente', 'Tarde', 'Retiro'];
+const ESTADOS = ['Presente', 'Ausente', 'Tarde'];
 
 function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = true }) {
   const { alumnos, estadosAsistencia, refreshData } = useData();
@@ -136,12 +136,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
         estadoMap[e.nombre_estado] = e.id_estado_asistencia;
       });
       const promises = alumnosConEstado.map((a) => {
-        let idEstado;
-        if (a.estado === 'Retiro') {
-          idEstado = 4;
-        } else if (a.estado) {
-          idEstado = estadoMap[a.estado];
-        }
+        const idEstado = estadoMap[a.estado];
         return createAsistencia({
           id_alumno: a.id,
           id_curso_materia: cursoMateriaId,

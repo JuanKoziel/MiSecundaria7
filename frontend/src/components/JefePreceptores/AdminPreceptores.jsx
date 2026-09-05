@@ -1,11 +1,14 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import FormModal from '../../components/Shared/FormModal';
+import ModoCreacionPersona from '../../components/Shared/ModoCreacionPersona';
 import {
   createPreceptor,
   deletePreceptor,
   getPreceptores,
   updatePreceptor,
+  getDocentes,
+  getDirectivos,
 } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
@@ -23,6 +26,8 @@ const formVacio = {
   dni: '',
   telefono: '',
   cursos_ids: [],
+  id_usuario_existente: '',
+  modo_creacion: 'nuevo',
 };
 
 function toInputDateTime(value) {
@@ -102,6 +107,43 @@ function AdminPreceptores() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [personasDisponibles, setPersonasDisponibles] = useState([]);
+
+  const cargarPersonas = async () => {
+    try {
+      const [docentesData, directivosData] = await Promise.all([getDocentes(), getDirectivos()]);
+      const personas = [];
+      (docentesData || []).forEach((d) => {
+        personas.push({
+          id: d.id_usuario,
+          tipo: 'docente',
+          label: `${d.apellido}, ${d.nombre} (Docente)`,
+          dni: d.dni,
+          nombre: d.nombre,
+          apellido: d.apellido,
+          correo: d.correo,
+          telefono: d.telefono,
+        });
+      });
+      (directivosData || []).forEach((a) => {
+        if (a.id_usuario) {
+          personas.push({
+            id: a.id_usuario,
+            tipo: 'directivo',
+            label: `${a.apellido}, ${a.nombre} (Directivo)`,
+            dni: a.dni,
+            nombre: a.nombre,
+            apellido: a.apellido,
+            correo: a.correo,
+            telefono: a.telefono,
+          });
+        }
+      });
+      setPersonasDisponibles(personas);
+    } catch (err) {
+      console.error('Error cargando personas:', err);
+    }
+  };
 
   const filteredPreceptores = useMemo(() => {
     if (!searchTerm) return preceptores;
@@ -144,9 +186,10 @@ function AdminPreceptores() {
 
   const abrirCrear = () => {
     setEditingPreceptor(null);
-    setFormData(formVacio);
+    setFormData({ ...formVacio, modo_creacion: 'nuevo' });
     setError('');
     setSuccess('');
+    cargarPersonas();
     setShowModal(true);
   };
 
@@ -208,12 +251,24 @@ function AdminPreceptores() {
     setGuardando(true);
 
     try {
+      const esPersonaExistente = !editingPreceptor && formData.modo_creacion === 'existente' && formData.id_usuario_existente;
       const payload = {
         ...formData,
         cursos_ids: normalizarCursosIds(formData.cursos_ids),
         fecha_deshabilitacion_programada: formData.fecha_deshabilitacion_programada || null,
         fecha_habilitacion_programada: formData.fecha_habilitacion_programada || null,
       };
+      // Reutilizar el usuario existente (no se tocan credenciales)
+      if (esPersonaExistente) {
+        payload.id_usuario_existente = Number(formData.id_usuario_existente);
+        delete payload.contrasena;
+        delete payload.usuario_nombre;
+        delete payload.estado;
+        delete payload.fecha_deshabilitacion_programada;
+        delete payload.fecha_habilitacion_programada;
+      }
+      delete payload.modo_creacion;
+      delete payload.id_usuario;
       if (editingPreceptor && !payload.contrasena) {
         delete payload.contrasena;
       }
@@ -221,7 +276,7 @@ function AdminPreceptores() {
         delete payload.estado;
       }
 
-      if (!editingPreceptor && !payload.contrasena) {
+      if (!editingPreceptor && !esPersonaExistente && !payload.contrasena) {
         toast.warning('La contrasena es obligatoria para crear un preceptor');
         setGuardando(false);
         return;
@@ -270,6 +325,31 @@ function AdminPreceptores() {
     <FormModal title={editingPreceptor ? 'Editar Preceptor' : 'Nuevo Preceptor'} onClose={cerrarFormulario}>
       <form onSubmit={handleSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+          {!editingPreceptor && (
+            <ModoCreacionPersona
+              personas={personasDisponibles}
+              formData={formData}
+              setFormData={setFormData}
+              editing={editingPreceptor}
+              label="Modo de creación"
+              onPersonaChange={(modo, id) => {
+                if (modo === 'existente' && id) {
+                  const persona = personasDisponibles.find((p) => String(p.id) === String(id));
+                  if (persona) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      nombre: persona.nombre || '',
+                      apellido: persona.apellido || '',
+                      dni: persona.dni || '',
+                      telefono: persona.telefono || '',
+                    }));
+                  }
+                } else if (modo === 'nuevo') {
+                  setFormData((prev) => ({ ...prev, nombre: '', apellido: '', dni: '', telefono: '' }));
+                }
+              }}
+            />
+          )}
           <section className="preceptor-form-section">
             <h4>Datos de acceso</h4>
             <div className="preceptor-form-row preceptor-form-row--two">
@@ -281,6 +361,7 @@ function AdminPreceptores() {
                   value={formData.usuario_nombre}
                   onChange={(e) => setFormData((prev) => ({ ...prev, usuario_nombre: e.target.value }))}
                   required
+                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
 
@@ -293,7 +374,8 @@ function AdminPreceptores() {
                   type="password"
                   value={formData.contrasena}
                   onChange={(e) => setFormData((prev) => ({ ...prev, contrasena: e.target.value }))}
-                  required={!editingPreceptor}
+                  required={!editingPreceptor && formData.modo_creacion === 'nuevo'}
+                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
             </div>
@@ -358,6 +440,7 @@ function AdminPreceptores() {
                   value={formData.nombre}
                   onChange={(e) => setFormData((prev) => ({ ...prev, nombre: e.target.value }))}
                   required
+                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
 
@@ -369,6 +452,7 @@ function AdminPreceptores() {
                   value={formData.apellido}
                   onChange={(e) => setFormData((prev) => ({ ...prev, apellido: e.target.value }))}
                   required
+                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
             </div>
@@ -382,6 +466,7 @@ function AdminPreceptores() {
                   value={formData.dni}
                   onChange={(e) => setFormData((prev) => ({ ...prev, dni: formatDNI(e.target.value) }))}
                   required
+                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
 
@@ -392,6 +477,7 @@ function AdminPreceptores() {
                   type="text"
                   value={formData.telefono}
                   onChange={(e) => setFormData((prev) => ({ ...prev, telefono: e.target.value }))}
+                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
             </div>

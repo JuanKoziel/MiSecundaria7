@@ -1,9 +1,10 @@
-import { useState, Fragment } from 'react';
+import { useState, Fragment, useMemo } from 'react';
 import { formatDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
 import { createPadreTutor, updatePadreTutor, deletePadreTutor } from '../../services/api';
 import SelectorModo from './SelectorModo';
 import FormModal from '../../components/Shared/FormModal';
+import ModoCreacionPersona from '../../components/Shared/ModoCreacionPersona';
 import { cursosPorAnio, alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
@@ -24,6 +25,8 @@ const formVacio = {
   telefono: '',
   direccion: '',
   alumnos_ids: [],
+  id_usuario_existente: '',
+  modo_creacion: 'nuevo',
 };
 
 function toInputDateTime(value) {
@@ -78,7 +81,7 @@ function nombreTutor(t) {
 }
 
 function Tutores({ readOnly = false }) {
-  const { aniosLectivos, inscripciones, cursos, cursosObj, alumnos, padresTutores, refreshData } = useData();
+  const { aniosLectivos, inscripciones, cursos, cursosObj, alumnos, padresTutores, refreshData, docentes, preceptores, administradores } = useData();
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [form, setForm] = useState(formVacio);
@@ -89,6 +92,28 @@ function Tutores({ readOnly = false }) {
   const [progForm, setProgForm] = useState({ fecha_deshabilitacion_programada: '', fecha_habilitacion_programada: '' });
   const [anioAlumno, setAnioAlumno] = useState('');
   const [cursoAlumno, setCursoAlumno] = useState('');
+
+  const personasDisponibles = useMemo(() => {
+    const personas = [];
+    const agregar = (list, tipo) => (list || []).forEach((p) => {
+      if (p.id_usuario) {
+        personas.push({
+          id: p.id_usuario,
+          tipo,
+          label: `${p.apellido}, ${p.nombre} (${tipo}) - DNI: ${p.dni || '—'}`,
+          dni: p.dni,
+          nombre: p.nombre,
+          apellido: p.apellido,
+          correo: p.correo || p.email || '',
+          telefono: p.telefono || '',
+        });
+      }
+    });
+    agregar(docentes, 'Docente');
+    agregar(preceptores, 'Preceptor');
+    agregar(administradores, 'Directivo');
+    return personas;
+  }, [docentes, preceptores, administradores]);
 
   const lista = padresTutores || [];
   const tutorSel = lista.find((t) => String(t.id_tutor) === seleccionado);
@@ -108,17 +133,19 @@ function Tutores({ readOnly = false }) {
     setMensaje('');
     try {
       if (modo === 'crear') {
-        if (!form.usuario_nombre || !form.contrasena || !form.dni || !form.nombre || !form.apellido) {
-          toast.warning('Completá usuario, contraseña, DNI, nombre y apellido.');
+        const esPersonaExistente = form.modo_creacion === 'existente' && form.id_usuario_existente;
+        if (!esPersonaExistente && (!form.usuario_nombre || !form.contrasena)) {
+          toast.warning('Completá usuario y contraseña.');
           setGuardando(false);
           return;
         }
-        await createPadreTutor({
-          usuario_nombre: form.usuario_nombre,
-          contrasena: form.contrasena,
+        if (!form.dni || !form.nombre || !form.apellido) {
+          toast.warning('Completá DNI, nombre y apellido.');
+          setGuardando(false);
+          return;
+        }
+        const tutorPayload = {
           estado: form.estado,
-          fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
-          fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
           dni: form.dni,
           nombre: form.nombre,
           apellido: form.apellido,
@@ -127,7 +154,16 @@ function Tutores({ readOnly = false }) {
           telefono: form.telefono || null,
           direccion: form.direccion || null,
           alumnos_ids: form.alumnos_ids,
-        });
+        };
+        if (esPersonaExistente) {
+          tutorPayload.id_usuario_existente = Number(form.id_usuario_existente);
+        } else {
+          tutorPayload.usuario_nombre = form.usuario_nombre;
+          tutorPayload.contrasena = form.contrasena;
+          tutorPayload.fecha_deshabilitacion_programada = form.fecha_deshabilitacion_programada || null;
+          tutorPayload.fecha_habilitacion_programada = form.fecha_habilitacion_programada || null;
+        }
+        await createPadreTutor(tutorPayload);
         toast.success('Tutor creado correctamente.');
         setForm(formVacio);
       } else if (modo === 'modificar') {
@@ -413,6 +449,20 @@ function Tutores({ readOnly = false }) {
 
   const renderFormTutor = () => (
     <>
+      {modo === 'crear' && (
+        <ModoCreacionPersona
+          personas={personasDisponibles}
+          formData={form}
+          setFormData={setForm}
+          editing={false}
+          label="Modo de creación"
+          onPersonaChange={(nuevoModo, id) => {
+            if (nuevoModo === 'nuevo') {
+              setForm((p) => ({ ...p, nombre: '', apellido: '', dni: '', telefono: '', direccion: '', correo: '' }));
+            }
+          }}
+        />
+      )}
       <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
         <div className="form-group-filter preceptor-form-full">
           <label htmlFor="tutor-usuario">Usuario</label>
@@ -422,6 +472,7 @@ function Tutores({ readOnly = false }) {
             value={form.usuario_nombre}
             onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
             required
+            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
           />
         </div>
         <div className="form-group-filter">
@@ -433,7 +484,8 @@ function Tutores({ readOnly = false }) {
             type="password"
             value={form.contrasena}
             onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
-            required={modo === 'crear'}
+            required={modo === 'crear' && form.modo_creacion === 'nuevo'}
+            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
           />
         </div>
         <div className="form-group-filter">

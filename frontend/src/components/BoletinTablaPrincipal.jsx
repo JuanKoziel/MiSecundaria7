@@ -27,7 +27,13 @@ export default function BoletinTablaPrincipal({
   materias = [],
   intensificaciones_1c = {},
   bloqueos_por_materia = {},
+  intensificaciones_posteriores = [],
 }) {
+  const posterioresPorMateria = {};
+  (intensificaciones_posteriores || []).forEach((it) => {
+    if (it.materia) posterioresPorMateria[it.materia] = it;
+  });
+
   return (
     <div className="table-responsive">
       <table className="boletin-table boletin-tabla-principal">
@@ -87,8 +93,8 @@ export default function BoletinTablaPrincipal({
                   <td>{celdaPrenota(m.prenota2)}</td>
                   <td>{celdaNota(m.nota2)}</td>
                   <td>{tieneIntensif ? intensif : ''}</td>
-                  <td></td>
-                  <td></td>
+                  <td>{posterioresPorMateria[m.materia]?.diciembre ?? ''}</td>
+                  <td>{posterioresPorMateria[m.materia]?.febrero ?? ''}</td>
                   <td>{califFinal(m)}</td>
                   <td className="cell-obs">{m.diagnostico || '—'}</td>
                 </tr>

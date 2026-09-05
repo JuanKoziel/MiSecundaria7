@@ -24,7 +24,7 @@ import { useToast } from '../../context/ToastContext';
 function getBadgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
   if (estado === 'Ausente') return 'badge-ausente';
-  if (estado === 'Retiro') return 'badge-tarde';
+  if (estado === 'Retirado') return 'badge-tarde';
   return 'badge-tarde';
 }
 
@@ -341,7 +341,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                           r.estado === 'Presente' ? 'badge-presente' :
                           r.estado === 'Ausente' ? 'badge-ausente' :
                           r.estado === 'Tarde' ? 'badge-tarde' :
-                          r.estado === 'Retiro' ? 'badge-tarde' : ''
+                          r.estado === 'Retirado' ? 'badge-tarde' : ''
                         }`}>
                           {r.estado}
                         </span>
@@ -409,7 +409,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                             r.estado === 'Presente' ? 'badge-presente' :
                             r.estado === 'Ausente' ? 'badge-ausente' :
                             r.estado === 'Tarde' ? 'badge-tarde' :
-                            r.estado === 'Retiro' ? 'badge-tarde' : ''
+                            r.estado === 'Retirado' ? 'badge-tarde' : ''
                           }`}>
                             {r.estado}
                           </span>
@@ -505,7 +505,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                             r.estado_nombre === 'Presente' ? 'badge-presente' :
                             r.estado_nombre === 'Ausente' ? 'badge-ausente' :
                             r.estado_nombre === 'Tarde' ? 'badge-tarde' :
-                            r.estado_nombre === 'Retiro' ? 'badge-tarde' : ''
+                            r.estado_nombre === 'Retirado' ? 'badge-tarde' : ''
                           }`}>
                             {r.estado_nombre}
                           </span>
@@ -600,7 +600,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                           <span className="badge badge-presente">Registrada</span>
                         ) : !readOnly ? (
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {['Presente', 'Ausente', 'Tarde', 'Retiro'].map((est) => {
+                            {['Presente', 'Ausente', 'Tarde'].map((est) => {
                               const seleccionado = docentesEstados[doc.docente_id] === est;
                               const deshabilitado = docentesEstados[doc.docente_id] && !seleccionado;
                               return (

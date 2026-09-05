@@ -2,7 +2,6 @@ import { useMemo, useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import { getIntensificacionesAcademicas } from '../../services/api';
-import BoletinExtras from '../BoletinExtras';
 
 function califFinal(m) {
   const n1 = parseFloat(m.nota1);
@@ -187,13 +186,6 @@ function Notas() {
       <div className="boletin-firma-sello">
         <span>Firma y sello</span>
       </div>
-
-      <BoletinExtras
-        recursadas={[]}
-        previas={[]}
-        intensificaciones_posteriores={[]}
-        loading={false}
-      />
     </div>
   );
 }

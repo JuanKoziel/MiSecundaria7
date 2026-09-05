@@ -20,7 +20,11 @@ function promedioMateria(m) {
   return (suma / notas.length).toFixed(2);
 }
 
-function filasMaterias(materias, intensificaciones_1c = {}, bloqueos_por_materia = {}) {
+function filasMaterias(materias, intensificaciones_1c = {}, bloqueos_por_materia = {}, intensificaciones_posteriores = []) {
+  const posterioresPorMateria = {};
+  (intensificaciones_posteriores || []).forEach((it) => {
+    if (it.materia) posterioresPorMateria[it.materia] = it;
+  });
   return materias
     .map((m) => {
       const prom = promedioMateria(m);
@@ -37,8 +41,8 @@ function filasMaterias(materias, intensificaciones_1c = {}, bloqueos_por_materia
           <td>${m.prenota2 || '—'}</td>
           <td>${m.nota2 ?? '—'}</td>
           <td>${tieneIntensif ? intensif : ''}</td>
-          <td></td>
-          <td></td>
+          <td>${posterioresPorMateria[m.materia]?.diciembre ?? ''}</td>
+          <td>${posterioresPorMateria[m.materia]?.febrero ?? ''}</td>
           <td class="prom">${prom ?? '—'}</td>
           <td class="cell-obs">${m.diagnostico || '—'}</td>
         </tr>`;
@@ -237,7 +241,7 @@ export function boletinHTML({
           <tbody>
             ${
               materias.length
-                ? filasMaterias(materias, intensificaciones_1c, bloqueos_por_materia)
+                ? filasMaterias(materias, intensificaciones_1c, bloqueos_por_materia, intensificaciones_posteriores)
                 : '<tr><td colspan="10">Sin calificaciones cargadas.</td></tr>'
             }
           </tbody>

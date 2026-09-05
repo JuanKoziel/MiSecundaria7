@@ -281,7 +281,7 @@ function FormAdelanto({ formData, setFormData, editing, guardando, onSubmit, onC
 }
 
 function GestionAdelantosHoras({ readOnly = false }) {
-  const { modulos, refreshData } = useData();
+  const { modulos, cursoMateria, refreshData } = useData();
   const toast = useToast();
   const [adelantos, setAdelantos] = useState([]);
   const [cargando, setCargando] = useState(false);
@@ -291,6 +291,9 @@ function GestionAdelantosHoras({ readOnly = false }) {
   const [guardando, setGuardando] = useState(false);
   const [soloActivos, setSoloActivos] = useState(true);
   const [suplencias, setSuplencias] = useState([]);
+  const [filtroCurso, setFiltroCurso] = useState('');
+  const [filtroDocente, setFiltroDocente] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('');
 
   const cargar = async () => {
     setCargando(true);
@@ -309,6 +312,48 @@ function GestionAdelantosHoras({ readOnly = false }) {
   };
 
   const mapaSuplencias = useMemo(() => suplenciasActivasEnFecha(suplencias), [suplencias]);
+
+  const cursosEnTabla = useMemo(() => {
+    const mapa = new Map();
+    (cursoMateria ?? [])
+      .filter((cm) => cm.id_curso != null)
+      .forEach((cm) => {
+        if (!mapa.has(Number(cm.id_curso))) {
+          mapa.set(Number(cm.id_curso), cm.curso_nombre || 'Curso');
+        }
+      });
+    return [...mapa.entries()].map(([id_curso, curso_nombre]) => ({ id_curso, curso_nombre }));
+  }, [cursoMateria]);
+
+  const docentesEnTabla = useMemo(() => {
+    const mapa = new Map();
+    adelantos.forEach((a) => {
+      if (a.id_docente != null && !mapa.has(Number(a.id_docente))) {
+        mapa.set(Number(a.id_docente), a.docente_nombre || `Docente ${a.id_docente}`);
+      }
+    });
+    return [...mapa.entries()].map(([id, nombre]) => ({ id, nombre }));
+  }, [adelantos]);
+
+  const estadoDe = (a) => (
+    Number(a.estado) === 0 ? 'eliminado' : a.finalizado ? 'finalizado' : 'activo'
+  );
+
+  const adelantosFiltrados = useMemo(() => {
+    return adelantos.filter((a) => {
+      if (filtroCurso && String(a.id_curso) !== String(filtroCurso)) return false;
+      if (filtroDocente && String(a.id_docente) !== String(filtroDocente)) return false;
+      if (filtroEstado && estadoDe(a) !== filtroEstado) return false;
+      return true;
+    });
+  }, [adelantos, filtroCurso, filtroDocente, filtroEstado]);
+
+  const resumen = useMemo(() => {
+    return adelantosFiltrados.reduce((acc, a) => {
+      acc[estadoDe(a)] = (acc[estadoDe(a)] || 0) + 1;
+      return acc;
+    }, { activo: 0, finalizado: 0, eliminado: 0 });
+  }, [adelantosFiltrados]);
 
   useEffect(() => {
     cargar();
@@ -419,9 +464,15 @@ function GestionAdelantosHoras({ readOnly = false }) {
   return (
     <div>
       <div className="flex-row--between mb-16">
-        <p className="m-0" style={{ color: '#555' }}>
-          Autorización excepcional para que un docente dicte una materia fuera del horario habitual.
-        </p>
+        <div>
+          <p className="m-0" style={{ color: '#555' }}>
+            Autorización excepcional para que un docente dicte una materia fuera del horario habitual.
+          </p>
+          <p className="m-0" style={{ marginTop: '4px', color: '#888', fontSize: '0.85rem' }}>
+            El adelanto reemplaza el horario original solo en la fecha indicada. Si existe una suplencia activa
+            para el curso y la materia, la clase queda a cargo del docente suplente.
+          </p>
+        </div>
         {!readOnly && (
           <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
             <i className="fas fa-plus" aria-hidden="true" /> Nuevo Adelanto
@@ -430,14 +481,47 @@ function GestionAdelantosHoras({ readOnly = false }) {
       </div>
 
       <div className="filter-row mb-12">
-        <label className="filtro-checkbox">
+        <div className="form-group-filter">
+          <label>Curso / División</label>
+          <select value={filtroCurso} onChange={(e) => setFiltroCurso(e.target.value)}>
+            <option value="">Todos los cursos</option>
+            {cursosEnTabla.map((c) => (
+              <option key={c.id_curso} value={c.id_curso}>{c.curso_nombre}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group-filter">
+          <label>Docente</label>
+          <select value={filtroDocente} onChange={(e) => setFiltroDocente(e.target.value)}>
+            <option value="">Todos los docentes</option>
+            {docentesEnTabla.map((d) => (
+              <option key={d.id} value={d.id}>{d.nombre}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group-filter">
+          <label>Estado</label>
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
+            <option value="">Todos los estados</option>
+            <option value="activo">Activo</option>
+            <option value="finalizado">Finalizado</option>
+            <option value="eliminado">Eliminado</option>
+          </select>
+        </div>
+        <label className="filtro-checkbox" style={{ alignSelf: 'flex-end', marginBottom: '8px' }}>
           <input
             type="checkbox"
             checked={soloActivos}
             onChange={(e) => setSoloActivos(e.target.checked)}
           />
-          <span>Mostrar solo adelantos activos</span>
+          <span>Solo activos</span>
         </label>
+      </div>
+
+      <div className="flex-row mb-12" style={{ gap: '8px' }}>
+        <span className="badge badge-success">Activos: {resumen.activo}</span>
+        <span className="badge badge-neutral">Finalizados: {resumen.finalizado}</span>
+        <span className="badge badge-neutral">Eliminados: {resumen.eliminado}</span>
       </div>
 
       {showForm && (
@@ -457,6 +541,14 @@ function GestionAdelantosHoras({ readOnly = false }) {
             <tr>
               <th>Curso / División</th>
               <th>Materia</th>
+              <th>Docente</th>
+              <th>Fecha</th>
+              <th>Horario</th>
+              <th>Módulos</th>
+              <th>Horario original</th>
+              <th>Motivo</th>
+              <th>Autorizado por</th>
+              <th>Estado</th>
               {!readOnly && <th>Acciones</th>}
             </tr>
           </thead>
@@ -465,20 +557,24 @@ function GestionAdelantosHoras({ readOnly = false }) {
               <tr><td colSpan={!readOnly ? 11 : 10} className="empty-state-message"><LoadingSpinner text="Cargando adelantos..." size="sm" inline /></td></tr>
             ) : adelantos.length === 0 ? (
               <tr><td colSpan={!readOnly ? 11 : 10} className="empty-state-message">No hay adelantos de horas registrados.</td></tr>
+            ) : adelantosFiltrados.length === 0 ? (
+              <tr><td colSpan={!readOnly ? 11 : 10} className="empty-state-message">No hay registros para los filtros seleccionados.</td></tr>
             ) : (
-              adelantos.map((a) => {
+              adelantosFiltrados.map((a) => {
                 // Buscar suplencia activa para este adelanto (curso + materia)
                 const suplencia = mapaSuplencias[a.id_curso_materia] || null;
                 const docenteEsSuplente = suplencia && suplencia.id_docente_suplente === a.id_docente;
-                const nombreDocente = docenteEsSuplente
-                  ? `${a.docente_nombre || '—'} <span className="badge badge-warning" style={{ marginLeft: '6px', fontSize: '0.7rem' }}>Suplente</span>`
-                  : (a.docente_nombre || '—');
                 return (
                   <Fragment key={a.id_adelanto}>
                     <tr>
                       <td>{a.curso_nombre || '—'}</td>
                       <td>{a.materia_nombre || '—'}</td>
-                      <td dangerouslySetInnerHTML={{ __html: nombreDocente }} />
+                      <td>
+                        {a.docente_nombre || '—'}
+                        {docenteEsSuplente && (
+                          <span className="badge badge-warning" style={{ marginLeft: '6px', fontSize: '0.7rem' }}>Suplente</span>
+                        )}
+                      </td>
                       <td>{fmtFecha(a.fecha_adelanto)}</td>
                       <td>
                         {a.hora_inicio ? `${String(a.hora_inicio).slice(0, 5)} a ${String(a.hora_fin).slice(0, 5)}` : '—'}

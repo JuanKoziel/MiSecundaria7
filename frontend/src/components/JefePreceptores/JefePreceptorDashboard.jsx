@@ -9,6 +9,7 @@ import Docentes from '../Preceptores/docentes';
 import Tutores from '../Preceptores/tutores';
 import Asistencias from '../Preceptores/asistencias';
 import Actas from '../Preceptores/actas';
+import Notas from '../Preceptores/notas';
 import ComunicadosJefe from './ComunicadosJefe';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import Notificaciones from '../Notificaciones';
@@ -101,6 +102,13 @@ function JefePreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Actas {...filtrosProps} />
+          </div>
+        );
+
+      case 'notas':
+        return (
+          <div className="view-section active">
+            <Notas {...filtrosProps} />
           </div>
         );
 

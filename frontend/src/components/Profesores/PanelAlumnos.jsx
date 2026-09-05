@@ -97,7 +97,10 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
 
       // Historial académico: fuente del id_historial (necesario al CREAR una
       // intensificación nueva) y de las notas de cuatrimestre para las reglas.
-      const histData = await getHistorialAcademico();
+      // IMPORTANTE: Filtrar por curso_materia para obtener el historial correcto
+      // de la materia actual, ya que un alumno puede tener múltiples historiales
+      // (uno por cada materia/curso).
+      const histData = await getHistorialAcademico({ curso_materia: cursoMateriaId });
       const histList = Array.isArray(histData) ? histData : histData.results || [];
       const histPorAlumno = new Map();
       histList.forEach((h) => {
@@ -130,7 +133,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
               ? Number(hist.nota_2_cuatrimestre)
               : null;
 
-        const instancias = intensifMateria
+        const instanciasTodas = intensifMateria
           .filter((i) => i.id_alumno === alumno.id)
           .map((i) => ({
             id: i.id_intensificacion,
@@ -141,11 +144,16 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
             estado: i.estado || 'PENDIENTE',
           }));
 
+        // id_historial: primero desde el historial, luego desde una instancia previa.
+        const idHistorial = hist?.id_historial ?? instanciasTodas[0]?.idHistorial ?? null;
+
+        // Solo las instancias del MISMO id_historial: el backend valida la
+        // habilitación (p. ej. Febrero) contra las hermanas de ese historial,
+        // nunca mezclando historiales de otros años/materias.
+        const instancias = instanciasTodas.filter((ins) => ins.idHistorial === idHistorial);
+
         // Reglas académicas: habilita solo lo que corresponde (todo bloqueado por defecto).
         const habilitados = tiposIntensifHabilitados(nota1, nota2, instancias);
-
-        // id_historial: primero desde el historial, luego desde una instancia previa.
-        const idHistorial = hist?.id_historial ?? instancias[0]?.idHistorial ?? null;
 
         // Id de la instancia por período (para guardar la nota sobre ella).
         const registroIds = {};

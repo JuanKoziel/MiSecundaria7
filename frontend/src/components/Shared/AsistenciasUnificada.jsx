@@ -7,12 +7,15 @@ const ESTADO_LABELS = {
   Presente: 'Presente',
   Ausente: 'Ausente',
   Tarde: 'Tarde',
+  Retirado: 'Retirado',
+  'Sin registro': 'Sin registro',
 };
 
 const ESTADO_BADGES = {
   Presente: 'badge-presente',
   Ausente: 'badge-ausente',
   Tarde: 'badge-tarde',
+  Retirado: 'badge-tarde',
   Pendiente: 'badge-pendiente',
 };
 
@@ -35,12 +38,34 @@ function esHoy(isoStr) {
   return hoy.getFullYear() === y && hoy.getMonth() + 1 === m && hoy.getDate() === d;
 }
 
+// Lógica de combinación de estados (misma que backend, en orden cronológico):
+//   Faltó + Faltó      -> Ausente
+//   Presente + Presente -> Presente
+//   Faltó + Presente   -> Tarde
+//   Presente + Faltó   -> Retirado
+// Se comparan solo el primer y segundo registro en orden de hora.
+function combinarEstados(estados) {
+  if (!estados || estados.length === 0) return 'Sin registro';
+  if (estados.length === 1) return estados[0];
+
+  const par = estados.slice(0, 2);
+
+  if (par[0] === 'Ausente' && par[1] === 'Ausente') return 'Ausente';
+  if (par[0] === 'Presente' && par[1] === 'Presente') return 'Presente';
+  if (par[0] === 'Ausente' && par[1] === 'Presente') return 'Tarde';
+  if (par[0] === 'Presente' && par[1] === 'Ausente') return 'Retirado';
+
+  // Fallback
+  return estados[0];
+}
+
 export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso }) {
   const [materiaId, setMateriaId] = useState('');
   const [asistencias, setAsistencias] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [resumenReciente, setResumenReciente] = useState({ presente: 0, ausente: 0, tarde: 0, pendiente: 0 });
   const [estadoHoy, setEstadoHoy] = useState('Pendiente');
+  const [estadosHoy, setEstadosHoy] = useState([]);
 
   const materias = useMemo(() => {
     const map = new Map();
@@ -61,8 +86,17 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso }
       const todas = Array.isArray(data) ? data : data.results || [];
 
       const hoy = new Date().toISOString().split('T')[0];
-      const estadoHoyEncontrado = todas.find(r => r.fecha === hoy);
-      setEstadoHoy(estadoHoyEncontrado?.estado_nombre || 'Pendiente');
+      // Orden cronológico: el backend devuelve por -fecha, -hora, por eso se
+      // reordena ascendente por hora antes de combinar.
+      const estadosHoy = todas
+        .filter(r => r.fecha === hoy && r.estado_nombre)
+        .sort((a, b) => (a.hora || '00:00').localeCompare(b.hora || '00:00'))
+        .map(r => r.estado_nombre);
+      
+      // Calcular estado combinado para hoy (misma lógica que backend)
+      const estadoCombinado = combinarEstados(estadosHoy);
+      setEstadoHoy(estadoCombinado);
+      setEstadosHoy(estadosHoy);
 
       const ultimas = [...todas].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).slice(0, 7);
       const resumen = ultimas.reduce((acc, r) => {
@@ -70,12 +104,14 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso }
         if (est === 'Presente') acc.presente++;
         else if (est === 'Ausente') acc.ausente++;
         else if (est === 'Tarde') acc.tarde++;
+        else if (est === 'Retirado') acc.tarde++;
         else acc.pendiente++;
         return acc;
       }, { presente: 0, ausente: 0, tarde: 0, pendiente: 0 });
       setResumenReciente(resumen);
     } catch {
       setEstadoHoy('Pendiente');
+      setEstadosHoy([]);
       setResumenReciente({ presente: 0, ausente: 0, tarde: 0, pendiente: 0 });
     }
   }, [alumnoId]);
@@ -117,13 +153,19 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso }
         <div className="card-header-flex">
           <h4>Resumen reciente (últimos 7 días)</h4>
           <div className="flex-row">
-            <span className={`badge ${ESTADO_BADGES[estadoHoy]}`}>
+            <span className={`badge ${ESTADO_BADGES[estadoHoy] || 'badge-pendiente'}`}>
               <i className={`fas ${
                 estadoHoy === 'Presente' ? 'fa-check-circle' :
                 estadoHoy === 'Ausente' ? 'fa-times-circle' :
-                estadoHoy === 'Tarde' ? 'fa-clock' : 'fa-clock'
+                estadoHoy === 'Tarde' ? 'fa-clock' :
+                estadoHoy === 'Retirado' ? 'fa-sign-out-alt' : 'fa-clock'
               }`} aria-hidden="true" />
               Hoy: {estadoHoy}
+              {estadosHoy.length > 1 && (
+                <span className="badge badge-pendiente" style={{ marginLeft: '8px', fontSize: '0.7rem' }}>
+                  ({estadosHoy.join(', ')})
+                </span>
+              )}
             </span>
           </div>
         </div>

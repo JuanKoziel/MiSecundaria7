@@ -6,6 +6,7 @@ export const menuItems = [
   { id: 'asistencias', label: 'Asistencias', icon: 'fa-calendar-check' },
   { id: 'adelantos-horas', label: 'Adelantos de Horas', icon: 'fa-forward' },
   { id: 'actas', label: 'Actas', icon: 'fa-file-alt' },
+  { id: 'notas', label: 'Boletines', icon: 'fa-clipboard-list' },
   { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
   { id: 'admin-preceptores', label: 'Administración de Preceptores', icon: 'fa-cogs' },
   { id: 'estadisticas', label: 'Estadísticas', icon: 'fa-chart-bar' },
