@@ -1,6 +1,7 @@
 // Generación de boletín escolar en PDF (vía ventana de impresión del navegador).
 import { cursoConOrientacion } from './orientacion';
 import { formatDNI } from './dni';
+import { NOTA_APROBACION } from './previasRendicion';
 
 const PERIODO_LABELS = {
   MARZO: 'Marzo',
@@ -128,16 +129,19 @@ function seccionPrevias(items) {
       ? items
           .map((p) => {
             const celdas = periodos
-              .map(
-                (col) =>
+              .map((col) => {
+                const nota =
                   p.rendiciones && p.rendiciones[col.key] !== null && p.rendiciones[col.key] !== undefined
                     ? p.rendiciones[col.key]
-                    : '',
-              )
-              .join('</td><td>');
+                    : '';
+                const clase =
+                  nota !== '' && Number(nota) >= NOTA_APROBACION ? ' class="celda-aprobada"' : '';
+                return `<td${clase}>${nota}</td>`;
+              })
+              .join('');
             const califFinal =
               p.calificacion_final !== null && p.calificacion_final !== undefined ? p.calificacion_final : '—';
-            return `<tr><td>${p.materia || '—'}</td><td>${p.anio || '—'}</td><td>${celdas}</td><td>${califFinal}</td></tr>`;
+            return `<tr><td>${p.materia || '—'}</td><td>${p.anio || '—'}</td>${celdas}<td>${califFinal}</td></tr>`;
           })
           .join('')
       : `<tr><td></td><td></td>${periodos.map(() => '<td></td>').join('')}<td></td></tr>`;
@@ -284,6 +288,11 @@ export const BOLETIN_CSS = `
   td.mat { text-align: left; font-weight: 600; }
   td.prom { font-weight: 700; }
   td.cell-obs { text-align: left; }
+  td.celda-aprobada {
+    background-color: #dff6e6;
+    color: #166534;
+    font-weight: 700;
+  }
   .mat-bloqueada { background-color: #fde2e2; }
   .mat-bloqueada td { color: #991b1b; }
   .boletin-footer { margin-top: 64px; text-align: center; page-break-inside: avoid; }

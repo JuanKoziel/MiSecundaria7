@@ -35,20 +35,25 @@ export function clampNota(value) {
 // Reglas académicas de habilitación (TODO bloqueado por defecto):
 //  1°C  habilitado <=> desaprobó el Primer Cuatrimestre.
 //  Dic  habilitado <=> desaprobó el Segundo Cuatrimestre O ALGUNA 1°C está DESAPROBADA.
-//  Feb  habilitado <=> ALGUNA Intensificación de Diciembre está DESAPROBADA.
+//  Feb  habilitado <=> existe una nota cargada de DICIEMBRE (secuencia DICIEMBRE → FEBRERO).
 export function tiposIntensifHabilitados(nota1, nota2, instancias) {
+  const tipoDe = (ins) => TIPO_POR_BUCKET[BUCKET_POR_PERIODO[ins.periodo]];
   const estadoTipo = { '1C': [], DICIEMBRE: [], FEBRERO: [] };
+  const notaTipo = { '1C': [], DICIEMBRE: [], FEBRERO: [] };
   (instancias || []).forEach((ins) => {
-    const tipo = TIPO_POR_BUCKET[BUCKET_POR_PERIODO[ins.periodo]];
+    const tipo = tipoDe(ins);
     if (ins.estado && tipo) {
       estadoTipo[tipo].push(ins.estado);
+    }
+    if (tipo) {
+      notaTipo[tipo].push(ins.nota);
     }
   });
 
   const hab1c = nota1 != null && nota1 < NOTA_APROBACION;
   const habDic =
     (nota2 != null && nota2 < NOTA_APROBACION) || estadoTipo['1C'].includes('DESAPROBADA');
-  const habFeb = estadoTipo['DICIEMBRE'].includes('DESAPROBADA');
+  const habFeb = notaTipo['DICIEMBRE'].some((nota) => nota != null);
 
   return {
     '1C': hab1c,

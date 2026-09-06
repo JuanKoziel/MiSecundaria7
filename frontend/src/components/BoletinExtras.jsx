@@ -1,4 +1,5 @@
 import React from 'react';
+import { NOTA_APROBACION } from '../utils/previasRendicion';
 
 const PERIODOS_PREVIA = [
   { key: 'MARZO', label: 'Marzo' },
@@ -86,11 +87,18 @@ function SeccionPrevias({ previas = [] }) {
                 <tr key={i}>
                   <td className="table-cell-strong">{p.materia || '—'}</td>
                   <td>{p.anio || '—'}</td>
-                  {PERIODOS_PREVIA.map((col) => (
-                    <td key={col.key}>
-                      {formatearCalif(p.rendiciones && p.rendiciones[col.key])}
-                    </td>
-                  ))}
+                  {PERIODOS_PREVIA.map((col) => {
+                    const nota = p.rendiciones && p.rendiciones[col.key];
+                    const aprobada = nota !== null && nota !== undefined && Number(nota) >= NOTA_APROBACION;
+                    return (
+                      <td
+                        key={col.key}
+                        className={aprobada ? 'boletin-celda-aprobada' : undefined}
+                      >
+                        {formatearCalif(nota)}
+                      </td>
+                    );
+                  })}
                   <td>{formatearCalif(p.calificacion_final) || '—'}</td>
                 </tr>
               ))

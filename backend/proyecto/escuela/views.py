@@ -4476,12 +4476,23 @@ def _intensif_alguna_desaprobada(instancias, tipo):
     return False
 
 
+def _intensif_alguna_con_nota(instancias, tipo):
+    """Verifica si ALGUNA instancia del tipo indicado tiene nota cargada
+    (rendición registrada), permitiendo la secuencia DICIEMBRE → FEBRERO."""
+    for ins in instancias:
+        if _tipo_intensif(ins.periodo) == tipo and ins.nota is not None:
+            return True
+    return False
+
+
 def _intensif_habilitada(instancia):
     """Reglas académicas de habilitación de intensificaciones:
     - 1°C habilitada  -> desaprobó el Primer Cuatrimestre.
     - Diciembre habilitado -> desaprobó el Segundo Cuatrimestre
                              O ALGUNA Intensificación 1°C está DESAPROBADA.
-    - Febrero habilitado -> ALGUNA Intensificación de Diciembre está DESAPROBADA.
+    - Febrero habilitado -> existe una nota cargada de DICIEMBRE (rendición
+                            previa registrada). El último período del boletín
+                            NO se habilita si Diciembre está vacío.
     Todo comienza bloqueado: sin condición cumplida, NO se habilita.
     """
     historial = instancia.id_historial
@@ -4497,7 +4508,7 @@ def _intensif_habilitada(instancia):
         desaprobo_1c = _intensif_alguna_desaprobada(hermanas, '1C')
         return (n2 is not None and n2 < NOTA_APROBACION) or desaprobo_1c
     if tipo == 'FEBRERO':
-        return _intensif_alguna_desaprobada(hermanas, 'DICIEMBRE')
+        return _intensif_alguna_con_nota(hermanas, 'DICIEMBRE')
     return False
 
 
@@ -4506,7 +4517,7 @@ def _msg_intensif_no_habilitada(instancia):
     mensajes = {
         '1C': 'No se puede cargar la Intensificación del Primer Cuatrimestre: el estudiante no desaprobó el Primer Cuatrimestre.',
         'DICIEMBRE': 'No se puede cargar la Intensificación de Diciembre: no desaprobó el Segundo Cuatrimestre ni la Intensificación del Primer Cuatrimestre.',
-        'FEBRERO': 'No se puede cargar la Intensificación de Febrero: no desaprobó la Intensificación de Diciembre.',
+        'FEBRERO': 'No se puede cargar la Intensificación de Febrero: todavía no existe una nota de Diciembre cargada.',
     }
     return mensajes.get(tipo, 'La instancia de intensificación no está habilitada.')
 
@@ -5469,12 +5480,15 @@ def boletin_academico_api_view(request, alumno_id):
 
         for materia, vals in buckets.items():
             intensificaciones_1c[materia] = vals['1c']
-            if vals['diciembre'] is not None or vals['febrero'] is not None:
+            # Secuencia obligatoria DICIEMBRE → FEBRERO: si no existe una nota
+            # de Diciembre, una nota de Febrero no puede mostrarse ni contarse.
+            febrero_valido = vals['febrero'] if vals['diciembre'] is not None else None
+            if vals['diciembre'] is not None or febrero_valido is not None:
                 intensificaciones_posteriores.append({
                     'materia': materia,
                     'anio': nombre_curso_actual,
                     'diciembre': vals['diciembre'],
-                    'febrero': vals['febrero'],
+                    'febrero': febrero_valido,
                 })
 
     # --- Bloqueos por materia (tabla principal) ---
