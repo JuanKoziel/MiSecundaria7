@@ -4,6 +4,7 @@ import { useData } from '../../context/DataContext';
 import { createAlumno, updateAlumno, deleteAlumno } from '../../services/api';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
+import SelectorModo from './SelectorModo';
 import FormModal from '../../components/Shared/FormModal';
 import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
