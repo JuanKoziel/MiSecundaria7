@@ -71,6 +71,7 @@ function Administradores() {
           apellido: d.apellido,
           correo: d.correo,
           telefono: d.telefono,
+          usuario: d.usuario || '',
         });
       });
       (preceptoresData || []).forEach((p) => {
@@ -84,6 +85,7 @@ function Administradores() {
             apellido: p.apellido,
             correo: p.correo,
             telefono: p.telefono,
+            usuario: p.usuario || '',
           });
         }
       });
@@ -98,6 +100,7 @@ function Administradores() {
             apellido: a.apellido,
             correo: a.correo,
             telefono: a.telefono,
+            usuario: a.usuario || '',
           });
         }
       });

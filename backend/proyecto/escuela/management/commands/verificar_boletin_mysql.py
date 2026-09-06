@@ -195,7 +195,7 @@ class Command(BaseCommand):
 
                 out('    Previas del boletín:')
                 for p in data['previas']:
-                    out(f"      - {p['materia']} | {p['anio']} | {p['periodo']!r} | {p['calificacion']!r}")
+                    out(f"      - {p['materia']} | {p['anio']} | {p['rendiciones']!r} | {p['calificacion_final']!r}")
 
                 out('    Rendición de previa (endpoint real rendir/)...')
                 ma = MateriaAdeudada.objects.get(id_alumno=alumno, id_materia=cms[materias_names[0]][0])

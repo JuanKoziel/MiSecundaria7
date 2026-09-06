@@ -3,6 +3,7 @@ import {
   getAlumnos,
   getDocentes,
   getPreceptores,
+  getDirectivos,
   getCursos,
   getMaterias,
   getCursoMateria,
@@ -159,6 +160,7 @@ export function DataProvider({ children }) {
         comunicadosRaw,
         diagnosticosRaw,
         planificacionesRaw,
+        administradoresRaw,
       ] = await Promise.all([
         getAlumnos().catch(() => []),
         getDocentes().catch(() => []),
@@ -186,6 +188,7 @@ export function DataProvider({ children }) {
         getComunicados().catch(() => []),
         getDiagnosticosGrupales().catch(() => []),
         getPlanificaciones().catch(() => []),
+        getDirectivos().catch(() => []),
       ]);
 
       const alumnosPreCurso = (Array.isArray(alumnosRaw) ? alumnosRaw : []).map((a) => ({
@@ -283,6 +286,21 @@ export function DataProvider({ children }) {
         correo: p.correo || '',
         telefono: p.telefono || '',
         cursos: Array.isArray(p.cursos_asignados) ? p.cursos_asignados : [],
+      }));
+
+      const administradores = (Array.isArray(administradoresRaw) ? administradoresRaw : []).map((a) => ({
+        id: a.id_directivo,
+        id_usuario: a.id_usuario || null,
+        usuario: a.usuario || '',
+        usuario_estado: a.usuario_estado ?? null,
+        usuario_fecha_deshabilitacion_programada: a.usuario_fecha_deshabilitacion_programada || null,
+        usuario_fecha_habilitacion_programada: a.usuario_fecha_habilitacion_programada || null,
+        dni: a.dni,
+        nombre: a.nombre,
+        apellido: a.apellido,
+        correo: a.correo || '',
+        telefono: a.telefono || '',
+        cargo: a.cargo || '',
       }));
 
       const cursosArr = (Array.isArray(cursosRaw) ? cursosRaw : []).map((c) => c.nombre_curso);
@@ -606,6 +624,7 @@ export function DataProvider({ children }) {
         alumnos,
         docentes,
         preceptores,
+        administradores,
         cursos,
         cursosObj: cursosObjArr,
         materiasObj: materiasObjArr,
@@ -797,6 +816,7 @@ export function useData() {
       alumnos: [],
       docentes: [],
       preceptores: [],
+      administradores: [],
       cursos: [],
       cursosObj: [],
       materiasObj: [],

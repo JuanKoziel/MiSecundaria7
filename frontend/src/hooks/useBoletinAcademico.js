@@ -9,7 +9,7 @@ import { getBoletinAcademico } from '../services/api';
 //   - intensificaciones_posteriores: [{ materia, anio, diciembre, febrero }]
 //   - recursadas: [{ materia, anio, estado, prenota1, nota1, prenota2, nota2,
 //                    intensificacion_1c, diciembre, febrero, observaciones }]
-//   - previas: [{ materia, anio, periodo, calificacion }]
+//   - previas: [{ materia, anio, rendiciones: { [PERIODO]: nota }, calificacion_final }]
 export function useBoletinAcademico(alumnoId) {
   const [intensificaciones_1c, setIntensificaciones1c] = useState({});
   const [bloqueos_por_materia, setBloqueos] = useState({});
@@ -32,7 +32,7 @@ export function useBoletinAcademico(alumnoId) {
     getBoletinAcademico(alumnoId)
       .then((res) => {
         if (cancel) return;
-        const d = res.data || {};
+        const d = res || {};
         setIntensificaciones1c(d.intensificaciones_1c || {});
         setBloqueos(d.bloqueos_por_materia || {});
         setPosteriores(d.intensificaciones_posteriores || []);

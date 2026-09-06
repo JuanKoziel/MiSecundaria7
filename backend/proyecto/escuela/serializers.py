@@ -1186,9 +1186,29 @@ class DocenteSerializer(serializers.ModelSerializer):
 
 
 class DirectivoSerializer(serializers.ModelSerializer):
+    usuario = serializers.CharField(source='id_usuario.usuario', read_only=True)
+    usuario_estado = serializers.SerializerMethodField()
+    usuario_fecha_deshabilitacion_programada = serializers.SerializerMethodField()
+    usuario_fecha_habilitacion_programada = serializers.SerializerMethodField()
+
     class Meta:
         model = Directivo
         fields = '__all__'
+
+    def get_usuario_estado(self, obj):
+        return obj.id_usuario.estado if obj.id_usuario else None
+
+    def get_usuario_fecha_deshabilitacion_programada(self, obj):
+        if not obj.id_usuario:
+            return None
+        value = obj.id_usuario.fecha_deshabilitacion_programada
+        return value.isoformat() if value else None
+
+    def get_usuario_fecha_habilitacion_programada(self, obj):
+        if not obj.id_usuario:
+            return None
+        value = obj.id_usuario.fecha_habilitacion_programada
+        return value.isoformat() if value else None
 
 
 class AlumnoSerializer(serializers.ModelSerializer):
@@ -2419,6 +2439,7 @@ class HistorialAcademicoSerializer(serializers.ModelSerializer):
 
 class IntensificacionAcademicaSerializer(serializers.ModelSerializer):
     id_alumno = serializers.IntegerField(source='id_historial.id_alumno_id', read_only=True)
+    id_curso_materia = serializers.IntegerField(source='id_historial.id_curso_materia_id', read_only=True)
     alumno_nombre = serializers.SerializerMethodField()
     materia_nombre = serializers.CharField(source='id_historial.id_materia.nombre_materia', read_only=True, default='')
 

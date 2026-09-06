@@ -5439,20 +5439,43 @@ def boletin_academico_api_view(request, alumno_id):
     # canonico es la constante `PERIODO_ORDEN` importada a nivel de módulo.
     PERIODO_LABEL = PERIODO_LABELS
 
-    # --- Intensificación 1° cuatrimestre (columna de la tabla principal) ---
+    # --- Intensificaciones (1°C, diciembre, febrero) desde IntensificacionAcademica ---
     intensificaciones_1c = {}
+    intensificaciones_posteriores = []
     if curso_actual:
-        acts_1c = ActividadMateriaAdeudada.objects.filter(
-            id_curso_materia__id_curso=curso_actual, estado=True,
-            periodo_intensificacion__icontains='primer cuatrimestre',
-        ).select_related('id_curso_materia__id_materia')
-        for a in acts_1c:
-            materia = a.id_curso_materia.id_materia.nombre_materia if a.id_curso_materia and a.id_curso_materia.id_materia else ''
-            if not materia:
+        historiales_curso = HistorialAcademico.objects.filter(
+            id_alumno=alumno, id_curso=curso_actual,
+        )
+        ints_qs = IntensificacionAcademica.objects.filter(
+            id_historial__in=historiales_curso,
+        ).select_related('id_historial__id_materia')
+
+        # Bucket por materia → { 1c: nota, diciembre: nota, febrero: nota }
+        buckets = {}
+        for inst in ints_qs:
+            materia = inst.id_historial.id_materia.nombre_materia if inst.id_historial and inst.id_historial.id_materia else ''
+            if not materia or inst.nota is None:
                 continue
-            res = ResultadoActividadAdeudada.objects.filter(id_actividad=a.id_actividad, id_alumno=alumno).first()
-            nota = float(res.nota) if (res and res.nota is not None) else None
-            intensificaciones_1c[materia] = nota
+            if materia not in buckets:
+                buckets[materia] = {'1c': None, 'diciembre': None, 'febrero': None}
+            nota = float(inst.nota)
+            peri = inst.periodo
+            if peri in ('MARZO', 'JULIO', 'AGOSTO'):
+                buckets[materia]['1c'] = nota
+            elif peri in ('DICIEMBRE_1', 'DICIEMBRE_2'):
+                buckets[materia]['diciembre'] = nota
+            elif peri == 'FEBRERO':
+                buckets[materia]['febrero'] = nota
+
+        for materia, vals in buckets.items():
+            intensificaciones_1c[materia] = vals['1c']
+            if vals['diciembre'] is not None or vals['febrero'] is not None:
+                intensificaciones_posteriores.append({
+                    'materia': materia,
+                    'anio': nombre_curso_actual,
+                    'diciembre': vals['diciembre'],
+                    'febrero': vals['febrero'],
+                })
 
     # --- Bloqueos por materia (tabla principal) ---
     bloqueos_por_materia = {}
@@ -5463,31 +5486,6 @@ def boletin_academico_api_view(request, alumno_id):
                 'bloqueada': True,
                 'motivo': b.get_motivo_display() if b.motivo else 'Bloqueada por superposición de horario',
             }
-
-    # --- Intensificaciones posteriores (sección B): diciembre / febrero ---
-    intensificaciones_posteriores = []
-    if curso_actual:
-        acts_post = ActividadMateriaAdeudada.objects.filter(
-            id_curso_materia__id_curso=curso_actual, estado=True,
-        ).filter(
-            Q(periodo_intensificacion__icontains='diciembre') | Q(periodo_intensificacion__icontains='febrero')
-        ).select_related('id_curso_materia__id_materia')
-        agrup = {}
-        for a in acts_post:
-            cm = a.id_curso_materia
-            if not cm or not cm.id_materia:
-                continue
-            materia = cm.id_materia.nombre_materia
-            if materia not in agrup:
-                agrup[materia] = {'materia': materia, 'anio': nombre_curso_actual, 'diciembre': None, 'febrero': None}
-            res = ResultadoActividadAdeudada.objects.filter(id_actividad=a.id_actividad, id_alumno=alumno).first()
-            nota = float(res.nota) if (res and res.nota is not None) else None
-            peri = (a.periodo_intensificacion or '').lower()
-            if 'diciembre' in peri:
-                agrup[materia]['diciembre'] = nota
-            elif 'febrero' in peri:
-                agrup[materia]['febrero'] = nota
-        intensificaciones_posteriores = list(agrup.values())
 
     # --- Materias a recursar (sección C) ---
     # Cada RecursadaMateria tiene sus notas en RecursadaCalificacion
@@ -5529,23 +5527,27 @@ def boletin_academico_api_view(request, alumno_id):
             'observaciones': (r.observaciones or '').strip(),
         })
 
-    # --- Previas / adeudadas no resueltas (sección D) ---
+    # --- Previas / adeudadas (sección D): todas las previas del alumno,
+    # con su dict de rendiciones [período → nota] y su calificación final ---
     previas = []
     for p in MateriaAdeudada.objects.filter(
-        id_alumno=alumno, tipo_deuda='PREVIA', estado='ADEUDADA'
+        id_alumno=alumno, tipo_deuda='PREVIA',
     ).select_related('id_materia', 'id_curso_origen'):
-        regs = list(RegistroRendicionPrevia.objects.filter(id_materia_adeudada=p))
-        ult = None
-        if regs:
-            regs.sort(key=lambda x: (x.anio_rendicion, PERIODO_ORDEN.get(x.periodo, 0)), reverse=True)
-            ult = regs[0]
-        periodo = PERIODO_LABEL.get(ult.periodo, ult.periodo) if ult else ''
-        calif = float(ult.nota) if (ult and ult.nota is not None) else None
+        regs = RegistroRendicionPrevia.objects.filter(
+            id_materia_adeudada=p,
+        ).order_by('anio_rendicion', 'periodo')
+        rendiciones = {}
+        for r in regs:
+            peri_label = PERIODO_LABEL.get(r.periodo, r.periodo)
+            calif = float(r.nota) if r.nota is not None else None
+            rendiciones[peri_label] = calif
+        ult = regs.last()
+        calif_final = float(ult.nota) if (ult and ult.nota is not None) else None
         previas.append({
             'materia': p.id_materia.nombre_materia if p.id_materia else '',
             'anio': p.id_curso_origen.nombre_curso if p.id_curso_origen else '',
-            'periodo': periodo,
-            'calificacion': calif,
+            'rendiciones': rendiciones,
+            'calificacion_final': calif_final,
         })
 
     return Response({

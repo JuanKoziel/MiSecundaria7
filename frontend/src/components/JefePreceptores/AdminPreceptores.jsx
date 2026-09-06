@@ -123,6 +123,7 @@ function AdminPreceptores() {
           apellido: d.apellido,
           correo: d.correo,
           telefono: d.telefono,
+          usuario: d.usuario || '',
         });
       });
       (directivosData || []).forEach((a) => {
@@ -136,6 +137,7 @@ function AdminPreceptores() {
             apellido: a.apellido,
             correo: a.correo,
             telefono: a.telefono,
+            usuario: a.usuario || '',
           });
         }
       });

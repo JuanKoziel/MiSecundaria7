@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import { getIntensificacionesAcademicas } from '../../services/api';
+import { BUCKET_POR_PERIODO } from '../../utils/intensificaciones';
 
 function califFinal(m) {
   const n1 = parseFloat(m.nota1);
@@ -58,14 +59,10 @@ function Notas() {
         const map = {};
         intensifMateria.forEach((i) => {
           if (!map[i.id_alumno]) map[i.id_alumno] = { '1C': '', diciembre: '', febrero: '' };
-          const peri = (i.periodo_intensificacion || '').toLowerCase();
-          if (peri.includes('primer') || peri.includes('1°') || peri.includes('1º')) {
-            map[i.id_alumno]['1C'] = i.nota ?? '';
-          } else if (peri.includes('diciembre')) {
-            map[i.id_alumno].diciembre = i.nota ?? '';
-          } else if (peri.includes('febrero')) {
-            map[i.id_alumno].febrero = i.nota ?? '';
-          }
+          const bucket = BUCKET_POR_PERIODO[i.periodo];
+          if (!bucket) return;
+          const columna = bucket === 'intensificacion_1c' ? '1C' : bucket;
+          map[i.id_alumno][columna] = i.nota ?? '';
         });
         setIntensificaciones(map);
       })

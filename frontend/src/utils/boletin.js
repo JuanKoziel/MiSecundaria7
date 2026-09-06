@@ -96,8 +96,8 @@ function seccionRecursadas(items) {
       <th rowspan="2">Año/Curso</th>
       <th rowspan="2">Materia</th>
       <th colspan="2">1.º Cuatrimestre</th>
-      <th colspan="3">2.º Cuatrimestre</th>
-      <th colspan="2">Intensificaciones</th>
+      <th colspan="2">2.º Cuatrimestre</th>
+      <th colspan="3">Intensificaciones</th>
       <th rowspan="2">Calificación final</th>
       <th rowspan="2">Observaciones</th>
     </tr>
@@ -127,18 +127,16 @@ function seccionPrevias(items) {
     items && items.length
       ? items
           .map((p) => {
-            const peri = String(p.periodo || '')
-              .trim()
-              .toUpperCase();
             const celdas = periodos
-              .map((col) =>
-                col.key === peri && p.calificacion !== null && p.calificacion !== undefined
-                  ? p.calificacion
-                  : '',
+              .map(
+                (col) =>
+                  p.rendiciones && p.rendiciones[col.key] !== null && p.rendiciones[col.key] !== undefined
+                    ? p.rendiciones[col.key]
+                    : '',
               )
               .join('</td><td>');
             const califFinal =
-              p.calificacion !== null && p.calificacion !== undefined ? p.calificacion : '—';
+              p.calificacion_final !== null && p.calificacion_final !== undefined ? p.calificacion_final : '—';
             return `<tr><td>${p.materia || '—'}</td><td>${p.anio || '—'}</td><td>${celdas}</td><td>${califFinal}</td></tr>`;
           })
           .join('')
@@ -154,27 +152,6 @@ function seccionPrevias(items) {
       <col style="width:8%" />
       <col style="width:26%" />
     </colgroup><thead><tr><th rowspan="2">Materia</th><th rowspan="2">Año (curso)</th><th colspan="6">Período de intensificación</th><th rowspan="2">Calificación final</th></tr><tr>${headCols}</tr></thead><tbody>${rows}</tbody></table></div>`;
-}
-
-function seccionOtrasIntensificaciones(items) {
-  const rows =
-    items && items.length
-      ? items
-          .map(
-            (it) =>
-              `<tr><td>${it.materia || '—'}</td><td>${
-                it.diciembre !== null && it.diciembre !== undefined ? it.diciembre : ''
-              }</td><td>${
-                it.febrero !== null && it.febrero !== undefined ? it.febrero : ''
-              }</td></tr>`,
-          )
-          .join('')
-      : '<tr><td></td><td></td><td></td></tr>';
-  return `<div class="boletin-seccion boletin-seccion-intensif"><h3>INTENSIFICACIONES</h3><table class="boletin-tabla-extra"><colgroup>
-      <col style="width:34%" />
-      <col style="width:33%" />
-      <col style="width:33%" />
-    </colgroup><thead><tr><th>Materia</th><th>Diciembre</th><th>Febrero</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 export function boletinHTML({
@@ -223,8 +200,8 @@ export function boletinHTML({
             <tr>
               <th rowspan="2">Materia</th>
               <th colspan="2">1.º Cuatrimestre</th>
-              <th colspan="3">2.º Cuatrimestre</th>
-              <th colspan="2">Intensificaciones</th>
+              <th colspan="2">2.º Cuatrimestre</th>
+              <th colspan="3">Intensificaciones</th>
               <th rowspan="2">Calificación final</th>
               <th rowspan="2">Observaciones</th>
             </tr>
@@ -254,7 +231,6 @@ export function boletinHTML({
       <div class="boletin-pagina boletin-pagina-2">
         ${seccionPrevias(previas)}
         ${seccionRecursadas(recursadas)}
-        ${seccionOtrasIntensificaciones(intensificaciones_posteriores)}
       </div>
     </div>`;
 }

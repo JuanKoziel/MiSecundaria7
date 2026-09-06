@@ -14,7 +14,7 @@ function formatearCalif(v) {
   return v;
 }
 
-// Cabecera idéntica a la tabla principal (Intensificación 1.º C como grupo propio),
+// Cabecera idéntica a la tabla principal (Intensificaciones con sus 3 columnas),
 // con una columna extra "Año/Curso" al inicio. Se usa para "Materias a recursar".
 function CabeceraBoletinConAnio() {
   return (
@@ -23,8 +23,8 @@ function CabeceraBoletinConAnio() {
           <th rowSpan={2}>Año/Curso</th>
           <th rowSpan={2}>Materia</th>
           <th colSpan={2}>1.º Cuatrimestre</th>
-          <th colSpan={3}>2.º Cuatrimestre</th>
-          <th colSpan={2}>Intensificaciones</th>
+          <th colSpan={2}>2.º Cuatrimestre</th>
+          <th colSpan={3}>Intensificaciones</th>
           <th rowSpan={2}>Calificación final</th>
           <th rowSpan={2}>Observaciones</th>
         </tr>
@@ -82,23 +82,18 @@ function SeccionPrevias({ previas = [] }) {
                 <td></td>
               </tr>
             ) : (
-              previas.map((p, i) => {
-                const peri = String(p.periodo || '')
-                  .trim()
-                  .toUpperCase();
-                return (
-                  <tr key={i}>
-                    <td className="table-cell-strong">{p.materia || '—'}</td>
-                    <td>{p.anio || '—'}</td>
-                    {PERIODOS_PREVIA.map((col) => (
-                      <td key={col.key}>
-                        {col.key === peri ? formatearCalif(p.calificacion) : ''}
-                      </td>
-                    ))}
-                    <td>{formatearCalif(p.calificacion) || '—'}</td>
-                  </tr>
-                );
-              })
+              previas.map((p, i) => (
+                <tr key={i}>
+                  <td className="table-cell-strong">{p.materia || '—'}</td>
+                  <td>{p.anio || '—'}</td>
+                  {PERIODOS_PREVIA.map((col) => (
+                    <td key={col.key}>
+                      {formatearCalif(p.rendiciones && p.rendiciones[col.key])}
+                    </td>
+                  ))}
+                  <td>{formatearCalif(p.calificacion_final) || '—'}</td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
@@ -172,47 +167,6 @@ function SeccionRecursadas({ recursadas = [] }) {
   );
 }
 
-function SeccionOtrasIntensificaciones({ intensificaciones_posteriores = [] }) {
-  return (
-    <div className="boletin-seccion-extra">
-      <div className="boletin-seccion-titulo">INTENSIFICACIONES</div>
-      <div className="table-responsive">
-        <table className="boletin-table">
-          <colgroup>
-            <col style={{ width: '34%' }} />
-            <col style={{ width: '33%' }} />
-            <col style={{ width: '33%' }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Materia</th>
-              <th>Diciembre</th>
-              <th>Febrero</th>
-            </tr>
-          </thead>
-          <tbody>
-            {intensificaciones_posteriores.length === 0 ? (
-              <tr>
-                <td></td>
-                <td></td>
-                <td></td>
-              </tr>
-            ) : (
-              intensificaciones_posteriores.map((it, i) => (
-                <tr key={i}>
-                  <td className="table-cell-strong">{it.materia || '—'}</td>
-                  <td>{it.diciembre !== null && it.diciembre !== undefined ? it.diciembre : ''}</td>
-                  <td>{it.febrero !== null && it.febrero !== undefined ? it.febrero : ''}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 export default function BoletinExtras({
   recursadas = [],
   previas = [],
@@ -223,7 +177,6 @@ export default function BoletinExtras({
     <div className="boletin-extras mt-16">
       <SeccionPrevias previas={previas} />
       <SeccionRecursadas recursadas={recursadas} />
-      <SeccionOtrasIntensificaciones intensificaciones_posteriores={intensificaciones_posteriores} />
 
       <p className="boletin-nota">Prenota = 1.ª y 2.ª Valoración Preliminar</p>
     </div>
