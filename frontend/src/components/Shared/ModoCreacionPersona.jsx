@@ -38,6 +38,7 @@ function ModoCreacionPersona({
         dni: persona.dni || '',
         correo: persona.correo || '',
         telefono: persona.telefono || '',
+        usuario_nombre: persona.usuario || '',
       }));
       if (onPersonaChange) onPersonaChange('existente', id);
     }

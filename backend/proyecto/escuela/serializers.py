@@ -619,6 +619,29 @@ class PreceptorSerializer(serializers.ModelSerializer):
     def validate_dni(self, value):
         return normalizar_dni(value)
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        dni = attrs.get('dni')
+        id_usuario_existente = attrs.get('id_usuario_existente')
+        if dni:
+            dni = normalizar_dni(dni)
+            attrs['dni'] = dni
+            if id_usuario_existente:
+                preceptor_existente = Preceptor.objects.filter(id_usuario_id=id_usuario_existente).first()
+                if preceptor_existente:
+                    if self.instance and self.instance.pk == preceptor_existente.pk:
+                        return attrs
+                    if Preceptor.objects.filter(dni=dni).exclude(pk=preceptor_existente.pk).exists():
+                        raise serializers.ValidationError({'dni': 'Ya existe un/a preceptor con este/a dni.'})
+                    return attrs
+            if self.instance:
+                if Preceptor.objects.filter(dni=dni).exclude(pk=self.instance.pk).exists():
+                    raise serializers.ValidationError({'dni': 'Ya existe un/a preceptor con este/a dni.'})
+            else:
+                if Preceptor.objects.filter(dni=dni).exists():
+                    raise serializers.ValidationError({'dni': 'Ya existe un/a preceptor con este/a dni.'})
+        return attrs
+
     def get_cursos_asignados(self, obj):
         cursos = obj.curso_set.all()
         return [

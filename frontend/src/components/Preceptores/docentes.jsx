@@ -302,6 +302,7 @@ function Docentes({ readOnly = false }) {
           apellido: p.apellido,
           correo: p.correo || p.email || '',
           telefono: p.telefono || '',
+          usuario: p.usuario || '',
         });
       }
     });
@@ -747,51 +748,56 @@ function Docentes({ readOnly = false }) {
                 onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
               />
             </div>
-            <div className="form-group-filter preceptor-form-full">
+<div className="form-group-filter preceptor-form-full">
                <label htmlFor="doc-dni">DNI</label>
                <input
                  id="doc-dni"
                  type="text"
                  value={form.dni}
                  onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
+                 disabled={form.modo_creacion === 'existente'}
                />
              </div>
              <div className="form-group-filter">
                <label htmlFor="doc-nombre">Nombre</label>
-              <input
-                id="doc-nombre"
-                type="text"
-                value={form.nombre}
-                onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
-              />
-            </div>
-            <div className="form-group-filter">
-              <label htmlFor="doc-apellido">Apellido</label>
-              <input
-                id="doc-apellido"
-                type="text"
-                value={form.apellido}
-                onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
-              />
-            </div>
-            <div className="form-group-filter">
-              <label htmlFor="doc-correo">Correo</label>
-              <input
-                id="doc-correo"
-                type="email"
-                value={form.correo}
-                onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
-              />
-            </div>
-            <div className="form-group-filter">
-              <label htmlFor="doc-telefono">Teléfono</label>
-              <input
-                id="doc-telefono"
-                type="text"
-                value={form.telefono}
-                onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
-              />
-            </div>
+               <input
+                 id="doc-nombre"
+                 type="text"
+                 value={form.nombre}
+                 onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+                 disabled={form.modo_creacion === 'existente'}
+               />
+             </div>
+             <div className="form-group-filter">
+               <label htmlFor="doc-apellido">Apellido</label>
+               <input
+                 id="doc-apellido"
+                 type="text"
+                 value={form.apellido}
+                 onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+                 disabled={form.modo_creacion === 'existente'}
+               />
+             </div>
+             <div className="form-group-filter">
+               <label htmlFor="doc-correo">Correo</label>
+               <input
+                 id="doc-correo"
+                 type="email"
+                 value={form.correo}
+                 onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
+                 disabled={form.modo_creacion === 'existente'}
+               />
+             </div>
+             <div className="form-group-filter">
+               <label htmlFor="doc-telefono">Teléfono</label>
+               <input
+                 id="doc-telefono"
+                 type="text"
+                 value={form.telefono}
+                 onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+                 disabled={form.modo_creacion === 'existente'}
+               />
+             </div>
           </div>
           <AsignacionesEditor
             asignaciones={asignaciones}

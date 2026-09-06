@@ -9,8 +9,9 @@ export function clampNota(value) {
   return String(Math.min(10, Math.max(1, num)));
 }
 
-export function alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos) {
+export function alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosPermitidos = []) {
   if (!anioLectivo || !curso) return [];
+  if (cursosPermitidos.length > 0 && !cursosPermitidos.includes(curso)) return [];
   const anio = Number(anioLectivo);
   const idsInscripcion = inscripciones
     .filter((i) => i.anioLectivo === anio && i.curso === curso)
@@ -20,7 +21,7 @@ export function alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos)
   );
 }
 
-export function cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj) {
+export function cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj, cursosPermitidos = []) {
   if (!anioLectivo) return [];
   const delAnio = [...new Set(
     inscripciones
@@ -31,7 +32,11 @@ export function cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj) {
     (c) => c.ciclo_anio === Number(anioLectivo),
   ).map((c) => c.nombre_curso);
   const todos = [...new Set([...delAnio, ...delAnioCursos])];
-  return cursos.filter((c) => todos.includes(c));
+  let resultado = cursos.filter((c) => todos.includes(c));
+  if (cursosPermitidos.length > 0) {
+    resultado = resultado.filter((c) => cursosPermitidos.includes(c));
+  }
+  return resultado;
 }
 
 export function docentesPorFiltros(anioLectivo, curso, materia, docentes, asignacionesDocente) {

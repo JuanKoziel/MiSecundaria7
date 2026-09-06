@@ -19,10 +19,9 @@ function celdaNota(n) {
 
 // Tabla principal del boletín (Hoja 1). Estructura oficial 2025:
 // Materia | 1.º Cuatrimestre (1.ª Val. Preliminar, Calificación)
-//         | 2.º Cuatrimestre (2.ª Val. Preliminar, Calificación, Intensificación 1.º C)
-//         | Intensificaciones (Diciembre, Febrero)
+//         | 2.º Cuatrimestre (2.ª Val. Preliminar, Calificación)
+//         | Intensificación 1.º C | Diciembre | Febrero
 //         | Calificación final | Observaciones
-// "Intensificación 1.º C" es subcolumna directa de "2.º Cuatrimestre".
 export default function BoletinTablaPrincipal({
   materias = [],
   intensificaciones_1c = {},
@@ -38,23 +37,23 @@ export default function BoletinTablaPrincipal({
     <div className="table-responsive">
       <table className="boletin-table boletin-tabla-principal">
         <colgroup>
-          <col style={{ width: '16%' }} />
+          <col style={{ width: '15%' }} />
           <col style={{ width: '8.5%' }} />
           <col style={{ width: '9.5%' }} />
           <col style={{ width: '8.5%' }} />
           <col style={{ width: '9.5%' }} />
-          <col style={{ width: '12%' }} />
-          <col style={{ width: '7%' }} />
-          <col style={{ width: '6.5%' }} />
+          <col style={{ width: '10%' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '8.5%' }} />
           <col style={{ width: '9.5%' }} />
-          <col style={{ width: '13%' }} />
+          <col style={{ width: '10.5%' }} />
         </colgroup>
         <thead>
           <tr>
             <th rowSpan={2}>Materia</th>
             <th colSpan={2}>1.º Cuatrimestre</th>
-            <th colSpan={3}>2.º Cuatrimestre</th>
-            <th colSpan={2}>Intensificaciones</th>
+            <th colSpan={2}>2.º Cuatrimestre</th>
+            <th colSpan={3}>Intensificaciones</th>
             <th rowSpan={2}>Calificación final</th>
             <th rowSpan={2}>Observaciones</th>
           </tr>

@@ -106,6 +106,7 @@ function Tutores({ readOnly = false }) {
           apellido: p.apellido,
           correo: p.correo || p.email || '',
           telefono: p.telefono || '',
+          usuario: p.usuario || '',
         });
       }
     });
@@ -458,7 +459,7 @@ function Tutores({ readOnly = false }) {
           label="Modo de creación"
           onPersonaChange={(nuevoModo, id) => {
             if (nuevoModo === 'nuevo') {
-              setForm((p) => ({ ...p, nombre: '', apellido: '', dni: '', telefono: '', direccion: '', correo: '' }));
+              setForm((p) => ({ ...p, nombre: '', apellido: '', dni: '', telefono: '', direccion: '', correo: '', tipo: '' }));
             }
           }}
         />
@@ -531,6 +532,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.dni}
             onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
+            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
           />
         </div>
         <div className="form-group-filter">
@@ -540,6 +542,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.nombre}
             onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
           />
         </div>
         <div className="form-group-filter">
@@ -549,6 +552,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.apellido}
             onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
           />
         </div>
         <div className="form-group-filter">
@@ -557,6 +561,7 @@ function Tutores({ readOnly = false }) {
             id="tutor-tipo"
             value={form.tipo}
             onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))}
+            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
           >
             <option value="">Seleccionar...</option>
             {TIPOS_TUTOR.map((t) => (
@@ -571,6 +576,7 @@ function Tutores({ readOnly = false }) {
             type="email"
             value={form.correo}
             onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
+            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
           />
         </div>
         <div className="form-group-filter preceptor-form-full">
@@ -580,6 +586,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.telefono}
             onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
           />
         </div>
         <div className="form-group-filter preceptor-form-full">
@@ -589,6 +596,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.direccion}
             onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
+            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
           />
         </div>
       </div>

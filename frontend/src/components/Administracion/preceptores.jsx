@@ -128,6 +128,7 @@ function Preceptores({ rol = 'preceptor' }) {
         nombre: d.nombre,
         apellido: d.apellido,
         email: d.correo,
+        usuario: d.usuario || '',
       });
     });
     if (esJefe) {
@@ -141,6 +142,7 @@ function Preceptores({ rol = 'preceptor' }) {
             nombre: p.nombre,
             apellido: p.apellido,
             email: p.correo,
+            usuario: p.usuario || '',
           });
         }
       });
@@ -155,6 +157,7 @@ function Preceptores({ rol = 'preceptor' }) {
           nombre: a.nombre,
           apellido: a.apellido,
           email: a.correo,
+          usuario: a.usuario || '',
         });
       }
     });
@@ -356,7 +359,7 @@ function Preceptores({ rol = 'preceptor' }) {
     <FormModal title={editingPreceptor ? `Editar ${etiquetaSingular}` : `Nuevo ${etiquetaSingular}`} onClose={cerrarFormulario}>
       <form onSubmit={handleSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
-          {!editingPreceptor && (
+{!editingPreceptor && (
             <ModoCreacionPersona
               personas={personasDisponibles}
               formData={formData}
@@ -372,7 +375,7 @@ function Preceptores({ rol = 'preceptor' }) {
                       nombre: persona.nombre || '',
                       apellido: persona.apellido || '',
                       dni: persona.dni || '',
-                      usuario_nombre: persona ? `${persona.nombre.toLowerCase()}.${persona.apellido.toLowerCase()}` : '',
+                      usuario_nombre: persona.usuario || '',
                     }));
                   }
                 } else if (modo === 'nuevo') {
@@ -380,15 +383,9 @@ function Preceptores({ rol = 'preceptor' }) {
                 }
               }}
             />
-)}
-
+          )}
           <section className="preceptor-form-section">
             <h4>Datos de acceso</h4>
-            {formData.id_usuario_existente && (
-              <p className="m-0 mt-8" style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                Se usará el usuario existente. Los datos personales (nombre, apellido, DNI) se completarán automáticamente.
-              </p>
-            )}
             <div className="preceptor-form-row preceptor-form-row--two">
               <div className="form-group-filter">
                 <label htmlFor="preceptor-usuario">Usuario</label>

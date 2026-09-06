@@ -4,6 +4,7 @@ import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
+import AsistenciasUnificada from '../Shared/AsistenciasUnificada';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
@@ -12,7 +13,6 @@ import BoletinExtras from '../BoletinExtras';
 import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
-import AsistenciaMateriaDetalle from '../Shared/AsistenciaMateriaDetalle';
 import PanelAlumno from './PanelAlumno';
 import Sidebar from './Sidebar';
 

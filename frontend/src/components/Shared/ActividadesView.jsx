@@ -36,6 +36,10 @@ function formatHora(value) {
   return new Intl.DateTimeFormat('es-AR', { timeStyle: 'short' }).format(date);
 }
 
+function claveMateriaDocente(materia, docenteNombre, docenteApellido) {
+  return `${materia}|${docenteNombre}|${docenteApellido}`;
+}
+
 function ActividadesView({ userRole, selectedChild }) {
   const { alumnos, cursosObj, cursoMateria } = useData();
   const { user } = useAuth();
@@ -70,7 +74,11 @@ function ActividadesView({ userRole, selectedChild }) {
     cursoMateria
       .filter((cm) => Number(cm.id_curso) === Number(cursoId))
       .forEach((cm) => {
-        const key = `${cm.materia_nombre}|${cm.docente_nombre}|${cm.docente_apellido}`;
+        const key = claveMateriaDocente(
+          cm.materia_nombre || 'Sin materia',
+          cm.docente_nombre || '',
+          cm.docente_apellido || ''
+        );
         if (!mapa.has(key)) {
           mapa.set(key, {
             id: key,
@@ -99,7 +107,11 @@ function ActividadesView({ userRole, selectedChild }) {
   const actividadesPorMateriaDocente = useMemo(() => {
     const grupos = {};
     actividades.forEach((act) => {
-      const key = `${act.materia_nombre}|${act.docente_apellido}|${act.docente_nombre}`;
+      const key = claveMateriaDocente(
+        act.materia_nombre || '',
+        act.docente_nombre || '',
+        act.docente_apellido || ''
+      );
       if (!grupos[key]) grupos[key] = [];
       grupos[key].push(act);
     });

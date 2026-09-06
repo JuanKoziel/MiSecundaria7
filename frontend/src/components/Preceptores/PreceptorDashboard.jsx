@@ -68,7 +68,7 @@ function PreceptorDashboard({ user, onLogout }) {
       case 'alumnos':
         return (
           <div className="view-section active">
-            <Alumnos />
+            <Alumnos preceptorCursos={miPreceptor?.cursos || []} />
           </div>
         );
 
