@@ -310,6 +310,7 @@ body {
     flex-direction: column;
     box-shadow: var(--shadow);
     z-index: 100;
+    border-top: 4px solid var(--primary-color);
 }
 
 .sidebar-brand {
@@ -368,7 +369,7 @@ body {
     color: rgba(255,255,255,0.7);
     text-decoration: none;
     font-weight: 400;
-    transition: var(--transition);
+    transition: background 0.18s ease, color 0.18s ease, border-left 0.18s ease;
     border-left: 4px solid transparent;
     width: 100%;
     background: transparent;
@@ -379,15 +380,24 @@ body {
     font-family: inherit;
     font-size: inherit;
     text-align: left;
+    border-radius: 8px;
 }
 
-.sidebar-menu li a:hover,
-.sidebar-menu li.active a,
-.sidebar-menu li.active .sidebar-menu-btn,
 .sidebar-menu-btn:hover {
     color: var(--white);
-    background: var(--sidebar-hover);
+    background: rgba(253, 126, 20, 0.08);
     border-left-color: var(--primary-color);
+}
+
+.sidebar-menu li.active .sidebar-menu-btn {
+    color: var(--white);
+    background: rgba(253, 126, 20, 0.14);
+    border-left-color: var(--primary-color);
+}
+
+.sidebar-menu-btn:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
 }
 
 .sidebar-logout-btn {
