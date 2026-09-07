@@ -379,6 +379,27 @@ class UsuarioSerializer(serializers.ModelSerializer):
                     telefono=telefono or '',
                     cargo=cargo or 'Administrador'
                 )
+        # Ensure admin users always have a Directivo profile
+        elif 'admin' in roles:
+            directivo = Directivo.objects.filter(id_usuario=usuario).first()
+            if directivo is None:
+                # Generate fallback data from username
+                parts = usuario.usuario.replace('_', ' ').split()
+                if len(parts) >= 2:
+                    fb_nombre = ' '.join(parts[:-1]).title()
+                    fb_apellido = parts[-1].title()
+                else:
+                    fb_nombre = usuario.usuario.title()
+                    fb_apellido = 'Admin'
+                fb_dni = f'{usuario.id_usuario:08d}'
+                Directivo.objects.create(
+                    id_usuario=usuario,
+                    nombre=fb_nombre,
+                    apellido=fb_apellido,
+                    dni=fb_dni,
+                    telefono='',
+                    cargo='Administrador'
+                )
 
         return usuario
 
@@ -429,6 +450,28 @@ class UsuarioSerializer(serializers.ModelSerializer):
                 if cargo is not None:
                     directivo.cargo = cargo
                 directivo.save()
+
+        # Ensure admin users always have a Directivo profile
+        admin_rol = Rol.objects.filter(nombre_rol='admin').first()
+        if admin_rol and UsuarioRol.objects.filter(id_usuario=instance, id_rol=admin_rol).exists():
+            directivo = Directivo.objects.filter(id_usuario=instance).first()
+            if directivo is None:
+                parts = instance.usuario.replace('_', ' ').split()
+                if len(parts) >= 2:
+                    fb_nombre = ' '.join(parts[:-1]).title()
+                    fb_apellido = parts[-1].title()
+                else:
+                    fb_nombre = instance.usuario.title()
+                    fb_apellido = 'Admin'
+                fb_dni = f'{instance.id_usuario:08d}'
+                Directivo.objects.create(
+                    id_usuario=instance,
+                    nombre=fb_nombre,
+                    apellido=fb_apellido,
+                    dni=fb_dni,
+                    telefono='',
+                    cargo='Administrador'
+                )
 
         return instance
 

@@ -1338,10 +1338,13 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
 
         roles = get_roles_for_usuario(username)
         if 'director' in roles or 'admin' in roles:
-            return qs.filter(
-                estado=True,
+            qs = qs.filter(
                 usuariorol__id_rol__nombre_rol='admin',
             ).distinct()
+            # Solo filtrar por estado=True si no se solicita incluir deshabilitados
+            if self.request.query_params.get('incluir_deshabilitados') != 'true':
+                qs = qs.filter(estado=True)
+            return qs
 
         usuario = Usuario.objects.filter(usuario=username).first()
         if usuario:

@@ -184,7 +184,7 @@ function Administradores() {
 
   const fetchUsuarios = async () => {
     try {
-      const data = await getUsuarios();
+      const data = await getUsuarios(true); // incluir deshabilitados
       const adminUsers = (Array.isArray(data) ? data : []).filter(
         (u) => u.roles && u.roles.includes('admin'),
       );
@@ -236,15 +236,15 @@ function Administradores() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    await confirmarEliminacion('¿Está seguro de que desea eliminar este administrador?\n\nEsta acción no se puede deshacer.', {
+  const handleDelete = async (usuario) => {
+    await confirmarEliminacion('¿Está seguro de que desea deshabilitar permanentemente este administrador?\n\nEsta acción es lógica (no borra datos) y solo deshabilita el acceso al sistema.', {
       onConfirm: async () => {
         try {
-          await deleteUsuario(id);
-          toast.success('Administrador eliminado correctamente.');
+          await updateUsuario(usuario.id_usuario, { estado: false });
+          toast.success('Administrador deshabilitado permanentemente.');
           fetchUsuarios();
         } catch (err) {
-          toast.error('Error al eliminar administrador');
+          toast.error('Error al deshabilitar administrador');
         }
       },
     });
@@ -252,24 +252,30 @@ function Administradores() {
 
   const handleToggleEstado = async (usuario) => {
     try {
+      // Solo cambiamos el estado, no borramos el usuario
       await updateUsuario(usuario.id_usuario, {
         estado: !usuario.estado,
+        // Mantener datos del perfil - no incluir campos que puedan provocar eliminación
       });
       toast.success(usuario.estado ? 'Administrador deshabilitado correctamente.' : 'Administrador habilitado correctamente.');
       fetchUsuarios();
     } catch (err) {
-      toast.error('Error al actualizar el estado del administrador');
+      toast.error('Error al actualizar el estado del administrador: ' + (err.response?.data?.detail || 'Error desconocido'));
     }
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
+    setSuccess();
 
     try {
+      const { id_usuario_existente, ...formDataCopy } = formData;
+      const idExists = id_usuario_existente != null;
+
       const normalisedPayload = {
-        ...formData,
+        ...formDataCopy,
+        usuario_nombre: formData.usuario,
         fecha_deshabilitacion_programada: formData.fecha_deshabilitacion_programada || null,
         fecha_habilitacion_programada: formData.fecha_habilitacion_programada || null,
       };
@@ -282,6 +288,7 @@ function Administradores() {
       // Clean up fields not needed for API
       delete payload.modo_creacion;
       delete payload.id_usuario;
+      delete payload.usuario; // read_only en serializer, usar usuario_nombre
 
       if (editingUsuario) {
         if (!formData.contrasena) {
@@ -607,11 +614,11 @@ function Administradores() {
                       <button
                         type="button"
                         className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(u.id_usuario)}
-                        aria-label="Eliminar administrador"
-                        title="Eliminar"
+                        onClick={() => handleDelete(u)}
+                        aria-label="Deshabilitar permanentemente administrador"
+                        title="Deshabilitar permanentemente"
                       >
-                        <i className="fas fa-trash" aria-hidden="true" />
+                        <i className="fas fa-user-slash" aria-hidden="true" />
                       </button>
                     </td>
                   </tr>

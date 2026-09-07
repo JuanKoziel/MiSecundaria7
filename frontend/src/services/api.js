@@ -452,8 +452,9 @@ export async function getInscripciones(params) {
   return data;
 }
 
-export async function getUsuarios() {
-  const { data } = await api.get('/usuarios/');
+export async function getUsuarios(incluirDeshabilitados = false) {
+  const params = incluirDeshabilitados ? { incluir_deshabilitados: 'true' } : {};
+  const { data } = await api.get('/usuarios/', { params });
   return data;
 }
 
