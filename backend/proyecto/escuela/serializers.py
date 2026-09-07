@@ -46,6 +46,7 @@ from escuela.models import (
     SuplenciaDocente,
     TipoAccion,
     TipoActa,
+    TutorAlumno,
     Usuario,
     UsuarioRol,
     HistorialAcademico,
@@ -70,6 +71,19 @@ def _assign_role(usuario, nombre_rol):
         return
     rol, _ = Rol.objects.get_or_create(nombre_rol=nombre_rol)
     UsuarioRol.objects.get_or_create(id_usuario=usuario, id_rol=rol)
+
+
+def _vincular_tutor_alumnos(padre, alumnos_ids):
+    """Crea los vínculos N:M tutor-alumno sin pisar los vínculos de otros
+    tutores (un alumno puede tener papá y mamá).
+    
+    Mantiene además ``alumnos.id_tutor`` como "tutor principal" (solo cuando el
+    alumno no tenía ninguno) por compatibilidad con lecturas previas."""
+    if not alumnos_ids:
+        return
+    for alumno_id in alumnos_ids:
+        TutorAlumno.objects.get_or_create(id_tutor=padre, id_alumno_id=alumno_id)
+    Alumno.objects.filter(id_alumno__in=alumnos_ids, id_tutor_id__isnull=True).update(id_tutor=padre)
 
 
 _sentinel = object()
@@ -209,10 +223,11 @@ class MateriaSerializer(serializers.ModelSerializer):
 class UsuarioSerializer(serializers.ModelSerializer):
     roles = serializers.SerializerMethodField()
     contrasena = serializers.CharField(write_only=True, required=False)
+    usuario_nombre = serializers.CharField(write_only=True, required=False)
     nombre = serializers.CharField(write_only=True, required=False)
     apellido = serializers.CharField(write_only=True, required=False)
     dni = serializers.CharField(write_only=True, required=False)
-    telefono = serializers.CharField(write_only=True, required=False)
+    telefono = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
     cargo = serializers.CharField(write_only=True, required=False)
     id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
     estado_label = serializers.SerializerMethodField()
@@ -230,6 +245,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'id_usuario',
             'id_usuario_existente',
             'usuario',
+            'usuario_nombre',
             'contrasena',
             'estado',
             'fecha_deshabilitacion_programada',
@@ -250,7 +266,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'directivo_cargo',
         ]
         extra_kwargs = {
-            'contrasena': {'write_only': True}
+            'contrasena': {'write_only': True},
+            'usuario': {'read_only': True},
         }
 
     def get_roles(self, obj):
@@ -314,6 +331,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             dni = normalizar_dni(dni)
         telefono = validated_data.pop('telefono', None)
         cargo = validated_data.pop('cargo', None)
+        usuario_nombre = validated_data.pop('usuario_nombre', None)
 
         if id_usuario_existente is not None:
             usuario = Usuario.objects.filter(id_usuario=id_usuario_existente).first()
@@ -321,8 +339,14 @@ class UsuarioSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'id_usuario_existente': 'El usuario seleccionado no existe.'
                 })
+            if Alumno.objects.filter(id_usuario_id=id_usuario_existente).exists():
+                raise serializers.ValidationError({
+                    'id_usuario_existente': 'El usuario seleccionado es un alumno y no puede recibir otro rol.'
+                })
         else:
-            usuario = Usuario(**validated_data)
+            if not usuario_nombre:
+                raise serializers.ValidationError({'usuario_nombre': 'El usuario es obligatorio.'})
+            usuario = Usuario(usuario=usuario_nombre, **validated_data)
             if contrasena:
                 usuario.set_password(contrasena)
             usuario.save()
@@ -368,6 +392,10 @@ class UsuarioSerializer(serializers.ModelSerializer):
             dni = normalizar_dni(dni)
         telefono = validated_data.pop('telefono', None)
         cargo = validated_data.pop('cargo', None)
+        usuario_nombre = validated_data.pop('usuario_nombre', None)
+
+        if usuario_nombre is not None:
+            instance.usuario = usuario_nombre
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -466,7 +494,7 @@ class PadreTutorSerializer(serializers.ModelSerializer):
         return normalizar_dni(value)
 
     def get_alumnos(self, obj):
-        alumnos = obj.alumno_set.all()
+        alumnos = [ta.id_alumno for ta in obj.tutoralumno_set.all()]
         return [
             {
                 'id_alumno': al.id_alumno,
@@ -481,7 +509,7 @@ class PadreTutorSerializer(serializers.ModelSerializer):
         ]
 
     def get_cantidad_alumnos(self, obj):
-        return len(obj.alumno_set.all())
+        return len(obj.tutoralumno_set.all())
 
     def get_estado_label(self, obj):
         if not obj.id_usuario:
@@ -532,10 +560,27 @@ class PadreTutorSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         alumnos_ids = validated_data.pop('alumnos_ids', [])
         id_usuario_existente = validated_data.get('id_usuario_existente')
-        if id_usuario_existente is not None and PadreTutor.objects.filter(id_usuario_id=id_usuario_existente).exists():
-            raise serializers.ValidationError({
-                'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de tutor/familia.'
-            })
+        
+        # Si se está agregando el rol a un usuario existente (Agregar rol), validar asignaciones requeridas
+        if id_usuario_existente is not None:
+            if Alumno.objects.filter(id_usuario_id=id_usuario_existente).exists():
+                raise serializers.ValidationError({
+                    'id_usuario_existente': 'El usuario seleccionado es un alumno y no puede recibir otro rol.'
+                })
+            if PadreTutor.objects.filter(id_usuario_id=id_usuario_existente).exists():
+                raise serializers.ValidationError({
+                    'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de tutor/familia.'
+                })
+            if not alumnos_ids:
+                raise serializers.ValidationError({
+                    'alumnos_ids': 'Debe asignar al menos un alumno al agregar el rol de tutor/familia.'
+                })
+        else:
+            if PadreTutor.objects.filter(id_usuario_id=id_usuario_existente).exists():
+                raise serializers.ValidationError({
+                    'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de tutor/familia.'
+                })
+        
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or PadreTutor(),
             validated_data=validated_data,
@@ -543,8 +588,7 @@ class PadreTutorSerializer(serializers.ModelSerializer):
             role_name='familia',
         )
         padre = PadreTutor.objects.create(id_usuario=usuario, **validated_data)
-        if alumnos_ids:
-            Alumno.objects.filter(id_alumno__in=alumnos_ids).update(id_tutor=padre)
+        _vincular_tutor_alumnos(padre, alumnos_ids)
         return padre
 
     def update(self, instance, validated_data):
@@ -560,8 +604,9 @@ class PadreTutorSerializer(serializers.ModelSerializer):
         instance.id_usuario = usuario
         instance.save()
         if alumnos_ids is not None:
-            Alumno.objects.filter(id_tutor=instance).update(id_tutor=None)
-            Alumno.objects.filter(id_alumno__in=alumnos_ids).update(id_tutor=instance)
+            # Reemplaza SOLO los vínculos de este tutor; no toca a otros tutores.
+            TutorAlumno.objects.filter(id_tutor=instance).delete()
+            _vincular_tutor_alumnos(instance, alumnos_ids)
         return instance
 
 
@@ -710,6 +755,19 @@ class PreceptorSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         cursos_ids = validated_data.pop('cursos_ids', [])
         es_jefe = self._role_name_from_context() == 'jefe_preceptores'
+        id_usuario_existente = validated_data.get('id_usuario_existente')
+
+        # Si se está agregando el rol a un usuario existente (Agregar rol), validar asignaciones requeridas
+        if id_usuario_existente is not None:
+            if Alumno.objects.filter(id_usuario_id=id_usuario_existente).exists():
+                raise serializers.ValidationError({
+                    'id_usuario_existente': 'El usuario seleccionado es un alumno y no puede recibir otro rol.'
+                })
+            if not es_jefe and not cursos_ids:
+                raise serializers.ValidationError({
+                    'cursos_ids': 'Debe asignar al menos un curso al agregar el rol de preceptor.'
+                })
+        
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or Preceptor(),
             validated_data=validated_data,
@@ -1017,6 +1075,11 @@ class DocenteSerializer(serializers.ModelSerializer):
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
     correo = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    curso_materia_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+    )
     ddjj_id = serializers.SerializerMethodField()
     ruta_ddjj = serializers.SerializerMethodField()
     ddjj_presentada = serializers.SerializerMethodField()
@@ -1057,6 +1120,7 @@ class DocenteSerializer(serializers.ModelSerializer):
             'usuario_fecha_habilitacion_programada',
             'estado_label',
             'proxima_accion_programada',
+            'curso_materia_ids',
         ]
         extra_kwargs = {
             'id_usuario': {'read_only': True},
@@ -1157,11 +1221,29 @@ class DocenteSerializer(serializers.ModelSerializer):
         return None
 
     def create(self, validated_data):
+        curso_materia_ids = validated_data.pop('curso_materia_ids', [])
         id_usuario_existente = validated_data.get('id_usuario_existente')
-        if id_usuario_existente is not None and Docente.objects.filter(id_usuario_id=id_usuario_existente).exists():
-            raise serializers.ValidationError({
-                'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de docente.'
-            })
+        
+        # Si se está agregando el rol a un usuario existente (Agregar rol), validar asignaciones requeridas
+        if id_usuario_existente is not None:
+            if Alumno.objects.filter(id_usuario_id=id_usuario_existente).exists():
+                raise serializers.ValidationError({
+                    'id_usuario_existente': 'El usuario seleccionado es un alumno y no puede recibir otro rol.'
+                })
+            if Docente.objects.filter(id_usuario_id=id_usuario_existente).exists():
+                raise serializers.ValidationError({
+                    'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de docente.'
+                })
+            if not curso_materia_ids:
+                raise serializers.ValidationError({
+                    'curso_materia_ids': 'Debe asignar al menos una relación curso-materia al agregar el rol de docente.'
+                })
+        else:
+            if Docente.objects.filter(id_usuario_id=id_usuario_existente).exists():
+                raise serializers.ValidationError({
+                    'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de docente.'
+                })
+        
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or Docente(),
             validated_data=validated_data,
@@ -1169,6 +1251,11 @@ class DocenteSerializer(serializers.ModelSerializer):
             role_name='docente',
         )
         docente = Docente.objects.create(id_usuario=usuario, **validated_data)
+        
+        # Asignar curso_materia si se proporcionaron
+        if curso_materia_ids:
+            CursoMateria.objects.filter(id_curso_materia__in=curso_materia_ids).update(id_docente=docente)
+        
         return docente
 
     def update(self, instance, validated_data):

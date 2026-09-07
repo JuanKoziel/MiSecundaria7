@@ -5,7 +5,7 @@ const MODOS = [
   { id: 'borrar', label: 'Borrar', icon: 'fa-trash', desc: 'Eliminar un registro' },
 ];
 
-function SelectorModo({ modo, onModoChange, titulo }) {
+function SelectorModo({ modo, onModoChange, titulo, children }) {
   if (modo) {
     const activo = MODOS.find((m) => m.id === modo);
     return (
@@ -20,6 +20,7 @@ function SelectorModo({ modo, onModoChange, titulo }) {
         <span className="preceptor-modo-activo">
           <i className={`fas ${activo?.icon}`} aria-hidden="true" /> {activo?.label}
         </span>
+        {modo === 'crear' && children}
       </div>
     );
   }
@@ -41,6 +42,7 @@ function SelectorModo({ modo, onModoChange, titulo }) {
             <span>{m.desc}</span>
           </button>
         ))}
+        {children}
       </div>
     </div>
   );

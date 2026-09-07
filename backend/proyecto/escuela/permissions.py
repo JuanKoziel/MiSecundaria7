@@ -1,7 +1,7 @@
 from rest_framework import permissions
 
 from escuela.auth_backend import get_roles_for_usuario
-from escuela.models import Usuario, Alumno, Docente, PadreTutor, CursoMateria
+from escuela.models import Usuario, Alumno, Docente, PadreTutor, CursoMateria, TutorAlumno
 
 
 # ---------------------------------------------------------------------------
@@ -12,6 +12,27 @@ from escuela.models import Usuario, Alumno, Docente, PadreTutor, CursoMateria
 # ---------------------------------------------------------------------------
 
 ROLES_AMPLIOS = {'admin', 'director', 'jefe_preceptores', 'preceptor'}
+
+
+def alumno_ids_de_tutor(tutor):
+    """Ids de alumnos vinculados a un tutor/familia (relación N:M)."""
+    if tutor is None:
+        return []
+    return list(TutorAlumno.objects.filter(id_tutor=tutor).values_list('id_alumno_id', flat=True))
+
+
+def tutor_ids_de_alumno(alumno):
+    """Ids de tutores/familia vinculados a un alumno (relación N:M).
+
+    Incluye el tutor principal legado (``alumnos.id_tutor``) por compatibilidad."""
+    ids = set()
+    if alumno is not None:
+        ids |= set(
+            TutorAlumno.objects.filter(id_alumno=alumno).values_list('id_tutor_id', flat=True)
+        )
+        if alumno.id_tutor_id:
+            ids.add(alumno.id_tutor_id)
+    return list(ids)
 
 
 def get_usuario(request):
@@ -46,7 +67,7 @@ def alumno_ids_familia(request):
     tutor = PadreTutor.objects.filter(id_usuario=u).first()
     if not tutor:
         return []
-    return list(Alumno.objects.filter(id_tutor=tutor).values_list('id_alumno', flat=True))
+    return alumno_ids_de_tutor(tutor)
 
 
 def docente_del_usuario(request):

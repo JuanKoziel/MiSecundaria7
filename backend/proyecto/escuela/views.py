@@ -29,6 +29,8 @@ from escuela.permissions import (
     alumnos_permitidos,
     alumno_del_usuario,
     alumno_ids_familia,
+    alumno_ids_de_tutor,
+    tutor_ids_de_alumno,
     docente_del_usuario,
     es_rol_amplio,
     get_usuario,
@@ -87,6 +89,7 @@ from escuela.models import (
     SuplenciaDocente,
     TipoAccion,
     TipoActa,
+    TutorAlumno,
     Usuario,
     UsuarioRol,
     HistorialAcademico,
@@ -236,7 +239,7 @@ def _familia_cursos_ids(request):
     if not tutor:
         return set()
     return set(
-        Alumno.objects.filter(id_tutor=tutor)
+        Alumno.objects.filter(id_alumno__in=alumno_ids_de_tutor(tutor))
         .values_list('id_curso', flat=True)
         .distinct()
     )
@@ -638,7 +641,9 @@ def _comunicado_visible_para_ctx(comunicado, ctx):
         return any(_curso_matches_alcance(ctx['alumno'].id_curso, alcance) for alcance in alcances)
 
     if 'familia' in ctx['roles'] and ctx['padre']:
-        hijos = Alumno.objects.filter(id_tutor=ctx['padre'].id_tutor).select_related('id_curso')
+        hijos = Alumno.objects.filter(
+            id_alumno__in=alumno_ids_de_tutor(ctx['padre']),
+        ).select_related('id_curso')
         return any(
             _curso_matches_alcance(hijo.id_curso, alcance)
             for hijo in hijos if hijo.id_curso
@@ -697,13 +702,18 @@ def _filter_visible_comunicados(request, qs):
 
 def _usuarios_destinatarios_de_alumno(alumno):
     """Usuarios a notificar por hechos que conciernen a un alumno: el propio
-    alumno y, si existe, el usuario de su tutor/familia."""
+    alumno y, si existen, los usuarios de todos sus tutores/familia."""
     usuarios = []
     if alumno is not None and alumno.id_usuario_id:
         usuarios.append(alumno.id_usuario)
-    tutor = getattr(alumno, 'id_tutor', None) if alumno else None
-    if tutor is not None and tutor.id_usuario_id:
-        usuarios.append(tutor.id_usuario)
+    tutor_ids = tutor_ids_de_alumno(alumno) if alumno is not None else []
+    if tutor_ids:
+        tutores = PadreTutor.objects.filter(
+            id_tutor__in=tutor_ids,
+            id_usuario_id__isnull=False,
+        ).select_related('id_usuario')
+        for tutor in tutores:
+            usuarios.append(tutor.id_usuario)
     return usuarios
 
 
@@ -1290,6 +1300,28 @@ class HistorialMixin:
         self._historial_baja(instance, valor_anterior)
 
 
+def _persona_de_usuario(usuario):
+    """Devuelve {'nombre', 'apellido', 'dni'} del primer perfil de persona
+    vinculado al usuario (Directivo, Docente, Preceptor, PadreTutor, Alumno).
+    Retorna None si el usuario no tiene ningún perfil de persona."""
+    from escuela.models import Directivo, Docente, Preceptor, PadreTutor, Alumno
+
+    perfil = (
+        Directivo.objects.filter(id_usuario=usuario).first()
+        or Docente.objects.filter(id_usuario=usuario).first()
+        or Preceptor.objects.filter(id_usuario=usuario).first()
+        or PadreTutor.objects.filter(id_usuario=usuario).first()
+        or Alumno.objects.filter(id_usuario=usuario).first()
+    )
+    if perfil is None:
+        return None
+    return {
+        'nombre': perfil.nombre or '',
+        'apellido': perfil.apellido or '',
+        'dni': perfil.dni or '',
+    }
+
+
 class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
     serializer_class = UsuarioSerializer
@@ -1382,6 +1414,178 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
 
         super().perform_destroy(instance)
 
+    @action(detail=False, methods=['post'], url_path='quitar-rol', permission_classes=[IsAuthenticated, PuedeGestionarPersonas])
+    def quitar_rol(self, request):
+        """Elimina la asignación de un rol a un usuario.
+        
+        Recibe: { id_usuario: int, nombre_rol: str }
+        Elimina únicamente la fila en UsuarioRol para ese usuario+rol.
+        No elimina el usuario, ni el perfil, ni otros roles.
+        """
+        from escuela.auth_backend import get_roles_for_usuario
+        from django.db import connection
+        
+        username = request.user.username if request.user.is_authenticated else None
+        if not username:
+            raise PermissionDenied("Usuario no autenticado")
+        
+        id_usuario = request.data.get('id_usuario')
+        nombre_rol = request.data.get('nombre_rol')
+        
+        if not id_usuario or not nombre_rol:
+            return Response(
+                {'error': 'Se requiere id_usuario y nombre_rol'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verificar que el rol existe
+        try:
+            rol = Rol.objects.get(nombre_rol=nombre_rol)
+        except Rol.DoesNotExist:
+            return Response(
+                {'error': f'Rol "{nombre_rol}" no existe'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Verificar que el usuario existe
+        try:
+            usuario = Usuario.objects.get(id_usuario=id_usuario)
+        except Usuario.DoesNotExist:
+            return Response(
+                {'error': 'Usuario no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Verificar que la asignación existe
+        tiene_rol = UsuarioRol.objects.filter(id_usuario=usuario, id_rol=rol).exists()
+        if not tiene_rol:
+            return Response(
+                {'error': f'El usuario no tiene asignado el rol "{nombre_rol}"'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # La persona debe conservar al menos un rol: no se puede quitar el único rol
+        total_roles = UsuarioRol.objects.filter(id_usuario=usuario).count()
+        if total_roles <= 1:
+            return Response(
+                {'error': 'No se puede quitar el rol: la persona debe conservar al menos un rol.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Eliminar la asignación usando SQL directo
+        # ya que UsuarioRol tiene PK compuesta (id_usuario, id_rol) pero el modelo
+        # declara solo id_usuario como PK (managed=False).
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'DELETE FROM usuario_roles WHERE id_usuario = %s AND id_rol = %s',
+                [id_usuario, rol.id_rol]
+            )
+            if cursor.rowcount == 0:
+                return Response(
+                    {'error': f'El usuario no tiene asignado el rol "{nombre_rol}"'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
+        return Response({
+            'success': True,
+            'message': f'Rol "{nombre_rol}" quitado correctamente',
+            'id_usuario': id_usuario,
+            'nombre_rol': nombre_rol
+        })
+
+    @action(detail=False, methods=['get'], url_path='con-rol', permission_classes=[IsAuthenticated, PuedeGestionarPersonas])
+    def usuarios_con_rol(self, request):
+        """Devuelve usuarios que tienen un rol específico.
+        
+        Query param: rol (nombre_rol)
+        """
+        from escuela.models import Directivo, Docente, Preceptor, PadreTutor
+        
+        nombre_rol = request.query_params.get('rol')
+        if not nombre_rol:
+            return Response(
+                {'error': 'Se requiere parámetro rol'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Obtener usuarios que tienen este rol
+        usuarios_rol = UsuarioRol.objects.filter(
+            id_rol__nombre_rol=nombre_rol
+        ).select_related('id_usuario')
+
+        from django.db.models import Count
+        cantidad_por_usuario = dict(
+            UsuarioRol.objects
+            .filter(id_usuario_id__in=usuarios_rol.values_list('id_usuario_id', flat=True))
+            .values('id_usuario_id')
+            .annotate(cantidad=Count('id_rol'))
+            .values_list('id_usuario_id', 'cantidad')
+        )
+
+        # Serializar con datos básicos obteniendo nombre/apellido de los perfiles
+        data = []
+        for ur in usuarios_rol:
+            usuario = ur.id_usuario
+            persona = _persona_de_usuario(usuario)
+            if persona is None:
+                continue
+            data.append({
+                'id_usuario': usuario.id_usuario,
+                'nombre': persona['nombre'],
+                'apellido': persona['apellido'],
+                'dni': persona['dni'],
+                'usuario': usuario.usuario,
+                'cantidad_roles': cantidad_por_usuario.get(usuario.id_usuario, 0),
+            })
+        
+        return Response(data)
+
+    @action(detail=False, methods=['get'], url_path='sin-rol', permission_classes=[IsAuthenticated, PuedeGestionarPersonas])
+    def usuarios_sin_rol(self, request):
+        """Devuelve usuarios que NO tienen un rol específico.
+        
+        Query param: rol (nombre_rol)
+        """
+        from escuela.models import Alumno, Directivo, Docente, Preceptor, PadreTutor
+        
+        nombre_rol = request.query_params.get('rol')
+        if not nombre_rol:
+            return Response(
+                {'error': 'Se requiere parámetro rol'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Obtener IDs de usuarios que YA tienen este rol
+        usuarios_con_rol_ids = UsuarioRol.objects.filter(
+            id_rol__nombre_rol=nombre_rol
+        ).values_list('id_usuario_id', flat=True)
+        
+        # Los usuarios con perfil de alumno no pueden recibir otro rol
+        alumnos_ids = Alumno.objects.filter(id_usuario_id__isnull=False).values_list('id_usuario_id', flat=True)
+        
+        # Obtener usuarios que NO tienen este rol y que no son alumnos, con sus perfiles
+        usuarios = Usuario.objects.exclude(
+            id_usuario__in=usuarios_con_rol_ids,
+        ).exclude(
+            id_usuario__in=alumnos_ids,
+        ).select_related()
+        
+        # Serializar con datos básicos obteniendo nombre/apellido de los perfiles
+        data = []
+        for usuario in usuarios:
+            persona = _persona_de_usuario(usuario)
+            if persona is None:
+                continue
+            data.append({
+                'id_usuario': usuario.id_usuario,
+                'nombre': persona['nombre'],
+                'apellido': persona['apellido'],
+                'dni': persona['dni'],
+                'usuario': usuario.usuario,
+            })
+        
+        return Response(data)
+
 
 class RolViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Rol.objects.all()
@@ -1409,6 +1613,11 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
             if not cursos_ids:
                 return qs.none()
             qs = qs.filter(id_curso__in=cursos_ids)
+        elif 'familia' in roles and usuario_obj:
+            hijo_ids = alumno_ids_familia(self.request)
+            if not hijo_ids:
+                return qs.none()
+            qs = qs.filter(id_alumno__in=hijo_ids)
 
         curso_id = self.request.query_params.get('curso')
         if curso_id:
@@ -1706,7 +1915,8 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         elif 'familia' in roles and usuario_obj:
             tutor = PadreTutor.objects.filter(id_usuario=usuario_obj).first()
             if tutor:
-                hijos = Alumno.objects.filter(id_tutor=tutor).values_list('id_curso', flat=True)
+                hijo_ids = alumno_ids_de_tutor(tutor)
+                hijos = Alumno.objects.filter(id_alumno__in=hijo_ids).values_list('id_curso', flat=True)
                 curso_ids = [h for h in hijos if h is not None]
                 if curso_ids:
                     curso_materias = CursoMateria.objects.filter(
@@ -1909,8 +2119,10 @@ class DirectivoViewSet(HistorialMixin, viewsets.ModelViewSet):
 class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = PadreTutor.objects.select_related('id_usuario').prefetch_related(
         models.Prefetch(
-            'alumno_set',
-            queryset=Alumno.objects.select_related('id_curso', 'id_curso__id_ciclo'),
+            'tutoralumno_set',
+            queryset=TutorAlumno.objects.select_related(
+                'id_alumno', 'id_alumno__id_curso', 'id_alumno__id_curso__id_ciclo'
+            ),
         ),
     ).all()
     serializer_class = PadreTutorSerializer
@@ -1928,10 +2140,19 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
             cursos_ids = _preceptor_cursos_ids(self.request)
             if not cursos_ids:
                 return qs.none()
-            tutor_ids = Alumno.objects.filter(
+            alumnos_ids = Alumno.objects.filter(
                 id_curso__in=cursos_ids,
-                id_tutor__isnull=False,
-            ).values_list('id_tutor', flat=True).distinct()
+            ).values_list('id_alumno', flat=True)
+            tutor_ids = set(
+                TutorAlumno.objects.filter(id_alumno_id__in=alumnos_ids)
+                .values_list('id_tutor_id', flat=True)
+            )
+            tutor_ids |= set(
+                Alumno.objects.filter(
+                    id_curso__in=cursos_ids,
+                    id_tutor__isnull=False,
+                ).values_list('id_tutor_id', flat=True)
+            )
             return qs.filter(id_tutor__in=tutor_ids)
         if 'familia' in roles and username:
             usuario = Usuario.objects.filter(usuario=username).first()
@@ -1939,20 +2160,6 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
                 return qs.filter(id_usuario=usuario)
             return qs.none()
         return qs.none()
-
-    def _require_preceptor_course_access(self, alumnos_ids):
-        if not alumnos_ids:
-            return
-        cursos_ids = _preceptor_cursos_ids(self.request)
-        if not cursos_ids:
-            raise PermissionDenied('No tienes cursos asignados para gestionar familias.')
-        alumnos_curso_ids = set(
-            Alumno.objects.filter(id_alumno__in=alumnos_ids)
-            .values_list('id_curso_id', flat=True)
-        )
-        no_permitidos = alumnos_curso_ids - {int(c) for c in cursos_ids}
-        if no_permitidos:
-            raise PermissionDenied('No tienes permiso para asociar alumnos de otros cursos.')
 
     def _require_admin_or_director(self):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -1965,10 +2172,7 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username) if username else []
         if 'jefe_preceptores' in roles:
             raise PermissionDenied('Los jefes de preceptores no pueden crear tutores.')
-        if 'preceptor' in roles:
-            alumnos_ids = serializer.validated_data.get('alumnos_ids', [])
-            self._require_preceptor_course_access(alumnos_ids)
-        else:
+        if 'preceptor' not in roles:
             self._require_admin_or_director()
         super().perform_create(serializer)
 
@@ -1977,11 +2181,7 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username) if username else []
         if 'jefe_preceptores' in roles:
             raise PermissionDenied('Los jefes de preceptores no pueden modificar tutores.')
-        if 'preceptor' in roles:
-            alumnos_ids = serializer.validated_data.get('alumnos_ids')
-            if alumnos_ids is not None:
-                self._require_preceptor_course_access(alumnos_ids)
-        else:
+        if 'preceptor' not in roles:
             self._require_admin_or_director()
         super().perform_update(serializer)
 
@@ -1992,6 +2192,7 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
             raise PermissionDenied('Los jefes de preceptores no pueden eliminar tutores.')
         if 'preceptor' not in roles:
             self._require_admin_or_director()
+        TutorAlumno.objects.filter(id_tutor=instance).delete()
         Alumno.objects.filter(id_tutor=instance).update(id_tutor=None)
         usuario = instance.id_usuario
         if usuario:
@@ -2699,7 +2900,12 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
                 return Response({'error': 'Se requiere id_alumno.'}, status=status.HTTP_400_BAD_REQUEST)
             try:
                 tutor = PadreTutor.objects.get(id_usuario=usuario)
-                alumno = Alumno.objects.get(id_alumno=alumno_id, id_tutor=tutor)
+                alumno = Alumno.objects.filter(
+                    id_alumno=alumno_id,
+                    id_alumno__in=alumno_ids_de_tutor(tutor),
+                ).first()
+                if alumno is None:
+                    raise Alumno.DoesNotExist
             except (PadreTutor.DoesNotExist, Alumno.DoesNotExist):
                 return Response({'error': 'Alumno no encontrado o no autorizado.'}, status=status.HTTP_404_NOT_FOUND)
         else:
@@ -4126,7 +4332,8 @@ class DiagnosticoGrupalViewSet(HistorialMixin, viewsets.ModelViewSet):
             # Families can see diagnostics from their linked students' courses
             tutor = PadreTutor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
             if tutor:
-                hijos = Alumno.objects.filter(id_tutor=tutor.id_tutor)
+                hijo_ids = alumno_ids_de_tutor(tutor)
+                hijos = Alumno.objects.filter(id_alumno__in=hijo_ids)
                 cursos_hijos_ids = list(hijos.values_list('id_curso', flat=True))
                 qs = qs.filter(id_curso__in=cursos_hijos_ids)
             else:
@@ -4342,10 +4549,17 @@ def supervision_preceptores(request):
         cursos = Curso.objects.filter(id_preceptor=p, activo=True)
         cursos_ids = list(cursos.values_list('id_curso', flat=True))
         cantidad_alumnos = Alumno.objects.filter(id_curso__in=cursos_ids).count()
-        tutores_ids = Alumno.objects.filter(
-            id_curso__in=cursos_ids,
-            id_tutor__isnull=False,
-        ).values_list('id_tutor', flat=True).distinct()
+        alumnos_de_cursos = Alumno.objects.filter(id_curso__in=cursos_ids).values_list('id_alumno', flat=True)
+        tutores_ids = set(
+            TutorAlumno.objects.filter(id_alumno_id__in=alumnos_de_cursos)
+            .values_list('id_tutor_id', flat=True)
+        )
+        tutores_ids |= set(
+            Alumno.objects.filter(
+                id_curso__in=cursos_ids,
+                id_tutor__isnull=False,
+            ).values_list('id_tutor_id', flat=True)
+        )
         ultimo_acceso = p.id_usuario.ultimo_acceso if p.id_usuario else None
         result.append({
             'id_preceptor': p.id_preceptor,

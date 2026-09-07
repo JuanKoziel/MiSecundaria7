@@ -22,7 +22,8 @@ from datetime import time
 from django.utils import timezone
 from django.db import transaction
 
-from escuela.models import Notificacion
+from escuela.models import Notificacion, PadreTutor
+from escuela.permissions import tutor_ids_de_alumno
 
 
 # Límites de anti-spam (Parte 7) — ajustar solo con evidencia de necesidad
@@ -160,9 +161,14 @@ def notificar_alumno(*, alumno, titulo='', mensaje='', dedupe=True, strategy='CO
     usuarios = []
     if alumno is not None and getattr(alumno, 'id_usuario_id', None):
         usuarios.append(alumno.id_usuario)
-    tutor = getattr(alumno, 'id_tutor', None) if alumno else None
-    if tutor is not None and getattr(tutor, 'id_usuario_id', None):
-        usuarios.append(tutor.id_usuario)
+    tutor_ids = tutor_ids_de_alumno(alumno) if alumno is not None else []
+    if tutor_ids:
+        tutores = PadreTutor.objects.filter(
+            id_tutor__in=tutor_ids,
+            id_usuario_id__isnull=False,
+        )
+        for tutor in tutores:
+            usuarios.append(tutor.id_usuario)
 
     creadas = []
     for usuario in usuarios:

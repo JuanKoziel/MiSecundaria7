@@ -1,10 +1,11 @@
-import { useState, Fragment, useMemo } from 'react';
+import { useState, useEffect, Fragment, useMemo } from 'react';
 import { formatDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
-import { createPadreTutor, updatePadreTutor, deletePadreTutor } from '../../services/api';
+import { createPadreTutor, updatePadreTutor, deletePadreTutor, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getAlumnos } from '../../services/api';
 import SelectorModo from './SelectorModo';
 import FormModal from '../../components/Shared/FormModal';
-import ModoCreacionPersona from '../../components/Shared/ModoCreacionPersona';
+import AgregarRolModal from '../../components/Shared/AgregarRolModal';
+import QuitarRolModal from '../../components/Shared/QuitarRolModal';
 import { cursosPorAnio, alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
@@ -92,29 +93,30 @@ function Tutores({ readOnly = false }) {
   const [progForm, setProgForm] = useState({ fecha_deshabilitacion_programada: '', fecha_habilitacion_programada: '' });
   const [anioAlumno, setAnioAlumno] = useState('');
   const [cursoAlumno, setCursoAlumno] = useState('');
+  const [mostrarAgregarRol, setMostrarAgregarRol] = useState(false);
+  const [guardandoAgregarRol, setGuardandoAgregarRol] = useState(false);
+  const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
+  const [quitandoRol, setQuitandoRol] = useState(false);
+  const [personasConRol, setPersonasConRol] = useState([]);
 
-  const personasDisponibles = useMemo(() => {
-    const personas = [];
-    const agregar = (list, tipo) => (list || []).forEach((p) => {
-      if (p.id_usuario) {
-        personas.push({
-          id: p.id_usuario,
-          tipo,
-          label: `${p.apellido}, ${p.nombre} (${tipo}) - DNI: ${p.dni || '—'}`,
-          dni: p.dni,
-          nombre: p.nombre,
-          apellido: p.apellido,
-          correo: p.correo || p.email || '',
-          telefono: p.telefono || '',
-          usuario: p.usuario || '',
-        });
-      }
-    });
-    agregar(docentes, 'Docente');
-    agregar(preceptores, 'Preceptor');
-    agregar(administradores, 'Directivo');
-    return personas;
-  }, [docentes, preceptores, administradores]);
+  const [personasParaAgregarRol, setPersonasParaAgregarRol] = useState([]);
+  const [cargandoPersonasSinRol, setCargandoPersonasSinRol] = useState(false);
+
+  const cargarPersonasSinRol = async () => {
+    setCargandoPersonasSinRol(true);
+    try {
+      const data = await getUsuariosSinRol('familia');
+      setPersonasParaAgregarRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(mensajeError(err));
+    } finally {
+      setCargandoPersonasSinRol(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarPersonasSinRol();
+  }, []);
 
   const lista = padresTutores || [];
   const tutorSel = lista.find((t) => String(t.id_tutor) === seleccionado);
@@ -134,8 +136,7 @@ function Tutores({ readOnly = false }) {
     setMensaje('');
     try {
       if (modo === 'crear') {
-        const esPersonaExistente = form.modo_creacion === 'existente' && form.id_usuario_existente;
-        if (!esPersonaExistente && (!form.usuario_nombre || !form.contrasena)) {
+        if (!form.usuario_nombre || !form.contrasena) {
           toast.warning('Completá usuario y contraseña.');
           setGuardando(false);
           return;
@@ -155,15 +156,11 @@ function Tutores({ readOnly = false }) {
           telefono: form.telefono || null,
           direccion: form.direccion || null,
           alumnos_ids: form.alumnos_ids,
+          usuario_nombre: form.usuario_nombre,
+          contrasena: form.contrasena,
+          fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
+          fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
         };
-        if (esPersonaExistente) {
-          tutorPayload.id_usuario_existente = Number(form.id_usuario_existente);
-        } else {
-          tutorPayload.usuario_nombre = form.usuario_nombre;
-          tutorPayload.contrasena = form.contrasena;
-          tutorPayload.fecha_deshabilitacion_programada = form.fecha_deshabilitacion_programada || null;
-          tutorPayload.fecha_habilitacion_programada = form.fecha_habilitacion_programada || null;
-        }
         await createPadreTutor(tutorPayload);
         toast.success('Tutor creado correctamente.');
         setForm(formVacio);
@@ -208,6 +205,64 @@ function Tutores({ readOnly = false }) {
       toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
+    }
+  };
+
+  const handleAgregarRol = async ({ persona, asignaciones }) => {
+    setGuardandoAgregarRol(true);
+    try {
+      await createPadreTutor({
+        id_usuario_existente: Number(persona.id_usuario ?? persona.id),
+        dni: persona.dni || '',
+        nombre: persona.nombre || '',
+        apellido: persona.apellido || '',
+        correo: persona.correo || null,
+        telefono: persona.telefono || null,
+        tipo: 'Tutor',
+        direccion: null,
+        alumnos_ids: asignaciones.alumnos_ids || [],
+      });
+      toast.success('Rol "Tutor" asignado correctamente.');
+      setMostrarAgregarRol(false);
+      await refreshData();
+    } catch (err) {
+      toast.error(mensajeError(err));
+    } finally {
+      setGuardandoAgregarRol(false);
+    }
+  };
+
+  // Función para obtener alumnos disponibles para asignar a tutores
+  const fetchAlumnosParaTutor = async () => {
+    try {
+      const data = await getAlumnos({ estado: '1' });
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Error al cargar alumnos:', err);
+      return [];
+    }
+  };
+
+  const cargarPersonasConRol = async () => {
+    try {
+      const data = await getUsuariosConRol('familia');
+      setPersonasConRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(mensajeError(err));
+    }
+  };
+
+  const handleQuitarRol = async (persona) => {
+    setQuitandoRol(true);
+    try {
+      await quitarRolUsuario(Number(persona.id_usuario), 'familia');
+      toast.success('Rol "Tutor" quitado correctamente.');
+      setMostrarQuitarRol(false);
+      await refreshData();
+    } catch (err) {
+      toast.error(mensajeError(err));
+    } finally {
+      setQuitandoRol(false);
     }
   };
 
@@ -450,20 +505,6 @@ function Tutores({ readOnly = false }) {
 
   const renderFormTutor = () => (
     <>
-      {modo === 'crear' && (
-        <ModoCreacionPersona
-          personas={personasDisponibles}
-          formData={form}
-          setFormData={setForm}
-          editing={false}
-          label="Modo de creación"
-          onPersonaChange={(nuevoModo, id) => {
-            if (nuevoModo === 'nuevo') {
-              setForm((p) => ({ ...p, nombre: '', apellido: '', dni: '', telefono: '', direccion: '', correo: '', tipo: '' }));
-            }
-          }}
-        />
-      )}
       <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
         <div className="form-group-filter preceptor-form-full">
           <label htmlFor="tutor-usuario">Usuario</label>
@@ -473,7 +514,7 @@ function Tutores({ readOnly = false }) {
             value={form.usuario_nombre}
             onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
             required
-            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
+            
           />
         </div>
         <div className="form-group-filter">
@@ -484,9 +525,8 @@ function Tutores({ readOnly = false }) {
             id="tutor-contrasena"
             type="password"
             value={form.contrasena}
-            onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
-            required={modo === 'crear' && form.modo_creacion === 'nuevo'}
-            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
+onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
+            required={modo === 'crear'}
           />
         </div>
         <div className="form-group-filter">
@@ -532,7 +572,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.dni}
             onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
-            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
+            
           />
         </div>
         <div className="form-group-filter">
@@ -542,7 +582,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.nombre}
             onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
-            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
+            
           />
         </div>
         <div className="form-group-filter">
@@ -552,7 +592,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.apellido}
             onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
-            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
+            
           />
         </div>
         <div className="form-group-filter">
@@ -561,7 +601,7 @@ function Tutores({ readOnly = false }) {
             id="tutor-tipo"
             value={form.tipo}
             onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))}
-            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
+            
           >
             <option value="">Seleccionar...</option>
             {TIPOS_TUTOR.map((t) => (
@@ -576,7 +616,7 @@ function Tutores({ readOnly = false }) {
             type="email"
             value={form.correo}
             onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
-            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
+            
           />
         </div>
         <div className="form-group-filter preceptor-form-full">
@@ -586,7 +626,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.telefono}
             onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
-            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
+            
           />
         </div>
         <div className="form-group-filter preceptor-form-full">
@@ -596,7 +636,7 @@ function Tutores({ readOnly = false }) {
             type="text"
             value={form.direccion}
             onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
-            disabled={modo === 'crear' && form.modo_creacion === 'existente'}
+            
           />
         </div>
       </div>
@@ -712,7 +752,31 @@ function Tutores({ readOnly = false }) {
 
   return (
     <div className="card">
-      {!readOnly && <SelectorModo modo={modo} onModoChange={resetModo} titulo="Tutores — ¿Qué deseás hacer?" />}
+      {!readOnly && (
+        <SelectorModo modo={modo} onModoChange={resetModo} titulo="Tutores — ¿Qué deseás hacer?">
+          <button
+            type="button"
+            className="preceptor-modo-card preceptor-modo-card--agregar"
+            onClick={() => setMostrarAgregarRol(true)}
+          >
+            <i className="fas fa-user-tag" aria-hidden="true" />
+            <strong>Agregar rol</strong>
+            <span>Asignar el rol a una persona existente</span>
+          </button>
+          <button
+            type="button"
+            className="preceptor-modo-card preceptor-modo-card--quitar"
+            onClick={() => {
+              cargarPersonasConRol();
+              setMostrarQuitarRol(true);
+            }}
+          >
+            <i className="fas fa-user-minus" aria-hidden="true" />
+            <strong>Quitar rol</strong>
+            <span>Quitar el rol a una persona con más de un rol</span>
+          </button>
+        </SelectorModo>
+      )}
 
       {modo === 'vista' && (
         <div>
@@ -778,6 +842,30 @@ function Tutores({ readOnly = false }) {
             </button>
           </div>
         </FormModal>
+      )}
+
+{mostrarAgregarRol && (
+        <AgregarRolModal
+          titulo="Agregar rol: tutor"
+          subtitulo="Seleccioná una persona existente para asignarle el rol. Se reutilizará su mismo usuario: no se crean usuarios y no se sobrescriben roles."
+          personas={personasParaAgregarRol}
+          onClose={() => setMostrarAgregarRol(false)}
+          onAgregar={handleAgregarRol}
+          guardando={guardandoAgregarRol}
+          rol="familia"
+          fetchAssignmentsFn={fetchAlumnosParaTutor}
+        />
+      )}
+
+      {mostrarQuitarRol && (
+        <QuitarRolModal
+          titulo="Quitar rol: tutor"
+          subtitulo="Seleccioná una persona para quitarle el rol. Se eliminará únicamente la asignación de este rol; el usuario, la persona y sus otros roles permanecerán intactos."
+          personas={personasConRol}
+          onClose={() => setMostrarQuitarRol(false)}
+          onQuitar={handleQuitarRol}
+          quitando={quitandoRol}
+        />
       )}
     </div>
   );

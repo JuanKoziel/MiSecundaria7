@@ -471,6 +471,28 @@ export async function deleteUsuario(id) {
   await api.delete(`/usuarios/${id}/`);
 }
 
+export async function quitarRolUsuario(idUsuario, nombreRol) {
+  const { data } = await api.post('/usuarios/quitar-rol/', {
+    id_usuario: idUsuario,
+    nombre_rol: nombreRol,
+  });
+  return data;
+}
+
+export async function getUsuariosConRol(nombreRol) {
+  const { data } = await api.get('/usuarios/con-rol/', {
+    params: { rol: nombreRol },
+  });
+  return data;
+}
+
+export async function getUsuariosSinRol(nombreRol) {
+  const { data } = await api.get('/usuarios/sin-rol/', {
+    params: { rol: nombreRol },
+  });
+  return data;
+}
+
 export async function createAlumno(payload) {
   const { data } = await api.post('/alumnos/', payload);
   return data;

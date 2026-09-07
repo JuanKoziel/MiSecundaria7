@@ -431,6 +431,17 @@ unique key `id_usuario` (`id_usuario`),
 constraint `padres_tutores_ibfk_1` foreign key (`id_usuario`) references `usuarios` (`id_usuario`)
 ) engine = InnoDB auto_increment = 4 default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
 
+create table `tutor_alumno` (
+  `id` bigint not null auto_increment,
+`id_tutor` int not null,
+`id_alumno` int not null,
+primary key (`id`),
+unique key `tutor_alumno_uniq` (`id_tutor`,`id_alumno`),
+key `id_alumno` (`id_alumno`),
+constraint `tutor_alumno_ibfk_1` foreign key (`id_tutor`) references `padres_tutores` (`id_tutor`) on delete cascade,
+constraint `tutor_alumno_ibfk_2` foreign key (`id_alumno`) references `alumnos` (`id_alumno`) on delete cascade
+) engine = InnoDB default CHARSET = utf8mb4 collate = utf8mb4_0900_ai_ci;
+
 create table `periodos_evaluacion` (
   `id_periodo` int not null auto_increment,
 `nombre_periodo` varchar(100) default null,

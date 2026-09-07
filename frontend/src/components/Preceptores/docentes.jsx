@@ -1,13 +1,14 @@
-﻿import { useState, useMemo, Fragment } from 'react';
+﻿import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useData } from '../../context/DataContext';
-import { createDocente, updateDocente, deleteDocente, createCursoMateria, updateCursoMateria, deleteCursoMateria } from '../../services/api';
+import { createDocente, updateDocente, deleteDocente, createCursoMateria, updateCursoMateria, deleteCursoMateria, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getCursoMateria, getCursos, getMaterias } from '../../services/api';
 import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import SelectorModo from './SelectorModo';
 import { formatDNI } from '../../utils/dni';
 import FormModal from '../../components/Shared/FormModal';
-import ModoCreacionPersona from '../../components/Shared/ModoCreacionPersona';
+import AgregarRolModal from '../../components/Shared/AgregarRolModal';
+import QuitarRolModal from '../../components/Shared/QuitarRolModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 
@@ -275,8 +276,13 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
 
 function Docentes({ readOnly = false }) {
   const dataCtx = useData();
+  const allDocentes = dataCtx.docentes || [];
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
+  const esVista = modo === 'vista';
+  const esCrear = modo === 'crear';
+  const esModificar = modo === 'modificar';
+  const necesitaFiltroVista = modo && !esCrear && !esModificar;
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
   const [materia, setMateria] = useState('');
@@ -288,36 +294,30 @@ function Docentes({ readOnly = false }) {
   const [mensaje, setMensaje] = useState('');
   const [programando, setProgramando] = useState(null);
   const [progForm, setProgForm] = useState({ fecha_deshabilitacion_programada: '', fecha_habilitacion_programada: '' });
+  const [mostrarAgregarRol, setMostrarAgregarRol] = useState(false);
+  const [guardandoAgregarRol, setGuardandoAgregarRol] = useState(false);
+  const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
+  const [quitandoRol, setQuitandoRol] = useState(false);
+  const [personasConRol, setPersonasConRol] = useState([]);
 
-  const personasDisponibles = useMemo(() => {
-    const personas = [];
-    const agregar = (list, tipo) => (list || []).forEach((p) => {
-      if (p.id_usuario) {
-        personas.push({
-          id: p.id_usuario,
-          tipo,
-          label: `${p.apellido}, ${p.nombre} (${tipo}) - DNI: ${p.dni || '—'}`,
-          dni: p.dni,
-          nombre: p.nombre,
-          apellido: p.apellido,
-          correo: p.correo || p.email || '',
-          telefono: p.telefono || '',
-          usuario: p.usuario || '',
-        });
-      }
-    });
-    agregar(dataCtx.preceptores, 'Preceptor');
-    agregar(dataCtx.administradores, 'Directivo');
-    agregar(dataCtx.padresTutores, 'Tutor');
-    return personas;
-  }, [dataCtx.preceptores, dataCtx.administradores, dataCtx.padresTutores]);
+  const [personasParaAgregarRol, setPersonasParaAgregarRol] = useState([]);
+  const [cargandoPersonasSinRol, setCargandoPersonasSinRol] = useState(false);
 
-  const esCrear = modo === 'crear';
-  const esVista = modo === 'vista';
-  const necesitaFiltroVista = esVista;
-  const necesitaFiltroCurso = modo === 'modificar' || modo === 'borrar';
+  const cargarPersonasSinRol = async () => {
+    setCargandoPersonasSinRol(true);
+    try {
+      const data = await getUsuariosSinRol('docente');
+      setPersonasParaAgregarRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(mensajeError(err));
+    } finally {
+      setCargandoPersonasSinRol(false);
+    }
+  };
 
-  const allDocentes = dataCtx.docentes;
+  useEffect(() => {
+    cargarPersonasSinRol();
+  }, []);
   const tieneAlgunFiltro = anioLectivo || curso || materia;
   const lista = esVista
     ? (tieneAlgunFiltro
@@ -353,8 +353,7 @@ function Docentes({ readOnly = false }) {
     setMensaje('');
     try {
       if (esCrear) {
-        const esPersonaExistente = form.modo_creacion === 'existente' && form.id_usuario_existente;
-        if (!esPersonaExistente && (!form.usuario_nombre || !form.contrasena)) {
+        if (!form.usuario_nombre || !form.contrasena) {
           toast.warning('Completá usuario y contraseña.');
           setGuardando(false);
           return;
@@ -371,15 +370,11 @@ function Docentes({ readOnly = false }) {
           apellido: form.apellido,
           correo: form.correo || null,
           telefono: form.telefono || null,
+          usuario_nombre: form.usuario_nombre,
+          contrasena: form.contrasena,
+          fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
+          fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
         };
-        if (esPersonaExistente) {
-          docentePayload.id_usuario_existente = Number(form.id_usuario_existente);
-        } else {
-          docentePayload.usuario_nombre = form.usuario_nombre;
-          docentePayload.contrasena = form.contrasena;
-          docentePayload.fecha_deshabilitacion_programada = form.fecha_deshabilitacion_programada || null;
-          docentePayload.fecha_habilitacion_programada = form.fecha_habilitacion_programada || null;
-        }
         const docente = await createDocente(docentePayload);
         const docenteId = docente.id_docente;
         let asigOk = 0;
@@ -473,6 +468,84 @@ function Docentes({ readOnly = false }) {
       toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
+    }
+  };
+
+  const handleAgregarRol = async ({ persona, asignaciones }) => {
+    setGuardandoAgregarRol(true);
+    try {
+      await createDocente({
+        id_usuario_existente: Number(persona.id_usuario ?? persona.id),
+        dni: persona.dni || '',
+        nombre: persona.nombre || '',
+        apellido: persona.apellido || '',
+        correo: persona.correo || persona.email || null,
+        telefono: persona.telefono || null,
+        curso_materia_ids: asignaciones.curso_materia_ids || [],
+      });
+      toast.success('Rol "Docente" asignado correctamente.');
+      setMostrarAgregarRol(false);
+      await dataCtx.refreshData();
+    } catch (err) {
+      toast.error(mensajeError(err));
+    } finally {
+      setGuardandoAgregarRol(false);
+    }
+  };
+
+  // Función para obtener curso-materias disponibles para asignar a docentes
+  const fetchCursoMateriaParaDocente = async () => {
+    try {
+      const data = await getCursoMateria({ activo: '1', estado: '1', id_docente: '' });
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Error al cargar curso-materias:', err);
+      return [];
+    }
+  };
+
+  // Función para obtener cursos disponibles para el formulario de asignación
+  const fetchCursosParaDocente = async () => {
+    try {
+      const data = await getCursos({ activo: '1', estado: '1' });
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Error al cargar cursos:', err);
+      return [];
+    }
+  };
+
+  // Función para obtener materias disponibles para el formulario de asignación
+  const fetchMateriasParaDocente = async () => {
+    try {
+      const data = await getMaterias({ activo: '1' });
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Error al cargar materias:', err);
+      return [];
+    }
+  };
+
+  const cargarPersonasConRol = async () => {
+    try {
+      const data = await getUsuariosConRol('docente');
+      setPersonasConRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(mensajeError(err));
+    }
+  };
+
+  const handleQuitarRol = async (persona) => {
+    setQuitandoRol(true);
+    try {
+      await quitarRolUsuario(Number(persona.id_usuario), 'docente');
+      toast.success('Rol "Docente" quitado correctamente.');
+      setMostrarQuitarRol(false);
+      await dataCtx.refreshData();
+    } catch (err) {
+      toast.error(mensajeError(err));
+    } finally {
+      setQuitandoRol(false);
     }
   };
 
@@ -683,18 +756,6 @@ function Docentes({ readOnly = false }) {
     if (esCrear) {
       return (
         <div style={{ maxWidth: 760 }}>
-          <ModoCreacionPersona
-            personas={personasDisponibles}
-            formData={form}
-            setFormData={setForm}
-            editing={false}
-            label="Modo de creación"
-            onPersonaChange={(nuevoModo, id) => {
-              if (nuevoModo === 'nuevo') {
-                setForm((p) => ({ ...p, nombre: '', apellido: '', dni: '', telefono: '', correo: '' }));
-              }
-            }}
-          />
           <div className="preceptor-form-grid">
             <div className="form-group-filter preceptor-form-full">
               <label htmlFor="doc-usuario">Usuario</label>
@@ -704,7 +765,7 @@ function Docentes({ readOnly = false }) {
                 value={form.usuario_nombre}
                 onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
                 required
-                disabled={form.modo_creacion === 'existente'}
+                
               />
             </div>
             <div className="form-group-filter">
@@ -713,9 +774,8 @@ function Docentes({ readOnly = false }) {
                 id="doc-contrasena"
                 type="password"
                 value={form.contrasena}
-                onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
-                required={form.modo_creacion === 'nuevo'}
-                disabled={form.modo_creacion === 'existente'}
+onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
+                required
               />
             </div>
             <div className="form-group-filter">
@@ -755,7 +815,7 @@ function Docentes({ readOnly = false }) {
                  type="text"
                  value={form.dni}
                  onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
-                 disabled={form.modo_creacion === 'existente'}
+                 
                />
              </div>
              <div className="form-group-filter">
@@ -765,7 +825,7 @@ function Docentes({ readOnly = false }) {
                  type="text"
                  value={form.nombre}
                  onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
-                 disabled={form.modo_creacion === 'existente'}
+                 
                />
              </div>
              <div className="form-group-filter">
@@ -775,7 +835,7 @@ function Docentes({ readOnly = false }) {
                  type="text"
                  value={form.apellido}
                  onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
-                 disabled={form.modo_creacion === 'existente'}
+                 
                />
              </div>
              <div className="form-group-filter">
@@ -785,7 +845,7 @@ function Docentes({ readOnly = false }) {
                  type="email"
                  value={form.correo}
                  onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
-                 disabled={form.modo_creacion === 'existente'}
+                 
                />
              </div>
              <div className="form-group-filter">
@@ -795,7 +855,7 @@ function Docentes({ readOnly = false }) {
                  type="text"
                  value={form.telefono}
                  onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
-                 disabled={form.modo_creacion === 'existente'}
+                 
                />
              </div>
           </div>
@@ -989,7 +1049,31 @@ function Docentes({ readOnly = false }) {
 
   return (
     <div className="card">
-      {!readOnly && <SelectorModo modo={modo} onModoChange={resetModo} titulo="Docentes — ¿Qué deseás hacer?" />}
+      {!readOnly && (
+        <SelectorModo modo={modo} onModoChange={resetModo} titulo="Docentes — ¿Qué deseás hacer?">
+          <button
+            type="button"
+            className="preceptor-modo-card preceptor-modo-card--agregar"
+            onClick={() => setMostrarAgregarRol(true)}
+          >
+            <i className="fas fa-user-tag" aria-hidden="true" />
+            <strong>Agregar rol</strong>
+            <span>Asignar el rol a una persona existente</span>
+          </button>
+          <button
+            type="button"
+            className="preceptor-modo-card preceptor-modo-card--quitar"
+            onClick={() => {
+              cargarPersonasConRol();
+              setMostrarQuitarRol(true);
+            }}
+          >
+            <i className="fas fa-user-minus" aria-hidden="true" />
+            <strong>Quitar rol</strong>
+            <span>Quitar el rol a una persona con más de un rol</span>
+          </button>
+        </SelectorModo>
+      )}
       {readOnly && (
         <div className="card-header-flex card-header-flex--compact">
           <h3>Docentes</h3>
@@ -1046,6 +1130,32 @@ function Docentes({ readOnly = false }) {
             </button>
           </div>
         </FormModal>
+      )}
+
+      {mostrarAgregarRol && (
+        <AgregarRolModal
+          titulo="Agregar rol: docente"
+          subtitulo="Seleccioná una persona existente para asignarle el rol. Se reutilizará su mismo usuario: no se crean usuarios y no se sobrescriben roles."
+          personas={personasParaAgregarRol}
+          onClose={() => setMostrarAgregarRol(false)}
+          onAgregar={handleAgregarRol}
+          guardando={guardandoAgregarRol}
+          rol="docente"
+          fetchAssignmentsFn={fetchCursoMateriaParaDocente}
+          fetchCursosFn={fetchCursosParaDocente}
+          fetchMateriasFn={fetchMateriasParaDocente}
+        />
+      )}
+
+      {mostrarQuitarRol && (
+        <QuitarRolModal
+          titulo="Quitar rol: docente"
+          subtitulo="Seleccioná una persona para quitarle el rol. Se eliminará únicamente la asignación de este rol; el usuario, la persona y sus otros roles permanecerán intactos."
+          personas={personasConRol}
+          onClose={() => setMostrarQuitarRol(false)}
+          onQuitar={handleQuitarRol}
+          quitando={quitandoRol}
+        />
       )}
     </div>
   );

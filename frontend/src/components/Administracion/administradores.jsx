@@ -1,12 +1,49 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
-import ModoCreacionPersona from '../../components/Shared/ModoCreacionPersona';
-import PersonaSelector from '../../components/Shared/PersonaSelector';
-import { createUsuario, deleteUsuario, getUsuarios, updateUsuario, getDocentes, getPreceptores, getDirectivos } from '../../services/api';
+import AgregarRolModal from '../../components/Shared/AgregarRolModal';
+import QuitarRolModal from '../../components/Shared/QuitarRolModal';
+import { createUsuario, deleteUsuario, getUsuarios, updateUsuario, getDocentes, getPreceptores, getDirectivos, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingScreen from '../Shared/LoadingScreen';
+
+function toInputDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function formatDateTime(value) {
+  if (!value) return '---';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '---';
+  return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+}
+
+function estadoLabel(estado) {
+  if (estado === null || estado === undefined) return 'Sin usuario';
+  return estado ? 'Habilitado' : 'Deshabilitado';
+}
+
+function getNextAction(usuario) {
+  if (usuario.estado === null || usuario.estado === undefined) return 'Sin usuario';
+  if (usuario.estado && usuario.fecha_deshabilitacion_programada) {
+    return `Deshabilitar el ${formatDateTime(usuario.fecha_deshabilitacion_programada)}`;
+  }
+  if (!usuario.estado && usuario.fecha_habilitacion_programada) {
+    return `Habilitar el ${formatDateTime(usuario.fecha_habilitacion_programada)}`;
+  }
+  if (usuario.fecha_deshabilitacion_programada) {
+    return `Deshabilitar el ${formatDateTime(usuario.fecha_deshabilitacion_programada)}`;
+  }
+  if (usuario.fecha_habilitacion_programada) {
+    return `Habilitar el ${formatDateTime(usuario.fecha_habilitacion_programada)}`;
+  }
+  return '---';
+}
 
 const formVacio = {
   usuario: '',
@@ -45,13 +82,14 @@ function Administradores() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [mostrarAgregarRol, setMostrarAgregarRol] = useState(false);
+  const [guardandoAgregarRol, setGuardandoAgregarRol] = useState(false);
+  const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
+  const [quitandoRol, setQuitandoRol] = useState(false);
+  const [personasConRol, setPersonasConRol] = useState([]);
 
   // Fetch personas disponibles para Admin (Docentes, Preceptores, Directivos)
   const [personasDisponibles, setPersonasDisponibles] = useState([]);
-
-  const cargarPersonasDisponibles = useMemo(() => {
-    // We'll fetch this when modal opens
-  }, []);
 
   const cargarPersonas = async () => {
     try {
@@ -109,6 +147,25 @@ function Administradores() {
       console.error('Error cargando personas:', err);
     }
   };
+
+  const [personasParaAgregarRol, setPersonasParaAgregarRol] = useState([]);
+  const [cargandoPersonasSinRol, setCargandoPersonasSinRol] = useState(false);
+
+  const cargarPersonasSinRol = async () => {
+    setCargandoPersonasSinRol(true);
+    try {
+      const data = await getUsuariosSinRol('admin');
+      setPersonasParaAgregarRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al cargar administradores');
+    } finally {
+      setCargandoPersonasSinRol(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarPersonasSinRol();
+  }, []);
 
   const resetForm = () => ({
     usuario: '',
@@ -211,8 +268,6 @@ function Administradores() {
     setSuccess('');
 
     try {
-      const isExistingPersona = !editingUsuario && formData.modo_creacion === 'existente';
-      
       const normalisedPayload = {
         ...formData,
         fecha_deshabilitacion_programada: formData.fecha_deshabilitacion_programada || null,
@@ -223,16 +278,6 @@ function Administradores() {
         ...normalisedPayload,
         roles: ['admin'],
       };
-
-      // Si es persona existente, reutilizar el usuario (no se tocan credenciales)
-      if (payload.modo_creacion === 'existente' && payload.id_usuario_existente) {
-        payload.id_usuario_existente = Number(payload.id_usuario_existente);
-        delete payload.contrasena;
-        delete payload.usuario;
-        delete payload.estado;
-        delete payload.fecha_deshabilitacion_programada;
-        delete payload.fecha_habilitacion_programada;
-      }
 
       // Clean up fields not needed for API
       delete payload.modo_creacion;
@@ -245,8 +290,8 @@ function Administradores() {
         await updateUsuario(editingUsuario.id_usuario, payload);
         toast.success('Administrador actualizado correctamente.');
       } else {
-        // Validar contraseña solo si es creación nueva (no persona existente)
-        if (formData.modo_creacion !== 'existente' && !payload.contrasena) {
+        // Validar contraseña solo si es creación nueva
+        if (!payload.contrasena) {
           toast.warning('La contrasena es obligatoria para crear un administrador.');
           return;
         }
@@ -261,6 +306,51 @@ function Administradores() {
     }
   };
 
+  const handleAgregarRol = async ({ persona }) => {
+    setGuardandoAgregarRol(true);
+    try {
+      await createUsuario({
+        id_usuario_existente: Number(persona.id_usuario ?? persona.id),
+        roles: ['admin'],
+        nombre: persona.nombre || '',
+        apellido: persona.apellido || '',
+        dni: persona.dni || '',
+        telefono: persona.telefono || '',
+        cargo: 'Administrador',
+      });
+      toast.success('Rol "Administrador" asignado correctamente.');
+      setMostrarAgregarRol(false);
+      fetchUsuarios();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al asignar rol');
+    } finally {
+      setGuardandoAgregarRol(false);
+    }
+  };
+
+  const cargarPersonasConRol = async () => {
+    try {
+      const data = await getUsuariosConRol('admin');
+      setPersonasConRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al cargar administradores');
+    }
+  };
+
+  const handleQuitarRol = async (persona) => {
+    setQuitandoRol(true);
+    try {
+      await quitarRolUsuario(Number(persona.id_usuario), 'admin');
+      toast.success('Rol "Administrador" quitado correctamente.');
+      setMostrarQuitarRol(false);
+      fetchUsuarios();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al quitar rol');
+    } finally {
+      setQuitandoRol(false);
+    }
+  };
+
   if (loading) {
     return <LoadingScreen text="Cargando administradores" />;
   }
@@ -269,32 +359,6 @@ function Administradores() {
     <FormModal title={editingUsuario ? 'Editar Administrador' : 'Nuevo Administrador'} onClose={cerrarModal}>
       <form onSubmit={handleSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
-          {!editingUsuario && (
-            <ModoCreacionPersona
-              personas={personasDisponibles}
-              formData={formData}
-              setFormData={setFormData}
-              editing={editingUsuario}
-              label="Modo de creación"
-              onPersonaChange={(modo, id) => {
-                if (modo === 'existente' && id) {
-                  const persona = personasDisponibles.find((p) => String(p.id) === String(id));
-                  if (persona) {
-                    setFormData((prev) => ({
-                      ...prev,
-                      nombre: persona.nombre || '',
-                      apellido: persona.apellido || '',
-                      dni: persona.dni || '',
-                      telefono: persona.telefono || '',
-                    }));
-                  }
-                } else if (modo === 'nuevo') {
-                  setFormData((prev) => ({ ...prev, nombre: '', apellido: '', dni: '', telefono: '' }));
-                }
-              }}
-            />
-          )}
-          
           <section className="preceptor-form-section">
             <h4>Datos de acceso</h4>
             <div className="preceptor-form-row preceptor-form-row--two">
@@ -306,7 +370,7 @@ function Administradores() {
                   value={formData.usuario}
                   onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
                   required
-                  disabled={!!editingUsuario || (!editingUsuario && formData.modo_creacion === 'existente')}
+                  disabled={!!editingUsuario}
                 />
               </div>
 
@@ -319,8 +383,7 @@ function Administradores() {
                   id="contrasena"
                   value={formData.contrasena}
                   onChange={(e) => setFormData({ ...formData, contrasena: e.target.value })}
-                  required={!editingUsuario && formData.modo_creacion === 'nuevo'}
-                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
+                  required={!editingUsuario}
                 />
               </div>
             </div>
@@ -375,7 +438,7 @@ function Administradores() {
                   value={formData.nombre}
                   onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   required
-                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
+                  
                 />
               </div>
 
@@ -387,7 +450,7 @@ function Administradores() {
                   value={formData.apellido}
                   onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
                   required
-                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
+                  
                 />
               </div>
             </div>
@@ -401,7 +464,7 @@ function Administradores() {
                   value={formData.dni}
                   onChange={(e) => setFormData({ ...formData, dni: formatDNI(e.target.value) })}
                   required
-                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
+                  
                 />
               </div>
 
@@ -412,7 +475,7 @@ function Administradores() {
                   id="telefono"
                   value={formData.telefono}
                   onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                  disabled={!editingUsuario && formData.modo_creacion === 'existente'}
+                  
                 />
               </div>
             </div>
@@ -447,9 +510,32 @@ function Administradores() {
     <div className="card">
       <div className="card-header-flex">
         <h3>Administradores</h3>
-        <button type="button" className="btn btn-primary" onClick={handleCreate}>
-          <i className="fas fa-plus" aria-hidden="true" /> Nuevo Administrador
-        </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="btn btn-outline-primary"
+            onClick={() => {
+              cargarPersonas();
+              setMostrarAgregarRol(true);
+            }}
+          >
+            <i className="fas fa-user-tag" aria-hidden="true" /> Agregar rol
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-danger"
+            onClick={() => {
+              cargarPersonasConRol();
+              setMostrarQuitarRol(true);
+            }}
+          >
+            <i className="fas fa-user-minus" aria-hidden="true" /> Quitar rol
+          </button>
+          <span className="header-actions-sep" aria-hidden="true" />
+          <button type="button" className="btn btn-primary" onClick={handleCreate}>
+            <i className="fas fa-plus" aria-hidden="true" /> Nuevo Administrador
+          </button>
+        </div>
       </div>
 
       <div className="empty-state-message flex-gap-16--wrap mb-12">
@@ -538,6 +624,27 @@ function Administradores() {
 
       {showModal && renderFormulario()}
 
+      {mostrarAgregarRol && (
+        <AgregarRolModal
+          titulo="Agregar rol: administrador"
+          subtitulo="Seleccioná una persona existente para asignarle el rol. Se reutilizará su mismo usuario: no se crean usuarios y no se sobrescriben roles."
+          personas={personasParaAgregarRol}
+          onClose={() => setMostrarAgregarRol(false)}
+          onAgregar={handleAgregarRol}
+          guardando={guardandoAgregarRol}
+        />
+      )}
+
+      {mostrarQuitarRol && (
+        <QuitarRolModal
+          titulo="Quitar rol: administrador"
+          subtitulo="Seleccioná una persona para quitarle el rol. Se eliminará únicamente la asignación de este rol; el usuario, la persona y sus otros roles permanecerán intactos."
+          personas={personasConRol}
+          onClose={() => setMostrarQuitarRol(false)}
+          onQuitar={handleQuitarRol}
+          quitando={quitandoRol}
+        />
+      )}
     </div>
   );
 }

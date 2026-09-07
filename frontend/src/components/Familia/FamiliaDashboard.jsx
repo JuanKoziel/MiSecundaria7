@@ -29,10 +29,9 @@ function FamiliaDashboard({ user, onLogout }) {
   const nombreCompletoTutor = miTutor ? `${miTutor.apellido}, ${miTutor.nombre}` : null;
 
   const hijos = useMemo(() => {
-    const filtered = miTutor
-      ? hijosFamilia.filter((h) => h.id_tutor === miTutor.id_tutor)
-      : hijosFamilia;
-    return filtered.map((hijo) => {
+    // `hijosFamilia` ya contiene solo los hijos vinculados a los usuarios de
+    // la familia (backend filtra por la relación N:M tutor-alumno).
+    return hijosFamilia.map((hijo) => {
       const alumno = getAlumnoById(hijo.alumnoId);
       return {
         ...hijo,
@@ -40,7 +39,7 @@ function FamiliaDashboard({ user, onLogout }) {
         dni: alumno?.dni ?? '—',
       };
     });
-  }, [hijosFamilia, getAlumnoById, nombreCompleto, miTutor]);
+  }, [hijosFamilia, getAlumnoById, nombreCompleto]);
 
   const [hijoId, setHijoId] = useState(() => hijos.length > 0 ? String(hijos[0].id) : '');
 

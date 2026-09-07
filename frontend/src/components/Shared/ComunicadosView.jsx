@@ -100,7 +100,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
 
         const miTutor = padresTutores.find((pt) => pt.id_usuario === userId);
         if (!miTutor) return [];
-        const misHijos = alumnos.filter((a) => a.id_tutor === miTutor.id_tutor);
+        const misHijos = alumnos;
         const cursosHijos = misHijos
           .map((h) => cursosObj.find((c) => c.id_curso === h.id_curso))
           .filter(Boolean);

@@ -208,6 +208,33 @@ class Alumno(models.Model):
         return f'{self.apellido}, {self.nombre}'
 
 
+class TutorAlumno(models.Model):
+    """Vinculación N:M entre tutores/familia y alumnos.
+
+    Permite que un alumno tenga varios tutores (ej. mamá y papá) y que un
+    tutor gestione a varios alumnos. Es la fuente de verdad para saber qué
+    alumnos ve cada familia. La columna ``alumnos.id_tutor`` se conserva como
+    "tutor principal" para compatibilidad con lecturas previas."""
+
+    id = models.AutoField(primary_key=True)
+    id_tutor = models.ForeignKey(
+        PadreTutor, on_delete=models.CASCADE, db_column='id_tutor',
+        primary_key=False,
+    )
+    id_alumno = models.ForeignKey(
+        Alumno, on_delete=models.CASCADE, db_column='id_alumno',
+        primary_key=False,
+    )
+
+    class Meta:
+        managed = False
+        db_table = 'tutor_alumno'
+        unique_together = (('id_tutor', 'id_alumno'),)
+
+    def __str__(self):
+        return f'{self.id_tutor_id} -> {self.id_alumno_id}'
+
+
 class Docente(models.Model):
     id_docente = models.AutoField(primary_key=True)
     id_usuario = models.OneToOneField(

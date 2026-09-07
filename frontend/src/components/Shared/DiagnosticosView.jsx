@@ -57,7 +57,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
         // Fallback: mostrar todos los diagnósticos de los hijos
         const miTutor = padresTutores.find((pt) => pt.id_usuario === userId);
         if (!miTutor) return [];
-        const misHijos = alumnos.filter((a) => a.id_tutor === miTutor.id_tutor);
+        const misHijos = alumnos;
         const cursosHijos = new Set(misHijos.map((h) => h.id_curso).filter(Boolean));
 
         const filtered = diagnosticos.filter((d) => cursosHijos.has(d.id_curso));

@@ -2,8 +2,8 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
-import ModoCreacionPersona from '../../components/Shared/ModoCreacionPersona';
-import PersonaSelector from '../../components/Shared/PersonaSelector';
+import AgregarRolModal from '../../components/Shared/AgregarRolModal';
+import QuitarRolModal from '../../components/Shared/QuitarRolModal';
 import {
   createPreceptor,
   deletePreceptor,
@@ -12,7 +12,11 @@ import {
   getDocentes,
   getDirectivos,
   getUsuarios,
+  getUsuariosConRol,
+  getUsuariosSinRol,
+  quitarRolUsuario,
 } from '../../services/api';
+import { getCursos } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingScreen from '../Shared/LoadingScreen';
@@ -115,58 +119,71 @@ function Preceptores({ rol = 'preceptor' }) {
   const [success, setSuccess] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [personasDisponibles, setPersonasDisponibles] = useState([]);
+  const [mostrarAgregarRol, setMostrarAgregarRol] = useState(false);
+  const [guardandoAgregarRol, setGuardandoAgregarRol] = useState(false);
+  const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
+  const [quitandoRol, setQuitandoRol] = useState(false);
+  const [personasConRol, setPersonasConRol] = useState([]);
 
   // Fetch personas disponibles para Jefe de Preceptores
   const cargarPersonasDisponibles = useMemo(() => {
-    const personas = [];
-    (docentes || []).forEach((d) => {
-      personas.push({
-        id: d.id_usuario,
-        tipo: 'docente',
-        label: `${d.apellido}, ${d.nombre} (Docente)`,
-        dni: d.dni,
-        nombre: d.nombre,
-        apellido: d.apellido,
-        email: d.correo,
-        usuario: d.usuario || '',
-      });
-    });
-    if (esJefe) {
-      (listaPreceptores || []).forEach((p) => {
-        if (p.id_usuario && p.usuario) {
-          personas.push({
-            id: p.id_usuario,
-            tipo: 'preceptor',
-            label: `${p.apellido}, ${p.nombre} (Preceptor)`,
-            dni: p.dni,
-            nombre: p.nombre,
-            apellido: p.apellido,
-            email: p.correo,
-            usuario: p.usuario || '',
-          });
-        }
-      });
-    }
-    (administradores || []).forEach((a) => {
-      if (a.id_usuario) {
-        personas.push({
-          id: a.id_usuario,
-          tipo: 'administrador',
-          label: `${a.apellido}, ${a.nombre} (Administrador)`,
-          dni: a.dni,
-          nombre: a.nombre,
-          apellido: a.apellido,
-          email: a.correo,
-          usuario: a.usuario || '',
+    const personasMap = new Map();
+    const agregar = (list, tipo) => (list || []).forEach((p) => {
+      if (p.id_usuario && !personasMap.has(p.id_usuario)) {
+        personasMap.set(p.id_usuario, {
+          id: p.id_usuario,
+          tipo,
+          label: `${p.apellido}, ${p.nombre} (${tipo})`,
+          dni: p.dni,
+          nombre: p.nombre,
+          apellido: p.apellido,
+          email: p.correo,
+          usuario: p.usuario || '',
         });
       }
     });
-    return personas;
+    agregar(docentes, 'Docente');
+    if (esJefe) {
+      agregar(listaPreceptores, 'Preceptor');
+    }
+    agregar(administradores, 'Administrador');
+    return Array.from(personasMap.values());
   }, [docentes, listaPreceptores, administradores, esJefe]);
 
   useEffect(() => {
     setPersonasDisponibles(cargarPersonasDisponibles);
   }, [cargarPersonasDisponibles]);
+
+  // Estado para personas sin el rol (cargado desde backend)
+  const [personasParaAgregarRol, setPersonasParaAgregarRol] = useState([]);
+  const [cargandoPersonasSinRol, setCargandoPersonasSinRol] = useState(false);
+
+  const cargarPersonasSinRol = async () => {
+    setCargandoPersonasSinRol(true);
+    try {
+      const data = await getUsuariosSinRol(rol);
+      setPersonasParaAgregarRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(`Error al cargar personas: ${mensajeError(err)}`);
+    } finally {
+      setCargandoPersonasSinRol(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarPersonasSinRol();
+  }, [rol]);
+
+  // Función para obtener cursos disponibles para asignar a preceptores
+  const fetchCursosParaPreceptor = async () => {
+    try {
+      const data = await getCursos({ activo: '1', estado: '1' });
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Error al cargar cursos:', err);
+      return [];
+    }
+  };
 
   const filteredPreceptores = useMemo(() => {
     if (!searchTerm) return preceptores;
@@ -209,7 +226,7 @@ function Preceptores({ rol = 'preceptor' }) {
 
   const abrirCrear = () => {
     setEditingPreceptor(null);
-    setFormData({ ...formVacio, modo_creacion: esJefe ? 'existente' : 'nuevo' });
+    setFormData({ ...formVacio, modo_creacion: 'nuevo' });
     setError('');
     setSuccess('');
     setShowModal(true);
@@ -276,25 +293,12 @@ function Preceptores({ rol = 'preceptor' }) {
     setGuardando(true);
 
     try {
-      const esPersonaExistente = !editingPreceptor && formData.modo_creacion === 'existente';
-      const usaPersonaExistente = esPersonaExistente && formData.id_usuario_existente;
-
       const payload = {
         ...formData,
         cursos_ids: normalizarCursosIds(formData.cursos_ids),
         fecha_deshabilitacion_programada: formData.fecha_deshabilitacion_programada || null,
         fecha_habilitacion_programada: formData.fecha_habilitacion_programada || null,
       };
-
-      // Si es persona existente, reutilizar el usuario (no se tocan credenciales)
-      if (usaPersonaExistente) {
-        payload.id_usuario_existente = Number(formData.id_usuario_existente);
-        delete payload.contrasena;
-        delete payload.usuario_nombre;
-        delete payload.estado;
-        delete payload.fecha_deshabilitacion_programada;
-        delete payload.fecha_habilitacion_programada;
-      }
       // El Jefe de Preceptores no se vincula a un Curso.id_preceptor: su alcance es dinámico a todos los cursos.
       if (esJefe) {
         payload.cursos_ids = [];
@@ -309,8 +313,8 @@ function Preceptores({ rol = 'preceptor' }) {
         delete payload.estado;
       }
 
-      // Validar contraseña solo si es creación nueva (no persona existente)
-      if (!editingPreceptor && !esPersonaExistente && !payload.contrasena) {
+      // Validar contraseña solo si es creación nueva
+      if (!editingPreceptor && !payload.contrasena) {
         toast.warning(`La contrasena es obligatoria para crear un ${entidad}.`);
         setGuardando(false);
         return;
@@ -351,6 +355,51 @@ function Preceptores({ rol = 'preceptor' }) {
     });
   };
 
+  const handleAgregarRol = async ({ persona, asignaciones }) => {
+    setGuardandoAgregarRol(true);
+    try {
+      await createPreceptor({
+        id_usuario_existente: Number(persona.id_usuario ?? persona.id),
+        nombre: persona.nombre || '',
+        apellido: persona.apellido || '',
+        dni: persona.dni || '',
+        cursos_ids: asignaciones.cursos_ids || [],
+      }, rol);
+      toast.success(`Rol "${etiquetaSingular}" asignado correctamente.`);
+      setMostrarAgregarRol(false);
+      await fetchPreceptores();
+      await refreshData();
+    } catch (err) {
+      toast.error(`Error al asignar rol: ${mensajeError(err)}`);
+    } finally {
+      setGuardandoAgregarRol(false);
+    }
+  };
+
+  const cargarPersonasConRol = async () => {
+    try {
+      const data = await getUsuariosConRol(rol);
+      setPersonasConRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(`Error al cargar personas: ${mensajeError(err)}`);
+    }
+  };
+
+  const handleQuitarRol = async (persona) => {
+    setQuitandoRol(true);
+    try {
+      await quitarRolUsuario(Number(persona.id_usuario), rol);
+      toast.success(`Rol "${etiquetaSingular}" quitado correctamente.`);
+      setMostrarQuitarRol(false);
+      await fetchPreceptores();
+      await refreshData();
+    } catch (err) {
+      toast.error(`Error al quitar rol: ${mensajeError(err)}`);
+    } finally {
+      setQuitandoRol(false);
+    }
+  };
+
   if (loading) {
     return <LoadingScreen text={`Cargando ${entidad}`} />;
   }
@@ -359,31 +408,6 @@ function Preceptores({ rol = 'preceptor' }) {
     <FormModal title={editingPreceptor ? `Editar ${etiquetaSingular}` : `Nuevo ${etiquetaSingular}`} onClose={cerrarFormulario}>
       <form onSubmit={handleSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
-{!editingPreceptor && (
-            <ModoCreacionPersona
-              personas={personasDisponibles}
-              formData={formData}
-              setFormData={setFormData}
-              editing={editingPreceptor}
-              label="Modo de creación"
-              onPersonaChange={(modo, id) => {
-                if (modo === 'existente' && id) {
-                  const persona = personasDisponibles.find((p) => String(p.id) === String(id));
-                  if (persona) {
-                    setFormData((prev) => ({
-                      ...prev,
-                      nombre: persona.nombre || '',
-                      apellido: persona.apellido || '',
-                      dni: persona.dni || '',
-                      usuario_nombre: persona.usuario || '',
-                    }));
-                  }
-                } else if (modo === 'nuevo') {
-                  setFormData((prev) => ({ ...prev, nombre: '', apellido: '', dni: '', usuario_nombre: '' }));
-                }
-              }}
-            />
-          )}
           <section className="preceptor-form-section">
             <h4>Datos de acceso</h4>
             <div className="preceptor-form-row preceptor-form-row--two">
@@ -395,7 +419,6 @@ function Preceptores({ rol = 'preceptor' }) {
                   value={formData.usuario_nombre}
                   onChange={(e) => setFormData((prev) => ({ ...prev, usuario_nombre: e.target.value }))}
                   required
-                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
 
@@ -408,8 +431,7 @@ function Preceptores({ rol = 'preceptor' }) {
                   type="password"
                   value={formData.contrasena}
                   onChange={(e) => setFormData((prev) => ({ ...prev, contrasena: e.target.value }))}
-                  required={!editingPreceptor && formData.modo_creacion === 'nuevo'}
-                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
+                  required={!editingPreceptor}
                 />
               </div>
             </div>
@@ -474,7 +496,6 @@ function Preceptores({ rol = 'preceptor' }) {
                   value={formData.nombre}
                   onChange={(e) => setFormData((prev) => ({ ...prev, nombre: e.target.value }))}
                   required
-                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
 
@@ -486,7 +507,6 @@ function Preceptores({ rol = 'preceptor' }) {
                   value={formData.apellido}
                   onChange={(e) => setFormData((prev) => ({ ...prev, apellido: e.target.value }))}
                   required
-                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
             </div>
@@ -500,7 +520,6 @@ function Preceptores({ rol = 'preceptor' }) {
                   value={formData.dni}
                   onChange={(e) => setFormData((prev) => ({ ...prev, dni: formatDNI(e.target.value) }))}
                   required
-                  disabled={!editingPreceptor && formData.modo_creacion === 'existente'}
                 />
               </div>
 
@@ -579,9 +598,25 @@ function Preceptores({ rol = 'preceptor' }) {
     <div className="card">
       <div className="card-header-flex">
         <h3>{etiquetaPlural}</h3>
-        <button type="button" className="btn btn-primary" onClick={abrirCrear}>
-          <i className="fas fa-plus" aria-hidden="true" /> Nuevo {etiquetaSingular}
-        </button>
+        <div className="header-actions">
+          <button type="button" className="btn btn-outline-primary" onClick={() => setMostrarAgregarRol(true)}>
+            <i className="fas fa-user-tag" aria-hidden="true" /> Agregar rol
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-danger"
+            onClick={() => {
+              cargarPersonasConRol();
+              setMostrarQuitarRol(true);
+            }}
+          >
+            <i className="fas fa-user-minus" aria-hidden="true" /> Quitar rol
+          </button>
+          <span className="header-actions-sep" aria-hidden="true" />
+          <button type="button" className="btn btn-primary" onClick={abrirCrear}>
+            <i className="fas fa-plus" aria-hidden="true" /> Nuevo {etiquetaSingular}
+          </button>
+        </div>
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
@@ -681,6 +716,30 @@ function Preceptores({ rol = 'preceptor' }) {
       </div>
 
       {showModal && renderFormulario()}
+
+      {mostrarAgregarRol && (
+        <AgregarRolModal
+          titulo={`Agregar rol: ${entidad}`}
+          subtitulo={`Seleccioná una persona existente para asignarle el rol "${etiquetaSingular}". Se reutilizará su mismo usuario: no se crean usuarios y no se sobrescriben roles.`}
+          personas={personasParaAgregarRol}
+          onClose={() => setMostrarAgregarRol(false)}
+          onAgregar={handleAgregarRol}
+          guardando={guardandoAgregarRol}
+          rol={rol}
+          fetchAssignmentsFn={fetchCursosParaPreceptor}
+        />
+      )}
+
+      {mostrarQuitarRol && (
+        <QuitarRolModal
+          titulo={`Quitar rol: ${entidad}`}
+          subtitulo={`Seleccioná una persona para quitarle el rol "${etiquetaSingular}". Se eliminará únicamente la asignación de este rol; el usuario, la persona y sus otros roles permanecerán intactos.`}
+          personas={personasConRol}
+          onClose={() => setMostrarQuitarRol(false)}
+          onQuitar={handleQuitarRol}
+          quitando={quitandoRol}
+        />
+      )}
     </div>
   );
 }

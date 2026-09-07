@@ -40,6 +40,17 @@ function claveMateriaDocente(materia, docenteNombre, docenteApellido) {
   return `${materia}|${docenteNombre}|${docenteApellido}`;
 }
 
+function separarDocente(completo = '') {
+  const texto = String(completo || '').trim();
+  if (!texto) return { nombre: '', apellido: '' };
+  const indice = texto.indexOf(',');
+  if (indice === -1) return { nombre: texto, apellido: '' };
+  return {
+    apellido: texto.slice(0, indice).trim(),
+    nombre: texto.slice(indice + 1).trim(),
+  };
+}
+
 function ActividadesView({ userRole, selectedChild }) {
   const { alumnos, cursosObj, cursoMateria } = useData();
   const { user } = useAuth();
@@ -74,18 +85,19 @@ function ActividadesView({ userRole, selectedChild }) {
     cursoMateria
       .filter((cm) => Number(cm.id_curso) === Number(cursoId))
       .forEach((cm) => {
+        const { nombre, apellido } = separarDocente(cm.docente_nombre);
         const key = claveMateriaDocente(
           cm.materia_nombre || 'Sin materia',
-          cm.docente_nombre || '',
-          cm.docente_apellido || ''
+          nombre,
+          apellido
         );
         if (!mapa.has(key)) {
           mapa.set(key, {
             id: key,
             materia: cm.materia_nombre || 'Sin materia',
-            docente: cm.docente_apellido ? `${cm.docente_apellido}, ${cm.docente_nombre}` : 'Sin docente',
-            docenteNombre: cm.docente_nombre,
-            docenteApellido: cm.docente_apellido,
+            docente: apellido ? `${apellido}, ${nombre}` : (nombre ? nombre : 'Sin docente'),
+            docenteNombre: nombre,
+            docenteApellido: apellido,
             materiaNombre: cm.materia_nombre,
           });
         }
