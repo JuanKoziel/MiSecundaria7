@@ -398,6 +398,7 @@ function Comunicados() {
       <div className="card mt-20">
         <div className="card-header-flex">
           <h3>Comunicados enviados</h3>
+          <span className="badge badge-neutral">{listaFiltrada.length}</span>
         </div>
 
         <div className="filter-row">
@@ -466,45 +467,66 @@ function Comunicados() {
             No hay comunicados en este momento.
           </p>
         ) : (
-          <div className="familia-comunicados-list">
+          <div className="comunicados-admin-list">
             {listaFiltrada.map((c) => (
-              <article key={c.id || c.id_comunicado} className="familia-comunicado-item">
-                <div className="familia-comunicado-meta">
-                  <span className="badge role-badge-display">
-                    {c.fecha ? new Date(c.fecha).toLocaleString('es-AR') : 'Sin fecha'}
-                  </span>
-                  <h4>{c.titulo}</h4>
-                  <span className="empty-state-message">
-                    {c.alcance_label || cursoConOrientacion(c.curso) || c.curso}
-                    {c.materia ? ` · ${c.materia}` : ''}
-                  </span>
-                  <span className="empty-state-message">
-                    Creador: {c.creador_nombre || `Usuario #${c.id_usuario_creador || '—'}`}
-                  </span>
+              <article key={c.id || c.id_comunicado} className="comunicado-card">
+                <div className="comunicado-card-icon">
+                  <i className="fas fa-bullhorn" aria-hidden="true" />
                 </div>
-                <p>{c.cuerpo || c.descripcion}</p>
-                {c.archivos?.length > 0 && (
-                  <div className="comunicado-archivos">
-                    {c.archivos.map((a) => (
-                      <a
-                        key={a.id}
-                        href={`${API_BASE}${a.ruta_archivo}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-success table-download-btn"
-                      >
-                        <i className="fas fa-paperclip" aria-hidden="true" /> Archivo
-                      </a>
-                    ))}
+                <div className="comunicado-card-body">
+                  <div className="comunicado-card-head">
+                    <h4>{c.titulo}</h4>
+                    <span className="comunicado-card-fecha">
+                      {c.fecha ? new Date(c.fecha).toLocaleString('es-AR') : 'Sin fecha'}
+                    </span>
                   </div>
-                )}
-                <button
-                  type="button"
-                  className="btn-link-danger"
-                  onClick={() => handleBorrar(c.id || c.id_comunicado)}
-                >
-                  <i className="fas fa-trash" aria-hidden="true" /> Borrar
-                </button>
+                  <p>{c.cuerpo || c.descripcion}</p>
+                  <div className="comunicado-card-tags">
+                    <span className="comunicado-tag comunicado-tag--destino">
+                      <i className="fas fa-crosshairs" aria-hidden="true" />
+                      {c.alcance_label || cursoConOrientacion(c.curso) || c.curso || 'General'}
+                    </span>
+                    {c.materia && (
+                      <span className="comunicado-tag">
+                        <i className="fas fa-book" aria-hidden="true" /> {c.materia}
+                      </span>
+                    )}
+                    <span className="comunicado-tag">
+                      <i className="fas fa-user" aria-hidden="true" />
+                      {c.creador_nombre || `Usuario #${c.id_usuario_creador || '—'}`}
+                    </span>
+                    {c.archivos?.length > 0 && (
+                      <span className="comunicado-tag">
+                        <i className="fas fa-paperclip" aria-hidden="true" />
+                        {c.archivos.length} {c.archivos.length === 1 ? 'archivo' : 'archivos'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="comunicado-card-actions">
+                    {c.archivos?.length > 0 && (
+                      <div className="comunicado-adjuntos">
+                        {c.archivos.map((a) => (
+                          <a
+                            key={a.id}
+                            href={`${API_BASE}${a.ruta_archivo}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="comunicado-descargar"
+                          >
+                            <i className="fas fa-download" aria-hidden="true" /> Descargar adjunto
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-link-danger"
+                      onClick={() => handleBorrar(c.id || c.id_comunicado)}
+                    >
+                      <i className="fas fa-trash" aria-hidden="true" /> Borrar
+                    </button>
+                  </div>
+                </div>
               </article>
             ))}
           </div>

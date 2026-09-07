@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { formatDNI } from '../../utils/dni';
+import ProfileBanner from '../Shared/ProfileBanner';
 
 function StatCard({ icon, value, label, color }) {
   return (
@@ -53,12 +54,12 @@ function PanelPreceptor({ miPreceptor }) {
 
   return (
     <div className="card">
-      <div className="card-header-flex card-header-flex--compact">
-        <h3>Perfil del Preceptor</h3>
-        <span className={`badge badge--header ${stats.estado === 'Activo' ? 'badge-presente' : 'badge-ausente'}`}>
-          <i className={`fas ${stats.estado === 'Activo' ? 'fa-check-circle' : 'fa-exclamation-circle'}`} aria-hidden="true" /> {stats.estado}
-        </span>
-      </div>
+      <ProfileBanner
+        icon="fa-user-tie"
+        nombre={`${miPreceptor.apellido}, ${miPreceptor.nombre}`}
+        rol="Preceptor"
+        estado={stats.estado}
+      />
 
       <div className="profile-grid">
         <div>

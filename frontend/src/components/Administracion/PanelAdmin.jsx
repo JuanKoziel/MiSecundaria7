@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { formatDNI } from '../../utils/dni';
+import ProfileBanner from '../Shared/ProfileBanner';
 
 function StatCard({ icon, value, label, color }) {
   return (
@@ -48,12 +49,12 @@ function PanelAdmin({ miDirectivo, user }) {
 
   return (
     <div className="card">
-      <div className="card-header-flex card-header-flex--compact">
-        <h3>{rolLabel === 'Director' ? 'Perfil del Director' : 'Perfil del Administrador'}</h3>
-        <span className="badge badge-presente badge--header">
-          <i className="fas fa-check-circle" aria-hidden="true" /> Activo
-        </span>
-      </div>
+      <ProfileBanner
+        icon="fa-user-shield"
+        nombre={`${miDirectivo.apellido}, ${miDirectivo.nombre}`}
+        rol={rolLabel}
+        estado="Activo"
+      />
 
       <div className="profile-grid">
         <div>
@@ -78,7 +79,7 @@ function PanelAdmin({ miDirectivo, user }) {
         )}
         <div>
           <label className="profile-label">Usuario</label>
-          <p className="profile-value">{miDirectivo ? `${miDirectivo.apellido}, ${miDirectivo.nombre}` : (user?.username || '—')}</p>
+          <p className="profile-value">{user?.username || `${miDirectivo.apellido}, ${miDirectivo.nombre}`}</p>
         </div>
         <div>
           <label className="profile-label">Rol</label>

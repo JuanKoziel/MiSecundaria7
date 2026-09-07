@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import { uploadMiDdjjDocente } from '../../services/api';
 import { formatDNI } from '../../utils/dni';
 import { useToast } from '../../context/ToastContext';
+import ProfileBanner from '../Shared/ProfileBanner';
 
 function StatCard({ icon, value, label, color }) {
   return (
@@ -135,19 +136,14 @@ function PanelDocente({ miDocente, mapSuplencias }) {
 
   return (
     <div className="card">
-      <div className="card-header-flex card-header-flex--compact">
-        <h3>Perfil del Docente</h3>
-        <span className={`badge badge--header ${stats.estado === 'Activo' ? 'badge-presente' : 'badge-ausente'}`}>
-          <i className={`fas ${stats.estado === 'Activo' ? 'fa-check-circle' : 'fa-exclamation-circle'}`} aria-hidden="true" /> {stats.estado}
-        </span>
-      </div>
+      <ProfileBanner
+        icon="fa-chalkboard-teacher"
+        nombre={`${miDocente.apellido}, ${miDocente.nombre}`}
+        rol="Docente"
+        estado={stats.estado}
+      />
 
-      <div className="profile-grid" style={{
-          background: '#f8f9fa',
-          padding: '20px',
-          borderRadius: '8px',
-          borderLeft: '4px solid var(--primary-color)',
-        }}>
+      <div className="profile-grid">
         <div>
           <label className="profile-label">
             Nombre Completo

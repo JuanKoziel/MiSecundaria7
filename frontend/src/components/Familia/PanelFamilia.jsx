@@ -1,5 +1,6 @@
 import { formatDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
+import ProfileBanner from '../Shared/ProfileBanner';
 
 function StatCard({ icon, value, label, color }) {
   return (
@@ -30,12 +31,12 @@ function PanelFamilia({ miTutor, user, hijos }) {
 
   return (
     <div className="card">
-      <div className="card-header-flex mb-20">
-        <h3>Perfil del Tutor</h3>
-        <span className="badge badge-presente badge--header">
-          <i className="fas fa-check-circle" aria-hidden="true" /> Activo
-        </span>
-      </div>
+      <ProfileBanner
+        icon="fa-user-tie"
+        nombre={`${miTutor.apellido}, ${miTutor.nombre}`}
+        rol={miTutor.tipo || 'Tutor'}
+        estado="Activo"
+      />
 
       <div className="profile-grid">
         <div>
