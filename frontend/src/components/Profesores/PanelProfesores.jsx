@@ -8,27 +8,43 @@ import PanelPlanif from './PanelPlanif';
 import PanelLibroTemas from './PanelLibroTemas';
 import PanelAsistencia from './PanelAsistencia';
 import PanelActividades from './PanelActividades';
-import Actas from '../Preceptores/actas';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import PanelMateriasAdeudadasDocente from './PanelMateriasAdeudadasDocente';
+import ActasDocente from './ActasDocente';
 import { useData } from '../../context/DataContext';
 import { getSuplencias } from '../../services/api';
 import { suplenciasActivasEnFecha } from '../../utils/suplencias';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function PanelProfesores({ user, onLogout }) {
-  const { docentes, cursoMateria, cursosObj, navIntent } = useData();
-  const [cursoId, setCursoId] = useState('');
-  const [materiaSeleccionada, setMateriaSeleccionada] = useState('');
+  const { 
+    docentes, 
+    cursoMateria, 
+    cursosObj, 
+    navIntent,
+    selectedCursoId,
+    selectedMateria,
+    selectedCursoMateriaId,
+    setSeleccionCursoMateria,
+    clearSeleccionCursoMateria,
+  } = useData();
   const [seccionActiva, setSeccionActiva] = useState('docente');
-  const [cursoComunicados, setCursoComunicados] = useState('');
-  const [cursoDiagnosticos, setCursoDiagnosticos] = useState('');
-  const [anioActas, setAnioActas] = useState('');
-  const [cursoActas, setCursoActas] = useState('');
   const [suplencias, setSuplencias] = useState([]);
+
+  // Usar estado global para curso y materia
+  const cursoId = selectedCursoId;
+  const materiaSeleccionada = selectedMateria;
+  
+  const handleCursoChange = (nuevoId) => {
+    setSeleccionCursoMateria(nuevoId, '', '');
+  };
+  
+  const handleMateriaChange = (materia, cursoMateriaId) => {
+    setSeleccionCursoMateria(cursoId, materia, cursoMateriaId);
+  };
 
   // Parte 8: manejar navegación desde notificaciones.
   // Traduce el destino semántico a una sección válida del panel docente.
@@ -38,18 +54,6 @@ function PanelProfesores({ user, onLogout }) {
       if (vista) setSeccionActiva(vista);
     }
   }, [navIntent]);
-
-  const handleAnioActasChange = (nuevoAnio) => {
-    setAnioActas(nuevoAnio);
-    setCursoActas('');
-  };
-
-  const actasFiltrosProps = {
-    anioLectivo: anioActas,
-    curso: cursoActas,
-    onAnioChange: handleAnioActasChange,
-    onCursoChange: setCursoActas,
-  };
 
   useEffect(() => {
     let activo = true;
@@ -139,11 +143,6 @@ function PanelProfesores({ user, onLogout }) {
 
   const cursoNombre = misCursos.find((c) => String(c.id_curso) === cursoId)?.nombre || '';
 
-  const handleCursoChange = (nuevoId) => {
-    setCursoId(nuevoId);
-    setMateriaSeleccionada('');
-  };
-
   return (
     <div className="dashboard-layout">
       <Sidebar
@@ -155,54 +154,12 @@ function PanelProfesores({ user, onLogout }) {
       <main className="main-content">
         <TopHeader
           user={user}
-          cursoSeleccionado={cursoNombre}
-          materiaSeleccionada={materiaSeleccionada}
           nombreCompleto={nombreCompletoDocente}
+          onLogout={onLogout}
         />
 
-        {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && seccionActiva !== 'comunicados' && seccionActiva !== 'info' && seccionActiva !== 'calendario' && seccionActiva !== 'actas' && (
-          <div className="card">
-            <div className="filter-row">
-              <div className="form-group-filter">
-                <label htmlFor="curso-select">Curso Activo</label>
-                <select
-                  id="curso-select"
-                  value={cursoId}
-                  onChange={(e) => handleCursoChange(e.target.value)}
-                >
-                  <option value="" disabled hidden>
-                    Seleccione un curso...
-                  </option>
-                  {misCursos.map((c) => (
-                    <option key={c.id_curso} value={String(c.id_curso)}>
-                      {c.nombre} ({c.anio})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {cursoId && (
-              <div className="materias-wrapper">
-                <h3>Mis Materias</h3>
-                <div className="materias-grid">
-                  {materiasCurso.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className={`materia-btn ${materiaSeleccionada === m.materia ? 'active-materia' : ''}`}
-                      onClick={() => setMateriaSeleccionada(m.materia)}
-                    >
-                      {m.materia}
-                      {m.esSuplente && (
-                        <span className="badge badge-warning" style={{ marginLeft: '8px' }}>Suplencia</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
+        {seccionActiva !== 'docente' && seccionActiva !== 'notificaciones' && seccionActiva !== 'comunicados' && seccionActiva !== 'calendario' && seccionActiva !== 'actas' && (
+          <div>
             {cursoMateriaActivo && cursoMateriaActivo.suplenciaActiva && !cursoMateriaActivo.esSuplente && (
               <div
                 style={{
@@ -238,51 +195,13 @@ function PanelProfesores({ user, onLogout }) {
           </div>
         ) : seccionActiva === 'comunicados' ? (
           <div className="view-section active">
-            <div className="card">
-              <div className="filter-row">
-                <div className="form-group-filter">
-                  <label htmlFor="comunicados-curso">Filtrar por curso</label>
-                  <select
-                    id="comunicados-curso"
-                    value={cursoComunicados}
-                    onChange={(e) => setCursoComunicados(e.target.value)}
-                  >
-                    <option value="">Todos los cursos</option>
-                    {misCursos.map((c) => (
-                      <option key={c.id_curso} value={String(c.id_curso)}>
-                        {c.nombre} ({c.anio})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-            <ComunicadosView userRole="docente" cursoSeleccionado={cursoComunicados} />
+            <ComunicadosView userRole="docente" cursoSeleccionado={cursoId} />
           </div>
         ) : seccionActiva === 'info' ? (
           <div className="view-section active">
-            <div className="card">
-              <div className="filter-row">
-                <div className="form-group-filter">
-                  <label htmlFor="diagnosticos-curso">Filtrar por curso</label>
-                  <select
-                    id="diagnosticos-curso"
-                    value={cursoDiagnosticos}
-                    onChange={(e) => setCursoDiagnosticos(e.target.value)}
-                  >
-                    <option value="">Todos los cursos</option>
-                    {misCursos.map((c) => (
-                      <option key={c.id_curso} value={String(c.id_curso)}>
-                        {c.nombre} ({c.anio})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-            <DiagnosticosView
-              userRole="docente"
-              cursoSeleccionado={cursoDiagnosticos}
+            <DiagnosticosView 
+              userRole="docente" 
+              cursoSeleccionado={cursoId}
               cursosEditables={cursosEditables}
             />
           </div>
@@ -296,7 +215,12 @@ function PanelProfesores({ user, onLogout }) {
           </div>
         ) : seccionActiva === 'actas' ? (
           <div className="view-section active">
-            <Actas {...actasFiltrosProps} />
+            <ActasDocente 
+              docenteId={miDocente?.id}
+              cursoId={cursoId ? Number(cursoId) : null}
+              materiaSeleccionada={materiaSeleccionada}
+              misAsignaciones={misAsignaciones}
+            />
           </div>
         ) : cursoId && materiaSeleccionada && cursoMateriaActivo ? (
           <div>

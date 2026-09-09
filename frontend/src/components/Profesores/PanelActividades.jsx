@@ -462,7 +462,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
     <div className="card">
       <div className="card-header-flex">
         <div>
-          <h3>Actividades — {materiaNombre} ({cursoNombre})</h3>
+          <h3>Actividades</h3>
           <p className="empty-state-message" style={{ margin: '6px 0 0' }}>
             Gestioná actividades para esta materia y curso.
           </p>

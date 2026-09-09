@@ -407,10 +407,10 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
     }
   };
 
-  return (
+return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Planilla de Calificaciones — {cursoNombre} &gt; {materiaNombre}</h3>
+        <h3>Planilla de Calificaciones</h3>
         {puedeEditar && (
           <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
             <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Calificaciones'}

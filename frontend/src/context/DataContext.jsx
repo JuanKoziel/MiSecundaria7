@@ -119,6 +119,23 @@ export function DataProvider({ children }) {
   const [navIntent, setNavIntent] = useState(null);
   const hasLoadedRef = useRef(false);
 
+  // Selector global de curso y materia para el panel docente
+  const [selectedCursoId, setSelectedCursoId] = useState('');
+  const [selectedMateria, setSelectedMateria] = useState('');
+  const [selectedCursoMateriaId, setSelectedCursoMateriaId] = useState('');
+
+  const setSeleccionCursoMateria = useCallback((cursoId, materia, cursoMateriaId) => {
+    setSelectedCursoId(cursoId || '');
+    setSelectedMateria(materia || '');
+    setSelectedCursoMateriaId(cursoMateriaId || '');
+  }, []);
+
+  const clearSeleccionCursoMateria = useCallback(() => {
+    setSelectedCursoId('');
+    setSelectedMateria('');
+    setSelectedCursoMateriaId('');
+  }, []);
+
   // Parte 16/17: notificaciones nuevas en tiempo de sesión.
   // Conjunto de ids cargados inicialmente (no deben disparar toast) y lista de
   // notificaciones realmente nuevas detectadas por el sondeo.
@@ -799,6 +816,12 @@ export function DataProvider({ children }) {
       nuevasNotificaciones,
       descartarNueva,
       campanaPulse,
+      // Selector global curso/materia
+      selectedCursoId,
+      selectedMateria,
+      selectedCursoMateriaId,
+      setSeleccionCursoMateria,
+      clearSeleccionCursoMateria,
     }}>
       {children}
     </DataContext.Provider>
@@ -869,6 +892,12 @@ export function useData() {
       nuevasNotificaciones: [],
       descartarNueva: () => {},
       campanaPulse: 0,
+      // Selector global curso/materia
+      selectedCursoId: '',
+      selectedMateria: '',
+      selectedCursoMateriaId: '',
+      setSeleccionCursoMateria: () => {},
+      clearSeleccionCursoMateria: () => {},
     };
   }
   return {
@@ -888,5 +917,11 @@ export function useData() {
     nuevasNotificaciones: ctx.nuevasNotificaciones,
     descartarNueva: ctx.descartarNueva,
     campanaPulse: ctx.campanaPulse,
+    // Selector global curso/materia
+    selectedCursoId: ctx.selectedCursoId,
+    selectedMateria: ctx.selectedMateria,
+    selectedCursoMateriaId: ctx.selectedCursoMateriaId,
+    setSeleccionCursoMateria: ctx.setSeleccionCursoMateria,
+    clearSeleccionCursoMateria: ctx.clearSeleccionCursoMateria,
   };
 }

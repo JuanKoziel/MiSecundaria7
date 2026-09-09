@@ -158,7 +158,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
   if (cargando) {
     return (
       <div className="card">
-        <h3>Planilla de Asistencia — {cursoNombre}</h3>
+        <h3>Planilla de Asistencia</h3>
         <p>Obteniendo información del servidor...</p>
       </div>
     );
@@ -222,7 +222,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Planilla de Asistencia — {cursoNombre}</h3>
+        <h3>Planilla de Asistencia</h3>
         <div className="flex-row">
           <button
             type="button"

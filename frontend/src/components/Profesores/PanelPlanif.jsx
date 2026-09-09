@@ -194,7 +194,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Proyectos — {materiaNombre} ({cursoNombre})</h3>
+        <h3>Proyectos</h3>
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
