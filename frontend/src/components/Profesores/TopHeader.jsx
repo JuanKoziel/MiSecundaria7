@@ -38,8 +38,13 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
   }, [cursoMateria, cursosObj, miDocente]);
 
   const inicial = user?.username ? user.username.charAt(0) : 'U';
+  const iniciales = useMemo(() => {
+    const n = (miDocente?.nombre || '').trim().charAt(0) || '';
+    const a = (miDocente?.apellido || '').trim().charAt(0) || '';
+    return (n + a).toUpperCase() || inicial;
+  }, [miDocente]);
   const rol = user?.role ? user.role.toUpperCase() : 'DOCENTE';
-  const saludo = nombreCompleto ? `Bienvenido, ${nombreCompleto}` : `Bienvenido, ${user?.username ?? 'Usuario'}`;
+  const nombre = nombreCompleto || user?.username || 'Usuario';
 
   // Materias disponibles para el curso seleccionado
   const materiasDelCurso = useMemo(() => {
@@ -51,11 +56,6 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
         nombre: cm.materia_nombre,
       }));
   }, [cursoMateria, selectedCursoId, miDocente]);
-
-  const cursoSeleccionadoObj = useMemo(
-    () => misCursos.find((c) => String(c.id_curso) === String(selectedCursoId)),
-    [misCursos, selectedCursoId]
-  );
 
   const handleCursoChange = (e) => {
     const nuevoId = e.target.value;
@@ -69,30 +69,20 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
   };
 
   return (
-    <header className="main-header">
+    <header className="main-header main-header--dark">
       <div className="main-header-left">
         <div className="main-header-greeting">
-          <h2>{saludo}</h2>
-          <p className="main-header-subtitle">
-            {cursoSeleccionadoObj ? (
-              <>
-                {cursoSeleccionadoObj.nombre}
-                {selectedMateria && (
-                  <>
-                    {' > '}
-                    <span className="font-accent">{selectedMateria}</span>
-                  </>
-                )}
-              </>
-            ) : (
-              'Panel de Gestión Docente — seleccioná curso y materia'
-            )}
-          </p>
+          <h2>
+            <span className="greeting-saludo">Bienvenido:</span>{' '}
+            <span className="greeting-nombre">{nombre}</span>
+          </h2>
         </div>
 
         <div className="main-header-selectors">
           <div className="selector-group">
-            <label htmlFor="global-curso-select" className="selector-label">Curso</label>
+            <label htmlFor="global-curso-select" className="selector-label">
+              <i className="fas fa-school" aria-hidden="true" /> Curso
+            </label>
             <select
               id="global-curso-select"
               className="global-select"
@@ -113,7 +103,9 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
 
           {selectedCursoId && (
             <div className="selector-group">
-              <label htmlFor="global-materia-select" className="selector-label">Materia</label>
+              <label htmlFor="global-materia-select" className="selector-label">
+                <i className="fas fa-book-open" aria-hidden="true" /> Materia
+              </label>
               <select
                 id="global-materia-select"
                 className="global-select"
@@ -146,9 +138,14 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
         </div>
       </div>
 
-      <div className="user-profile-info">
-        <span className="badge role-badge-display">{rol}</span>
-        <div className="user-avatar">{inicial}</div>
+      <div className="user-profile-info user-profile-card">
+        <div className="user-avatar-wrap">
+          <div className="user-avatar">{iniciales}</div>
+        </div>
+        <span className="badge role-badge-display">
+          <span className="role-dot" aria-hidden="true" />
+          {rol}
+        </span>
       </div>
     </header>
   );
