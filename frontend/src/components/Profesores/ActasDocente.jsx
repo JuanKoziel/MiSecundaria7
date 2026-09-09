@@ -356,8 +356,10 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Actas</h3>
-        <span className="badge badge-info">Materia: {materiaSeleccionada || 'Todas'}</span>
+        <h3><i className="fas fa-file-signature" aria-hidden="true" /> Actas</h3>
+        <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
+          <i className="fas fa-plus" aria-hidden="true" /> Nueva Acta
+        </button>
       </div>
 
       {mensaje && !editando && !showNewForm && (
@@ -365,12 +367,6 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
           {mensaje}
         </div>
       )}
-
-      <div className="flex-row--end mb-16">
-        <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
-          <i className="fas fa-plus" aria-hidden="true" /> Nueva Acta
-        </button>
-      </div>
 
       {showNewForm && (
         <FormActa
@@ -392,7 +388,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
 
       {/* Actas de Estudiantes */}
       <div className="card-header-flex mt-20">
-        <h4 className="preceptor-section-title">Actas de Estudiantes</h4>
+        <h4 className="preceptor-section-title"><i className="fas fa-user-graduate" aria-hidden="true" /> Actas de Estudiantes</h4>
         <button type="button" className="btn btn-secondary" onClick={() => setShowAlumnos((v) => !v)}>
           <i className={`fas fa-eye${showAlumnos ? '-slash' : ''}`} aria-hidden="true" /> {showAlumnos ? 'Ocultar' : 'Mostrar'}
         </button>
@@ -457,7 +453,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
 
       {/* Actas de Curso */}
       <div className="card-header-flex mt-20">
-        <h4 className="preceptor-section-title">Actas de Curso</h4>
+        <h4 className="preceptor-section-title"><i className="fas fa-school" aria-hidden="true" /> Actas de Curso</h4>
         <button type="button" className="btn btn-secondary" onClick={() => setShowCurso((v) => !v)}>
           <i className={`fas fa-eye${showCurso ? '-slash' : ''}`} aria-hidden="true" /> {showCurso ? 'Ocultar' : 'Mostrar'}
         </button>

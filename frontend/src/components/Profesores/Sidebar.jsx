@@ -13,22 +13,22 @@ function Sidebar({ view, setView, onLogout }) {
     setExpandedSection(willExpand ? sectionId : null);
 
     if (willExpand && menuWrapperRef.current) {
-      // Wait for the DOM to update (animation) then scroll
-      requestAnimationFrame(() => {
-        const sectionHeader = menuWrapperRef.current.querySelector(
-          `[data-section-id="${sectionId}"]`
-        );
-        if (sectionHeader) {
-          const wrapper = menuWrapperRef.current;
-          const headerRect = sectionHeader.getBoundingClientRect();
-          const wrapperRect = wrapper.getBoundingClientRect();
-          
-          // Check if header is visible, if not scroll to it
-          if (headerRect.bottom > wrapperRect.bottom || headerRect.top < wrapperRect.top) {
-            sectionHeader.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          }
+      // Esperar a que termine la animación del acordeón y luego ajustar el
+      // scroll para que se vea todo el contenido abierto y el siguiente
+      // desplegable quede visible.
+      setTimeout(() => {
+        const wrapper = menuWrapperRef.current;
+        if (!wrapper) return;
+        const sectionHeader = wrapper.querySelector(`[data-section-id="${sectionId}"]`);
+        if (!sectionHeader) return;
+
+        const nextSection = sectionHeader.nextElementSibling;
+        if (nextSection) {
+          nextSection.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        } else {
+          sectionHeader.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
-      });
+      }, 280);
     }
   };
 

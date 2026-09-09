@@ -194,7 +194,13 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Proyectos</h3>
+        <h3><i className="fas fa-project-diagram" aria-hidden="true" /> Proyectos</h3>
+        {puedeEditar && (
+          <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
+            <i className={`fas fa-${showNewForm ? 'minus' : 'plus'}`} aria-hidden="true" />{' '}
+            {showNewForm ? 'Cerrar' : 'Crear proyecto'}
+          </button>
+        )}
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
@@ -215,15 +221,6 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
           <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
           Esta materia está asignada temporalmente a un docente suplente. Los proyectos son de solo lectura hasta que finalice la suplencia.
         </p>
-      )}
-
-      {puedeEditar && (
-        <div className="flex-row--end mb-16">
-          <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
-            <i className={`fas fa-${showNewForm ? 'minus' : 'plus'}`} aria-hidden="true" />{' '}
-            {showNewForm ? 'Cerrar' : 'Crear proyecto'}
-          </button>
-        </div>
       )}
 
       {showNewForm && (

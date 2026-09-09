@@ -202,40 +202,6 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
 
   return (
     <div>
-      {userRole === 'docente' && (
-        <div className="card mb-16">
-          <div className="card-header-flex">
-            <h3>Nuevo Diagnóstico Grupal</h3>
-            {puedeCrear && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setShowCreateForm(true)}
-              >
-                <i className="fas fa-plus" aria-hidden="true" /> Crear
-              </button>
-            )}
-          </div>
-          {!puedeCrear && (
-            <p
-              style={{
-                background: '#fff4cf',
-                borderLeft: '4px solid #d97706',
-                borderRadius: '8px',
-                padding: '10px 14px',
-                fontSize: '0.9rem',
-                color: '#854d0e',
-                lineHeight: '1.6',
-                margin: '0 0 12px',
-              }}
-            >
-              <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
-              No podés crear diagnósticos para estos cursos mientras existan suplencias activas.
-            </p>
-          )}
-        </div>
-      )}
-
       {showCreateForm && (
         <FormModal title="Nuevo Diagnóstico Grupal" onClose={() => {
           setShowCreateForm(false);
@@ -305,11 +271,35 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
 
       <div className="card">
         <div className="card-header-flex">
-          <h3>Información General (Diagnósticos)</h3>
-          <span className="badge role-badge-display">
-            {userRole === 'docente' ? 'Crear y visualizar' : 'Solo lectura'}
-          </span>
+          <h3><i className="fas fa-clipboard-check" aria-hidden="true" /> Diagnósticos</h3>
+          {userRole === 'docente' && puedeCrear && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowCreateForm(true)}
+            >
+              <i className="fas fa-plus" aria-hidden="true" /> Crear
+            </button>
+          )}
         </div>
+
+        {userRole === 'docente' && !puedeCrear && (
+          <p
+            style={{
+              background: '#fff4cf',
+              borderLeft: '4px solid #d97706',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              fontSize: '0.9rem',
+              color: '#854d0e',
+              lineHeight: '1.6',
+              margin: '0 0 16px',
+            }}
+          >
+            <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+            No podés crear diagnósticos para estos cursos mientras existan suplencias activas.
+          </p>
+        )}
 
         {diagnosticosOrdenados.length === 0 ? (
           <p className="empty-state-message empty-state-centered">

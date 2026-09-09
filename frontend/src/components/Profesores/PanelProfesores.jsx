@@ -12,7 +12,6 @@ import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
-import PanelMateriasAdeudadasDocente from './PanelMateriasAdeudadasDocente';
 import ActasDocente from './ActasDocente';
 import { useData } from '../../context/DataContext';
 import { getSuplencias } from '../../services/api';
@@ -185,14 +184,6 @@ function PanelProfesores({ user, onLogout }) {
           <div className="view-section active">
             <Notificaciones userRole="docente" />
           </div>
-        ) : seccionActiva === 'materias-adeudadas' ? (
-          <div className="view-section active">
-            <PanelMateriasAdeudadasDocente
-              misAsignaciones={misAsignaciones}
-              misCursos={misCursos}
-              cursosObj={cursosObj}
-            />
-          </div>
         ) : seccionActiva === 'comunicados' ? (
           <div className="view-section active">
             <ComunicadosView userRole="docente" cursoSeleccionado={cursoId} />
@@ -277,6 +268,9 @@ function PanelProfesores({ user, onLogout }) {
                   materiaNombre={materiaSeleccionada}
                   cursoNombre={cursoNombre}
                   puedeEditar={cursoMateriaActivo.puedeEditar}
+                  misAsignaciones={misAsignaciones}
+                  misCursos={misCursos}
+                  cursosObj={cursosObj}
                 />
               )}
             </div>

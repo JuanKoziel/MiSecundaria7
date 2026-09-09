@@ -170,7 +170,7 @@ function Notificaciones({ userRole, selectedChild }) {
     return (
       <div className="card">
         <div className="card-header-flex">
-          <h3>Notificaciones</h3>
+          <h3><i className="fas fa-bell" aria-hidden="true" /> Notificaciones</h3>
         </div>
 
         <div className="tabs-container">
@@ -207,7 +207,7 @@ function Notificaciones({ userRole, selectedChild }) {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Notificaciones</h3>
+        <h3><i className="fas fa-bell" aria-hidden="true" /> Notificaciones</h3>
       </div>
       <div className="tab-content">{renderLista()}</div>
     </div>

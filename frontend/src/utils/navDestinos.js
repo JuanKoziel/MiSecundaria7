@@ -39,7 +39,7 @@ const MAPA_POR_ROL = {
     comunicados: 'comunicados',
     actas: 'actas',
     eventos: 'calendario',
-    materias_adeudadas: 'materias-adeudadas',
+    materias_adeudadas: 'actividades',
     // Las suplencias asignadas se consultan en el panel del docente
     // (PanelDocente lista sus suplencias). Los adelantos no tienen apartado
     // en este rol, por lo que quedan sin navegación.

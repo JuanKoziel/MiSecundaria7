@@ -19,8 +19,6 @@ function mensajeError(err) {
 }
 
 function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }) {
-  const [cursoId, setCursoId] = useState('');
-  const [materiaNombre, setMateriaNombre] = useState('');
   const toast = useToast();
 
   // Intensificaciones state
@@ -35,10 +33,6 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
   const [editingId, setEditingId] = useState(null);
   const [archivoActual, setArchivoActual] = useState(null);
   const [loadingAct, setLoadingAct] = useState(false);
-
-  const cursoMateriaObj = misAsignaciones.find(
-    (cm) => String(cm.id_curso) === String(cursoId) && cm.materia_nombre === materiaNombre
-  );
 
   const modalCursoMateriaObj = misAsignaciones.find(
     (cm) => String(cm.id_curso) === String(modalCursoId) && cm.materia_nombre === modalMateriaNombre
@@ -70,14 +64,6 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
   const modalMateriasFiltradas = misAsignaciones
     .filter((cm) => String(cm.id_curso) === String(modalCursoId))
     .map((cm) => cm.materia_nombre);
-
-  const materiasFiltradas = misAsignaciones
-    .filter((cm) => String(cm.id_curso) === String(cursoId))
-    .map((cm) => cm.materia_nombre);
-
-  const actividadesVisibles = cursoMateriaObj
-    ? actividades.filter((a) => a.id_curso_materia === cursoMateriaObj.id)
-    : actividades;
 
   const abrirModalNueva = () => {
     setEditingId(null);
@@ -181,10 +167,8 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
 
   return (
     <div className="card">
-      <h2>Materias Adeudadas e Intensificaciones</h2>
-      <p className="text-muted">Gestión de actividades de intensificación.</p>
-
-      <div className="flex-row--end mb-16">
+      <div className="card-header-flex">
+        <h3><i className="fas fa-book-medical" aria-hidden="true" /> Materias Adeudadas e Intensificaciones</h3>
         <button
           type="button"
           className="btn btn-primary"
@@ -193,30 +177,7 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
           <i className="fas fa-plus" aria-hidden="true" /> Nueva intensificación
         </button>
       </div>
-
-      <div className="filter-row mb-16">
-        <div className="form-group-filter">
-          <label>Filtrar por Curso</label>
-          <select value={cursoId} onChange={(e) => { setCursoId(e.target.value); setMateriaNombre(''); }}>
-            <option value="">Seleccione curso...</option>
-            {misCursosOrdenados.map((c) => (
-              <option key={c.id_curso} value={String(c.id_curso)}>{c.nombre}</option>
-            ))}
-          </select>
-        </div>
-
-        {cursoId && (
-          <div className="form-group-filter">
-            <label>Filtrar por Materia</label>
-            <select value={materiaNombre} onChange={(e) => setMateriaNombre(e.target.value)}>
-              <option value="">Todas las materias</option>
-              {materiasFiltradas.map((mat, idx) => (
-                <option key={idx} value={mat}>{mat}</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
+      <p className="text-muted" style={{ margin: '-10px 0 20px' }}>Gestión de actividades de intensificación.</p>
 
       {showModal && (
         <FormModal title={editingId ? 'Editar intensificación' : 'Nueva intensificación'} onClose={cerrarModal}>
@@ -341,12 +302,12 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
             </tr>
           </thead>
           <tbody>
-            {actividadesVisibles.length === 0 ? (
+            {actividades.length === 0 ? (
               <tr>
                 <td colSpan={6} className="empty-state-message">No hay actividades de intensificación publicadas.</td>
               </tr>
             ) : (
-              actividadesVisibles.map((act) => (
+              actividades.map((act) => (
                 <tr key={act.id_actividad}>
                   <td><strong>{act.curso_nombre}</strong><br/>{act.materia_nombre}</td>
                   <td><span className="badge badge-warning">{act.periodo_intensificacion || 'Intensificación del primer cuatrimestre'}</span></td>

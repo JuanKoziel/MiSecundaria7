@@ -159,7 +159,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Libro de Temas</h3>
+        <h3><i className="fas fa-book-open" aria-hidden="true" /> Libro de Temas</h3>
         {!puedeCrear && (
           <span className="badge badge-neutral">Solo lectura</span>
         )}

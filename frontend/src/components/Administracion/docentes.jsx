@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { cursoConOrientacion } from '../../utils/orientacion';
@@ -43,7 +44,7 @@ function DdjjPreviewModal({ docente, onClose, onDelete }) {
     ? new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(docente.ddjj_fecha_carga))
     : null;
 
-  return (
+  return createPortal(
     <div className="ddjj-modal-overlay" role="presentation" onClick={onClose}>
       <div
         className="ddjj-modal"
@@ -117,7 +118,8 @@ function DdjjPreviewModal({ docente, onClose, onDelete }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

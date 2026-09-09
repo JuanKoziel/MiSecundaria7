@@ -410,7 +410,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
 return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Planilla de Calificaciones</h3>
+        <h3><i className="fas fa-clipboard-list" aria-hidden="true" /> Planilla de Calificaciones</h3>
         {puedeEditar && (
           <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
             <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Calificaciones'}
@@ -533,7 +533,7 @@ return (
 
       <div style={{ borderTop: '2px solid var(--border-color)', marginTop: '24px', paddingTop: '20px' }}>
         <div className="card-header-flex">
-          <h3>Intensificaciones</h3>
+          <h3><i className="fas fa-fire" aria-hidden="true" /> Intensificaciones</h3>
           {puedeEditar && intensificaciones.length > 0 && (
             <button type="button" className="btn btn-primary" onClick={handleGuardarIntensificaciones}>
               <i className="fas fa-save" aria-hidden="true" /> Guardar Intensificaciones
@@ -611,7 +611,7 @@ return (
 
       <div style={{ borderTop: '2px solid var(--border-color)', marginTop: '24px', paddingTop: '20px' }}>
         <div className="card-header-flex">
-          <h3>Previas</h3>
+          <h3><i className="fas fa-bookmark" aria-hidden="true" /> Previas</h3>
           {puedeEditar && previas.length > 0 && (
             <button type="button" className="btn btn-primary" onClick={handleGuardarPrevias}>
               <i className="fas fa-save" aria-hidden="true" /> Guardar Calificaciones de Previas

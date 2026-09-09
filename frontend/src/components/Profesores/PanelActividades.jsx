@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   createActividad,
   deleteActividad,
@@ -9,6 +10,7 @@ import {
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import LoadingSpinner from '../Shared/LoadingSpinner';
+import PanelMateriasAdeudadasDocente from './PanelMateriasAdeudadasDocente';
 
 const API_BASE = 'http://localhost:8000';
 const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif'];
@@ -140,7 +142,7 @@ function ModalActividad({ actividad, onClose }) {
     );
   };
 
-  return (
+  return createPortal(
     <div className="ddjj-modal-overlay" role="presentation" onClick={onClose}>
       <div
         className="ddjj-modal"
@@ -190,7 +192,8 @@ function ModalActividad({ actividad, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -223,7 +226,7 @@ function ModalFormularioActividad({
     setNuevosArchivos((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  return (
+  return createPortal(
     <div className="ddjj-modal-overlay" role="presentation" onClick={onClose}>
       <div
         className="standard-modal"
@@ -315,11 +318,12 @@ function ModalFormularioActividad({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
-function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, puedeEditar = true }) {
+function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, puedeEditar = true, misAsignaciones, misCursos, cursosObj }) {
   const toast = useToast();
   const [actividades, setActividades] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -459,10 +463,11 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
   };
 
   return (
+    <>
     <div className="card">
       <div className="card-header-flex">
         <div>
-          <h3>Actividades</h3>
+          <h3><i className="fas fa-tasks" aria-hidden="true" /> Actividades</h3>
           <p className="empty-state-message" style={{ margin: '6px 0 0' }}>
             Gestioná actividades para esta materia y curso.
           </p>
@@ -585,6 +590,13 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
         <ModalActividad actividad={actividadVista} onClose={() => setActividadVista(null)} />
       )}
     </div>
+
+    <PanelMateriasAdeudadasDocente
+      misAsignaciones={misAsignaciones}
+      misCursos={misCursos}
+      cursosObj={cursosObj}
+    />
+    </>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 const MENSAJE_DEFECTO = '¿Está seguro de que desea eliminar este registro?';
 const NOTA_DEFECTO = 'Esta acción ocultará el registro del sistema.';
@@ -37,7 +38,7 @@ export default function ConfirmDeleteModal({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="ddjj-modal-overlay"
       role="presentation"
@@ -78,6 +79,7 @@ export default function ConfirmDeleteModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

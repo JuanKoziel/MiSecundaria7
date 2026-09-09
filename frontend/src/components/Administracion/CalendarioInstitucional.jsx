@@ -253,7 +253,7 @@ function CalendarioInstitucional({ readOnly = false }) {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Calendario Institucional</h3>
+        <h3><i className="fas fa-calendar-alt" aria-hidden="true" /> Calendario Institucional</h3>
         {!readOnly && (
           <button type="button" className="btn btn-primary" onClick={() => abrirModalNuevo(diaSeleccionado || 1)}>
             <i className="fas fa-plus" aria-hidden="true" /> Nuevo Evento

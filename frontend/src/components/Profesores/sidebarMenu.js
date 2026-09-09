@@ -28,7 +28,6 @@ export const menuItems = [
     icon: 'fa-users',
     children: [
       { id: 'info', label: 'Diagnósticos grupales', icon: 'fa-info-circle' },
-      { id: 'materias-adeudadas', label: 'Materias adeudadas', icon: 'fa-exclamation-triangle' },
       { id: 'actas', label: 'Actas', icon: 'fa-file-signature' },
     ],
   },
