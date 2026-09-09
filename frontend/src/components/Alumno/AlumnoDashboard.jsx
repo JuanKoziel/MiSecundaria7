@@ -158,19 +158,42 @@ function AlumnoDashboard({ user, onLogout }) {
     return { total, ausencias, tardanzas, presentes };
   }, [misAsistencias]);
 
+  const iniciales = useMemo(() => {
+    const n = (miAlumno?.nombre || '').trim().charAt(0) || '';
+    const a = (miAlumno?.apellido || '').trim().charAt(0) || '';
+    return (n + a).toUpperCase() || 'E';
+  }, [miAlumno]);
+
   return (
     <div className="dashboard-layout">
       <Sidebar view={view} setView={setView} onLogout={onLogout} />
 
       <main className="main-content">
-        <header className="main-header">
-          <div>
-            <h1>{miAlumno ? `${miAlumno.nombre} ${miAlumno.apellido}` : 'Estudiante'}</h1>
-            <p className="main-header-subtitle">
-              {miAlumno ? `Curso: ${cursoConOrientacion(miAlumno.curso)}` : 'Portal del Estudiante'}
-            </p>
+        <header className="main-header main-header--dark">
+          <div className="main-header-left">
+            <div className="main-header-greeting">
+              <h2>
+                <span className="greeting-saludo">Bienvenido:</span>{' '}
+                <span className="greeting-nombre">
+                  {miAlumno ? `${miAlumno.nombre} ${miAlumno.apellido}` : 'Estudiante'}
+                </span>
+              </h2>
+              <p className="main-header-subtitle">
+                <i className="fas fa-school font-accent" aria-hidden="true" />
+                {miAlumno ? `Curso: ${cursoConOrientacion(miAlumno.curso)}` : 'Portal del Estudiante'}
+              </p>
+            </div>
           </div>
-          <span className="badge role-badge-display">Estudiante</span>
+
+          <div className="user-profile-info user-profile-card">
+            <div className="user-avatar-wrap">
+              <div className="user-avatar">{iniciales}</div>
+            </div>
+            <span className="badge role-badge-display">
+              <span className="role-dot" aria-hidden="true" />
+              Estudiante
+            </span>
+          </div>
         </header>
 
         {view === 'perfil' ? (
@@ -183,7 +206,9 @@ function AlumnoDashboard({ user, onLogout }) {
           </div>
         ) : view === 'horarios' ? (
           <div className="view-section active">
-            <VistaHorarios cursosOptions={cursosObj} cursoForzado={miAlumno?.id_curso} />
+            <div className="card mt-16">
+              <VistaHorarios cursosOptions={cursosObj} cursoForzado={miAlumno?.id_curso} mostrarTitulo />
+            </div>
           </div>
         ) : view === 'actividades' ? (
           <div className="view-section active">
@@ -212,7 +237,7 @@ function AlumnoDashboard({ user, onLogout }) {
             {view === 'calificaciones' && (
               <div className="card">
                 <div className="card-header-flex">
-                  <h3>Mis Calificaciones</h3>
+                  <h3><i className="fas fa-clipboard-list" aria-hidden="true" /> Mis Calificaciones</h3>
                   <button
                     type="button"
                     className="btn btn-sm btn-secondary"
@@ -268,6 +293,7 @@ function AlumnoDashboard({ user, onLogout }) {
                   alumnoId={miAlumno.id}
                   cursoMateria={cursoMateria}
                   idCurso={miAlumno.id_curso}
+                  userRole="alumno"
                 />
               </div>
             )}

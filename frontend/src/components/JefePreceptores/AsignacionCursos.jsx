@@ -120,7 +120,7 @@ function AsignacionCursos() {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Asignación de Cursos a Preceptores</h3>
+        <h3><i className="fas fa-calendar-alt" aria-hidden="true" /> Asignación de Cursos a Preceptores</h3>
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}

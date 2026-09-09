@@ -114,7 +114,7 @@ function PanelAlumno({ miAlumno, user, recursadas = [] }) {
       {recursadas && recursadas.length > 0 && (
       <>
         <div className="card-header-flex">
-          <h4>Cursando (Recursada)</h4>
+          <h4 className="preceptor-section-title"><i className="fas fa-redo" aria-hidden="true" /> Cursando (Recursada)</h4>
         </div>
 
         <div className="table-responsive mt-10">

@@ -204,7 +204,7 @@ function Materias() {
     <div className="card">
       <div className="card-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <h2 className="m-0">Materias</h2>
+          <h2 className="m-0"><i className="fas fa-book" aria-hidden="true" /> Materias</h2>
           <div className="tabs-container m-0">
             <button
               type="button"

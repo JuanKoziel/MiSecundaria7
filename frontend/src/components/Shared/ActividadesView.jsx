@@ -170,7 +170,7 @@ function ActividadesView({ userRole, selectedChild }) {
           >
             <i className="fas fa-arrow-left" aria-hidden="true" /> Volver
           </button>
-          <h3>Detalle de la Actividad</h3>
+          <h3><i className="fas fa-tasks" aria-hidden="true" /> Detalle de la Actividad</h3>
         </div>
 
         <div className="mt-16">
@@ -367,8 +367,8 @@ function ActividadesView({ userRole, selectedChild }) {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Actividades</h3>
-        <span className="badge role-badge-display">Solo lectura</span>
+        <h3><i className="fas fa-tasks" aria-hidden="true" /> Actividades</h3>
+        {userRole !== 'alumno' && <span className="badge role-badge-display">Solo lectura</span>}
       </div>
 
       {cursoNombre && (

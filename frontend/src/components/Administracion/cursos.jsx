@@ -182,7 +182,7 @@ function Cursos() {
   return (
     <div className="card">
       <div className="card-header">
-        <h2>Gestión de Cursos</h2>
+        <h2><i className="fas fa-school" aria-hidden="true" /> Gestión de Cursos</h2>
       </div>
       <div className="card-body">
         {error && <div className="alert alert-danger">{error}</div>}

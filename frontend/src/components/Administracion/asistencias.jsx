@@ -142,7 +142,7 @@ function Asistencias() {
       {!serverInfo?.evento_activo && (
       <>
       <div className="card-header-flex">
-        <h3>Control de Asistencia</h3>
+        <h3><i className="fas fa-user-check" aria-hidden="true" /> Control de Asistencia</h3>
         <span className="badge role-badge-display">Solo lectura</span>
       </div>
 

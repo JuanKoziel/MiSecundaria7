@@ -41,7 +41,7 @@ function SupervisionPreceptores() {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Supervisión de Preceptores</h3>
+        <h3><i className="fas fa-user-shield" aria-hidden="true" /> Supervisión de Preceptores</h3>
         <span className="badge role-badge-display">Solo lectura</span>
       </div>
 

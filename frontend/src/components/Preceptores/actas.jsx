@@ -15,7 +15,6 @@ import {
   deleteActaDocente,
   uploadFile,
 } from '../../services/api';
-import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
@@ -380,9 +379,6 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   if (!filtrosCompletos(anioLectivo, curso)) {
     return (
       <div>
-        <div className="card">
-          <FiltrosAnioCurso anioLectivo={anioLectivo} curso={curso} onAnioChange={onAnioChange} onCursoChange={onCursoChange} />
-        </div>
         <EmptyFiltros />
       </div>
     );
@@ -390,8 +386,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
   return (
     <div className="card">
-      <FiltrosAnioCurso anioLectivo={anioLectivo} curso={curso} onAnioChange={onAnioChange} onCursoChange={onCursoChange} />
-      <h3>Actas — {curso} ({anioLectivo})</h3>
+      <h3><i className="fas fa-file-signature" aria-hidden="true" /> Actas</h3>
 
       {mensaje && !editando && !showNewForm && (
         <div className={`alert ${mensaje.startsWith('Error') ? 'alert-danger' : 'alert-success'}`}>

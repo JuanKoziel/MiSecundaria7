@@ -94,7 +94,7 @@ function Notas() {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Calificaciones — {curso} {' > '} {materia}</h3>
+        <h3><i className="fas fa-graduation-cap" aria-hidden="true" /> Calificaciones — {curso} {' > '} {materia}</h3>
         <span className="badge role-badge-display">Solo lectura</span>
       </div>
 

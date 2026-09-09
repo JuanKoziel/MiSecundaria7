@@ -128,7 +128,7 @@ function AsignacionMaterias() {
 
   return (
     <div className="card">
-      <div className="card-header"><h2>Asignación de Materias a Cursos</h2></div>
+      <div className="card-header"><h2><i className="fas fa-book-open" aria-hidden="true" /> Asignación de Materias a Cursos</h2></div>
       <div className="card-body">
         {error && <div className="alert alert-danger">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}

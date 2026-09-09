@@ -279,7 +279,7 @@ function Docentes() {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Docentes</h3>
+        <h3><i className="fas fa-chalkboard-teacher" aria-hidden="true" /> Docentes</h3>
       </div>
 
       <div className="mb-12">

@@ -424,7 +424,7 @@ function Suplencias() {
   return (
     <div className="card">
       <div className="card-header">
-        <h2 className="m-0">Suplencias Docentes</h2>
+        <h2 className="m-0"><i className="fas fa-user-clock" aria-hidden="true" /> Suplencias Docentes</h2>
       </div>
       <div className="card-body">
         <GestionSuplencias />

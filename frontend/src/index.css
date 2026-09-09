@@ -458,6 +458,10 @@ body {
     font-size: 0.95rem;
 }
 
+.sidebar-section-header span {
+    flex: 1;
+}
+
 .sidebar-section-header::before {
     content: '';
     position: absolute;

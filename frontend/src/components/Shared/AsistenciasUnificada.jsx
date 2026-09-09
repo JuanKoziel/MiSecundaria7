@@ -59,7 +59,7 @@ function combinarEstados(estados) {
   return estados[0];
 }
 
-export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso }) {
+export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, userRole }) {
   const [materiaId, setMateriaId] = useState('');
   const [asistencias, setAsistencias] = useState([]);
   const [cargando, setCargando] = useState(false);
@@ -145,13 +145,13 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso }
   return (
     <div>
       <div className="card-header-flex">
-        <h3>Asistencias</h3>
-        <span className="badge role-badge-display">Solo lectura</span>
+        <h3><i className="fas fa-calendar-check" aria-hidden="true" /> Asistencias</h3>
+        {userRole !== 'alumno' && <span className="badge role-badge-display">Solo lectura</span>}
       </div>
 
       <div className="card mt-16">
         <div className="card-header-flex">
-          <h4>Resumen reciente (últimos 7 días)</h4>
+          <h4><i className="fas fa-chart-line icon-muted" aria-hidden="true" /> Resumen reciente (últimos 7 días)</h4>
           <div className="flex-row">
             <span className={`badge ${ESTADO_BADGES[estadoHoy] || 'badge-pendiente'}`}>
               <i className={`fas ${
@@ -188,7 +188,7 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso }
 
       <div className="card mt-16">
         <div className="card-header-flex">
-          <h4>Detalle por materia</h4>
+          <h4><i className="fas fa-layer-group icon-muted" aria-hidden="true" /> Detalle por materia</h4>
         </div>
 
         <div className="form-group-filter mb-16">
@@ -205,9 +205,7 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso }
           </select>
         </div>
 
-        {!materiaId ? (
-          <p className="empty-state-message">Seleccione una materia para ver sus asistencias.</p>
-        ) : cargando ? (
+        {!materiaId ? null : cargando ? (
           <LoadingSpinner text="Cargando asistencias..." size="sm" inline />
         ) : asistencias.length === 0 ? (
           <p className="empty-state-message">No hay asistencias registradas para esta materia.</p>

@@ -516,7 +516,7 @@ const handleSubmit = async (e) => {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Administradores</h3>
+        <h3><i className="fas fa-user-shield" aria-hidden="true" /> Administradores</h3>
         <div className="header-actions">
           <button
             type="button"

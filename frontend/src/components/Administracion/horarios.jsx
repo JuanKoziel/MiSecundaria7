@@ -25,10 +25,12 @@ function timeStr(value) {
   return s.slice(0, 5);
 }
 
-function HorarioSemanal({ cursosOptions }) {
+function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = '' }) {
   const { modulos } = useData();
   const toast = useToast();
-  const [cursoSeleccionado, setCursoSeleccionado] = useState('');
+  const [cursoIdLocal, setCursoIdLocal] = useState('');
+  const cursoSeleccionado = esControlado ? cursoIdExterno : cursoIdLocal;
+  const setCursoSeleccionado = esControlado ? () => {} : setCursoIdLocal;
   const [materiasCurso, setMateriasCurso] = useState([]);
   const [celdas, setCeldas] = useState({});
   const [originalCeldas, setOriginalCeldas] = useState({});
@@ -170,21 +172,23 @@ function HorarioSemanal({ cursosOptions }) {
 
   return (
     <div>
-      <div className="filter-row">
-        <div className="form-group-filter" style={{ maxWidth: '320px' }}>
-          <label htmlFor="hs-curso">Curso</label>
-          <select
-            id="hs-curso"
-            value={cursoSeleccionado}
-            onChange={(e) => setCursoSeleccionado(e.target.value)}
-          >
-            <option value="">— Seleccionar curso —</option>
-            {cursosOptions.map((c) => (
-              <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
-            ))}
-          </select>
+      {!esControlado && (
+        <div className="filter-row">
+          <div className="form-group-filter" style={{ maxWidth: '320px' }}>
+            <label htmlFor="hs-curso">Curso</label>
+            <select
+              id="hs-curso"
+              value={cursoSeleccionado}
+              onChange={(e) => setCursoSeleccionado(e.target.value)}
+            >
+              <option value="">— Seleccionar curso —</option>
+              {cursosOptions.map((c) => (
+                <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      )}
 
       {mensaje && (
         <p className="form-error-message" style={{ color: mensaje.includes('correctamente') ? '#155724' : undefined }}>
@@ -261,9 +265,11 @@ function HorarioSemanal({ cursosOptions }) {
   );
 }
 
-function EducacionFisica({ cursosOptions }) {
+function EducacionFisica({ cursosOptions, esControlado = false, cursoIdExterno = '' }) {
   const toast = useToast();
-  const [cursoSeleccionado, setCursoSeleccionado] = useState('');
+  const [cursoIdLocal, setCursoIdLocal] = useState('');
+  const cursoSeleccionado = esControlado ? cursoIdExterno : cursoIdLocal;
+  const setCursoSeleccionado = esControlado ? () => {} : setCursoIdLocal;
   const [horarios, setHorarios] = useState([]);
   const [cmEf, setCmEf] = useState(null);
   const [form, setForm] = useState(null);
@@ -393,21 +399,23 @@ function EducacionFisica({ cursosOptions }) {
 
   return (
     <div>
-      <div className="filter-row">
-        <div className="form-group-filter" style={{ maxWidth: '320px' }}>
-          <label htmlFor="ef-curso">Curso</label>
-          <select
-            id="ef-curso"
-            value={cursoSeleccionado}
-            onChange={(e) => { setCursoSeleccionado(e.target.value); resetForm(); }}
-          >
-            <option value="">— Seleccionar curso —</option>
-            {cursosOptions.map((c) => (
-              <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
-            ))}
-          </select>
+      {!esControlado && (
+        <div className="filter-row">
+          <div className="form-group-filter" style={{ maxWidth: '320px' }}>
+            <label htmlFor="ef-curso">Curso</label>
+            <select
+              id="ef-curso"
+              value={cursoSeleccionado}
+              onChange={(e) => { setCursoSeleccionado(e.target.value); resetForm(); }}
+            >
+              <option value="">— Seleccionar curso —</option>
+              {cursosOptions.map((c) => (
+                <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      )}
 
       {mensaje && (
         <p className="form-error-message" style={{ color: mensaje.includes('Error') ? undefined : '#155724' }}>
@@ -544,7 +552,7 @@ function EducacionFisica({ cursosOptions }) {
   );
 }
 
-function Horarios() {
+function Horarios({ esControlado = false, cursoGlobal = '' }) {
   const { cursosObj } = useData();
   const [modo, setModo] = useState('semanal');
 
@@ -553,10 +561,16 @@ function Horarios() {
     return [...cursosObj].sort((a, b) => (a.nombre_curso || '').localeCompare(b.nombre_curso || ''));
   }, [cursosObj]);
 
+  const cursoIdExterno = useMemo(() => {
+    if (!cursoGlobal) return '';
+    const c = cursosObj.find((x) => String(x.nombre_curso) === String(cursoGlobal));
+    return c ? String(c.id_curso) : '';
+  }, [cursoGlobal, cursosObj]);
+
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Horarios</h3>
+        <h3><i className="fas fa-calendar-alt" aria-hidden="true" /> Horarios</h3>
       </div>
 
       <div className="filter-row mb-20">
@@ -588,9 +602,15 @@ function Horarios() {
         </div>
       </div>
 
-      {modo === 'semanal' && <HorarioSemanal cursosOptions={cursosOptions} />}
-      {modo === 'ef' && <EducacionFisica cursosOptions={cursosOptions} />}
-      {modo === 'ver' && <VistaHorarios cursosOptions={cursosOptions} />}
+      {modo === 'semanal' && <HorarioSemanal cursosOptions={cursosOptions} esControlado={esControlado} cursoIdExterno={cursoIdExterno} />}
+      {modo === 'ef' && <EducacionFisica cursosOptions={cursosOptions} esControlado={esControlado} cursoIdExterno={cursoIdExterno} />}
+      {modo === 'ver' && (
+        <VistaHorarios
+          cursosOptions={cursosOptions}
+          cursoForzado={esControlado ? cursoIdExterno : undefined}
+          mostrarTitulo={false}
+        />
+      )}
     </div>
   );
 }

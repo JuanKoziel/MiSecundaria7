@@ -1076,7 +1076,7 @@ onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
       )}
       {readOnly && (
         <div className="card-header-flex card-header-flex--compact">
-          <h3>Docentes</h3>
+          <h3><i className="fas fa-chalkboard-teacher" aria-hidden="true" /> Docentes</h3>
           <span className="badge role-badge-display">Solo lectura</span>
         </div>
       )}

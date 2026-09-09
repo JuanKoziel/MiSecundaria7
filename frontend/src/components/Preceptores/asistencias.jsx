@@ -12,7 +12,6 @@ import {
   registrarAsistenciaDocente,
   getServerTime,
 } from '../../services/api';
-import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import {
   alumnosPorAnioYCurso,
@@ -217,14 +216,6 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   if (!filtrosCompletos(anioLectivo, curso)) {
     return (
       <div>
-        <div className="card">
-          <FiltrosAnioCurso
-            anioLectivo={anioLectivo}
-            curso={curso}
-            onAnioChange={onAnioChange}
-            onCursoChange={onCursoChange}
-          />
-        </div>
         <EmptyFiltros />
       </div>
     );
@@ -262,15 +253,8 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
 
       {!serverInfo?.evento_activo && (
       <>
-      <FiltrosAnioCurso
-        anioLectivo={anioLectivo}
-        curso={curso}
-        onAnioChange={onAnioChange}
-        onCursoChange={onCursoChange}
-      />
-
       <div className="card-header-flex">
-        <h3>Control de Asistencia — {curso} ({anioLectivo})</h3>
+        <h3><i className="fas fa-user-check" aria-hidden="true" /> Control de asistencias</h3>
         {readOnly && <span className="badge role-badge-display">Solo lectura</span>}
       </div>
 

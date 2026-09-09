@@ -84,7 +84,7 @@ function Alumnos() {
     <div>
       <div className="card">
         <div className="card-header-flex">
-          <h3>Listado de Estudiantes</h3>
+          <h3><i className="fas fa-user-graduate" aria-hidden="true" /> Listado de Estudiantes</h3>
         </div>
 
         <div className="filter-row">
@@ -165,7 +165,7 @@ function Alumnos() {
       {curso && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header-flex">
-            <h3>Actas del Curso — {curso}</h3>
+            <h3><i className="fas fa-file-signature" aria-hidden="true" /> Actas del Curso — {curso}</h3>
           </div>
           {(() => {
             const actasCursoFiltradas = actasCurso.filter((a) => a.curso === curso);

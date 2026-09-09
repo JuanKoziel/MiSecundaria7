@@ -68,7 +68,13 @@ function PreceptorDashboard({ user, onLogout }) {
       case 'alumnos':
         return (
           <div className="view-section active">
-            <Alumnos preceptorCursos={miPreceptor?.cursos || []} />
+            <Alumnos
+              preceptorCursos={miPreceptor?.cursos || []}
+              anioLectivo={anioLectivo}
+              curso={curso}
+              onAnioChange={handleAnioChange}
+              onCursoChange={setCurso}
+            />
           </div>
         );
 
@@ -89,7 +95,7 @@ function PreceptorDashboard({ user, onLogout }) {
       case 'horarios':
         return (
           <div className="view-section active">
-            <Horarios />
+            <Horarios esControlado cursoGlobal={curso} />
           </div>
         );
 
@@ -145,7 +151,12 @@ function PreceptorDashboard({ user, onLogout }) {
       default:
         return (
           <div className="view-section active">
-            <Alumnos />
+            <Alumnos
+              anioLectivo={anioLectivo}
+              curso={curso}
+              onAnioChange={handleAnioChange}
+              onCursoChange={setCurso}
+            />
           </div>
         );
     }
@@ -162,7 +173,14 @@ function PreceptorDashboard({ user, onLogout }) {
 
       <main className="main-content">
 
-        <Header user={user} nombreCompleto={nombreCompletoPreceptor} />
+        <Header
+          user={user}
+          nombreCompleto={nombreCompletoPreceptor}
+          anioLectivo={anioLectivo}
+          curso={curso}
+          onAnioChange={handleAnioChange}
+          onCursoChange={setCurso}
+        />
 
         {/* ===================================================== */}
         {/* CONTENIDO PRINCIPAL                                   */}

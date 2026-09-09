@@ -251,7 +251,7 @@ function Comunicados() {
     <div>
       <div className="card">
         <div className="card-header-flex">
-          <h3>Nuevo Comunicado</h3>
+          <h3><i className="fas fa-feather" aria-hidden="true" /> Nuevo Comunicado</h3>
           <button type="button" className="btn btn-sm btn-primary" onClick={() => setMostrarFormulario(!mostrarFormulario)}>
             <i className={`fas ${mostrarFormulario ? 'fa-times' : 'fa-plus'}`} aria-hidden="true" />
             {mostrarFormulario ? 'Cancelar' : 'Nuevo comunicado'}
@@ -397,7 +397,7 @@ function Comunicados() {
 
       <div className="card mt-20">
         <div className="card-header-flex">
-          <h3>Comunicados enviados</h3>
+          <h3><i className="fas fa-bullhorn" aria-hidden="true" /> Comunicados enviados</h3>
           <span className="badge badge-neutral">{listaFiltrada.length}</span>
         </div>
 

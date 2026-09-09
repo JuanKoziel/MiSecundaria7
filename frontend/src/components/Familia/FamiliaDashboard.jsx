@@ -100,7 +100,13 @@ function FamiliaDashboard({ user, onLogout }) {
       case 'horarios':
         return (
           <div className="view-section active">
-            <VistaHorarios cursosOptions={cursosObj} cursoForzado={getAlumnoById(hijoSeleccionado.alumnoId)?.id_curso} />
+            <div className="card mt-16">
+              <VistaHorarios
+                cursosOptions={cursosObj}
+                cursoForzado={getAlumnoById(hijoSeleccionado.alumnoId)?.id_curso}
+                mostrarTitulo
+              />
+            </div>
           </div>
         );
 

@@ -781,7 +781,7 @@ onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
       {modo === 'vista' && (
         <div>
           <div className="card-header-flex">
-            <h3>{tituloModo.vista}</h3>
+            <h3><i className="fas fa-user-shield" aria-hidden="true" /> {tituloModo.vista}</h3>
           </div>
           {mensaje && (
             <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>

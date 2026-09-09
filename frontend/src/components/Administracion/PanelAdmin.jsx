@@ -87,11 +87,6 @@ function PanelAdmin({ miDirectivo, user }) {
         </div>
       </div>
 
-      <div className="system-status">
-        <i className="fas fa-server system-status-icon" aria-hidden="true" />
-        Sistema operativo — todos los módulos funcionando con normalidad.
-      </div>
-
       <div className="stats-grid">
         <StatCard icon="fa-user-graduate" value={systemStats.alumnos} label="Estudiantes" />
         <StatCard icon="fa-chalkboard-teacher" value={systemStats.docentes} label="Docentes" />
@@ -102,11 +97,6 @@ function PanelAdmin({ miDirectivo, user }) {
         <StatCard icon="fa-folder-open" value={systemStats.proyectos} label="Proyectos" />
         <StatCard icon="fa-bullhorn" value={systemStats.comunicados} label="Comunicados" />
         <StatCard icon="fa-file-signature" value={systemStats.actas} label="Actas" />
-      </div>
-
-      <div className="info-box">
-        <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
-        Panel de administración general del sistema escolar. Desde aquí se gestionan usuarios, cursos, materias, configuraciones y toda la información institucional.
       </div>
     </div>
   );

@@ -329,7 +329,7 @@ function ScheduleTable({ timeKeys, daySlots, rowspans, nombreCursoDisplay, turno
   );
 }
 
-function VistaHorarios({ cursosOptions, cursoForzado }) {
+function VistaHorarios({ cursosOptions, cursoForzado, mostrarTitulo }) {
   const { modulos } = useData();
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -475,6 +475,17 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
 
   return (
     <div>
+      {mostrarTitulo && (
+        <div className="card-header-flex">
+          <h3><i className="fas fa-calendar-alt" aria-hidden="true" /> Horarios</h3>
+          {hasData && (
+            <button type="button" className="btn btn-primary" onClick={descargarPDF}>
+              <i className="fas fa-download" aria-hidden="true" /> Descargar PDF
+            </button>
+          )}
+        </div>
+      )}
+
       {!cursoForzado && (
         <div className="filter-row">
           <div className="form-group-filter" style={{ maxWidth: '320px' }}>
@@ -505,11 +516,13 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
 
       {hasData && !cargando && (
         <div>
-          <div className="form-actions mb-16">
-            <button type="button" className="btn btn-primary" onClick={descargarPDF}>
-              <i className="fas fa-download" aria-hidden="true" /> Descargar PDF
-            </button>
-          </div>
+          {!mostrarTitulo && (
+            <div className="form-actions mb-16">
+              <button type="button" className="btn btn-primary" onClick={descargarPDF}>
+                <i className="fas fa-download" aria-hidden="true" /> Descargar PDF
+              </button>
+            </div>
+          )}
 
           <ScheduleTable
             timeKeys={timeKeys}
@@ -523,7 +536,7 @@ function VistaHorarios({ cursosOptions, cursoForzado }) {
           {adelantos.length > 0 && (
             <div className="card" style={{ marginTop: '20px' }}>
               <div className="card-header">
-                <h3 className="m-0">Adelantos de horas del curso</h3>
+                <h3 className="m-0"><i className="fas fa-forward" aria-hidden="true" /> Adelantos de horas del curso</h3>
               </div>
               <div className="card-body">
                 <div className="table-responsive">

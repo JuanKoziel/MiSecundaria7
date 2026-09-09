@@ -92,7 +92,7 @@ function PanelPreceptor({ miPreceptor }) {
         </div>
 
       <div className="card-header-flex">
-        <h4>Cursos Asignados</h4>
+        <h4><i className="fas fa-school" aria-hidden="true" /> Cursos Asignados</h4>
       </div>
 
       <div className="table-responsive mt-10">

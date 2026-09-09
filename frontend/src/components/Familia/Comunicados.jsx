@@ -26,7 +26,7 @@ function Comunicados({ hijo }) {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Comunicados del curso {hijo.curso}</h3>
+        <h3><i className="fas fa-bullhorn" aria-hidden="true" /> Comunicados del curso {hijo.curso}</h3>
       </div>
 
       {comunicados.length === 0 ? (

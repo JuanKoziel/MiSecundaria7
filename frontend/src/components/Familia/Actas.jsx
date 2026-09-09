@@ -11,7 +11,7 @@ function Actas({ hijo }) {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Actas cargadas — {hijo.nombre}</h3>
+        <h3><i className="fas fa-file-signature" aria-hidden="true" /> Actas cargadas — {hijo.nombre}</h3>
         <span className="badge role-badge-display">Solo lectura</span>
       </div>
 

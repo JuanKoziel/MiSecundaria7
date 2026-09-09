@@ -463,16 +463,7 @@ function GestionAdelantosHoras({ readOnly = false }) {
 
   return (
     <div>
-      <div className="flex-row--between mb-16">
-        <div>
-          <p className="m-0" style={{ color: '#555' }}>
-            Autorización excepcional para que un docente dicte una materia fuera del horario habitual.
-          </p>
-          <p className="m-0" style={{ marginTop: '4px', color: '#888', fontSize: '0.85rem' }}>
-            El adelanto reemplaza el horario original solo en la fecha indicada. Si existe una suplencia activa
-            para el curso y la materia, la clase queda a cargo del docente suplente.
-          </p>
-        </div>
+      <div className="flex-row--end mb-16">
         {!readOnly && (
           <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
             <i className="fas fa-plus" aria-hidden="true" /> Nuevo Adelanto

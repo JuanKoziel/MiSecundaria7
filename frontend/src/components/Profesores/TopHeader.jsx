@@ -6,6 +6,8 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
     docentes,
     cursoMateria,
     cursosObj,
+    suplencias,
+    mapSuplencias,
     selectedCursoId,
     selectedMateria,
     selectedCursoMateriaId,
@@ -23,19 +25,21 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
     if (!miDocente) return [];
     const map = new Map();
     cursoMateria.forEach((cm) => {
-      if (cm.id_docente === miDocente.id) {
-        if (!map.has(cm.id_curso)) {
-          const cObj = cursosObj.find((c) => c.id_curso === cm.id_curso);
-          map.set(cm.id_curso, {
-            id_curso: cm.id_curso,
-            nombre: cm.curso_nombre || '',
-            anio: cObj?.ciclo_anio || '',
-          });
-        }
+      const s = mapSuplencias?.[cm.id];
+      const esTitular = cm.id_docente === miDocente.id;
+      const esSuplente = Boolean(s && s.id_docente_suplente === miDocente.id);
+      if (!esTitular && !esSuplente) return;
+      if (!map.has(cm.id_curso)) {
+        const cObj = cursosObj.find((c) => c.id_curso === cm.id_curso);
+        map.set(cm.id_curso, {
+          id_curso: cm.id_curso,
+          nombre: cm.curso_nombre || '',
+          anio: cObj?.ciclo_anio || '',
+        });
       }
     });
     return [...map.values()];
-  }, [cursoMateria, cursosObj, miDocente]);
+  }, [cursoMateria, cursosObj, miDocente, mapSuplencias]);
 
   const inicial = user?.username ? user.username.charAt(0) : 'U';
   const iniciales = useMemo(() => {
@@ -46,16 +50,22 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
   const rol = user?.role ? user.role.toUpperCase() : 'DOCENTE';
   const nombre = nombreCompleto || user?.username || 'Usuario';
 
-  // Materias disponibles para el curso seleccionado
+  // Materias disponibles para el curso seleccionado (incluye suplencias)
   const materiasDelCurso = useMemo(() => {
     if (!selectedCursoId || !miDocente) return [];
     return cursoMateria
-      .filter((cm) => String(cm.id_curso) === String(selectedCursoId) && cm.id_docente === miDocente.id)
+      .filter((cm) => {
+        const s = mapSuplencias?.[cm.id];
+        const esTitular = String(cm.id_curso) === String(selectedCursoId) && cm.id_docente === miDocente.id;
+        const esSuplente = String(cm.id_curso) === String(selectedCursoId) && Boolean(s && s.id_docente_suplente === miDocente.id);
+        return esTitular || esSuplente;
+      })
       .map((cm) => ({
         id: cm.id,
         nombre: cm.materia_nombre,
+        esSuplente: Boolean(mapSuplencias?.[cm.id]?.id_docente_suplente === miDocente.id),
       }));
-  }, [cursoMateria, selectedCursoId, miDocente]);
+  }, [cursoMateria, selectedCursoId, miDocente, mapSuplencias]);
 
   const handleCursoChange = (e) => {
     const nuevoId = e.target.value;
@@ -118,7 +128,7 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
                 </option>
                 {materiasDelCurso.map((m) => (
                   <option key={m.id} value={m.nombre}>
-                    {m.nombre}
+                    {m.nombre}{m.esSuplente ? ' (Suplencia)' : ''}
                   </option>
                 ))}
               </select>

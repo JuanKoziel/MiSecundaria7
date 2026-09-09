@@ -17,11 +17,12 @@ function Asistencias({ hijo }) {
           alumnoId={alumno.id}
           cursoMateria={cursoMateria}
           idCurso={alumno.id_curso}
+          userRole="familia"
         />
       ) : (
         <>
           <div className="card-header-flex">
-            <h3>Historial de Asistencias — {hijo.nombre}</h3>
+            <h3><i className="fas fa-user-check" aria-hidden="true" /> Historial de Asistencias — {hijo.nombre}</h3>
           </div>
           <p className="empty-state-message">No se pudo obtener la información del estudiante.</p>
         </>

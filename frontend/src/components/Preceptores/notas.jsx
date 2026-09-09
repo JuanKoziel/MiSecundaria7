@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, boletinPorAlumno, filtrosCompletos } from './preceptorUtils';
 import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
@@ -130,14 +129,6 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   if (!filtrosCompletos(anioLectivo, curso)) {
     return (
       <div>
-        <div className="card">
-          <FiltrosAnioCurso
-            anioLectivo={anioLectivo}
-            curso={curso}
-            onAnioChange={onAnioChange}
-            onCursoChange={onCursoChange}
-          />
-        </div>
         <EmptyFiltros />
       </div>
     );
@@ -145,16 +136,9 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
   return (
     <div className="card">
-      <FiltrosAnioCurso
-        anioLectivo={anioLectivo}
-        curso={curso}
-        onAnioChange={onAnioChange}
-        onCursoChange={onCursoChange}
-      />
-
       <div className="card-header-flex">
         <h3>
-          Boletines del curso — {curso} ({anioLectivo})
+          <i className="fas fa-file-alt" aria-hidden="true" /> Boletines del curso
         </h3>
       </div>
 

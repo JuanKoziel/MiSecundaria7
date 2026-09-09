@@ -26,7 +26,9 @@ import {
   getPlanificaciones,
   marcarLeida,
   marcarTodasLeidas,
+  getSuplencias,
 } from '../services/api';
+import { suplenciasActivasEnFecha } from '../utils/suplencias';
 
 const DataContext = createContext(null);
 
@@ -115,6 +117,7 @@ export function DataProvider({ children }) {
   const [adminCursos, setAdminCursos] = useState([]);
   const [adminMaterias, setAdminMaterias] = useState([]);
   const [adminCursoMateria, setAdminCursoMateria] = useState([]);
+  const [suplencias, setSuplencias] = useState([]);
   // Parte 8: navegación desde notificaciones
   const [navIntent, setNavIntent] = useState(null);
   const hasLoadedRef = useRef(false);
@@ -178,6 +181,7 @@ export function DataProvider({ children }) {
         diagnosticosRaw,
         planificacionesRaw,
         administradoresRaw,
+        suplenciasRaw,
       ] = await Promise.all([
         getAlumnos().catch(() => []),
         getDocentes().catch(() => []),
@@ -206,6 +210,7 @@ export function DataProvider({ children }) {
         getDiagnosticosGrupales().catch(() => []),
         getPlanificaciones().catch(() => []),
         getDirectivos().catch(() => []),
+        getSuplencias().catch(() => []),
       ]);
 
       const alumnosPreCurso = (Array.isArray(alumnosRaw) ? alumnosRaw : []).map((a) => ({
@@ -627,6 +632,18 @@ export function DataProvider({ children }) {
         fecha_subida: p.fecha_subida || null,
       }));
 
+      const suplencias = suplenciasRaw.map((s) => ({
+        id: s.id_suplencia,
+        id_curso_materia: s.id_curso_materia,
+        id_docente_suplente: s.id_docente_suplente,
+        suplente_nombre: s.suplente_nombre,
+        fecha_inicio: s.fecha_inicio,
+        fecha_fin: s.fecha_fin,
+        estado: s.estado !== false,
+        nivel: s.nivel ?? 1,
+      }));
+      const mapSuplencias = suplenciasActivasEnFecha(suplencias);
+
       const notificaciones = (Array.isArray(notificacionesRaw) ? notificacionesRaw : []).map(normalizarNotificacion);
 
 
@@ -670,6 +687,8 @@ export function DataProvider({ children }) {
         comunicados,
         diagnosticos,
         planificaciones,
+        suplencias,
+        mapSuplencias,
         notificaciones,
         padresTutores,
         nombreCompleto,

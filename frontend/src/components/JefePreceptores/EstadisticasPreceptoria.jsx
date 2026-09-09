@@ -46,7 +46,7 @@ function EstadisticasPreceptoria() {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Estadísticas de Preceptoría</h3>
+        <h3><i className="fas fa-chart-bar" aria-hidden="true" /> Estadísticas de Preceptoría</h3>
       </div>
 
       <div className="stats-grid">

@@ -177,7 +177,7 @@ function ComunicadosJefe() {
     <div>
       <div className="card">
         <div className="card-header-flex">
-          <h3>Comunicados</h3>
+          <h3><i className="fas fa-bullhorn" aria-hidden="true" /> Comunicados</h3>
           <button
             type="button"
             className="btn btn-primary"

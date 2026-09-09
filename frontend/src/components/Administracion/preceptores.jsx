@@ -597,7 +597,7 @@ function Preceptores({ rol = 'preceptor' }) {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>{etiquetaPlural}</h3>
+        <h3><i className="fas fa-user-tie" aria-hidden="true" /> {etiquetaPlural}</h3>
         <div className="header-actions">
           <button type="button" className="btn btn-outline-primary" onClick={() => setMostrarAgregarRol(true)}>
             <i className="fas fa-user-tag" aria-hidden="true" /> Agregar rol

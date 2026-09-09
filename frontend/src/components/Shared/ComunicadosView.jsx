@@ -217,7 +217,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
           >
             <i className="fas fa-arrow-left" aria-hidden="true" /> Volver
           </button>
-          <h3>Detalle del Comunicado</h3>
+          <h3><i className="fas fa-bullhorn" aria-hidden="true" /> Detalle del Comunicado</h3>
         </div>
 
         <div className="mt-16">
@@ -283,8 +283,8 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Comunicados</h3>
-        <span className="badge role-badge-display">Solo lectura</span>
+        <h3><i className="fas fa-bullhorn" aria-hidden="true" /> Comunicados</h3>
+        {userRole !== 'alumno' && <span className="badge role-badge-display">Solo lectura</span>}
       </div>
 
       {comunicadosOrdenados.length === 0 ? (

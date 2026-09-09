@@ -73,12 +73,20 @@ function mensajeError(err) {
   return data?.detail || err.message || 'Error inesperado';
 }
 
-function Alumnos({ readOnly = false, preceptorCursos = [] }) {
+function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlobal, curso: cursoGlobal, onAnioChange, onCursoChange }) {
   const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto, cursosObj, refreshData, docentes, preceptores, administradores, padresTutores } = useData();
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
-  const [anioLectivo, setAnioLectivo] = useState('');
-  const [curso, setCurso] = useState('');
+  const [anioLectivoLocal, setAnioLectivoLocal] = useState('');
+  const [cursoLocal, setCursoLocal] = useState('');
+  const esControlado =
+    anioGlobal !== undefined &&
+    typeof onAnioChange === 'function' &&
+    typeof onCursoChange === 'function';
+  const anioLectivo = esControlado ? anioGlobal : anioLectivoLocal;
+  const curso = esControlado ? cursoGlobal : cursoLocal;
+  const setAnioLectivo = esControlado ? onAnioChange : setAnioLectivoLocal;
+  const setCurso = esControlado ? onCursoChange : setCursoLocal;
   const [observaciones, setObservaciones] = useState({});
   const [form, setForm] = useState(formVacio);
   const [seleccionado, setSeleccionado] = useState('');
@@ -101,8 +109,10 @@ function Alumnos({ readOnly = false, preceptorCursos = [] }) {
     setModo(m);
     setSeleccionado('');
     setForm(formVacio);
-    setAnioLectivo('');
-    setCurso('');
+    if (!esControlado) {
+      setAnioLectivo('');
+      setCurso('');
+    }
     setMensaje('');
   };
 
@@ -529,12 +539,14 @@ function Alumnos({ readOnly = false, preceptorCursos = [] }) {
     if (modo === 'modificar') {
       return (
         <div>
-          <FiltrosAnioCurso
-            anioLectivo={anioLectivo}
-            curso={curso}
-            onAnioChange={handleAnioFiltro}
-            onCursoChange={setCurso}
-          />
+          {!esControlado && (
+            <FiltrosAnioCurso
+              anioLectivo={anioLectivo}
+              curso={curso}
+              onAnioChange={handleAnioFiltro}
+              onCursoChange={setCurso}
+            />
+          )}
           {filtrosOk ? (
             <>
           <div className="filter-row">
@@ -739,14 +751,14 @@ function Alumnos({ readOnly = false, preceptorCursos = [] }) {
       {!readOnly && <SelectorModo modo={modo} onModoChange={resetModo} titulo="Estudiantes — ¿Qué deseás hacer?" />}
       {readOnly && (
         <div className="card-header-flex card-header-flex--compact">
-          <h3>Estudiantes</h3>
+          <h3><i className="fas fa-user-graduate" aria-hidden="true" /> Estudiantes</h3>
           <span className="badge role-badge-display">Solo lectura</span>
         </div>
       )}
 
       {modo && modo !== 'crear' && modo !== 'modificar' && (
         <div>
-          {necesitaFiltroCurso && (
+          {necesitaFiltroCurso && !esControlado && (
             <FiltrosAnioCurso
               anioLectivo={anioLectivo}
               curso={curso}

@@ -106,7 +106,7 @@ function Calificaciones({ hijo }) {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Calificaciones — {hijo.nombre}</h3>
+        <h3><i className="fas fa-clipboard-list" aria-hidden="true" /> Calificaciones — {hijo.nombre}</h3>
         <button
           type="button"
           className="btn btn-sm btn-secondary"

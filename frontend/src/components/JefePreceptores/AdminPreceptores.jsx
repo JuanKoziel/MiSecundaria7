@@ -542,7 +542,7 @@ function AdminPreceptores() {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3>Administrar Preceptores</h3>
+        <h3><i className="fas fa-user-cog" aria-hidden="true" /> Administrar Preceptores</h3>
         <div className="header-actions">
           <button
             type="button"
