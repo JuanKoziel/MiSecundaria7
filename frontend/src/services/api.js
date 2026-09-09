@@ -254,6 +254,11 @@ export async function getEstadosAsistencia() {
   return data;
 }
 
+export async function getRoles() {
+  const { data } = await api.get('/roles/');
+  return data;
+}
+
 export async function getAsistenciaDiaria(curso, fecha) {
   const { data } = await api.get('/asistencias/asistencia-diaria/', {
     params: { curso, fecha },

@@ -1341,8 +1341,8 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
             qs = qs.filter(
                 usuariorol__id_rol__nombre_rol='admin',
             ).distinct()
-            # Solo filtrar por estado=True si no se solicita incluir deshabilitados
-            if self.request.query_params.get('incluir_deshabilitados') != 'true':
+            # Solo filtrar por estado=True en listados (no en detalle), salvo que se pida incluir deshabilitados
+            if self.action == 'list' and self.request.query_params.get('incluir_deshabilitados') != 'true':
                 qs = qs.filter(estado=True)
             return qs
 

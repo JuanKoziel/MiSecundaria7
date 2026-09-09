@@ -4,8 +4,6 @@ import { getServerTime, createAsistencia, getAsistencias } from '../../services/
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
-const ESTADOS = ['Presente', 'Ausente', 'Tarde'];
-
 function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = true }) {
   const { alumnos, estadosAsistencia, refreshData } = useData();
   const { user } = useAuth();
@@ -344,12 +342,19 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
               filas.map((fila) => (
                 <tr key={fila.id}>
                   <td className="table-cell-strong">{fila.nombre}</td>
-                  <td>
+<td>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {ESTADOS.map((est) => {
+                      {estadosAsistencia.map((estObj) => {
+                        const est = estObj.nombre_estado;
                         const seleccionado = fila.estado === est;
                         const deshabilitado = fila.estado !== '' && !seleccionado;
                         const bloq = !puedeEditar || !enHorario || !esFechaHoy;
+                        const colorMap = {
+                          Presente: { border: '#28a745', bg: '#d4edda' },
+                          Ausente: { border: '#dc3545', bg: '#f8d7da' },
+                          Tarde: { border: '#ffc107', bg: '#fff3cd' },
+                        };
+                        const colors = colorMap[est] || { border: '#6f42c1', bg: '#e8d5f5' };
                         return (
                           <button
                             key={est}
@@ -362,24 +367,13 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
                               padding: '4px 14px',
                               borderRadius: '16px',
                               border: seleccionado ? '2px solid' : '1px solid #ccc',
-                              borderColor: seleccionado
-                                ? (est === 'Presente' ? '#28a745' : est === 'Ausente' ? '#dc3545' : est === 'Tarde' ? '#ffc107' : '#6f42c1')
-                                : '#ccc',
-                              backgroundColor: seleccionado
-                                ? (est === 'Presente' ? '#d4edda' : est === 'Ausente' ? '#f8d7da' : est === 'Tarde' ? '#fff3cd' : '#e8d5f5')
-                                : (deshabilitado ? '#f5f5f5' : '#fff'),
-                              color: seleccionado
-                                ? (est === 'Presente' ? '#155724' : est === 'Ausente' ? '#721c24' : est === 'Tarde' ? '#856404' : '#38315a')
-                                : (deshabilitado ? '#bbb' : '#333'),
-                              cursor: bloq || deshabilitado ? 'not-allowed' : 'pointer',
-                              fontWeight: seleccionado ? 600 : 400,
-                              fontSize: '0.85em',
-                              opacity: deshabilitado ? 0.5 : 1,
-                              transition: 'all 0.15s ease',
-                              outline: 'none',
+                              borderColor: seleccionado ? colors.border : '#ccc',
+                              backgroundColor: seleccionado ? colors.bg : '#fff',
+                              color: seleccionado ? colors.border : '#333',
                             }}
+                            disabled={bloq || deshabilitado}
                           >
-                            {seleccionado ? '✓ ' : ''}{est}
+                            {est}
                           </button>
                         );
                       })}

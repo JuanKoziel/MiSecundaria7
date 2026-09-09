@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getHistorialCambios, getTiposAccion, getUsuarios } from '../../services/api';
+import { getHistorialCambios, getTiposAccion, getUsuarios, getRoles } from '../../services/api';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 
 const TABLAS = [
@@ -19,16 +19,6 @@ const TABLAS = [
   { value: 'eventos_institucionales', label: 'Eventos Institucionales' },
 ];
 
-const ROLES = [
-  { value: 'admin', label: 'Administrador' },
-  { value: 'director', label: 'Director' },
-  { value: 'jefe_preceptores', label: 'Jefe de Preceptores' },
-  { value: 'preceptor', label: 'Preceptor' },
-  { value: 'docente', label: 'Docente' },
-  { value: 'alumno', label: 'Estudiante' },
-  { value: 'familia', label: 'Familia' },
-];
-
 const FILTROS_VACIOS = {
   fecha_desde: '',
   fecha_hasta: '',
@@ -42,6 +32,7 @@ function Historial({ ocultarRegistro = false }) {
   const [registros, setRegistros] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [acciones, setAcciones] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [filtros, setFiltros] = useState(FILTROS_VACIOS);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +40,7 @@ function Historial({ ocultarRegistro = false }) {
   useEffect(() => {
     getUsuarios().then(setUsuarios).catch(() => setUsuarios([]));
     getTiposAccion().then(setAcciones).catch(() => setAcciones([]));
+    getRoles().then(setRoles).catch(() => setRoles([]));
   }, []);
 
   const cargar = async (params = filtros) => {
@@ -136,8 +128,8 @@ function Historial({ ocultarRegistro = false }) {
           <label htmlFor="hist-rol">Rol</label>
           <select id="hist-rol" value={filtros.rol} onChange={(e) => filtrar('rol', e.target.value)}>
             <option value="">Todos</option>
-            {ROLES.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
+            {roles.map((r) => (
+              <option key={r.id_rol || r.nombre_rol} value={r.nombre_rol}>{r.nombre_rol}</option>
             ))}
           </select>
         </div>
@@ -196,8 +188,8 @@ function Historial({ ocultarRegistro = false }) {
                   <td>
                     {(h.roles_usuario || []).length > 0
                       ? h.roles_usuario.map((r) => {
-                          const rol = ROLES.find((x) => x.value === r);
-                          return <span key={r} className="badge badge-neutral" style={{ marginRight: 4 }}>{rol ? rol.label : r}</span>;
+                          const rol = roles.find((x) => x.nombre_rol === r);
+                          return <span key={r} className="badge badge-neutral" style={{ marginRight: 4 }}>{rol ? rol.nombre_rol : r}</span>;
                         })
                       : '-'}
                   </td>

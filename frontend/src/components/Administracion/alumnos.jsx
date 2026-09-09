@@ -1,7 +1,6 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { formatDNI, cleanDNI } from '../../utils/dni';
-import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -57,6 +56,7 @@ function ActasDesplegable({ actas, colSpan }) {
 function Alumnos() {
   const {
     cursosObj,
+    alumnos: todosAlumnos,
     actas: actasCurso,
     getActasByAlumnoId,
     getAlumnosByCurso,
@@ -65,7 +65,12 @@ function Alumnos() {
   const [curso, setCurso] = useState('');
   const [expandido, setExpandido] = useState(null);
 
-  const alumnosCurso = useMemo(() => getAlumnosByCurso(curso), [curso, getAlumnosByCurso]);
+  const alumnosCurso = useMemo(() => {
+    if (!curso) {
+      return todosAlumnos;
+    }
+    return getAlumnosByCurso(curso);
+  }, [curso, getAlumnosByCurso, todosAlumnos]);
   const handleCursoChange = useCallback((nuevoCurso) => {
     setCurso((prevCurso) => {
       if (prevCurso !== nuevoCurso) {
@@ -82,11 +87,23 @@ function Alumnos() {
           <h3>Listado de Estudiantes</h3>
         </div>
 
-        <FiltrosAnioCurso
-          cursosObj={cursosObj}
-          defaultToFirst
-          onCursoChange={handleCursoChange}
-        />
+        <div className="filter-row">
+          <div className="form-group-filter">
+            <label htmlFor="curso-select">Curso</label>
+            <select
+              id="curso-select"
+              value={curso}
+              onChange={(e) => handleCursoChange(e.target.value)}
+            >
+              <option value="">Todos los cursos</option>
+              {cursosObj.map((c) => (
+                <option key={c.id_curso} value={c.nombre_curso}>
+                  {c.nombre_curso} (Ciclo {c.ciclo_anio})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <div className="table-responsive">
           <table>
