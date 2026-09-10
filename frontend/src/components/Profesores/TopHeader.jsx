@@ -1,5 +1,5 @@
 import { useData } from '../../context/DataContext';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 
 function TopHeader({ user, nombreCompleto, onLogout }) {
   const { 
@@ -14,6 +14,18 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
     setSeleccionCursoMateria,
     clearSeleccionCursoMateria,
   } = useData();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.sidebar') && !event.target.closest('.hamburger')) {
+        setSidebarOpen(false);
+        body.classList.remove('sidebar-open');
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const userId = user?.id_usuario ?? user?.id ?? null;
   const miDocente = useMemo(
@@ -87,6 +99,19 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
             <span className="greeting-nombre">{nombre}</span>
           </h2>
         </div>
+
+        <button className="hamburger" onClick={() => {
+          setSidebarOpen(!sidebarOpen);
+          if (sidebarOpen) {
+            body.classList.remove('sidebar-open');
+          } else {
+            body.classList.add('sidebar-open');
+          }
+        }}>
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
 
         <div className="main-header-selectors">
           <div className="selector-group">
