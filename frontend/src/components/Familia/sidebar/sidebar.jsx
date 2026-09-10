@@ -5,7 +5,7 @@ import CambiarRolButton from '../../Shared/CambiarRolButton';
 import CampanaNotificaciones from '../../Shared/CampanaNotificaciones';
 
 function Sidebar({ view, setView, onLogout }) {
-  const [expandedSection, setExpandedSection] = useState('seguimiento');
+  const [expandedSection, setExpandedSection] = useState(null);
   const menuWrapperRef = useRef(null);
 
   const toggleSection = (sectionId) => {

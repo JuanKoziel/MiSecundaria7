@@ -2,20 +2,6 @@ import { formatDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
 import ProfileBanner from '../Shared/ProfileBanner';
 
-function StatCard({ icon, value, label, color }) {
-  return (
-    <div className="stat-card">
-      <i className={`fas ${icon}`} style={{ fontSize: '1.8rem', color: color || 'var(--primary-color)', marginBottom: '4px' }} aria-hidden="true" />
-      <div style={{ fontSize: '1.5rem', fontWeight: '700', marginTop: '4px', color: color || 'inherit' }}>
-        {value ?? '—'}
-      </div>
-      <div className="stat-card-label">
-        {label}
-      </div>
-    </div>
-  );
-}
-
 function PanelFamilia({ miTutor, user, hijos }) {
   const { getAlumnoById } = useData();
 
@@ -85,11 +71,12 @@ function PanelFamilia({ miTutor, user, hijos }) {
             {miTutor.tipo || '—'}
           </p>
         </div>
-      </div>
-
-      <div className="stats-grid">
-        <StatCard icon="fa-user-graduate" value={hijos.length} label="Hijos vinculados" />
-        <StatCard icon="fa-check-circle" value="Activo" label="Estado de la cuenta" color="#15803d" />
+        <div>
+          <label className="profile-label">
+            Hijos vinculados
+          </label>
+          <p className="profile-value">{hijos.length}</p>
+        </div>
       </div>
 
       {hijos.length > 0 && (
