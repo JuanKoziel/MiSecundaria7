@@ -5043,7 +5043,14 @@ def _notificar_intensificacion(instancia):
         f'Se registró el resultado de la intensificación de {nombre} '
         f'({periodo} {instancia.anio_rendicion}). Nota: {instancia.nota} — Resultado: {resultado}.'
     )
-    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje)
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
+        'destino': 'intensificaciones',
+        'params': {
+            'materiaId': materia.id_materia if materia else None,
+            'historialId': instancia.id_historial_id,
+            'periodo': instancia.periodo,
+        }
+    })
 
 
 class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):

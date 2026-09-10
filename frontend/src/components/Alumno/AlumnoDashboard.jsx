@@ -29,6 +29,12 @@ function AlumnoDashboard({ user, onLogout }) {
   } = useData();
   const [view, setView] = useState('perfil');
 
+  // Al cambiar de vista (incluido llegar desde una notificación con "Ver"),
+  // se sube al inicio de la sección en lugar de quedar en la posición previa.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [view]);
+
   // Parte 8: manejar navegación desde notificaciones.
   // Traduce el destino semántico a una vista válida del dashboard de Alumno.
   useEffect(() => {

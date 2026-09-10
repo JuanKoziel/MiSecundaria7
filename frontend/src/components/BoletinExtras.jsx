@@ -46,7 +46,7 @@ function SeccionPrevias({ previas = [] }) {
   return (
     <div className="boletin-seccion-extra">
       <div className="boletin-seccion-titulo">MATERIAS PREVIAS / ADEUDADAS</div>
-      <div className="table-responsive">
+      <div className="table-responsive boletin-table-responsive">
         <table className="boletin-table">
           <colgroup>
             <col style={{ width: '16%' }} />
@@ -114,7 +114,7 @@ function SeccionRecursadas({ recursadas = [] }) {
   return (
     <div className="boletin-seccion-extra">
       <div className="boletin-seccion-titulo">MATERIAS A RECURSAR</div>
-      <div className="table-responsive">
+      <div className="table-responsive boletin-table-responsive">
         <table className="boletin-table">
           <colgroup>
             <col style={{ width: '8.5%' }} />

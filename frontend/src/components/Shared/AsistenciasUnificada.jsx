@@ -191,7 +191,7 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
           <h4><i className="fas fa-layer-group icon-muted" aria-hidden="true" /> Detalle por materia</h4>
         </div>
 
-        <div className="form-group-filter mb-16">
+        <div className="form-group-filter" style={{ marginBottom: '24px' }}>
           <label htmlFor="materia-asist-unificada">Materia</label>
           <select
             id="materia-asist-unificada"

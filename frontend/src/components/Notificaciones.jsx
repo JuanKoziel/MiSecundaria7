@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
-import { tieneVistaParaDestino } from '../utils/navDestinos';
+import { tieneVistaParaDestino, destinoDesdeTitulo } from '../utils/navDestinos';
 
 function formatearFecha(fecha) {
   if (!fecha) return '—';
@@ -45,18 +45,25 @@ function Notificaciones({ userRole, selectedChild }) {
   // Parte 8: manejo de click en notificación para navegación.
   // Se propaga el destino SEMÁNTICO tal cual lo emite el backend; el dashboard
   // que recibe el navIntent lo traduce a su vista concreta según el rol.
+  // Si la notificación no trae `nav_destino` (emitida antes de existir el
+  // marcador [nav:...]), se deriva un destino por el título para que igual
+  // muestre "Ver" y navegue.
+  const destinoDe = (n) => n.nav_destino || destinoDesdeTitulo(n.titulo);
+
   const handleNotificacionClick = (n) => {
-    if (!n.nav_destino) return;
+    const destino = destinoDe(n);
+    if (!destino) return;
     // Regla: solo se navega si el rol actual tiene una vista real para el
     // destino (autorización por sección real, no por existencia del destino).
-    if (!tieneVistaParaDestino(n.nav_destino, userRole)) return;
-    navegarDesdeNotificacion(n.nav_destino, n.nav_params || {});
+    if (!tieneVistaParaDestino(destino, userRole)) return;
+    navegarDesdeNotificacion(destino, n.nav_params || {});
   };
 
   // Enter o Space activan la navegación (tarjeta clickeable accesible por teclado).
   // Se previene el default para que Space no haga scroll de la página.
   const handleNotificacionKeyDown = (e, n) => {
-    if (!tieneVistaParaDestino(n.nav_destino, userRole)) return;
+    const destino = destinoDe(n);
+    if (!destino || !tieneVistaParaDestino(destino, userRole)) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       handleNotificacionClick(n);
@@ -100,8 +107,8 @@ function Notificaciones({ userRole, selectedChild }) {
       // consultar el contenido del destino; un nav_destino por sí solo no
       // implica que exista esa sección en este dashboard (regla de autorización
       // por sección real, no por existencia del destino).
-      const tieneNavegacion = Boolean(n.nav_destino) &&
-        tieneVistaParaDestino(n.nav_destino, userRole);
+      const tieneNavegacion = Boolean(destinoDe(n)) &&
+        tieneVistaParaDestino(destinoDe(n), userRole);
       return (
         <div
           key={n.id}

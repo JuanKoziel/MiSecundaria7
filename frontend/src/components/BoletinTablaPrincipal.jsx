@@ -34,7 +34,7 @@ export default function BoletinTablaPrincipal({
   });
 
   return (
-    <div className="table-responsive">
+    <div className="table-responsive boletin-table-responsive">
       <table className="boletin-table boletin-tabla-principal">
         <colgroup>
           <col style={{ width: '15%' }} />

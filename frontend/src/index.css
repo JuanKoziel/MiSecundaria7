@@ -1057,6 +1057,7 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     width: fit-content;
     padding: 5px 10px;
     border: 1px solid transparent;
@@ -1114,6 +1115,7 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
   text-align: center;
   overflow-wrap: break-word;
   word-break: normal;
+  white-space: normal;
   vertical-align: top;
 }
 .boletin-table thead th,
@@ -3144,6 +3146,46 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     box-shadow: 0 10px 24px rgba(13, 35, 58, 0.06);
 }
 
+/* Tablas: las celdas internas nunca se redondean; solo las aristas más
+   externas de la tabla heredan el radio del contenedor .table-responsive. */
+.table-responsive table,
+.table-responsive th,
+.table-responsive td {
+    border-radius: 0;
+}
+
+.table-responsive thead tr:first-child th:first-child {
+    border-top-left-radius: 9px;
+}
+
+.table-responsive thead tr:first-child th:last-child {
+    border-top-right-radius: 9px;
+}
+
+.table-responsive thead tr:first-child th:only-child {
+    border-top-left-radius: 9px;
+    border-top-right-radius: 9px;
+}
+
+.table-responsive tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 9px;
+}
+
+.table-responsive tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 9px;
+}
+
+/* Calificaciones (boletín): tabla completamente sin redondeos, ni en el
+   contenedor ni en las celdas. */
+.boletin-table-responsive {
+    border-radius: 0 !important;
+}
+
+.boletin-table-responsive th,
+.boletin-table-responsive td {
+    border-radius: 0 !important;
+}
+
 table {
     width: 100%;
     border-collapse: separate;
@@ -3539,6 +3581,8 @@ tbody tr:nth-child(even) td {
 .vista-horarios-table td {
   overflow-wrap: break-word;
   word-wrap: break-word;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 .vista-horarios-table th {
@@ -3573,7 +3617,7 @@ tbody tr:nth-child(even) td {
   background-color: var(--table-row-hover);
 }
 
-.vista-horarios-time {
+.vista-horarios-table td.vista-horarios-time {
   font-weight: 600;
   white-space: nowrap;
   color: var(--text-dark);

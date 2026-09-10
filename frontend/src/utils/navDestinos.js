@@ -13,10 +13,11 @@ const MAPA_POR_ROL = {
     calificaciones: 'calificaciones',
     boletin: 'calificaciones',
     asistencias: 'asistencias',
-    previas: 'previas',
-    // Las rendiciones se consultan junto a las previas del alumno.
-    rendiciones: 'previas',
+    previas: 'calificaciones',
+    // Las rendiciones se consultan junto a las calificaciones del alumno.
+    rendiciones: 'calificaciones',
     recursadas: 'calificaciones',
+    intensificaciones: 'calificaciones',
     comunicados: 'comunicados',
     horarios: 'horarios',
     eventos: 'calendario',
@@ -28,7 +29,9 @@ const MAPA_POR_ROL = {
     asistencias: 'asistencias',
     actas: 'actas',
     previas: 'calificaciones',
+    rendiciones: 'calificaciones',
     recursadas: 'calificaciones',
+    intensificaciones: 'calificaciones',
     comunicados: 'comunicados',
     horarios: 'horarios',
     eventos: 'calendario',
@@ -83,4 +86,17 @@ export function viewDesdeDestino(destino, rol) {
 
 export function tieneVistaParaDestino(destino, rol) {
   return viewDesdeDestino(destino, rol) !== null;
+}
+
+// Fallback de navegación por TÍTULO: algunas notificaciones fueron emitidas
+// antes de que el backend adjuntara el marcador [nav:...], por lo que no tienen
+// `nav_destino`. Se deriva un destino semántico a partir del título para que
+// igualmente muestren "Ver" y naveguen (todas apuntan a Calificaciones).
+export function destinoDesdeTitulo(titulo) {
+  const t = String(titulo || '').toLowerCase();
+  if (t.includes('intensificaci')) return 'intensificaciones';
+  if (t.includes('calificaci')) return 'calificaciones';
+  if (t.includes('previa')) return 'previas';
+  if (t.includes('rendici')) return 'rendiciones';
+  return null;
 }
