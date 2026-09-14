@@ -12,6 +12,8 @@ export const menuItems = [
       { id: 'administradores', label: 'Administradores', icon: 'fa-user-shield', directorOnly: true },
       { id: 'cursos', label: 'Cursos', icon: 'fa-book-open' },
       { id: 'materias', label: 'Materias', icon: 'fa-book' },
+      { id: 'suplencias', label: 'Suplencias Docentes', icon: 'fa-user-clock', roles: ['admin', 'director'] },
+      { id: 'info', label: 'Diagnósticos de Curso', icon: 'fa-info-circle' },
     ],
   },
 
@@ -43,17 +45,7 @@ export const menuItems = [
     children: [
       { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
       { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
-      { id: 'suplencias', label: 'Suplencias Docentes', icon: 'fa-user-clock', roles: ['admin', 'director'] },
-    ],
-  },
-
-  {
-    id: 'sistema',
-    label: 'Sistema',
-    icon: 'fa-cogs',
-    children: [
       { id: 'historial', label: 'Historial de Cambios', icon: 'fa-history', roles: ['admin', 'director'] },
-      { id: 'info', label: 'Información General', icon: 'fa-info-circle' },
     ],
   },
 ];

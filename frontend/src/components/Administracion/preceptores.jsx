@@ -124,6 +124,13 @@ function Preceptores({ rol = 'preceptor' }) {
   const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
   const [quitandoRol, setQuitandoRol] = useState(false);
   const [personasConRol, setPersonasConRol] = useState([]);
+  const [mostrarProgramar, setMostrarProgramar] = useState(false);
+  const [programandoPreceptor, setProgramandoPreceptor] = useState(null);
+  const [progForm, setProgForm] = useState({
+    fecha_deshabilitacion_programada: '',
+    fecha_habilitacion_programada: '',
+  });
+  const [guardandoProgramar, setGuardandoProgramar] = useState(false);
 
   // Fetch personas disponibles para Jefe de Preceptores
   const cargarPersonasDisponibles = useMemo(() => {
@@ -369,6 +376,7 @@ function Preceptores({ rol = 'preceptor' }) {
       setMostrarAgregarRol(false);
       await fetchPreceptores();
       await refreshData();
+      await cargarPersonasSinRol();
     } catch (err) {
       toast.error(`Error al asignar rol: ${mensajeError(err)}`);
     } finally {
@@ -393,10 +401,46 @@ function Preceptores({ rol = 'preceptor' }) {
       setMostrarQuitarRol(false);
       await fetchPreceptores();
       await refreshData();
+      await cargarPersonasSinRol();
     } catch (err) {
       toast.error(`Error al quitar rol: ${mensajeError(err)}`);
     } finally {
       setQuitandoRol(false);
+    }
+  };
+
+  const abrirProgramar = (preceptor) => {
+    setProgramandoPreceptor(preceptor);
+    setProgForm({
+      fecha_deshabilitacion_programada: toInputDateTime(preceptor.usuario_fecha_deshabilitacion_programada),
+      fecha_habilitacion_programada: toInputDateTime(preceptor.usuario_fecha_habilitacion_programada),
+    });
+    setError('');
+    setSuccess('');
+    setMostrarProgramar(true);
+  };
+
+  const handleGuardarProgramar = async () => {
+    if (!progForm.fecha_deshabilitacion_programada && !progForm.fecha_habilitacion_programada) {
+      toast.warning('Ingresá al menos una fecha programada (deshabilitación o habilitación).');
+      return;
+    }
+    setGuardandoProgramar(true);
+    setError('');
+    setSuccess('');
+    try {
+      await updatePreceptor(programandoPreceptor.id_preceptor, {
+        fecha_deshabilitacion_programada: progForm.fecha_deshabilitacion_programada || null,
+        fecha_habilitacion_programada: progForm.fecha_habilitacion_programada || null,
+      }, rol);
+      toast.success(`Fechas programadas actualizadas correctamente.`);
+      setMostrarProgramar(false);
+      await fetchPreceptores();
+      await refreshData();
+    } catch (err) {
+      toast.error(`Error al programar fechas: ${mensajeError(err)}`);
+    } finally {
+      setGuardandoProgramar(false);
     }
   };
 
@@ -632,6 +676,24 @@ function Preceptores({ rol = 'preceptor' }) {
         />
       </div>
 
+      <div className="acciones-leyenda" aria-label="Leyenda de acciones">
+        <span className="acciones-leyenda-item">
+          <span className="acciones-leyenda-emoji" aria-hidden="true">✏️</span> Editar
+        </span>
+        <span className="acciones-leyenda-item">
+          <span className="acciones-leyenda-emoji" aria-hidden="true">🗓️</span> Programar
+        </span>
+        <span className="acciones-leyenda-item">
+          <span className="acciones-leyenda-emoji" aria-hidden="true">✅</span> Habilitar
+        </span>
+        <span className="acciones-leyenda-item">
+          <span className="acciones-leyenda-emoji" aria-hidden="true">🚫</span> Deshabilitar
+        </span>
+        <span className="acciones-leyenda-item">
+          <span className="acciones-leyenda-emoji" aria-hidden="true">🗑️</span> Eliminar
+        </span>
+      </div>
+
       <div className="table-responsive">
         <table>
           <thead>
@@ -676,35 +738,43 @@ function Preceptores({ rol = 'preceptor' }) {
                         ? p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
                         : '---'}
                     </td>
-                    <td className="acciones-cell flex-row--center">
+                    <td className="acciones-cell acciones-cell--grid2">
                       <button
                         type="button"
-                        className="btn btn-sm btn-secondary"
+                        className="btn btn-sm btn-secondary btn-accion-icono"
                         onClick={() => abrirEditar(p)}
                         aria-label={`Editar ${entidad}`}
                         title="Editar"
                       >
-                        <i className="fas fa-edit" aria-hidden="true" /> Editar
+                        <i className="fas fa-edit" aria-hidden="true" />
                       </button>
                       <button
                         type="button"
-                        className={`btn btn-sm ${p.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
+                        className="btn btn-sm btn-secondary btn-accion-icono"
+                        onClick={() => abrirProgramar(p)}
+                        aria-label={`Programar fechas de habilitación/deshabilitación de ${entidad}`}
+                        title="Programar"
+                      >
+                        <i className="fas fa-calendar-plus" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${p.usuario_estado === false ? 'btn-success' : 'btn-warning'} btn-accion-icono`}
                         onClick={() => toggleEstado(p)}
                         aria-label={p.usuario_estado === false ? `Habilitar ${entidad}` : `Deshabilitar ${entidad}`}
                         title={p.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
                         disabled={p.usuario_estado === null || p.usuario_estado === undefined}
                       >
-                        <i className={`fas ${p.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />{' '}
-                        {p.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
+                        <i className={`fas ${p.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />
                       </button>
                       <button
                         type="button"
-                        className="btn btn-sm btn-danger"
+                        className="btn btn-sm btn-danger btn-accion-icono"
                         onClick={() => handleDelete(p)}
                         aria-label={`Eliminar ${entidad}`}
                         title="Eliminar"
                       >
-                        <i className="fas fa-trash" aria-hidden="true" /> Eliminar
+                        <i className="fas fa-trash" aria-hidden="true" />
                       </button>
                     </td>
                   </tr>
@@ -739,6 +809,62 @@ function Preceptores({ rol = 'preceptor' }) {
           onQuitar={handleQuitarRol}
           quitando={quitandoRol}
         />
+      )}
+
+      {mostrarProgramar && programandoPreceptor && (
+        <FormModal
+          title={`Programar ${entidad}: ${programandoPreceptor.apellido}, ${programandoPreceptor.nombre}`}
+          onClose={() => setMostrarProgramar(false)}
+        >
+          <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
+            <p style={{ color: '#555', lineHeight: '1.5', marginTop: 0 }}>
+              Definí fechas para que el usuario se deshabilite o habilite automáticamente.
+              Las fechas se aplican según el horario del servidor.
+            </p>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="prog-deshabilitacion">Deshabilitación programada</label>
+                <input
+                  id="prog-deshabilitacion"
+                  type="datetime-local"
+                  className="form-control"
+                  value={progForm.fecha_deshabilitacion_programada}
+                  onChange={(e) =>
+                    setProgForm((prev) => ({ ...prev, fecha_deshabilitacion_programada: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="prog-habilitacion">Habilitación programada</label>
+                <input
+                  id="prog-habilitacion"
+                  type="datetime-local"
+                  className="form-control"
+                  value={progForm.fecha_habilitacion_programada}
+                  onChange={(e) =>
+                    setProgForm((prev) => ({ ...prev, fecha_habilitacion_programada: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <p className="proxima-accion-hint">
+              Próxima acción: {proximaAccion(programandoPreceptor)}
+            </p>
+          </div>
+          <div className="standard-modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={() => setMostrarProgramar(false)}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleGuardarProgramar}
+              disabled={guardandoProgramar}
+            >
+              {guardandoProgramar ? 'Guardando...' : 'Guardar fechas'}
+            </button>
+          </div>
+        </FormModal>
       )}
     </div>
   );

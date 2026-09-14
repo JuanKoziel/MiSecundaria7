@@ -36,6 +36,8 @@ function Historial({ ocultarRegistro = false }) {
   const [filtros, setFiltros] = useState(FILTROS_VACIOS);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 10;
 
   useEffect(() => {
     getUsuarios().then(setUsuarios).catch(() => setUsuarios([]));
@@ -46,6 +48,7 @@ function Historial({ ocultarRegistro = false }) {
   const cargar = async (params = filtros) => {
     setCargando(true);
     setError('');
+    setPagina(1);
     try {
       const data = await getHistorialCambios(params);
       setRegistros(data);
@@ -181,7 +184,9 @@ function Historial({ ocultarRegistro = false }) {
             ) : registros.length === 0 ? (
               <tr><td colSpan={ocultarRegistro ? 7 : 8} className="empty-state-message">No hay registros de historial.</td></tr>
             ) : (
-              registros.map((h) => (
+              registros
+                .slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA)
+                .map((h) => (
                 <tr key={h.id_historial}>
                   <td className="nowrap">{h.fecha_formateada || h.fecha}</td>
                   <td>{nombreUsuario(h)}</td>
@@ -204,6 +209,34 @@ function Historial({ ocultarRegistro = false }) {
           </tbody>
         </table>
       </div>
+
+      {!cargando && registros.length > 0 && (
+        <div className="historial-paginacion">
+          <span className="historial-paginacion-info">
+            Mostrando {((pagina - 1) * POR_PAGINA) + 1}–
+            {Math.min(pagina * POR_PAGINA, registros.length)} de {registros.length} registros
+          </span>
+          <div className="historial-paginacion-controles">
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setPagina((p) => Math.max(1, p - 1))}
+              disabled={pagina === 1}
+            >
+              <i className="fas fa-chevron-left" aria-hidden="true" /> Anterior
+            </button>
+            <span className="historial-paginacion-num">Página {pagina} de {Math.ceil(registros.length / POR_PAGINA)}</span>
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setPagina((p) => Math.min(Math.ceil(registros.length / POR_PAGINA), p + 1))}
+              disabled={pagina * POR_PAGINA >= registros.length}
+            >
+              Siguiente <i className="fas fa-chevron-right" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

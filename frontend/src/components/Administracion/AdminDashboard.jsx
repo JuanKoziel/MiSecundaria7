@@ -93,7 +93,7 @@ function AdminDashboard({ user, onLogout }) {
       case 'historial':
         return <Historial />;
       case 'actas':
-        return <Actas {...filtrosProps} />;
+        return <Actas {...filtrosProps} showFiltros />;
       case 'info':
         return <DiagnosticosView userRole={user.role === 'director' ? 'director' : 'admin'} />;
       case 'administradores':

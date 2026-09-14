@@ -4,6 +4,9 @@ from rest_framework import serializers
 
 from django.utils import timezone
 
+from django.db import transaction
+from django.db.utils import IntegrityError
+
 from escuela.utils import normalizar_dni, obtener_docente_activo
 
 from escuela.models import (
@@ -813,30 +816,43 @@ class PreceptorSerializer(serializers.ModelSerializer):
                     'cursos_ids': 'Debe asignar al menos un curso al agregar el rol de preceptor.'
                 })
         
-        usuario, validated_data = _build_usuario_account(
-            instance=self.instance or Preceptor(),
-            validated_data=validated_data,
-            username_key='usuario_nombre',
-            role_name=self._role_name_from_context(),
-        )
+        try:
+            with transaction.atomic():
+                usuario, validated_data = _build_usuario_account(
+                    instance=self.instance or Preceptor(),
+                    validated_data=validated_data,
+                    username_key='usuario_nombre',
+                    role_name=self._role_name_from_context(),
+                )
 
-        preceptor_existente = Preceptor.objects.filter(id_usuario=usuario).first()
-        if preceptor_existente is None and validated_data.get('dni'):
-            # Si el DNI ya figura en un perfil de preceptor existente, se reutilizan
-            # esos datos en lugar de generar un error de "ya existe".
-            preceptor_existente = Preceptor.objects.filter(dni=validated_data['dni']).first()
-        if preceptor_existente is not None:
-            if preceptor_existente.id_usuario_id != usuario.id_usuario:
-                preceptor_existente.id_usuario = usuario
-            for attr, value in validated_data.items():
-                setattr(preceptor_existente, attr, value)
-            preceptor_existente.save()
-            preceptor = preceptor_existente
-        else:
-            preceptor = Preceptor.objects.create(id_usuario=usuario, **validated_data)
+                preceptor_existente = Preceptor.objects.filter(id_usuario=usuario).first()
+                dni = validated_data.get('dni')
+                if preceptor_existente is None and dni:
+                    # Reutilizar un perfil existente solo si es del mismo usuario o
+                    # si es una fila huérfana (sin usuario asignado). Nunca "robar" el
+                    # perfil de otra persona: eso genera DNI duplicados o corrupción.
+                    perfil_por_dni = Preceptor.objects.filter(dni=dni).first()
+                    if perfil_por_dni is not None and perfil_por_dni.id_usuario_id is not None:
+                        raise serializers.ValidationError({
+                            'dni': 'Ya existe un/a preceptor con este/a dni asociado a otro usuario.'
+                        })
+                    preceptor_existente = perfil_por_dni
+                if preceptor_existente is not None:
+                    if preceptor_existente.id_usuario_id != usuario.id_usuario:
+                        preceptor_existente.id_usuario = usuario
+                    for attr, value in validated_data.items():
+                        setattr(preceptor_existente, attr, value)
+                    preceptor_existente.save()
+                    preceptor = preceptor_existente
+                else:
+                    preceptor = Preceptor.objects.create(id_usuario=usuario, **validated_data)
 
-        if not es_jefe and cursos_ids:
-            Curso.objects.filter(id_curso__in=cursos_ids).update(id_preceptor=preceptor)
+                if not es_jefe and cursos_ids:
+                    Curso.objects.filter(id_curso__in=cursos_ids).update(id_preceptor=preceptor)
+        except IntegrityError:
+            raise serializers.ValidationError({
+                'dni': 'Ya existe un/a preceptor con este/a dni.'
+            })
         return preceptor
 
     def update(self, instance, validated_data):

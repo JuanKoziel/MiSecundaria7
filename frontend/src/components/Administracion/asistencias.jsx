@@ -7,6 +7,8 @@ import {
   getAsistenciaDiaria,
   getRegistroDiario,
   getServerTime,
+  getAsistenciasDocentesHoy,
+  getHistorialAsistenciasDocentes,
 } from '../../services/api';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 
@@ -39,6 +41,12 @@ function Asistencias() {
   const [dataRegistro, setDataRegistro] = useState([]);
   const [cargandoRegistro, setCargandoRegistro] = useState(false);
   const [serverInfo, setServerInfo] = useState(null);
+  const [tabDocentes, setTabDocentes] = useState('hoy');
+  const [docHoy, setDocHoy] = useState([]);
+  const [cargandoDocHoy, setCargandoDocHoy] = useState(false);
+  const [docHistorial, setDocHistorial] = useState([]);
+  const [cargandoDocHistorial, setCargandoDocHistorial] = useState(false);
+  const [fechaHistDoc, setFechaHistDoc] = useState(() => new Date().toISOString().slice(0, 10));
 
   const cursoObjSel = useMemo(
     () => cursosObj.find((c) => c.nombre_curso === curso),
@@ -108,6 +116,24 @@ function Asistencias() {
   useEffect(() => {
     getServerTime().then(setServerInfo).catch(() => setServerInfo(null));
   }, []);
+
+  useEffect(() => {
+    if (tab !== 'docentes' || !curso) return;
+    setCargandoDocHoy(true);
+    getAsistenciasDocentesHoy(curso)
+      .then(setDocHoy)
+      .catch(() => setDocHoy([]))
+      .finally(() => setCargandoDocHoy(false));
+  }, [tab, curso]);
+
+  useEffect(() => {
+    if (tab !== 'docentes' || tabDocentes !== 'historial' || !curso) return;
+    setCargandoDocHistorial(true);
+    getHistorialAsistenciasDocentes(curso, fechaHistDoc)
+      .then(setDocHistorial)
+      .catch(() => setDocHistorial([]))
+      .finally(() => setCargandoDocHistorial(false));
+  }, [tab, tabDocentes, curso, fechaHistDoc]);
 
   return (
     <div className="card">
@@ -344,56 +370,77 @@ function Asistencias() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dataMateria.map((r, idx) => {
-                    const puedeJustificar = r.estado_nombre !== 'Presente' && r.estado_nombre !== 'Sin registro' && r.id;
-                    return (
-                      <tr key={r.id ?? `sin-reg-${idx}`}>
-                        <td className="table-cell-strong">{r.alumno_nombre}</td>
-                        <td>{r.fecha || '-'}</td>
-                        <td className="nowrap">{r.horario}</td>
-                        <td>{r.docente_nombre}</td>
-                        <td>
-                          <span className={`badge ${
-                            r.estado_nombre === 'Presente' ? 'badge-presente' :
-                            r.estado_nombre === 'Ausente' ? 'badge-ausente' :
-                            r.estado_nombre === 'Tarde' ? 'badge-tarde' :
-                            r.estado_nombre === 'Retirado' ? 'badge-tarde' : ''
-                          }`}>
-                            {r.estado_nombre}
-                          </span>
-                        </td>
-                        <td>{r.hora_carga || '-'}</td>
-                        <td>
-                          {puedeJustificar ? (
-                            <label className="cb-label" style={{ cursor: 'pointer' }}>
-                              <input
-                                type="checkbox"
-                                checked={r.justificado}
-                                onChange={async (e) => {
-                                  const nuevoValor = e.target.checked;
-                                  setDataMateria((prev) =>
-                                    prev.map((x) =>
-                                      x.id === r.id ? { ...x, justificado: nuevoValor } : x,
-                                    ),
-                                  );
-                                  try {
-                                    await patchJustificar(r.id, nuevoValor);
-                                  } catch {
+                  {(() => {
+                    const ordenadas = [...dataMateria].sort(
+                      (a, b) =>
+                        String(a.fecha || '').localeCompare(String(b.fecha || '')) ||
+                        (a.alumno_nombre || '').localeCompare(b.alumno_nombre || ''),
+                    );
+                    let ultimaFecha = null;
+                    const filas = [];
+                    ordenadas.forEach((r, idx) => {
+                      if (r.fecha && r.fecha !== ultimaFecha) {
+                        ultimaFecha = r.fecha;
+                        filas.push(
+                          <tr key={`fecha-${idx}`} className="date-group-header">
+                            <td colSpan={7}>
+                              <i className="far fa-calendar-alt" aria-hidden="true" />{' '}
+                              {new Intl.DateTimeFormat('es-AR', { dateStyle: 'long' }).format(new Date(r.fecha))}
+                            </td>
+                          </tr>,
+                        );
+                      }
+                      const puedeJustificar = r.estado_nombre !== 'Presente' && r.estado_nombre !== 'Sin registro' && r.id;
+                      filas.push(
+                        <tr key={r.id ?? `sin-reg-${idx}`}>
+                          <td className="table-cell-strong">{r.alumno_nombre}</td>
+                          <td>{r.fecha || '-'}</td>
+                          <td className="nowrap">{r.horario}</td>
+                          <td>{r.docente_nombre}</td>
+                          <td>
+                            <span className={`badge ${
+                              r.estado_nombre === 'Presente' ? 'badge-presente' :
+                              r.estado_nombre === 'Ausente' ? 'badge-ausente' :
+                              r.estado_nombre === 'Tarde' ? 'badge-tarde' :
+                              r.estado_nombre === 'Retirado' ? 'badge-tarde' : ''
+                            }`}>
+                              {r.estado_nombre}
+                            </span>
+                          </td>
+                          <td>{r.hora_carga || '-'}</td>
+                          <td>
+                            {puedeJustificar ? (
+                              <label className="cb-label" style={{ cursor: 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={r.justificado}
+                                  onChange={async (e) => {
+                                    const nuevoValor = e.target.checked;
                                     setDataMateria((prev) =>
                                       prev.map((x) =>
-                                        x.id === r.id ? { ...x, justificado: !nuevoValor } : x,
+                                        x.id === r.id ? { ...x, justificado: nuevoValor } : x,
                                       ),
                                     );
-                                  }
-                                }}
-                              />
-                              <span>Sí</span>
-                            </label>
-                          ) : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                                    try {
+                                      await patchJustificar(r.id, nuevoValor);
+                                    } catch {
+                                      setDataMateria((prev) =>
+                                        prev.map((x) =>
+                                          x.id === r.id ? { ...x, justificado: !nuevoValor } : x,
+                                        ),
+                                      );
+                                    }
+                                  }}
+                                />
+                                <span>Sí</span>
+                              </label>
+                            ) : '-'}
+                          </td>
+                        </tr>,
+                      );
+                    });
+                    return filas;
+                  })()}
                 </tbody>
               </table>
             </div>
@@ -403,7 +450,128 @@ function Asistencias() {
 
       {tab === 'docentes' && (
         <div>
-          <p className="empty-state-message">Próximamente.</p>
+          <div className="asist-tipo-selector">
+            <button
+              type="button"
+              className={`btn btn-sm ${tabDocentes === 'hoy' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTabDocentes('hoy')}
+            >
+              Asistencias de hoy
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${tabDocentes === 'historial' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTabDocentes('historial')}
+            >
+              Historial
+            </button>
+          </div>
+
+          {tabDocentes === 'hoy' && (
+            <div className="mt-16">
+              <p style={{ color: '#888', margin: '0 0 12px' }}>
+                Asistencias esperadas de hoy para el curso {curso || '—'} con su estado.
+              </p>
+              {cargandoDocHoy ? (
+                <LoadingSpinner text="Cargando asistencias..." size="sm" inline />
+              ) : docHoy.length === 0 ? (
+                <p className="empty-state-message">No hay clases programadas hoy para este curso.</p>
+              ) : (
+                <div className="table-responsive">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Docente</th>
+                        <th>Materia</th>
+                        <th>Curso</th>
+                        <th>Horario</th>
+                        <th>Estado</th>
+                        <th>Hora de carga</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {docHoy.map((doc) => (
+                        <tr key={`${doc.docente_id}-${doc.cm_id}-${doc.horario}`}>
+                          <td className="table-cell-strong">{doc.docente_nombre}</td>
+                          <td>{doc.materia_nombre}</td>
+                          <td>{doc.curso_nombre}</td>
+                          <td className="nowrap">{doc.horario}</td>
+                          <td>
+                            <span className={`badge ${
+                              doc.estado === 'Presente' ? 'badge-presente' :
+                              doc.estado === 'Ausente' ? 'badge-ausente' :
+                              doc.estado === 'Tarde' ? 'badge-tarde' :
+                              doc.estado === 'Retirado' ? 'badge-tarde' : ''
+                            }`}>
+                              {doc.estado}
+                            </span>
+                          </td>
+                          <td>{doc.hora_carga || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tabDocentes === 'historial' && (
+            <div className="mt-16">
+              <div className="filter-row">
+                <div className="form-group-filter">
+                  <label htmlFor="fecha-hist-doc">Fecha</label>
+                  <input
+                    id="fecha-hist-doc"
+                    type="date"
+                    value={fechaHistDoc}
+                    onChange={(e) => setFechaHistDoc(e.target.value)}
+                  />
+                </div>
+              </div>
+              {cargandoDocHistorial ? (
+                <LoadingSpinner text="Cargando historial..." size="sm" inline />
+              ) : docHistorial.length === 0 ? (
+                <p className="empty-state-message">No hay asistencias de docentes registradas para esa fecha.</p>
+              ) : (
+                <div className="table-responsive">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Docente</th>
+                        <th>Materia</th>
+                        <th>Curso</th>
+                        <th>Hora</th>
+                        <th>Estado</th>
+                        <th>Registrado por</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {docHistorial.map((r) => (
+                        <tr key={r.id_asistencia_docente}>
+                          <td className="table-cell-strong">{r.docente_nombre}</td>
+                          <td>{r.materia_nombre}</td>
+                          <td>{r.curso_nombre}</td>
+                          <td className="nowrap">{r.hora || '-'}</td>
+                          <td>
+                            <span className={`badge ${
+                              r.estado === 'Presente' ? 'badge-presente' :
+                              r.estado === 'Ausente' ? 'badge-ausente' :
+                              r.estado === 'Tarde' ? 'badge-tarde' :
+                              r.estado === 'Retirado' ? 'badge-tarde' : ''
+                            }`}>
+                              {r.estado}
+                            </span>
+                          </td>
+                          <td>{r.registrado_por || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
       </>

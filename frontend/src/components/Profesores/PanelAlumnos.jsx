@@ -26,7 +26,7 @@ import {
   cambiosIntensificaciones,
 } from '../../utils/intensificaciones';
 
-function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, docenteId, puedeEditar = true }) {
+function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, docenteId, puedeEditar = true, mostrarBannerSuplencia = true }) {
   const { alumnos, calificacionesCompletas, periodos, refreshData } = useData();
   const toast = useToast();
   const [filas, setFilas] = useState([]);
@@ -434,7 +434,7 @@ return (
         )}
       </div>
 
-      {!puedeEditar && (
+      {!puedeEditar && mostrarBannerSuplencia && (
         <p
           style={{
             background: '#fff4cf',
@@ -481,64 +481,87 @@ return (
                 <tr key={fila.id}>
                   <td className="table-cell-strong">{fila.nombre}</td>
                   <td>
-                    <select
-                      value={fila.prenota1}
-                      onChange={(e) => handleInputChange(fila.id, 'prenota1', e.target.value)}
-                      className="select-table"
-                      disabled={!puedeEditar}
-                    >
-                      <option value="">--</option>
-                      <option value="TEA">TEA</option>
-                      <option value="TEP">TEP</option>
-                      <option value="TED">TED</option>
-                    </select>
+                    {puedeEditar ? (
+                      <select
+                        value={fila.prenota1}
+                        onChange={(e) => handleInputChange(fila.id, 'prenota1', e.target.value)}
+                        className="select-table"
+                      >
+                        <option value="">--</option>
+                        <option value="TEA">TEA</option>
+                        <option value="TEP">TEP</option>
+                        <option value="TED">TED</option>
+                      </select>
+                    ) : fila.prenota1 ? (
+                      <span className="badge badge-cualitativa">{fila.prenota1}</span>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      className="input-table"
-                      value={fila.nota1}
-                      onChange={(e) =>
-                        handleInputChange(fila.id, 'nota1', clampNota(e.target.value))
-                      }
-                      disabled={!puedeEditar}
-                    />
+                    {puedeEditar ? (
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        className="input-table"
+                        value={fila.nota1}
+                        onChange={(e) =>
+                          handleInputChange(fila.id, 'nota1', clampNota(e.target.value))
+                        }
+                      />
+                    ) : fila.nota1 !== '' && fila.nota1 != null ? (
+                      fila.nota1
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td>
-                    <select
-                      value={fila.prenota2}
-                      onChange={(e) => handleInputChange(fila.id, 'prenota2', e.target.value)}
-                      className="select-table"
-                      disabled={!puedeEditar}
-                    >
-                      <option value="">--</option>
-                      <option value="TEA">TEA</option>
-                      <option value="TEP">TEP</option>
-                      <option value="TED">TED</option>
-                    </select>
+                    {puedeEditar ? (
+                      <select
+                        value={fila.prenota2}
+                        onChange={(e) => handleInputChange(fila.id, 'prenota2', e.target.value)}
+                        className="select-table"
+                      >
+                        <option value="">--</option>
+                        <option value="TEA">TEA</option>
+                        <option value="TEP">TEP</option>
+                        <option value="TED">TED</option>
+                      </select>
+                    ) : fila.prenota2 ? (
+                      <span className="badge badge-cualitativa">{fila.prenota2}</span>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={fila.nota2}
-                      onChange={(e) =>
-                        handleInputChange(fila.id, 'nota2', clampNota(e.target.value))
-                      }
-                      className="input-table"
-                      disabled={!puedeEditar}
-                    />
+                    {puedeEditar ? (
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={fila.nota2}
+                        onChange={(e) =>
+                          handleInputChange(fila.id, 'nota2', clampNota(e.target.value))
+                        }
+                        className="input-table"
+                      />
+                    ) : fila.nota2 !== '' && fila.nota2 != null ? (
+                      fila.nota2
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td>
-                    <input
-                      type="text"
-                      value={fila.diag}
-                      onChange={(e) => handleInputChange(fila.id, 'diag', e.target.value)}
-                      disabled={!puedeEditar}
-                    />
+                    {puedeEditar ? (
+                      <input
+                        type="text"
+                        value={fila.diag}
+                        onChange={(e) => handleInputChange(fila.id, 'diag', e.target.value)}
+                      />
+                    ) : (
+                      fila.diag || <span className="text-muted">—</span>
+                    )}
                   </td>
                 </tr>
               ))
@@ -599,7 +622,7 @@ return (
                       const persisteNota = notaActual != null && valor === '' ? notaActual : valor;
                       return (
                         <td key={key}>
-                          {delBucket.length > 0 && (
+                          {puedeEditar && delBucket.length > 0 && (
                             <div className="intensif-historial">
                               {delBucket.map((ins, i) => (
                                 <span key={i} className="intensif-histNota">
@@ -610,20 +633,25 @@ return (
                               ))}
                             </div>
                           )}
-                          {habilitado ? (
-                            <input
-                              type="number"
-                              min="1"
-                              max="10"
-                              className="input-table"
-                              value={persisteNota}
-                              disabled={!puedeEditar}
-                              onChange={(e) =>
-                                handleIntensifChange(fila.alumnoId, key, clampNota(e.target.value))
-                              }
-                            />
+                          {puedeEditar ? (
+                            habilitado ? (
+                              <input
+                                type="number"
+                                min="1"
+                                max="10"
+                                className="input-table"
+                                value={persisteNota}
+                                onChange={(e) =>
+                                  handleIntensifChange(fila.alumnoId, key, clampNota(e.target.value))
+                                }
+                              />
+                            ) : (
+                              <span className="intensif-bloqueado">Bloqueado</span>
+                            )
+                          ) : persisteNota !== '' && persisteNota != null ? (
+                            Number(persisteNota)
                           ) : (
-                            <span className="intensif-bloqueado">Bloqueado</span>
+                            <span className="text-muted">—</span>
                           )}
                         </td>
                       );
@@ -709,42 +737,46 @@ return (
                                 ))}
                               </div>
                             )}
-                            {editable ? (
-                              <div className="previa-input-group">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="10"
-                                  className="input-table"
-                                  value={persisteNota != null && valor === '' ? persisteNota : valor}
-                                  onChange={(e) =>
-                                    handlePreviaNotaChange(
-                                      p.materiaAdeudadaId,
-                                      per,
-                                      clampNota(e.target.value),
-                                    )
-                                  }
-                                />
-                                <input
-                                  type="number"
-                                  min="2000"
-                                  max="2100"
-                                  className="input-table previa-anio"
-                                  value={anioSel}
-                                  onChange={(e) =>
-                                    handlePreviaAnioChange(p.materiaAdeudadaId, per, e.target.value)
-                                  }
-                                />
-                              </div>
-                            ) : (
-                              <span className="previa-bloqueado">
-                                {p.estado === 'APROBADA'
-                                  ? 'Previa aprobada'
-                                  : guardadas.length > 0
-                                    ? '—'
-                                    : 'Bloqueado: períodos previos'}
-                              </span>
-                            )}
+                            {puedeEditar ? (
+                              editable ? (
+                                <div className="previa-input-group">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    className="input-table"
+                                    value={persisteNota != null && valor === '' ? persisteNota : valor}
+                                    onChange={(e) =>
+                                      handlePreviaNotaChange(
+                                        p.materiaAdeudadaId,
+                                        per,
+                                        clampNota(e.target.value),
+                                      )
+                                    }
+                                  />
+                                  <input
+                                    type="number"
+                                    min="2000"
+                                    max="2100"
+                                    className="input-table previa-anio"
+                                    value={anioSel}
+                                    onChange={(e) =>
+                                      handlePreviaAnioChange(p.materiaAdeudadaId, per, e.target.value)
+                                    }
+                                  />
+                                </div>
+                              ) : (
+                                <span className="previa-bloqueado">
+                                  {p.estado === 'APROBADA'
+                                    ? 'Previa aprobada'
+                                    : guardadas.length > 0
+                                      ? '—'
+                                      : 'Bloqueado: períodos previos'}
+                                </span>
+                              )
+                            ) : guardadas.length === 0 ? (
+                              <span className="text-muted">—</span>
+                            ) : null}
                           </td>
                         );
                       })}

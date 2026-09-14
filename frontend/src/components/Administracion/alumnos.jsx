@@ -65,6 +65,7 @@ function Alumnos() {
 
   const [curso, setCurso] = useState('');
   const [expandido, setExpandido] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
 
   const alumnosCurso = useMemo(() => {
     if (!curso) {
@@ -72,6 +73,21 @@ function Alumnos() {
     }
     return getAlumnosByCurso(curso);
   }, [curso, getAlumnosByCurso, todosAlumnos]);
+
+  const alumnosFiltrados = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase();
+    if (!texto) return alumnosCurso;
+    return alumnosCurso.filter((a) => {
+      const nombre = `${a.nombre || ''} ${a.apellido || ''}`.toLowerCase();
+      const dni = cleanDNI(a.dni || '');
+      return (
+        a.nombre?.toLowerCase().includes(texto) ||
+        a.apellido?.toLowerCase().includes(texto) ||
+        nombre.includes(texto) ||
+        dni.includes(texto.replace(/\s/g, ''))
+      );
+    });
+  }, [alumnosCurso, busqueda]);
   const handleCursoChange = useCallback((nuevoCurso) => {
     setCurso((prevCurso) => {
       if (prevCurso !== nuevoCurso) {
@@ -104,6 +120,16 @@ function Alumnos() {
               ))}
             </select>
           </div>
+          <div className="form-group-filter">
+            <label htmlFor="busqueda-alumno">Buscar por nombre, apellido o DNI</label>
+            <input
+              id="busqueda-alumno"
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Ej: Pérez o 45123456"
+            />
+          </div>
         </div>
 
         <div className="table-responsive">
@@ -121,14 +147,16 @@ function Alumnos() {
               </tr>
             </thead>
             <tbody>
-              {alumnosCurso.length === 0 ? (
+              {alumnosFiltrados.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="empty-state-message">
-                    No hay estudiantes registrados en este curso.
+                    {busqueda.trim()
+                      ? 'No hay estudiantes que coincidan con la búsqueda.'
+                      : 'No hay estudiantes registrados en este curso.'}
                   </td>
                 </tr>
               ) : (
-                alumnosCurso.map((a) => {
+                alumnosFiltrados.map((a) => {
                   const abierto = expandido === a.id;
                   return (
                     <Fragment key={a.id}>

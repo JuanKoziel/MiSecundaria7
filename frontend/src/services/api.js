@@ -290,6 +290,21 @@ export async function getDocentesDisponibles(curso) {
   return data;
 }
 
+export async function getAsistenciasDocentesHoy(curso) {
+  const params = {};
+  if (curso) params.curso = curso;
+  const { data } = await api.get('/asistencias-docentes/hoy/', { params });
+  return data;
+}
+
+export async function getHistorialAsistenciasDocentes(curso, fecha) {
+  const params = {};
+  if (curso) params.curso = curso;
+  if (fecha) params.fecha = fecha;
+  const { data } = await api.get('/asistencias-docentes/historial/', { params });
+  return data;
+}
+
 export async function registrarAsistenciaDocente(payload) {
   const { data } = await api.post('/asistencias-docentes/registrar-asistencia-docente/', payload);
   return data;

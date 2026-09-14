@@ -275,6 +275,21 @@ function CalendarioInstitucional({ readOnly = false }) {
         <button type="button" className="btn btn-secondary" onClick={() => navegarAnio(1)} title="Año siguiente">
           <i className="fas fa-angle-double-right" aria-hidden="true" />
         </button>
+        <div className="cal-nav-ir" title="Ir a una fecha">
+          <i className="fas fa-calendar-plus" aria-hidden="true" />
+          <input
+            type="date"
+            value={`${anio}-${String(mes + 1).padStart(2, '0')}-${String(diaSeleccionado || 1).padStart(2, '0')}`}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const [y, m, d] = e.target.value.split('-').map(Number);
+              setAnio(y);
+              setMes(m - 1);
+              setDiaSeleccionado(d);
+              setEventoVer(null);
+            }}
+          />
+        </div>
         {anio !== hoy.getFullYear() && (
           <button type="button" className="btn btn-secondary btn-sm" onClick={irAHoy} title="Volver a hoy">
             Hoy
@@ -319,10 +334,13 @@ function CalendarioInstitucional({ readOnly = false }) {
                 <div
                   key={ev.id_evento}
                   className="cal-evento-item"
-                  style={{ borderLeftColor: TIPO_COLORS[ev.tipo_evento] || TIPO_COLORS['Otro'], cursor: 'pointer' }}
-                  onClick={() => setEventoVer(ev)}
+                  style={{ borderLeftColor: TIPO_COLORS[ev.tipo_evento] || TIPO_COLORS['Otro'] }}
                 >
-                  <div className="cal-evento-info">
+                  <div
+                    className="cal-evento-info"
+                    style={{ cursor: 'pointer', flex: 1 }}
+                    onClick={() => setEventoVer(ev)}
+                  >
                     <strong>{ev.tipo_evento}</strong>
                     <span className="text-muted">{ev.descripcion}</span>
                     {ev.permanente && <span className="badge" style={{ backgroundColor: '#0d6efd', color: '#fff', fontSize: '0.7em' }}>Permanente</span>}
@@ -331,6 +349,28 @@ function CalendarioInstitucional({ readOnly = false }) {
                       {ev.alcance === 'franja' && ev.hora_inicio && ev.hora_fin && ` (${ev.hora_inicio?.slice(0,5)} a ${ev.hora_fin?.slice(0,5)})`}
                     </span>
                   </div>
+                  {!readOnly && (
+                    <div className="cal-evento-acciones">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => abrirModalEditar(ev)}
+                        title="Editar evento"
+                        aria-label="Editar evento"
+                      >
+                        <i className="fas fa-edit" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleEliminar(ev)}
+                        title="Eliminar evento"
+                        aria-label="Eliminar evento"
+                      >
+                        <i className="fas fa-trash" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

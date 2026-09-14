@@ -7,7 +7,7 @@ import CampanaNotificaciones from '../../Shared/CampanaNotificaciones';
 
 function Sidebar({ setView, onLogout, view }) {
   const { user } = useAuth();
-  const [expandedSection, setExpandedSection] = useState('gestion-academica');
+  const [expandedSection, setExpandedSection] = useState(null);
   const menuWrapperRef = useRef(null);
 
   const visibilidadOK = (item) => {

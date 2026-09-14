@@ -19,6 +19,7 @@ import {
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
+import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import FormModal from '../../components/Shared/FormModal';
 import FilePicker from '../../components/Shared/FilePicker';
@@ -164,7 +165,7 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
   );
 }
 
-function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
+function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = false }) {
   const {
     actas: actasCurso,
     actasAlumno,
@@ -399,6 +400,20 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
   };
 
   if (!filtrosCompletos(anioLectivo, curso)) {
+    if (showFiltros) {
+      return (
+        <div className="card">
+          <FiltrosAnioCurso
+            cursosObj={cursosObj}
+            anioLectivo={anioLectivo}
+            curso={curso}
+            onAnioChange={onAnioChange}
+            onCursoChange={onCursoChange}
+          />
+          <EmptyFiltros />
+        </div>
+      );
+    }
     return (
       <div>
         <EmptyFiltros />
@@ -408,6 +423,15 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
 
   return (
     <div className="card">
+      {showFiltros && (
+        <FiltrosAnioCurso
+          cursosObj={cursosObj}
+          anioLectivo={anioLectivo}
+          curso={curso}
+          onAnioChange={onAnioChange}
+          onCursoChange={onCursoChange}
+        />
+      )}
       <h3><i className="fas fa-file-signature" aria-hidden="true" /> Actas</h3>
 
       {mensaje && !editando && !showNewForm && (
