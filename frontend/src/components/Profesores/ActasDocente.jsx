@@ -14,6 +14,7 @@ import {
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FormModal from '../Shared/FormModal';
+import FilePicker from '../Shared/FilePicker';
 import { useToast } from '../../context/ToastContext';
 
 const API_BASE = 'http://localhost:8000';
@@ -95,7 +96,11 @@ function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaA
                 </div>
               )}
               {(!editando?.ruta_archivo || removeArchivo) && (
-                <input type="file" accept=".pdf,.docx,.doc,.jpg,.png" onChange={(e) => setArchivo(e.target.files[0] || null)} />
+                <FilePicker
+                  accept=".pdf,.docx,.doc,.jpg,.png"
+                  value={archivo ? [archivo] : []}
+                  onChange={(files) => setArchivo(files[0] || null)}
+                />
               )}
             </div>
           </div>

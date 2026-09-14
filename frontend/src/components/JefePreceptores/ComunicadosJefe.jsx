@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import ComunicadosView from '../Shared/ComunicadosView';
 import FormModal from '../Shared/FormModal';
+import FilePicker from '../Shared/FilePicker';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import {
@@ -39,7 +40,7 @@ function ComunicadosJefe() {
   });
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
-  const filesRef = useRef(null);
+  const [archivos, setArchivos] = useState([]);
 
   const ciclosMap = useMemo(() => {
     const map = new Map();
@@ -140,7 +141,7 @@ function ComunicadosJefe() {
           : [{ id_ciclo: Number(form.cicloId), curso: null, division: null, id_materia: null }],
       });
 
-      const files = filesRef.current?.files ? Array.from(filesRef.current.files) : [];
+      const files = archivos;
       if (comunicado?.id_comunicado && files.length > 0) {
         for (const file of files) {
           const uploaded = await uploadFile(file, 'comunicados');
@@ -153,7 +154,7 @@ function ComunicadosJefe() {
 
       toast.success('Comunicado publicado correctamente.');
       setForm({ titulo: '', cuerpo: '', cicloId: '', destinos: [] });
-      if (filesRef.current) filesRef.current.value = '';
+      setArchivos([]);
       await refreshData();
       setTimeout(() => {
         setMensaje('');
@@ -189,7 +190,13 @@ function ComunicadosJefe() {
         </div>
 
         {mostrarFormulario && (
-          <FormModal title="Nuevo Comunicado" onClose={() => setMostrarFormulario(false)}>
+          <FormModal
+            title="Nuevo Comunicado"
+            onClose={() => {
+              setArchivos([]);
+              setMostrarFormulario(false);
+            }}
+          >
             {mensaje && (
               <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
                 {mensaje}
@@ -269,12 +276,12 @@ function ComunicadosJefe() {
                 )}
 
                 <div className="form-group-filter preceptor-form-full">
-                  <label htmlFor="jefe-com-archivos">Archivos adjuntos</label>
-                  <input
+                  <FilePicker
                     id="jefe-com-archivos"
-                    type="file"
-                    ref={filesRef}
+                    label="Archivos adjuntos"
                     multiple
+                    value={archivos}
+                    onChange={setArchivos}
                   />
                 </div>
               </div>
@@ -285,7 +292,7 @@ function ComunicadosJefe() {
               </div>
             </div>
             <div className="standard-modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setMostrarFormulario(false)}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setArchivos([]); setMostrarFormulario(false); }}>
                 Cancelar
               </button>
               <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>

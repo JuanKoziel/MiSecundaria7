@@ -7,6 +7,7 @@ import {
   uploadFile
 } from '../../services/api';
 import FormModal from '../Shared/FormModal';
+import FilePicker from '../Shared/FilePicker';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 
@@ -229,14 +230,13 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
               )}
 
               <div className="form-group-filter">
-                <label htmlFor="modal-pdf">Archivo PDF (opcional)</label>
-                <input
+                <FilePicker
                   id="modal-pdf"
-                  type="file"
+                  label="Archivo PDF (opcional)"
                   accept="application/pdf"
-                  onChange={(e) => setArchivo(e.target.files[0])}
+                  value={archivo ? [archivo] : []}
+                  onChange={(files) => setArchivo(files[0] || null)}
                 />
-                <small className="text-muted">Opcional. Podés publicar la actividad sin adjuntar archivo.</small>
               </div>
             </div>
 

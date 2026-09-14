@@ -19,6 +19,7 @@ import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
 import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import FormModal from '../../components/Shared/FormModal';
+import FilePicker from '../../components/Shared/FilePicker';
 import { useToast } from '../../context/ToastContext';
 
 const API_BASE = 'http://localhost:8000';
@@ -119,7 +120,11 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
                 </div>
               )}
               {(!editando?.ruta_archivo || removeArchivo) && (
-                <input type="file" accept=".pdf,.docx,.doc,.jpg,.png" onChange={(e) => setArchivo(e.target.files[0] || null)} />
+                <FilePicker
+                  accept=".pdf,.docx,.doc,.jpg,.png"
+                  value={archivo ? [archivo] : []}
+                  onChange={(files) => setArchivo(files[0] || null)}
+                />
               )}
             </div>
           </div>

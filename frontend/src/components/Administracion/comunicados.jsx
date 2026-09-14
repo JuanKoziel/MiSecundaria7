@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
+import FilePicker from '../Shared/FilePicker';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import {
@@ -56,7 +57,7 @@ function Comunicados() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
-  const filesRef = useRef(null);
+  const [archivos, setArchivos] = useState([]);
 
   const ciclosMap = useMemo(() => {
     const map = new Map();
@@ -198,7 +199,7 @@ function Comunicados() {
         })),
       });
 
-      const files = filesRef.current?.files ? Array.from(filesRef.current.files) : [];
+      const files = archivos;
       if (comunicado?.id_comunicado && files.length > 0) {
         for (const file of files) {
           const uploaded = await uploadFile(file, 'comunicados');
@@ -217,7 +218,7 @@ function Comunicados() {
         destinos: [],
         materiaId: '',
       });
-      if (filesRef.current) filesRef.current.value = '';
+      setArchivos([]);
       await refreshData();
       setTimeout(() => setMensaje(''), 3000);
     } catch (err) {
@@ -259,7 +260,13 @@ function Comunicados() {
         </div>
 
         {mostrarFormulario && (
-          <FormModal title="Nuevo Comunicado" onClose={() => setMostrarFormulario(false)}>
+          <FormModal
+            title="Nuevo Comunicado"
+            onClose={() => {
+              setArchivos([]);
+              setMostrarFormulario(false);
+            }}
+          >
             {mensaje && (
               <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
                 {mensaje}
@@ -367,13 +374,13 @@ function Comunicados() {
                 </div>
 
                 <div className="form-group-filter preceptor-form-full">
-                  <label htmlFor="com-files">Archivos adjuntos (opcional, uno o varios)</label>
-                  <input
+                  <FilePicker
                     id="com-files"
-                    ref={filesRef}
-                    type="file"
+                    label="Archivos adjuntos (opcional, uno o varios)"
                     multiple
                     accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp"
+                    value={archivos}
+                    onChange={setArchivos}
                   />
                 </div>
 
@@ -387,7 +394,7 @@ function Comunicados() {
               <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
                 <i className="fas fa-paper-plane" aria-hidden="true" /> {guardando ? 'Enviando...' : 'Enviar comunicado'}
               </button>
-              <button type="button" className="btn btn-secondary" onClick={() => setMostrarFormulario(false)}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setArchivos([]); setMostrarFormulario(false); }}>
                 Cancelar
               </button>
             </div>

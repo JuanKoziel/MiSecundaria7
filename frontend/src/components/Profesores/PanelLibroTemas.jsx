@@ -9,6 +9,7 @@ import {
 } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import FilePicker from '../Shared/FilePicker';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -237,15 +238,13 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
             </div>
           </div>
           <div className="filter-row">
-            <div className="form-group-filter">
-              <label htmlFor="lt-archivo">Archivo (opcional)</label>
-              <input
-                id="lt-archivo"
-                type="file"
-                onChange={(e) => setFormData((p) => ({ ...p, archivo: e.target.files[0] || null }))}
-                disabled={formularioBloqueado}
-              />
-            </div>
+            <FilePicker
+              id="lt-archivo"
+              label="Archivo (opcional)"
+              value={formData.archivo ? [formData.archivo] : []}
+              onChange={(files) => setFormData((p) => ({ ...p, archivo: files[0] || null }))}
+              disabled={formularioBloqueado}
+            />
             <div className="form-group-filter flex-row--end">
               {editing && (
                 <button type="button" className="btn btn-secondary" onClick={limpiar} disabled={guardando}>
