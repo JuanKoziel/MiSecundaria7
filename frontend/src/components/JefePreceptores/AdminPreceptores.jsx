@@ -118,6 +118,7 @@ function AdminPreceptores() {
   const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
   const [quitandoRol, setQuitandoRol] = useState(false);
   const [personasParaAgregarRol, setPersonasParaAgregarRol] = useState([]);
+  const [personasConRol, setPersonasConRol] = useState([]);
   const [cargandoPersonasSinRol, setCargandoPersonasSinRol] = useState(false);
 
   const cargarPersonasSinRol = async () => {
@@ -162,8 +163,37 @@ function AdminPreceptores() {
     setLoading(true);
     setError('');
     try {
-      const data = await getPreceptores('preceptor');
-      setPreceptores(Array.isArray(data) ? data : []);
+      const [perfiles, conRol] = await Promise.all([
+        getPreceptores('preceptor'),
+        getUsuariosConRol('preceptor'),
+      ]);
+      const perfilesArr = Array.isArray(perfiles) ? perfiles : [];
+      const conRolArr = Array.isArray(conRol) ? conRol : [];
+      const perfilPorUsuario = new Map(
+        perfilesArr.filter((p) => p.id_usuario != null).map((p) => [String(p.id_usuario), p]),
+      );
+      const lista = conRolArr.map((u) => {
+        const perfil = perfilPorUsuario.get(String(u.id_usuario));
+        if (perfil) return perfil;
+        return {
+          id_preceptor: null,
+          id_usuario: u.id_usuario,
+          usuario: u.usuario || '',
+          nombre: u.nombre || '',
+          apellido: u.apellido || '',
+          dni: u.dni || '',
+          telefono: u.telefono || '',
+          correo: u.correo || '',
+          usuario_estado: u.usuario_estado ?? null,
+          usuario_fecha_deshabilitacion_programada: null,
+          usuario_fecha_habilitacion_programada: null,
+          cursos_asignados: [],
+          sin_perfil: true,
+        };
+      });
+      const enLista = new Set(lista.map((l) => String(l.id_usuario)));
+      const extra = perfilesArr.filter((p) => p.id_usuario != null && !enLista.has(String(p.id_usuario)));
+      setPreceptores([...lista, ...extra]);
     } catch (err) {
       toast.error(`Error al cargar preceptores: ${mensajeError(err)}`);
     } finally {
@@ -180,7 +210,6 @@ function AdminPreceptores() {
     setFormData({ ...formVacio, modo_creacion: 'nuevo' });
     setError('');
     setSuccess('');
-    cargarPersonas();
     setShowModal(true);
   };
 
@@ -263,7 +292,22 @@ function AdminPreceptores() {
         return;
       }
 
-      if (editingPreceptor) {
+      const esPerfilIncompleto = editingPreceptor && !editingPreceptor.id_preceptor;
+
+      if (esPerfilIncompleto) {
+        if (normalizarCursosIds(payload.cursos_ids).length === 0) {
+          toast.warning('Debe asignar al menos un curso para completar el perfil del preceptor');
+          setGuardando(false);
+          return;
+        }
+        payload.id_usuario_existente = Number(editingPreceptor.id_usuario);
+        delete payload.usuario_nombre;
+        delete payload.estado;
+        delete payload.fecha_deshabilitacion_programada;
+        delete payload.fecha_habilitacion_programada;
+        await createPreceptor(payload, 'preceptor');
+        toast.success('Perfil de preceptor completado correctamente');
+      } else if (editingPreceptor) {
         await updatePreceptor(editingPreceptor.id_preceptor, payload, 'preceptor');
         toast.success('Preceptor actualizado correctamente');
       } else {
@@ -548,7 +592,7 @@ function AdminPreceptores() {
             type="button"
             className="btn btn-outline-primary"
             onClick={() => {
-              cargarPersonas();
+              cargarPersonasSinRol();
               setMostrarAgregarRol(true);
             }}
           >
@@ -628,9 +672,13 @@ function AdminPreceptores() {
                     </td>
                     <td>{proximaAccion(p)}</td>
                     <td>
-                      {(p.cursos_asignados || []).length > 0
-                        ? p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
-                        : '---'}
+                      {p.sin_perfil ? (
+                        <span className="badge badge-neutral">Sin perfil</span>
+                      ) : (p.cursos_asignados || []).length > 0 ? (
+                        p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
+                      ) : (
+                        '---'
+                      )}
                     </td>
                     <td className="acciones-cell flex-row--center">
                       <button
@@ -638,7 +686,7 @@ function AdminPreceptores() {
                         className="btn btn-sm btn-secondary"
                         onClick={() => abrirEditar(p)}
                         aria-label="Editar preceptor"
-                        title="Editar"
+                        title={p.sin_perfil ? 'Completar perfil de preceptor' : 'Editar'}
                       >
                         <i className="fas fa-edit" aria-hidden="true" />
                       </button>
@@ -648,7 +696,7 @@ function AdminPreceptores() {
                         onClick={() => toggleEstado(p)}
                         aria-label={p.usuario_estado === false ? 'Habilitar preceptor' : 'Deshabilitar preceptor'}
                         title={p.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
-                        disabled={p.usuario_estado === null || p.usuario_estado === undefined}
+                        disabled={p.usuario_estado === null || p.usuario_estado === undefined || !p.id_preceptor}
                       >
                         <i className={`fas ${p.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />
                       </button>
@@ -658,6 +706,7 @@ function AdminPreceptores() {
                         onClick={() => handleDelete(p)}
                         aria-label="Eliminar preceptor"
                         title="Eliminar"
+                        disabled={!p.id_preceptor}
                       >
                         <i className="fas fa-trash" aria-hidden="true" />
                       </button>

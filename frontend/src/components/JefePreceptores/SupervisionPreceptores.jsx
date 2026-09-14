@@ -38,6 +38,20 @@ function SupervisionPreceptores() {
     return <div className="card"><div className="alert alert-danger">{error}</div></div>;
   }
 
+  const tareas = (p) => p.tareas_diarias || {};
+
+  const itemTarea = (icon, label, valor, ok = null) => (
+    <li className="supervision-tarea">
+      <i className={`fas ${icon} icon-muted`} aria-hidden="true" />
+      <span className="supervision-tarea-label">{label}</span>
+      <span className="supervision-tarea-valor">
+        {ok === true && <i className="fas fa-check supervision-ok" aria-hidden="true" />}
+        {ok === false && <i className="fas fa-exclamation-triangle supervision-warn" aria-hidden="true" />}
+        {valor}
+      </span>
+    </li>
+  );
+
   return (
     <div className="card">
       <div className="card-header-flex">
@@ -51,35 +65,67 @@ function SupervisionPreceptores() {
             <tr>
               <th>Preceptor</th>
               <th>Cursos Asignados</th>
-              <th>Cantidad de Estudiantes</th>
-              <th>Cantidad de Tutores</th>
+              <th>Estudiantes</th>
+              <th>Tutores</th>
+              <th>Tareas del día</th>
               <th>Último Acceso</th>
             </tr>
           </thead>
           <tbody>
             {preceptores.length === 0 ? (
               <tr>
-                <td colSpan={5} className="empty-state-message">
+                <td colSpan={6} className="empty-state-message">
                   No hay preceptores registrados.
                 </td>
               </tr>
             ) : (
-              preceptores.map((p) => (
-                <tr key={p.id_preceptor}>
-                  <td className="table-cell-strong">
-                    <i className="fas fa-user-tie icon-muted" aria-hidden="true" />
-                    {p.apellido}, {p.nombre}
-                  </td>
-                  <td>
-                    {(p.cursos_asignados || []).length > 0
-                      ? p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
-                      : <span style={{ color: '#999' }}>Sin cursos</span>}
-                  </td>
-                  <td>{p.cantidad_alumnos}</td>
-                  <td>{p.cantidad_tutores}</td>
-                  <td>{formatDateTime(p.ultimo_acceso)}</td>
-                </tr>
-              ))
+              preceptores.map((p) => {
+                const t = tareas(p);
+                const docentesOk = t.docentes_esperados_hoy > 0
+                  ? (t.docentes_registrados_hoy || 0) >= t.docentes_esperados_hoy
+                  : null;
+                return (
+                  <tr key={p.id_preceptor}>
+                    <td className="table-cell-strong">
+                      <i className="fas fa-user-tie icon-muted" aria-hidden="true" />
+                      {p.apellido}, {p.nombre}
+                    </td>
+                    <td>
+                      {(p.cursos_asignados || []).length > 0
+                        ? p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
+                        : <span style={{ color: '#999' }}>Sin cursos</span>}
+                    </td>
+                    <td>{p.cantidad_alumnos}</td>
+                    <td>{p.cantidad_tutores}</td>
+                    <td>
+                      <ul className="supervision-tareas-list">
+                        {itemTarea(
+                          'fa-chalkboard-teacher',
+                          'Asistencia docentes (hoy)',
+                          `${t.asistencias_docentes_hoy || 0} registrada/s de ${t.docentes_esperados_hoy || 0} esperado/s`,
+                          docentesOk,
+                        )}
+                        {itemTarea(
+                          'fa-chalkboard',
+                          'Asistencia docentes (semana)',
+                          t.asistencias_docentes_semana || 0,
+                        )}
+                        {itemTarea(
+                          'fa-user-graduate',
+                          'Asistencia estudiantes (hoy)',
+                          t.asistencias_alumnos_hoy || 0,
+                        )}
+                        {itemTarea(
+                          'fa-users',
+                          'Asistencia estudiantes (semana)',
+                          t.asistencias_alumnos_semana || 0,
+                        )}
+                      </ul>
+                    </td>
+                    <td>{formatDateTime(p.ultimo_acceso)}</td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -87,7 +133,8 @@ function SupervisionPreceptores() {
 
       <div className="info-box">
         <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
-        Resumen del trabajo de cada preceptor en la institución. Solo lectura.
+        Resumen de las tareas diarias que cada preceptor debe realizar (tomar asistencia de docentes y de
+        estudiantes). Solo lectura.
       </div>
     </div>
   );

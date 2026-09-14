@@ -95,7 +95,7 @@ function JefePreceptorDashboard({ user, onLogout }) {
       case 'alumnos':
         return (
           <div className="view-section active">
-            <Alumnos readOnly />
+            <Alumnos {...filtrosProps} readOnly />
           </div>
         );
 
@@ -203,7 +203,7 @@ function JefePreceptorDashboard({ user, onLogout }) {
 
       <main className="main-content">
 
-        <Header user={user} nombreCompleto={nombreCompletoJefe} />
+        <Header user={user} nombreCompleto={nombreCompletoJefe} {...filtrosProps} />
 
         <div className="dashboard-content">
           {renderView()}

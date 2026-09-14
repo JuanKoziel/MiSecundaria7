@@ -128,14 +128,23 @@ function Tutores({ readOnly = false }) {
   const listaFiltrada = useMemo(() => {
     if (!searchTerm) return lista;
     const q = normalize(searchTerm);
-    return lista.filter(
-      (t) =>
+    return lista.filter((t) => {
+      if (
         normalize(t.nombre).includes(q) ||
         normalize(t.apellido).includes(q) ||
         normalize(`${t.nombre} ${t.apellido}`).includes(q) ||
         normalize(cleanDNI(t.dni)).includes(q) ||
-        normalize(t.usuario).includes(q),
-    );
+        normalize(t.usuario).includes(q)
+      ) {
+        return true;
+      }
+      return (t.alumnos || []).some(
+        (al) =>
+          normalize(al.nombre).includes(q) ||
+          normalize(al.apellido).includes(q) ||
+          normalize(`${al.nombre} ${al.apellido}`).includes(q),
+      );
+    });
   }, [lista, searchTerm]);
 
   const cerrarFormulario = () => {
@@ -532,27 +541,6 @@ function Tutores({ readOnly = false }) {
     </div>
   );
 
-  const renderAccionLegend = () => (
-    <div className="legend-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px', padding: '8px', background: 'var(--sidebar)', borderRadius: 'var(--radius)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-edit" aria-hidden="true" /></span>
-        <span className="legend-text">Editar</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-calendar-alt" aria-hidden="true" /></span>
-        <span className="legend-text">Programar</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-check" aria-hidden="true" /></span>
-        <span className="legend-text">Habilitar</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-ban" aria-hidden="true" /></span>
-        <span className="legend-text">Deshabilitar</span>
-      </div>
-    </div>
-  );
-
   const tituloModal = modo === 'crear' ? 'Crear tutor' : 'Modificar tutor';
 
   return (
@@ -582,25 +570,21 @@ function Tutores({ readOnly = false }) {
         )}
       </div>
 
-      {!readOnly && (
-        <div className="mb-12">
-          <input
-            type="text"
-            placeholder="Buscar por nombre, apellido, DNI o usuario..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-      )}
+      <div className="mb-12">
+        <input
+          type="text"
+          placeholder="Buscar por nombre, apellido, DNI, usuario o estudiante..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="search-input"
+        />
+      </div>
 
       {mensaje && (
         <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
           {mensaje}
         </p>
       )}
-
-      {renderAccionLegend()}
 
       {renderTablaVista()}
 

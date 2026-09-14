@@ -602,28 +602,7 @@ const abrirCrear = () => {
     </div>
   );
 
-  const renderAccionLegend = () => (
-    <div className="legend-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px', padding: '8px', background: 'var(--sidebar)', borderRadius: 'var(--radius)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-edit" aria-hidden="true" /></span>
-        <span className="legend-text">Editar</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-calendar-alt" aria-hidden="true" /></span>
-        <span className="legend-text">Programar</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-check" aria-hidden="true" /></span>
-        <span className="legend-text">Habilitar</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-ban" aria-hidden="true" /></span>
-        <span className="legend-text">Deshabilitar</span>
-      </div>
-    </div>
-  );
-
-const renderFormCrear = () => (
+  const renderFormCrear = () => (
   <div style={{ maxWidth: 760 }} className="preceptor-form-grid">
         <div className="form-group-filter preceptor-form-full">
           <label htmlFor="doc-usuario">Usuario</label>
@@ -862,39 +841,34 @@ const renderFormModificar = () => (
       </div>
 
       {!readOnly && (
-        <div>
-          <FiltrosDocentesVista
-            anioLectivo={anioLectivo}
-            curso={curso}
-            materia={materia}
-            onAnio={(v) => {
-              setAnioLectivo(v);
-              setCurso('');
-            }}
-            onCurso={setCurso}
-            onMateria={setMateria}
-          />
-          {!readOnly && (
-            <div className="mb-12">
-              <input
-                type="text"
-                placeholder="Buscar por nombre, apellido, DNI o usuario..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-            </div>
-          )}
-        </div>
+        <FiltrosDocentesVista
+          anioLectivo={anioLectivo}
+          curso={curso}
+          materia={materia}
+          onAnio={(v) => {
+            setAnioLectivo(v);
+            setCurso('');
+          }}
+          onCurso={setCurso}
+          onMateria={setMateria}
+        />
       )}
+
+      <div className="mb-12">
+        <input
+          type="text"
+          placeholder="Buscar por nombre, apellido, DNI o usuario..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="search-input"
+        />
+      </div>
 
       {mensaje && (
         <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
           {mensaje}
         </p>
       )}
-
-      {renderAccionLegend()}
 
       {renderTablaVista()}
 

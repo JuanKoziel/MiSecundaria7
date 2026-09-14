@@ -1368,6 +1368,10 @@ def _persona_de_usuario(usuario):
         'nombre': perfil.nombre or '',
         'apellido': perfil.apellido or '',
         'dni': perfil.dni or '',
+        'telefono': getattr(perfil, 'telefono', None) or '',
+        'correo': getattr(perfil, 'correo', None)
+        or getattr(perfil, 'email', None)
+        or '',
     }
 
 
@@ -1600,7 +1604,10 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
                 'nombre': persona['nombre'],
                 'apellido': persona['apellido'],
                 'dni': persona['dni'],
+                'telefono': persona.get('telefono', ''),
+                'correo': persona.get('correo', ''),
                 'usuario': usuario.usuario,
+                'usuario_estado': usuario.estado if usuario.estado is not None else None,
                 'cantidad_roles': cantidad_por_usuario.get(usuario.id_usuario, 0),
             })
         
@@ -5052,6 +5059,9 @@ def supervision_preceptores(request):
     preceptores = Preceptor.objects.filter(
         id_usuario__usuariorol__id_rol__nombre_rol='preceptor',
     ).select_related('id_usuario')
+    hoy = timezone.localtime().date()
+    dia = _dia_semana_es()
+    inicio_semana = hoy - timedelta(days=hoy.weekday())
     result = []
     for p in preceptores:
         cursos = Curso.objects.filter(id_preceptor=p, activo=True)
@@ -5068,6 +5078,31 @@ def supervision_preceptores(request):
                 id_tutor__isnull=False,
             ).values_list('id_tutor_id', flat=True)
         )
+        asistencias_docentes_hoy = AsistenciaDocente.objects.filter(
+            id_usuario=p.id_usuario, fecha=hoy,
+        ).count()
+        asistencias_docentes_semana = AsistenciaDocente.objects.filter(
+            id_usuario=p.id_usuario, fecha__gte=inicio_semana,
+        ).count()
+        asistencias_alumnos_hoy = Asistencia.objects.filter(
+            id_usuario=p.id_usuario, fecha=hoy,
+        ).count()
+        asistencias_alumnos_semana = Asistencia.objects.filter(
+            id_usuario=p.id_usuario, fecha__gte=inicio_semana,
+        ).count()
+        docentes_esperados_ids = set()
+        docentes_registrados_hoy = set(
+            AsistenciaDocente.objects.filter(
+                id_usuario=p.id_usuario, fecha=hoy,
+            ).values_list('id_docente_id', flat=True)
+        )
+        if cursos_ids:
+            curso_materias = CursoMateria.objects.filter(
+                id_curso__in=cursos_ids, id_docente__isnull=False,
+            ).only('id_curso_materia', 'id_docente_id')
+            for cm in curso_materias:
+                if _obtener_bloques_horario(cm.id_curso_materia, dia):
+                    docentes_esperados_ids.add(cm.id_docente_id)
         ultimo_acceso = p.id_usuario.ultimo_acceso if p.id_usuario else None
         result.append({
             'id_preceptor': p.id_preceptor,
@@ -5081,6 +5116,14 @@ def supervision_preceptores(request):
             'cantidad_alumnos': cantidad_alumnos,
             'cantidad_tutores': len(tutores_ids),
             'ultimo_acceso': ultimo_acceso.isoformat() if ultimo_acceso else None,
+            'tareas_diarias': {
+                'asistencias_docentes_hoy': asistencias_docentes_hoy,
+                'asistencias_docentes_semana': asistencias_docentes_semana,
+                'asistencias_alumnos_hoy': asistencias_alumnos_hoy,
+                'asistencias_alumnos_semana': asistencias_alumnos_semana,
+                'docentes_esperados_hoy': len(docentes_esperados_ids),
+                'docentes_registrados_hoy': len(docentes_registrados_hoy),
+            },
         })
     return Response(result)
 

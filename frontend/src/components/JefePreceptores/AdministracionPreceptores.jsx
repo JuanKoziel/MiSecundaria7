@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import AdminPreceptores from './AdminPreceptores';
-import AsignacionCursos from './AsignacionCursos';
 import SupervisionPreceptores from './SupervisionPreceptores';
 
 const TABS = [
   { id: 'admin', label: 'Administrar Preceptores', icon: 'fa-user-tie' },
-  { id: 'asignacion', label: 'Asignación de Cursos', icon: 'fa-calendar-check' },
   { id: 'supervision', label: 'Supervisión', icon: 'fa-eye' },
 ];
 
@@ -16,8 +14,6 @@ function AdministracionPreceptores() {
     switch (activeTab) {
       case 'admin':
         return <AdminPreceptores />;
-      case 'asignacion':
-        return <AsignacionCursos />;
       case 'supervision':
         return <SupervisionPreceptores />;
       default:

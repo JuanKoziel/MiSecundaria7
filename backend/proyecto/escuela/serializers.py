@@ -662,6 +662,10 @@ class PreceptorSerializer(serializers.ModelSerializer):
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
+    # Declarado explícitamente para evitar el UniqueValidator automático de DRF:
+    # al agregar el rol a un usuario que ya posee un perfil de preceptor (sin rol),
+    # su mismo DNI no debe ser considerado como conflicto (validate() ya lo excluye).
+    dni = serializers.CharField(max_length=20, required=True)
     cursos_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -716,13 +720,10 @@ class PreceptorSerializer(serializers.ModelSerializer):
             dni = normalizar_dni(dni)
             attrs['dni'] = dni
             if id_usuario_existente:
-                preceptor_existente = Preceptor.objects.filter(id_usuario_id=id_usuario_existente).first()
-                if preceptor_existente:
-                    if self.instance and self.instance.pk == preceptor_existente.pk:
-                        return attrs
-                    if Preceptor.objects.filter(dni=dni).exclude(pk=preceptor_existente.pk).exists():
-                        raise serializers.ValidationError({'dni': 'Ya existe un/a preceptor con este/a dni.'})
-                    return attrs
+                # Al agregar el rol a un usuario existente no se rechaza el DNI:
+                # si ya existe un perfil de preceptor con ese DNI (propio o de otra
+                # cuenta), create() reutilizará esos datos existentes.
+                return attrs
             if self.instance:
                 if Preceptor.objects.filter(dni=dni).exclude(pk=self.instance.pk).exists():
                     raise serializers.ValidationError({'dni': 'Ya existe un/a preceptor con este/a dni.'})
@@ -820,7 +821,13 @@ class PreceptorSerializer(serializers.ModelSerializer):
         )
 
         preceptor_existente = Preceptor.objects.filter(id_usuario=usuario).first()
+        if preceptor_existente is None and validated_data.get('dni'):
+            # Si el DNI ya figura en un perfil de preceptor existente, se reutilizan
+            # esos datos en lugar de generar un error de "ya existe".
+            preceptor_existente = Preceptor.objects.filter(dni=validated_data['dni']).first()
         if preceptor_existente is not None:
+            if preceptor_existente.id_usuario_id != usuario.id_usuario:
+                preceptor_existente.id_usuario = usuario
             for attr, value in validated_data.items():
                 setattr(preceptor_existente, attr, value)
             preceptor_existente.save()

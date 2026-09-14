@@ -668,27 +668,6 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
     </div>
   );
 
-  const renderAccionLegend = () => (
-    <div className="legend-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px', padding: '8px', background: 'var(--sidebar)', borderRadius: 'var(--radius)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-edit" aria-hidden="true" /></span>
-        <span className="legend-text">Editar</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-calendar-alt" aria-hidden="true" /></span>
-        <span className="legend-text">Programar</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-check" aria-hidden="true" /></span>
-        <span className="legend-text">Habilitar</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span className="legend-icon"><i className="fas fa-ban" aria-hidden="true" /></span>
-        <span className="legend-text">Deshabilitar</span>
-      </div>
-    </div>
-  );
-
   const tituloModal = modo === 'crear' ? 'Crear estudiante' : 'Modificar estudiante';
 
   return (
@@ -715,7 +694,6 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
 
       {filtrosOk ? (
         <>
-          {renderAccionLegend()}
           {!readOnly && (
             <div className="mb-12">
               <input
