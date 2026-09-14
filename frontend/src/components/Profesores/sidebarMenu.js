@@ -38,6 +38,7 @@ export const menuItems = [
     icon: 'fa-tools',
     children: [
       { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
+      { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
     ],
   },
 ];

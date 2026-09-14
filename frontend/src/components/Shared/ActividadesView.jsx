@@ -36,8 +36,8 @@ function formatHora(value) {
   return new Intl.DateTimeFormat('es-AR', { timeStyle: 'short' }).format(date);
 }
 
-function claveMateriaDocente(materia, docenteNombre, docenteApellido) {
-  return `${materia}|${docenteNombre}|${docenteApellido}`;
+function claveMateriaDocente(materia) {
+  return materia || 'Sin materia';
 }
 
 function separarDocente(completo = '') {
@@ -85,13 +85,9 @@ function ActividadesView({ userRole, selectedChild }) {
     cursoMateria
       .filter((cm) => Number(cm.id_curso) === Number(cursoId))
       .forEach((cm) => {
-        const { nombre, apellido } = separarDocente(cm.docente_nombre);
-        const key = claveMateriaDocente(
-          cm.materia_nombre || 'Sin materia',
-          nombre,
-          apellido
-        );
+        const key = claveMateriaDocente(cm.materia_nombre || 'Sin materia');
         if (!mapa.has(key)) {
+          const { nombre, apellido } = separarDocente(cm.docente_nombre);
           mapa.set(key, {
             id: key,
             materia: cm.materia_nombre || 'Sin materia',
@@ -119,11 +115,7 @@ function ActividadesView({ userRole, selectedChild }) {
   const actividadesPorMateriaDocente = useMemo(() => {
     const grupos = {};
     actividades.forEach((act) => {
-      const key = claveMateriaDocente(
-        act.materia_nombre || '',
-        act.docente_nombre || '',
-        act.docente_apellido || ''
-      );
+      const key = claveMateriaDocente(act.materia_nombre || '');
       if (!grupos[key]) grupos[key] = [];
       grupos[key].push(act);
     });

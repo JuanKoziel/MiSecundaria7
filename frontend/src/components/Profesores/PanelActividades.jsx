@@ -199,8 +199,6 @@ function ModalActividad({ actividad, onClose }) {
 
 function ModalFormularioActividad({
   actividadEditando,
-  cursoNombre,
-  materiaNombre,
   form,
   setForm,
   onClose,
@@ -304,10 +302,6 @@ function ModalFormularioActividad({
             </div>
           )}
 
-          <div className="comunicados-destino-preview">
-            {cursoNombre} - {materiaNombre}
-          </div>
-
           <div className="standard-modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancelar
@@ -323,7 +317,7 @@ function ModalFormularioActividad({
   );
 }
 
-function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, puedeEditar = true, misAsignaciones, misCursos, cursosObj }) {
+function PanelActividades({ cursoMateriaId, docenteId, puedeEditar = true, misAsignaciones, misCursos, cursosObj }) {
   const toast = useToast();
   const [actividades, setActividades] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -573,8 +567,6 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
       {mostrarFormulario && (
         <ModalFormularioActividad
           actividadEditando={actividadEditando}
-          cursoNombre={cursoNombre}
-          materiaNombre={materiaNombre}
           form={form}
           setForm={setForm}
           onClose={cerrarFormulario}
@@ -592,6 +584,7 @@ function PanelActividades({ cursoMateriaId, docenteId, materiaNombre, cursoNombr
     </div>
 
     <PanelMateriasAdeudadasDocente
+      cursoMateriaId={cursoMateriaId}
       misAsignaciones={misAsignaciones}
       misCursos={misCursos}
       cursosObj={cursosObj}

@@ -4,6 +4,7 @@ import {
   logout as apiLogout,
   getMe,
   seleccionarRol as apiSeleccionarRol,
+  setRolActivoHeader,
 } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -54,9 +55,11 @@ export function AuthProvider({ children }) {
         const inicial = resolverRolInicial(roles, data.usuario);
         setUser(buildUser(data, inicial));
         setRolActivo(inicial);
+        setRolActivoHeader(inicial);
       })
       .catch(() => {
         apiLogout();
+        setRolActivoHeader(null);
         setUser(null);
         setRolActivo(null);
       })
@@ -70,6 +73,7 @@ export function AuthProvider({ children }) {
       const inicial = resolverRolInicial(roles, data.usuario);
       setUser(buildUser(data, inicial));
       setRolActivo(inicial);
+      setRolActivoHeader(inicial);
       return data;
     },
     [resolverRolInicial],
@@ -85,6 +89,7 @@ export function AuthProvider({ children }) {
       const roles = Array.isArray(data.roles) ? data.roles : [];
       setUser((prev) => ({ ...prev, roles, role: rol }));
       setRolActivo(rol);
+      setRolActivoHeader(rol);
       sessionStorage.setItem(ROL_STORAGE_PREFIX + user.username, rol);
       return data;
     },
@@ -96,6 +101,7 @@ export function AuthProvider({ children }) {
       sessionStorage.removeItem(ROL_STORAGE_PREFIX + user.username);
     }
     setRolActivo(null);
+    setRolActivoHeader(null);
     setUser((prev) => (prev ? { ...prev, role: '' } : prev));
   }, [user]);
 
@@ -104,6 +110,7 @@ export function AuthProvider({ children }) {
       sessionStorage.removeItem(ROL_STORAGE_PREFIX + user.username);
     }
     apiLogout();
+    setRolActivoHeader(null);
     setUser(null);
     setRolActivo(null);
   }, [user]);

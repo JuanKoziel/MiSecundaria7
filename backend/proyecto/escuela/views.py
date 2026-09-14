@@ -1035,6 +1035,40 @@ def login_view(request):
     })
 
 
+def rol_activo_usuario(request):
+    """Devuelve el rol con el que el usuario está operando en la interfaz.
+
+    El frontend envía este rol en el header `X-Rol-Activo` (ya validado al
+    seleccionarlo en el login/selector de roles). Si llega y pertenece a los
+    roles reales del usuario, se devuelve; en caso contrario `None`.
+    """
+    username = request.user.username if getattr(request.user, 'is_authenticated', False) else None
+    if not username:
+        return None
+    rol = request.headers.get('X-Rol-Activo')
+    if not rol:
+        return None
+    roles = get_roles_for_usuario(username)
+    return rol if rol in roles else None
+
+
+def roles_efectivos(request):
+    """Roles a considerar para autorizar la operación actual.
+
+    Cuando el frontend informa el rol activo, solo ese rol se tiene en
+    cuenta (un docente con varios roles actúa como el rol elegido, no como
+    la suma de todos). Sin header (clientes externos) se usan todos los
+    roles como fallback.
+    """
+    rol = rol_activo_usuario(request)
+    if rol:
+        return {rol}
+    username = request.user.username if getattr(request.user, 'is_authenticated', False) else None
+    if not username:
+        return set()
+    return set(get_roles_for_usuario(username))
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def me_view(request):
@@ -3203,7 +3237,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         ahora = timezone.localtime()
         dia = _dia_semana_es(ahora)
 
-        roles = get_roles_for_usuario(request.user.username)
+        roles = roles_efectivos(request)
         if 'jefe_preceptores' in roles or not any(r in roles for r in ('admin', 'director', 'preceptor', 'docente')):
             return Response({'error': 'No tenés permiso para registrar asistencias.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -3221,7 +3255,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
                 'error': f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". {desc_ev}. Horario afectado: {horario_ev}.',
             }, status=status.HTTP_403_FORBIDDEN)
 
-        roles = get_roles_for_usuario(request.user.username)
+        roles = roles_efectivos(request)
         if 'docente' in roles:
             try:
                 cm = CursoMateria.objects.get(id_curso_materia=cm_id)
@@ -3730,8 +3764,9 @@ class ActaPropiedadMixin:
     relaciones (acta_alumno, acta_curso, acta_docente)."""
 
     def _roles_usuario(self):
-        username = self.request.user.username if self.request.user.is_authenticated else None
-        return get_roles_for_usuario(username) if username else []
+        """Roles a considerar para autorizar la acción según el rol activo
+        de la interfaz (multirrol) o todos los roles si no se informa."""
+        return roles_efectivos(self.request)
 
     def _usuario_actual(self):
         """Usuario del sistema (`usuarios`) correspondiente al usuario
@@ -5067,7 +5102,21 @@ class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
         elif doc:
             qs = qs.filter(id_docente=doc)
         else:
-            qs = qs.none()
+            alumno = alumno_del_usuario(self.request)
+            if alumno:
+                materia_ids = MateriaAdeudada.objects.filter(
+                    id_alumno=alumno
+                ).values_list('id_materia', flat=True)
+                qs = qs.filter(id_curso_materia__id_materia__in=materia_ids)
+            else:
+                alumno_ids = alumno_ids_familia(self.request)
+                if alumno_ids:
+                    materia_ids = MateriaAdeudada.objects.filter(
+                        id_alumno__in=alumno_ids
+                    ).values_list('id_materia', flat=True)
+                    qs = qs.filter(id_curso_materia__id_materia__in=materia_ids)
+                else:
+                    qs = qs.none()
         tipo = self.request.query_params.get('tipo')
         curso_materia = self.request.query_params.get('curso_materia')
         if tipo:

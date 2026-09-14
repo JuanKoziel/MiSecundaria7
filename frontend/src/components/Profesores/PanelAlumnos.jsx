@@ -180,7 +180,15 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
         };
       });
 
-      setIntensificaciones(filasIntensif);
+      // Mostrar solo alumnos con al menos una casilla desbloqueada o que ya
+      // aprobaron alguna intensificación (estos últimos quedan visibles en verde).
+      const filasVisibles = filasIntensif.filter((f) => {
+        const algunaCasilla = Object.values(f.habilitados || {}).some(Boolean);
+        const algunaAprobada = (f.instancias || []).some((ins) => ins.estado === 'APROBADA');
+        return algunaCasilla || algunaAprobada;
+      });
+
+      setIntensificaciones(filasVisibles);
     } catch {
       setIntensificaciones([]);
     } finally {
@@ -215,9 +223,14 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
       });
 
       // Todas las materias previas (ADEUDADA y APROBADA) para que las
-      // aprobadas sigan visibles en el histórico.
+      // aprobadas sigan visibles en el histórico. Solo las de la materia
+      // seleccionada en el panel.
+      const materiaNorm = String(materiaNombre || '').trim().toLowerCase();
       const previasAlumnos = deudas.filter(
-        (p) => alumnoIds.has(p.id_alumno) && p.tipo_deuda === 'PREVIA',
+        (p) =>
+          alumnoIds.has(p.id_alumno) &&
+          p.tipo_deuda === 'PREVIA' &&
+          String(p.materia_nombre || '').trim().toLowerCase() === materiaNorm,
       );
 
       const filasPrevias = previasAlumnos.map((p) => {
@@ -239,7 +252,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
     } finally {
       setCargandoPrevias(false);
     }
-  }, [alumnosCurso]);
+  }, [alumnosCurso, materiaNombre]);
 
   useEffect(() => {
     cargarIntensificaciones();
@@ -278,6 +291,9 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
       await Promise.all(promesas);
       toast.success('Intensificaciones guardadas exitosamente.');
       await cargarIntensificaciones();
+      // Si alguna intensificación quedó desaprobada, pasa a ser previa:
+      // refrescamos la sección para que aparezca sin recargar la página.
+      await cargarPrevias();
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
@@ -557,9 +573,20 @@ return (
                 </tr>
               </thead>
               <tbody>
-                {intensificaciones.map((fila) => (
-                  <tr key={fila.alumnoId}>
-                    <td className="table-cell-strong">{fila.nombre}</td>
+                {intensificaciones.map((fila) => {
+                  const aprobada = (fila.instancias || []).some(
+                    (ins) => ins.estado === 'APROBADA',
+                  );
+                  return (
+                    <tr key={fila.alumnoId} className={aprobada ? 'intensif-fila-aprobada' : undefined}>
+                      <td className="table-cell-strong">
+                        {fila.nombre}
+                        {aprobada && (
+                          <span className="badge badge-success" style={{ marginLeft: '8px' }}>
+                            <i className="fas fa-check-circle" aria-hidden="true" /> Aprobada
+                          </span>
+                        )}
+                      </td>
                     {PERIODOS_INTENSIFICACION.map(({ key, periodos }) => {
                       const tipo = TIPO_POR_BUCKET[key];
                       const habilitado = fila.habilitados[tipo];
@@ -602,7 +629,8 @@ return (
                       );
                     })}
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>

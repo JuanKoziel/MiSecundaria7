@@ -21,6 +21,14 @@ api.interceptors.request.use((config) => {
 
 let refreshEnCurso = null;
 
+export function setRolActivoHeader(rol) {
+  if (rol) {
+    api.defaults.headers.common['X-Rol-Activo'] = rol;
+  } else {
+    delete api.defaults.headers.common['X-Rol-Activo'];
+  }
+}
+
 function refrescarAccessToken(refresh) {
   if (!refreshEnCurso) {
     refreshEnCurso = axios

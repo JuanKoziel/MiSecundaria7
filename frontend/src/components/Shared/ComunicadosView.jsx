@@ -284,7 +284,6 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
     <div className="card">
       <div className="card-header-flex">
         <h3><i className="fas fa-bullhorn" aria-hidden="true" /> Comunicados</h3>
-        {userRole !== 'alumno' && <span className="badge role-badge-display">Solo lectura</span>}
       </div>
 
       {comunicadosOrdenados.length === 0 ? (

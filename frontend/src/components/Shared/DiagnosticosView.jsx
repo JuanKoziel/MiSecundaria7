@@ -138,6 +138,15 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
     });
   };
 
+  const abrirCrear = () => {
+    const cursoInicial =
+      String(cursoSeleccionado || '') ||
+      String(misCursos.find((c) => cursoEsEditable(c.id_curso))?.id_curso || '');
+    setNewDiagnostico({ id_curso: cursoInicial, descripcion: '' });
+    setSaveError('');
+    setShowCreateForm(true);
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setGuardando(true);
@@ -146,6 +155,11 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
     try {
       if (!miDocente) {
         toast.warning('No se encontró el perfil de docente.');
+        setGuardando(false);
+        return;
+      }
+      if (!newDiagnostico.id_curso) {
+        toast.warning('No se pudo identificar el curso para el diagnóstico.');
         setGuardando(false);
         return;
       }
@@ -210,23 +224,6 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
         }}>
           <form onSubmit={handleCreate} className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
             <div className="form-group">
-              <label htmlFor="nuevo-curso">Curso</label>
-              <select
-                id="nuevo-curso"
-                value={newDiagnostico.id_curso}
-                onChange={(e) => setNewDiagnostico({ ...newDiagnostico, id_curso: e.target.value })}
-                required
-              >
-                <option value="">Seleccione un curso...</option>
-                {misCursos.filter((c) => cursoEsEditable(c.id_curso)).map((c) => (
-                  <option key={c.id_curso} value={String(c.id_curso)}>
-                    {c.nombre_curso}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
               <label htmlFor="nuevo-descripcion">Descripción</label>
               <textarea
                 id="nuevo-descripcion"
@@ -276,7 +273,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => setShowCreateForm(true)}
+              onClick={abrirCrear}
             >
               <i className="fas fa-plus" aria-hidden="true" /> Crear
             </button>

@@ -957,6 +957,37 @@ body {
     color: var(--primary-dark);
     word-break: break-all;
 }
+.lt-edit-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(253, 126, 20, 0.12);
+    border: 1px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--primary-dark);
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+    animation: lt-pulso 1.8s ease-in-out infinite;
+}
+.lt-edit-banner i {
+    animation: lt-parpadeo 1.1s ease-in-out infinite;
+}
+@keyframes lt-pulso {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(253, 126, 20, 0.35); }
+    50% { box-shadow: 0 0 0 7px rgba(253, 126, 20, 0); }
+}
+@keyframes lt-parpadeo {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+.lt-fila-editando {
+    background: #fff7ed !important;
+}
+.intensif-fila-aprobada {
+    background: #f0fdf4 !important;
+}
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

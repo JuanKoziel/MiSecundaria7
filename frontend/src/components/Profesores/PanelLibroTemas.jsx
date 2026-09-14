@@ -203,6 +203,16 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
 
       {mostrarFormulario && (
         <form onSubmit={handleSubmit}>
+          {editing && (
+            <div className="lt-edit-banner">
+              <i className="fas fa-pen" aria-hidden="true" />
+              <span>
+                Estás editando el registro del{' '}
+                <strong>{editing.fecha ? new Date(`${editing.fecha}T00:00:00`).toLocaleDateString() : 'Libro de Temas'}</strong>.
+                Guardá los cambios o cancelá para salir del modo edición.
+              </span>
+            </div>
+          )}
           <div className="filter-row">
             <div className="form-group-filter">
               <label htmlFor="lt-fecha">Fecha</label>
@@ -295,7 +305,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
             ) : (
               registros.map((reg) => (
                 <Fragment key={reg.id_libro_tema}>
-                  <tr>
+                  <tr className={editing && editing.id_libro_tema === reg.id_libro_tema ? 'lt-fila-editando' : undefined}>
                     <td>{reg.fecha ? new Date(`${reg.fecha}T00:00:00`).toLocaleDateString() : '—'}</td>
                     <td>{reg.curso_nombre || cursoNombre || '—'}</td>
                     <td>{reg.materia_nombre || materiaNombre || '—'}</td>

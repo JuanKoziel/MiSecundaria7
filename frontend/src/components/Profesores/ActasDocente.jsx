@@ -178,11 +178,13 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
 
   const actasDelCurso = useMemo(() => {
     if (!cursoId) return [];
+    const alumnoActaIds = new Set(misActasAlumno.map((a) => a.actaId));
     return misActasCurso.filter((a) => {
+      if (alumnoActaIds.has(a.actaId)) return false;
       const cursoObj = cursosObj.find((c) => c.id_curso === Number(cursoId));
       return cursoObj && a.curso === cursoObj.nombre_curso;
     });
-  }, [misActasCurso, cursosObj, cursoId]);
+  }, [misActasCurso, misActasAlumno, cursosObj, cursoId]);
 
   const limpiar = () => {
     setShowNewForm(false);
@@ -225,7 +227,6 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
     if (acta?.id_acta && cObj) {
       if (payload.tipo === 'alumno') {
         await createActaAlumno({ id_acta: acta.id_acta, id_alumno: Number(payload.alumnoId) });
-        await createActaCurso({ id_acta: acta.id_acta, id_curso: cObj.id_curso });
       } else if (payload.tipo === 'curso') {
         await createActaCurso({ id_acta: acta.id_acta, id_curso: cObj.id_curso });
       }

@@ -18,7 +18,7 @@ function mensajeError(err) {
   return data?.detail || err.message || 'Error inesperado';
 }
 
-function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }) {
+function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
   const toast = useToast();
 
   // Intensificaciones state
@@ -51,25 +51,21 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
     }
   };
 
-  const misCursosOrdenados = useMemo(
-    () => [...(cursosObj || [])].sort((a, b) => {
-      const cicloA = a.ciclo_anio || 0;
-      const cicloB = b.ciclo_anio || 0;
-      if (cicloA !== cicloB) return cicloB - cicloA;
-      return String(a.nombre_curso).localeCompare(String(b.nombre_curso));
-    }),
-    [cursosObj],
+  const actividadesMateria = useMemo(
+    () =>
+      actividades.filter((act) => String(act.id_curso_materia) === String(cursoMateriaId ?? '')),
+    [actividades, cursoMateriaId],
   );
 
-  const modalMateriasFiltradas = misAsignaciones
-    .filter((cm) => String(cm.id_curso) === String(modalCursoId))
-    .map((cm) => cm.materia_nombre);
+  const misCursoMateriaActiva = misAsignaciones.find(
+    (cm) => String(cm.id) === String(cursoMateriaId),
+  );
 
   const abrirModalNueva = () => {
     setEditingId(null);
     setArchivoActual(null);
-    setModalCursoId('');
-    setModalMateriaNombre('');
+    setModalCursoId(misCursoMateriaActiva ? String(misCursoMateriaActiva.id_curso) : '');
+    setModalMateriaNombre(misCursoMateriaActiva ? misCursoMateriaActiva.materia_nombre : '');
     setTitulo('');
     setDescripcion('');
     setPeriodoIntensificacion('Intensificación del primer cuatrimestre');
@@ -105,11 +101,11 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
   const handleGuardarActividad = async (e) => {
     e.preventDefault();
     if (!modalCursoMateriaObj) {
-      toast.error('Debe seleccionar un curso y materia válidos.');
+      toast.error('No se pudo identificar la materia asignada.');
       return;
     }
     if (!titulo || !periodoIntensificacion) {
-      toast.error('Curso, materia, período y título son obligatorios.');
+      toast.error('Período y título son obligatorios.');
       return;
     }
 
@@ -127,7 +123,7 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
         descripcion,
         archivo_pdf: archivoUrl,
         tipo: 'INTENSIFICACION',
-        periodo_intensificacion
+        periodo_intensificacion: periodoIntensificacion
       };
 
       if (editingId) {
@@ -183,41 +179,6 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
         <FormModal title={editingId ? 'Editar intensificación' : 'Nueva intensificación'} onClose={cerrarModal}>
           <form onSubmit={handleGuardarActividad}>
             <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
-
-              <div className="preceptor-form-row preceptor-form-row--two">
-                <div className="form-group-filter">
-                  <label htmlFor="modal-curso">Curso</label>
-                  <select
-                    id="modal-curso"
-                    className="form-control"
-                    value={modalCursoId}
-                    onChange={(e) => { setModalCursoId(e.target.value); setModalMateriaNombre(''); }}
-                    required
-                  >
-                    <option value="">Seleccione curso...</option>
-                    {misCursosOrdenados.map((c) => (
-                      <option key={c.id_curso} value={String(c.id_curso)}>{c.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group-filter">
-                  <label htmlFor="modal-materia">Materia</label>
-                  <select
-                    id="modal-materia"
-                    className="form-control"
-                    value={modalMateriaNombre}
-                    onChange={(e) => setModalMateriaNombre(e.target.value)}
-                    required
-                    disabled={!modalCursoId}
-                  >
-                    <option value="">Seleccione materia...</option>
-                    {modalMateriasFiltradas.map((mat, idx) => (
-                      <option key={idx} value={mat}>{mat}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
 
               <div className="form-group-filter">
                 <label htmlFor="modal-periodo">Período de intensificación</label>
@@ -302,12 +263,12 @@ function PanelMateriasAdeudadasDocente({ misAsignaciones, misCursos, cursosObj }
             </tr>
           </thead>
           <tbody>
-            {actividades.length === 0 ? (
+            {actividadesMateria.length === 0 ? (
               <tr>
-                <td colSpan={6} className="empty-state-message">No hay actividades de intensificación publicadas.</td>
+                <td colSpan={6} className="empty-state-message">No hay actividades de intensificación publicadas para esta materia.</td>
               </tr>
             ) : (
-              actividades.map((act) => (
+              actividadesMateria.map((act) => (
                 <tr key={act.id_actividad}>
                   <td><strong>{act.curso_nombre}</strong><br/>{act.materia_nombre}</td>
                   <td><span className="badge badge-warning">{act.periodo_intensificacion || 'Intensificación del primer cuatrimestre'}</span></td>
