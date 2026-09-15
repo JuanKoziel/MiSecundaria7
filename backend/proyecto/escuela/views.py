@@ -1934,7 +1934,22 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username) if username else []
         usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
 
-        if 'docente' in roles:
+        if 'preceptor' in roles and usuario_obj:
+            preceptor = Preceptor.objects.filter(id_usuario=usuario_obj).first()
+            if preceptor:
+                cursos_ids = list(
+                    Curso.objects.filter(id_preceptor=preceptor.id_preceptor).values_list('id_curso', flat=True)
+                )
+                if cursos_ids:
+                    curso_materias = CursoMateria.objects.filter(
+                        id_curso__in=cursos_ids,
+                    ).values_list('id_curso_materia', flat=True)
+                    qs = qs.filter(id_curso_materia__in=curso_materias)
+                else:
+                    return qs.none()
+            else:
+                return qs.none()
+        elif 'docente' in roles:
             docente = self._docente_actual()
             if docente:
                 qs = qs.filter(id_curso_materia__in=_materias_docente_ids(docente))
@@ -1950,20 +1965,13 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
             else:
                 return qs.none()
         elif 'familia' in roles and usuario_obj:
-            tutor = PadreTutor.objects.filter(id_usuario=usuario_obj).first()
-            if tutor:
-                hijo_ids = alumno_ids_de_tutor(tutor)
-                hijos = Alumno.objects.filter(id_alumno__in=hijo_ids).values_list('id_curso', flat=True)
-                curso_ids = [h for h in hijos if h is not None]
-                if curso_ids:
-                    curso_materias = CursoMateria.objects.filter(
-                        id_curso__in=curso_ids,
-                    ).values_list('id_curso_materia', flat=True)
-                    qs = qs.filter(id_curso_materia__in=curso_materias)
-                else:
-                    return qs.none()
-            else:
+            hijo_ids = alumno_ids_familia(self.request)
+            if not hijo_ids:
                 return qs.none()
+            curso_materias = CursoMateria.objects.filter(
+                id_curso__in=Alumno.objects.filter(id_alumno__in=hijo_ids).values_list('id_curso_id', flat=True)
+            ).values_list('id_curso_materia', flat=True)
+            qs = qs.filter(id_curso_materia__in=curso_materias)
         elif not roles:
             return qs.none()
 

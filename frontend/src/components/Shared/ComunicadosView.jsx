@@ -142,7 +142,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
       case 'preceptor': {
         const miPreceptor = preceptores.find((p) => p.id_usuario === userId);
         if (!miPreceptor) return [];
-        const misCursos = cursosObj.filter((c) => c.id_preceptor === miPreceptor.id_preceptor);
+        const misCursos = cursosObj.filter((c) => Number(c.id_preceptor) === Number(miPreceptor.id));
         return comunicados
           .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
           .filter((c) => misCursos.some((cursoObj) => comunicadoMatchesCurso(c, cursoObj)));
@@ -151,7 +151,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
       case 'jefe_preceptores': {
         const miPreceptor = preceptores.find((p) => p.id_usuario === userId);
         if (!miPreceptor) return comunicados.filter((c) => comunicadoEstaVigente(c, aniosLectivos));
-        const misCursos = cursosObj.filter((c) => c.id_preceptor === miPreceptor.id_preceptor);
+        const misCursos = cursosObj.filter((c) => Number(c.id_preceptor) === Number(miPreceptor.id));
         if (misCursos.length === 0) return comunicados.filter((c) => comunicadoEstaVigente(c, aniosLectivos));
         return comunicados
           .filter((c) => comunicadoEstaVigente(c, aniosLectivos))

@@ -3,9 +3,7 @@ import { useData } from '../../context/DataContext';
 import { createDocente, updateDocente, deleteDocente, createCursoMateria, updateCursoMateria, deleteCursoMateria, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getCursoMateria, getCursos, getMaterias } from '../../services/api';
 import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
-import EmptyFiltros from './EmptyFiltros';
-import SelectorModo from './SelectorModo';
-import { formatDNI } from '../../utils/dni';
+import { formatDNI, cleanDNI } from '../../utils/dni';
 import FormModal from '../../components/Shared/FormModal';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
@@ -42,236 +40,14 @@ function formatDateTime(value) {
   return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
 }
 
+function normalize(str) {
+  if (!str) return '';
+  return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 function estadoLabel(estado) {
   if (estado === null || estado === undefined) return 'Sin usuario';
   return estado ? 'Habilitado' : 'Deshabilitado';
-}
-
-function proximaAccion(docente) {
-  if (docente.usuario_estado === null || docente.usuario_estado === undefined) return '---';
-  if (docente.usuario_estado && docente.usuario_fecha_deshabilitacion_programada) {
-    return `Deshabilitar el ${formatDateTime(docente.usuario_fecha_deshabilitacion_programada)}`;
-  }
-  if (!docente.usuario_estado && docente.usuario_fecha_habilitacion_programada) {
-    return `Habilitar el ${formatDateTime(docente.usuario_fecha_habilitacion_programada)}`;
-  }
-  if (docente.usuario_fecha_deshabilitacion_programada) {
-    return `Deshabilitar el ${formatDateTime(docente.usuario_fecha_deshabilitacion_programada)}`;
-  }
-  if (docente.usuario_fecha_habilitacion_programada) {
-    return `Habilitar el ${formatDateTime(docente.usuario_fecha_habilitacion_programada)}`;
-  }
-  return '---';
-}
-
-function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.entries(data)
-      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
-      .join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
-}
-
-function nuevaAsignacion() {
-  return { id: Date.now(), materia: '', anioLectivo: '', curso: '' };
-}
-
-function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, onMateria }) {
-  const { aniosLectivos, inscripciones, cursos, materias, cursosObj } = useData();
-  const cursosFiltrados = cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj);
-
-  return (
-    <div className="filter-row">
-      <div className="form-group-filter">
-        <label htmlFor="doc-anio">Año lectivo</label>
-        <select
-          id="doc-anio"
-          value={anioLectivo}
-          onChange={(e) => onAnio(e.target.value)}
-        >
-          <option value="">Todos los años</option>
-          {aniosLectivos.map((anio) => (
-            <option key={anio} value={anio}>
-              {anio}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group-filter">
-        <label htmlFor="doc-curso">Curso</label>
-        <select
-          id="doc-curso"
-          value={curso}
-          onChange={(e) => onCurso(e.target.value)}
-          disabled={!anioLectivo}
-        >
-          <option value="">Todos los cursos</option>
-          {cursosFiltrados.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group-filter">
-        <label htmlFor="doc-materia-filtro">Materia</label>
-        <select id="doc-materia-filtro" value={materia} onChange={(e) => onMateria(e.target.value)}>
-          <option value="">Todas las materias</option>
-          {materias.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-}
-
-function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix }) {
-  const { aniosLectivos, inscripciones, cursos, materias, cursosObj, cursoMateria, materiasObj } = useData();
-  const toast = useToast();
-  const [borrador, setBorrador] = useState(nuevaAsignacion());
-  const cursosBorrador = cursosPorAnio(borrador.anioLectivo, inscripciones, cursos, cursosObj);
-
-  // Filtrar materias según el curso seleccionado
-  const materiasFiltradas = useMemo(() => {
-    if (!borrador.curso || !borrador.anioLectivo) return [];
-    
-    // Obtener nombres de materias directamente de cursoMateria para el curso seleccionado
-    const materiasCurso = cursoMateria
-      .filter((cm) => cm.curso_nombre === borrador.curso)
-      .map((cm) => cm.materia_nombre)
-      .filter((m) => m); // Eliminar null/undefined
-    
-    return materiasCurso;
-  }, [borrador.curso, borrador.anioLectivo, cursoMateria]);
-
-  const agregarAsignacion = () => {
-    if (!borrador.materia || !borrador.anioLectivo || !borrador.curso) {
-      toast.warning('Completá año, curso y materia antes de agregar.');
-      return;
-    }
-    const duplicada = asignaciones.some(
-      (a) =>
-        a.materia === borrador.materia &&
-        a.anioLectivo === borrador.anioLectivo &&
-        a.curso === borrador.curso,
-    );
-    if (duplicada) {
-      toast.warning('Esa combinación de materia, año y curso ya fue agregada.');
-      return;
-    }
-    setAsignaciones((prev) => [...prev, { ...borrador, id: Date.now(), isNew: true }]);
-    setBorrador(nuevaAsignacion());
-  };
-
-  const quitarAsignacion = (id) => {
-    setAsignaciones((prev) => prev.filter((a) => a.id !== id));
-  };
-
-  const prefix = idPrefix || 'asig';
-
-  return (
-    <div>
-      <h4 className="preceptor-section-title">Materias y asignaciones</h4>
-      <p className="preceptor-modo-hint">
-        Seleccioná el año lectivo y curso, luego elegí la materia asignada a ese curso. Podés agregar varias.
-      </p>
-
-      <div className="upload-dashed-box">
-        <div className="filter-row">
-          <div className="form-group-filter">
-            <label htmlFor={`${prefix}-anio`}>Año lectivo</label>
-            <select
-              id={`${prefix}-anio`}
-              value={borrador.anioLectivo}
-              onChange={(e) =>
-                setBorrador((p) => ({ ...p, anioLectivo: e.target.value, curso: '', materia: '' }))
-              }
-            >
-              <option value="">Año...</option>
-              {aniosLectivos.map((anio) => (
-                <option key={anio} value={anio}>
-                  {anio}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group-filter">
-            <label htmlFor={`${prefix}-curso`}>Curso</label>
-            <select
-              id={`${prefix}-curso`}
-              value={borrador.curso}
-              onChange={(e) => setBorrador((p) => ({ ...p, curso: e.target.value, materia: '' }))}
-              disabled={!borrador.anioLectivo}
-            >
-              <option value="">Curso...</option>
-              {cursosBorrador.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group-filter">
-            <label htmlFor={`${prefix}-materia`}>Materia</label>
-            <select
-              id={`${prefix}-materia`}
-              value={borrador.materia}
-              onChange={(e) => setBorrador((p) => ({ ...p, materia: e.target.value }))}
-              disabled={!borrador.curso}
-            >
-              <option value="">Seleccionar...</option>
-              {materiasFiltradas.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <button type="button" className="btn btn-success" onClick={agregarAsignacion}>
-          <i className="fas fa-plus" aria-hidden="true" /> Agregar materia
-        </button>
-      </div>
-
-      {asignaciones.length > 0 && (
-        <div className="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Materia</th>
-                <th>Año</th>
-                <th>Curso</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {asignaciones.map((a) => (
-                <tr key={a.id}>
-                  <td className="table-cell-strong">{a.materia}</td>
-                  <td>{a.anioLectivo}</td>
-                  <td>{a.curso}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      onClick={() => quitarAsignacion(a.id)}
-                    >
-                      Quitar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function Docentes({ readOnly = false }) {
@@ -279,13 +55,12 @@ function Docentes({ readOnly = false }) {
   const allDocentes = dataCtx.docentes || [];
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
-  const esVista = modo === 'vista';
   const esCrear = modo === 'crear';
   const esModificar = modo === 'modificar';
-  const necesitaFiltroVista = modo && !esCrear && !esModificar;
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');
   const [materia, setMateria] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [form, setForm] = useState(formVacio);
   const [asignaciones, setAsignaciones] = useState([]);
   const [asignacionesOriginales, setAsignacionesOriginales] = useState([]);
@@ -318,23 +93,60 @@ function Docentes({ readOnly = false }) {
   useEffect(() => {
     cargarPersonasSinRol();
   }, []);
-  const tieneAlgunFiltro = anioLectivo || curso || materia;
-  const lista = esVista
-    ? (tieneAlgunFiltro
-        ? docentesPorFiltros(anioLectivo, curso, materia, allDocentes, dataCtx.asignacionesDocente)
-        : allDocentes)
-    : allDocentes;
-  const docenteSel = lista.find((d) => String(d.id) === seleccionado);
 
-  const resetModo = (m) => {
-    setModo(m);
+  const tieneAlgunFiltro = anioLectivo || curso || materia;
+  const lista = tieneAlgunFiltro
+    ? docentesPorFiltros(anioLectivo, curso, materia, allDocentes, dataCtx.asignacionesDocente)
+    : allDocentes;
+  const docenteSel = lista.find((d) => String(d.id) === seleccionado) || allDocentes.find((d) => String(d.id) === seleccionado);
+
+  const listaFiltrada = useMemo(() => {
+    if (!searchTerm) return lista;
+    const q = normalize(searchTerm);
+    return lista.filter(
+      (d) =>
+        normalize(d.nombre).includes(q) ||
+        normalize(d.apellido).includes(q) ||
+        normalize(`${d.nombre} ${d.apellido}`).includes(q) ||
+        normalize(cleanDNI(d.dni)).includes(q) ||
+        normalize(d.usuario).includes(q),
+    );
+  }, [lista, searchTerm]);
+
+const cerrarFormulario = () => {
+    setModo(readOnly ? 'vista' : '');
     setSeleccionado('');
     setForm(formVacio);
     setAsignaciones([]);
     setAsignacionesOriginales([]);
-    setAnioLectivo('');
-    setCurso('');
-    setMateria('');
+    setMensaje('');
+  };
+
+const abrirCrear = () => {
+    setModo('crear');
+    setSeleccionado('');
+    setForm(formVacio);
+    setAsignaciones([]);
+    setAsignacionesOriginales([]);
+    setMensaje('');
+  };
+
+  const abrirEditar = (docente) => {
+    setModo('modificar');
+    setSeleccionado(String(docente.id));
+    setForm({
+      usuario_nombre: docente.usuario || '',
+      contrasena: '',
+      estado: docente.usuario_estado !== false,
+      fecha_deshabilitacion_programada: toInputDateTime(docente.usuario_fecha_deshabilitacion_programada),
+      fecha_habilitacion_programada: toInputDateTime(docente.usuario_fecha_habilitacion_programada),
+      dni: docente.dni,
+      nombre: docente.nombre,
+      apellido: docente.apellido,
+      correo: docente.correo || '',
+      telefono: docente.telefono || '',
+    });
+    cargarAsignacionesDocente(docente.id);
     setMensaje('');
   };
 
@@ -408,8 +220,7 @@ function Docentes({ readOnly = false }) {
         } else {
           toast.success(`Docente creado correctamente con ${asigOk} asignación(es).`);
         }
-        setForm(formVacio);
-        setAsignaciones([]);
+        cerrarFormulario();
       } else if (modo === 'modificar') {
         if (!seleccionado) {
           toast.warning('Seleccioná un docente para modificar.');
@@ -449,19 +260,7 @@ function Docentes({ readOnly = false }) {
           }
         }
         toast.success('Docente actualizado correctamente.');
-      } else if (modo === 'borrar') {
-        if (!seleccionado) {
-          toast.warning('Seleccioná un docente para eliminar.');
-          setGuardando(false);
-          return;
-        }
-        await confirmarEliminacion('¿Estás seguro de que querés eliminar este docente y todas sus asignaciones?\n\nEsta acción no se puede deshacer.', {
-          onConfirm: async () => {
-            await deleteDocente(seleccionado);
-            toast.success('Docente eliminado correctamente.');
-            setSeleccionado('');
-          },
-        });
+        cerrarFormulario();
       }
       await dataCtx.refreshData();
     } catch (err) {
@@ -469,6 +268,24 @@ function Docentes({ readOnly = false }) {
     } finally {
       setGuardando(false);
     }
+  };
+
+  const eliminarDocente = async (docente) => {
+    await confirmarEliminacion('¿Estás seguro de que querés eliminar este docente y todas sus asignaciones?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        setGuardando(true);
+        setMensaje('');
+        try {
+          await deleteDocente(docente.id);
+          toast.success('Docente eliminado correctamente.');
+          await dataCtx.refreshData();
+        } catch (err) {
+          toast.error(mensajeError(err));
+        } finally {
+          setGuardando(false);
+        }
+      },
+    });
   };
 
   const handleAgregarRol = async ({ persona, asignaciones }) => {
@@ -493,7 +310,6 @@ function Docentes({ readOnly = false }) {
     }
   };
 
-  // Función para obtener curso-materias disponibles para asignar a docentes
   const fetchCursoMateriaParaDocente = async () => {
     try {
       const data = await getCursoMateria({ activo: '1', estado: '1', id_docente: '' });
@@ -504,7 +320,6 @@ function Docentes({ readOnly = false }) {
     }
   };
 
-  // Función para obtener cursos disponibles para el formulario de asignación
   const fetchCursosParaDocente = async () => {
     try {
       const data = await getCursos({ activo: '1', estado: '1' });
@@ -515,7 +330,6 @@ function Docentes({ readOnly = false }) {
     }
   };
 
-  // Función para obtener materias disponibles para el formulario de asignación
   const fetchMateriasParaDocente = async () => {
     try {
       const data = await getMaterias({ activo: '1' });
@@ -643,7 +457,7 @@ function Docentes({ readOnly = false }) {
     setAsignacionesOriginales(mapped);
   };
 
-  const tablaVista = (
+  const renderTablaVista = () => (
     <div className="table-responsive">
       <table>
         <thead>
@@ -651,98 +465,118 @@ function Docentes({ readOnly = false }) {
             <th>DNI</th>
             <th>Nombre</th>
             <th>Usuario</th>
-            {!readOnly && <th>Próxima acción</th>}
+            <th>Estado</th>
             <th>Asignaciones</th>
-            {!readOnly && <th>Acción</th>}
+            {!readOnly && <th>Próxima acción</th>}
+            {!readOnly && <th>Acciones</th>}
           </tr>
         </thead>
         <tbody>
-          {lista.length === 0 ? (
+          {listaFiltrada.length === 0 ? (
             <tr>
-              <td colSpan={readOnly ? 4 : 6} className="empty-state-message">
-                No hay docentes con los filtros seleccionados.
+              <td colSpan={readOnly ? 5 : 7} className="empty-state-message">
+                {searchTerm
+                  ? 'No se encontraron docentes con ese criterio.'
+                  : 'No hay docentes con los filtros seleccionados.'}
               </td>
             </tr>
           ) : (
-            lista.map((d) => {
+            listaFiltrada.map((d) => {
               const asigs = (dataCtx.cursoMateria || []).filter((cm) => cm.id_docente === d.id);
               const asigTexto = asigs.length > 0
                 ? asigs.map((cm) => `${cm.materia_nombre} (${cm.curso_nombre})`).join(', ')
                 : 'Sin asignaciones';
               const puedeCambiarEstado = d.usuario_estado !== null && d.usuario_estado !== undefined;
-              return (
-                <Fragment key={d.id}>
-                  <tr>
-                    <td>{formatDNI(d.dni)}</td>
-                    <td>{nombreDocente(d)}</td>
-                    <td>{d.usuario || 'Sin usuario'}</td>
-                    {!readOnly && <td>{proximaAccion(d)}</td>}
-                    <td>{asigTexto}</td>
-                    {!readOnly && (
-                    <td>
-                      {puedeCambiarEstado ? (
-                        <div className="flex-row--center flex-gap-16">
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${d.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
-                            onClick={() => toggleEstado(d)}
-                            disabled={guardando}
-                          >
-                            <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
-                            {d.usuario_estado === false ? 'Deshabilitado' : 'Habilitado'}
-                          </button>
-                          <button
-                            type="button"
-                            className={`btn btn-sm btn-secondary${programando === d.id ? ' active' : ''}`}
-                            onClick={() => abrirProgramar(d)}
-                            title="Programar"
-                          >
-                            <i className="fas fa-calendar-alt" aria-hidden="true" />
-                          </button>
-                        </div>
-                      ) : '—'}
+              return [
+                <tr key={d.id}>
+                  <td><strong>{formatDNI(d.dni)}</strong></td>
+                  <td className="table-cell-strong">{nombreDocente(d)}</td>
+                  <td>{d.usuario || 'Sin usuario'}</td>
+                  <td>
+                    <span className={`badge ${d.usuario_estado === false ? 'badge-danger' : d.usuario_estado !== null && d.usuario_estado !== undefined ? 'badge-success' : 'badge-neutral'}`}>
+                      {estadoLabel(d.usuario_estado)}
+                    </span>
+                  </td>
+                  <td>{asigTexto}</td>
+                  {!readOnly && <td>{proximaAccion(d)}</td>}
+                  {!readOnly && (
+                    <td className="acciones-cell" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', justifyItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => abrirEditar(d)}
+                        title="Editar"
+                      >
+                        <i className="fas fa-edit" aria-hidden="true" />
+                      </button>
+                      {puedeCambiarEstado && (
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${d.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
+                          onClick={() => toggleEstado(d)}
+                          title={d.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
+                          disabled={guardando}
+                        >
+                          <i className={`fas ${d.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={`btn btn-sm btn-secondary${programando === d.id ? ' active' : ''}`}
+                        onClick={() => abrirProgramar(d)}
+                        title="Programar"
+                      >
+                        <i className="fas fa-calendar-alt" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        onClick={() => eliminarDocente(d)}
+                        title="Eliminar"
+                      >
+                        <i className="fas fa-trash" aria-hidden="true" />
+                      </button>
                     </td>
-                    )}
-                  </tr>
-                  {!readOnly && programando === d.id && (
-                    <tr>
-                      <td colSpan={6} className="p-0">
-                        <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
-                          <div className="preceptor-form-row preceptor-form-row--two">
-                            <div className="form-group-filter">
-                              <label>Fecha deshabilitación programada</label>
-                              <input
-                                type="datetime-local"
-                                value={progForm.fecha_deshabilitacion_programada}
-                                onChange={(e) => setProgForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
-                              />
-                            </div>
-                            <div className="form-group-filter">
-                              <label>Fecha habilitación programada</label>
-                              <input
-                                type="datetime-local"
-                                value={progForm.fecha_habilitacion_programada}
-                                onChange={(e) => setProgForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
-                              />
-                            </div>
+)}
+                </tr>,
+                !readOnly && programando === d.id && (
+                  <tr key={d.id + '-prog'}>
+                    <td colSpan={7} className="p-0">
+                      <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
+                        <div className="preceptor-form-row preceptor-form-row--two">
+                          <div className="form-group-filter">
+                            <label>Fecha deshabilitación programada</label>
+                            <input
+                              type="datetime-local"
+                              value={progForm.fecha_deshabilitacion_programada}
+                              onChange={(e) => setProgForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
+                            />
                           </div>
-                          <div className="flex-row flex-gap-16 mt-16">
-                            <button type="button" className="btn btn-primary" onClick={guardarProgramar} disabled={guardando}>
-                              {guardando ? 'Guardando...' : 'Guardar'}
-                            </button>
-                            <button type="button" className="btn btn-danger" onClick={limpiarProgramar} disabled={guardando}>
-                              Limpiar
-                            </button>
-                            <button type="button" className="btn btn-secondary" onClick={cerrarProgramar}>
-                              Cancelar
-                            </button>
+                          <div className="form-group-filter">
+                            <label>Fecha habilitación programada</label>
+                            <input
+                              type="datetime-local"
+                              value={progForm.fecha_habilitacion_programada}
+                              onChange={(e) => setProgForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
+                            />
                           </div>
                         </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
+                        <div className="flex-row flex-gap-16 mt-16">
+                          <button type="button" className="btn btn-primary" onClick={guardarProgramar} disabled={guardando}>
+                            {guardando ? 'Guardando...' : 'Guardar'}
+                          </button>
+                          <button type="button" className="btn btn-danger" onClick={limpiarProgramar} disabled={guardando}>
+                            Limpiar
+                          </button>
+                          <button type="button" className="btn btn-secondary" onClick={cerrarProgramar}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ),
+              ];
             })
           )}
         </tbody>
@@ -750,379 +584,314 @@ function Docentes({ readOnly = false }) {
     </div>
   );
 
-  const renderContenido = () => {
-    if (esVista) return tablaVista;
+  const renderAccionLegend = () => (
+    <div className="legend-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px', padding: '8px', background: 'var(--sidebar)', borderRadius: 'var(--radius)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span className="legend-icon"><i className="fas fa-edit" aria-hidden="true" /></span>
+        <span className="legend-text">Editar</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span className="legend-icon"><i className="fas fa-calendar-alt" aria-hidden="true" /></span>
+        <span className="legend-text">Programar</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span className="legend-icon"><i className="fas fa-check" aria-hidden="true" /></span>
+        <span className="legend-text">Habilitar</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span className="legend-icon"><i className="fas fa-ban" aria-hidden="true" /></span>
+        <span className="legend-text">Deshabilitar</span>
+      </div>
+    </div>
+  );
 
-    if (esCrear) {
-      return (
-        <div style={{ maxWidth: 760 }}>
-          <div className="preceptor-form-grid">
-            <div className="form-group-filter preceptor-form-full">
-              <label htmlFor="doc-usuario">Usuario</label>
-              <input
-                id="doc-usuario"
-                type="text"
-                value={form.usuario_nombre}
-                onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
-                required
-                
-              />
-            </div>
-            <div className="form-group-filter">
-              <label htmlFor="doc-contrasena">Contraseña</label>
-              <input
-                id="doc-contrasena"
-                type="password"
-                value={form.contrasena}
-onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="form-group-filter">
-              <label>Estado</label>
-              <label htmlFor="doc-estado" className="preceptor-status-toggle">
-                <input
-                  id="doc-estado"
-                  type="checkbox"
-                  checked={form.estado}
-                  onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
-                />
-                <span>{estadoLabel(form.estado)}</span>
-              </label>
-            </div>
-            <div className="form-group-filter">
-              <label htmlFor="doc-fecha-deshabilitacion">Fecha deshabilitación programada</label>
-              <input
-                id="doc-fecha-deshabilitacion"
-                type="datetime-local"
-                value={form.fecha_deshabilitacion_programada}
-                onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
-              />
-            </div>
-            <div className="form-group-filter">
-              <label htmlFor="doc-fecha-habilitacion">Fecha habilitación programada</label>
-              <input
-                id="doc-fecha-habilitacion"
-                type="datetime-local"
-                value={form.fecha_habilitacion_programada}
-                onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
-              />
-            </div>
-<div className="form-group-filter preceptor-form-full">
-               <label htmlFor="doc-dni">DNI</label>
-               <input
-                 id="doc-dni"
-                 type="text"
-                 value={form.dni}
-                 onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
-                 
-               />
-             </div>
-             <div className="form-group-filter">
-               <label htmlFor="doc-nombre">Nombre</label>
-               <input
-                 id="doc-nombre"
-                 type="text"
-                 value={form.nombre}
-                 onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
-                 
-               />
-             </div>
-             <div className="form-group-filter">
-               <label htmlFor="doc-apellido">Apellido</label>
-               <input
-                 id="doc-apellido"
-                 type="text"
-                 value={form.apellido}
-                 onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
-                 
-               />
-             </div>
-             <div className="form-group-filter">
-               <label htmlFor="doc-correo">Correo</label>
-               <input
-                 id="doc-correo"
-                 type="email"
-                 value={form.correo}
-                 onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
-                 
-               />
-             </div>
-             <div className="form-group-filter">
-               <label htmlFor="doc-telefono">Teléfono</label>
-               <input
-                 id="doc-telefono"
-                 type="text"
-                 value={form.telefono}
-                 onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
-                 
-               />
-             </div>
-          </div>
-          <AsignacionesEditor
-            asignaciones={asignaciones}
-            setAsignaciones={setAsignaciones}
-            idPrefix="asig-crear"
+const renderFormCrear = () => (
+  <div style={{ maxWidth: 760 }} className="preceptor-form-grid">
+        <div className="form-group-filter preceptor-form-full">
+          <label htmlFor="doc-usuario">Usuario</label>
+          <input
+            id="doc-usuario"
+            type="text"
+            value={form.usuario_nombre}
+            onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
+            required
           />
         </div>
-      );
-    }
-
-    if (modo === 'modificar') {
-      return (
-        <div>
-          <div className="filter-row">
-            <div className="form-group-filter">
-              <label htmlFor="doc-select-mod">Docente</label>
-              <select
-                id="doc-select-mod"
-                value={seleccionado}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSeleccionado(val);
-                  const d = allDocentes.find((doc) => String(doc.id) === val);
-                  if (d) {
-                    setForm({
-                      usuario_nombre: d.usuario || '',
-                      contrasena: '',
-                      estado: d.usuario_estado !== false,
-                      fecha_deshabilitacion_programada: toInputDateTime(d.usuario_fecha_deshabilitacion_programada),
-                      fecha_habilitacion_programada: toInputDateTime(d.usuario_fecha_habilitacion_programada),
-                      dni: d.dni,
-                      nombre: d.nombre,
-                      apellido: d.apellido,
-                      correo: d.correo || '',
-                      telefono: d.telefono || '',
-                    });
-                    cargarAsignacionesDocente(d.id);
-                  }
-                }}
-              >
-                <option value="">Seleccionar...</option>
-                {allDocentes.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {nombreDocente(d)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {docenteSel && (
-            <div style={{ maxWidth: 760 }}>
-              <div className="preceptor-form-grid">
-                <div className="form-group-filter preceptor-form-full">
-                  <label htmlFor="doc-usuario-mod">Usuario</label>
-                  <input
-                    id="doc-usuario-mod"
-                    type="text"
-                    value={form.usuario_nombre}
-                    onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="form-group-filter">
-                  <label htmlFor="doc-contrasena-mod">Contraseña {docenteSel.usuario ? '(dejar en blanco para mantener)' : ''}</label>
-                  <input
-                    id="doc-contrasena-mod"
-                    type="password"
-                    value={form.contrasena}
-                    onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group-filter">
-                  <label>Estado</label>
-                  <label htmlFor="doc-estado-mod" className="preceptor-status-toggle">
-                    <input
-                      id="doc-estado-mod"
-                      type="checkbox"
-                      checked={form.estado}
-                      onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
-                    />
-                    <span>{estadoLabel(form.estado)}</span>
-                  </label>
-                </div>
-                <div className="form-group-filter">
-                  <label htmlFor="doc-fecha-deshabilitacion-mod">Fecha deshabilitación programada</label>
-                  <input
-                    id="doc-fecha-deshabilitacion-mod"
-                    type="datetime-local"
-                    value={form.fecha_deshabilitacion_programada}
-                    onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group-filter">
-                  <label htmlFor="doc-fecha-habilitacion-mod">Fecha habilitación programada</label>
-                  <input
-                    id="doc-fecha-habilitacion-mod"
-                    type="datetime-local"
-                    value={form.fecha_habilitacion_programada}
-                    onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group-filter preceptor-form-full">
-               <label htmlFor="doc-dni-mod">DNI</label>
-                   <input
-                     id="doc-dni-mod"
-                     type="text"
-                     value={form.dni}
-                     onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
-                   />
-                 </div>
-                 <div className="form-group-filter">
-                   <label htmlFor="doc-nombre-mod">Nombre</label>
-                  <input
-                    id="doc-nombre-mod"
-                    type="text"
-                    value={form.nombre}
-                    onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group-filter">
-                  <label htmlFor="doc-apellido-mod">Apellido</label>
-                  <input
-                    id="doc-apellido-mod"
-                    type="text"
-                    value={form.apellido}
-                    onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group-filter">
-                  <label htmlFor="doc-correo-mod">Correo</label>
-                  <input
-                    id="doc-correo-mod"
-                    type="email"
-                    value={form.correo}
-                    onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group-filter">
-                  <label htmlFor="doc-telefono-mod">Teléfono</label>
-                  <input
-                    id="doc-telefono-mod"
-                    type="text"
-                    value={form.telefono}
-                    onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <AsignacionesEditor
-                asignaciones={asignaciones}
-                setAsignaciones={setAsignaciones}
-                idPrefix="asig-mod"
-              />
-            </div>
-          )}
+        <div className="form-group-filter">
+          <label htmlFor="doc-contrasena">Contraseña</label>
+          <input
+            id="doc-contrasena"
+            type="password"
+            value={form.contrasena}
+            onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
+            required
+          />
         </div>
-      );
-    }
-
-    if (modo === 'borrar') {
-      return (
-        <div className="filter-row">
-          <div className="form-group-filter">
-            <label htmlFor="doc-select-del">Docente a eliminar</label>
-            <select
-              id="doc-select-del"
-              value={seleccionado}
-              onChange={(e) => setSeleccionado(e.target.value)}
-            >
-              <option value="">Seleccionar...</option>
-              {allDocentes.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {nombreDocente(d)}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="form-group-filter">
+          <label>Estado</label>
+          <label htmlFor="doc-estado" className="preceptor-status-toggle">
+            <input
+              id="doc-estado"
+              type="checkbox"
+              checked={form.estado}
+              onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
+            />
+            <span>{estadoLabel(form.estado)}</span>
+          </label>
         </div>
-      );
-    }
+        <div className="form-group-filter">
+          <label htmlFor="doc-fecha-deshabilitacion">Fecha deshabilitación programada</label>
+          <input
+            id="doc-fecha-deshabilitacion"
+            type="datetime-local"
+            value={form.fecha_deshabilitacion_programada}
+            onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-fecha-habilitacion">Fecha habilitación programada</label>
+          <input
+            id="doc-fecha-habilitacion"
+            type="datetime-local"
+            value={form.fecha_habilitacion_programada}
+            onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter preceptor-form-full">
+          <label htmlFor="doc-dni">DNI</label>
+          <input
+            id="doc-dni"
+            type="text"
+            value={form.dni}
+            onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-nombre">Nombre</label>
+          <input
+            id="doc-nombre"
+            type="text"
+            value={form.nombre}
+            onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-apellido">Apellido</label>
+          <input
+            id="doc-apellido"
+            type="text"
+            value={form.apellido}
+            onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-correo">Correo</label>
+          <input
+            id="doc-correo"
+            type="email"
+            value={form.correo}
+            onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-telefono">Teléfono</label>
+          <input
+            id="doc-telefono"
+            type="text"
+            value={form.telefono}
+            onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+          />
+        </div>
+        <AsignacionesEditor
+          asignaciones={asignaciones}
+          setAsignaciones={setAsignaciones}
+          idPrefix="asig-crear"
+        />
+      </div>
+  );
 
-    return null;
-  };
-  const tituloModo = {
-    vista: 'Vista general',
-    crear: 'Crear docente',
-    modificar: 'Modificar docente',
-    borrar: 'Borrar docente',
-  };
+const renderFormModificar = () => (
+  <div style={{ maxWidth: 760 }} className="preceptor-form-grid">
+        <div className="form-group-filter preceptor-form-full">
+          <label htmlFor="doc-usuario-mod">Usuario</label>
+          <input
+            id="doc-usuario-mod"
+            type="text"
+            value={form.usuario_nombre}
+            onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
+            required
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-contrasena-mod">Contraseña {docenteSel?.usuario ? '(dejar en blanco para mantener)' : ''}</label>
+          <input
+            id="doc-contrasena-mod"
+            type="password"
+            value={form.contrasena}
+            onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label>Estado</label>
+          <label htmlFor="doc-estado-mod" className="preceptor-status-toggle">
+            <input
+              id="doc-estado-mod"
+              type="checkbox"
+              checked={form.estado}
+              onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
+            />
+            <span>{estadoLabel(form.estado)}</span>
+          </label>
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-fecha-deshabilitacion-mod">Fecha deshabilitación programada</label>
+          <input
+            id="doc-fecha-deshabilitacion-mod"
+            type="datetime-local"
+            value={form.fecha_deshabilitacion_programada}
+            onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-fecha-habilitacion-mod">Fecha habilitación programada</label>
+          <input
+            id="doc-fecha-habilitacion-mod"
+            type="datetime-local"
+            value={form.fecha_habilitacion_programada}
+            onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter preceptor-form-full">
+          <label htmlFor="doc-dni-mod">DNI</label>
+          <input
+            id="doc-dni-mod"
+            type="text"
+            value={form.dni}
+            onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-nombre-mod">Nombre</label>
+          <input
+            id="doc-nombre-mod"
+            type="text"
+            value={form.nombre}
+            onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-apellido-mod">Apellido</label>
+          <input
+            id="doc-apellido-mod"
+            type="text"
+            value={form.apellido}
+            onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-correo-mod">Correo</label>
+          <input
+            id="doc-correo-mod"
+            type="email"
+            value={form.correo}
+            onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
+          />
+        </div>
+        <div className="form-group-filter">
+          <label htmlFor="doc-telefono-mod">Teléfono</label>
+          <input
+            id="doc-telefono-mod"
+            type="text"
+            value={form.telefono}
+            onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+          />
+        </div>
+        <AsignacionesEditor
+          asignaciones={asignaciones}
+          setAsignaciones={setAsignaciones}
+          idPrefix="asig-mod"
+        />
+      </div>
+  );
+
+  const tituloModal = esCrear ? 'Crear docente' : 'Modificar docente';
 
   return (
     <div className="card">
-      {!readOnly && (
-        <SelectorModo modo={modo} onModoChange={resetModo} titulo="Docentes — ¿Qué deseás hacer?">
-          <button
-            type="button"
-            className="preceptor-modo-card preceptor-modo-card--agregar"
-            onClick={() => setMostrarAgregarRol(true)}
-          >
-            <i className="fas fa-user-tag" aria-hidden="true" />
-            <strong>Agregar rol</strong>
-            <span>Asignar el rol a una persona existente</span>
-          </button>
-          <button
-            type="button"
-            className="preceptor-modo-card preceptor-modo-card--quitar"
-            onClick={() => {
-              cargarPersonasConRol();
-              setMostrarQuitarRol(true);
-            }}
-          >
-            <i className="fas fa-user-minus" aria-hidden="true" />
-            <strong>Quitar rol</strong>
-            <span>Quitar el rol a una persona con más de un rol</span>
-          </button>
-        </SelectorModo>
-      )}
-      {readOnly && (
-        <div className="card-header-flex card-header-flex--compact">
-          <h3><i className="fas fa-chalkboard-teacher" aria-hidden="true" /> Docentes</h3>
-          <span className="badge role-badge-display">Solo lectura</span>
-        </div>
-      )}
-
-      {modo && modo !== 'crear' && modo !== 'modificar' && (
-        <div>
-          {necesitaFiltroVista && (
-            <FiltrosDocentesVista
-              anioLectivo={anioLectivo}
-              curso={curso}
-              materia={materia}
-              onAnio={(v) => {
-                setAnioLectivo(v);
-                setCurso('');
+      <div className="card-header-flex">
+        <h3><i className="fas fa-chalkboard-teacher" aria-hidden="true" /> Docentes</h3>
+        {!readOnly && (
+          <div className="header-actions">
+            <button type="button" className="btn btn-outline-primary" onClick={() => setMostrarAgregarRol(true)}>
+              <i className="fas fa-user-tag" aria-hidden="true" /> Agregar rol
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-danger"
+              onClick={() => {
+                cargarPersonasConRol();
+                setMostrarQuitarRol(true);
               }}
-              onCurso={setCurso}
-              onMateria={setMateria}
-            />
-          )}
-
-          <div>
-            <div className="card-header-flex">
-              <h3>{tituloModo[modo]}</h3>
-            </div>
-            {mensaje && (
-              <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
-                {mensaje}
-              </p>
-            )}
-            {renderContenido()}
+            >
+              <i className="fas fa-user-minus" aria-hidden="true" /> Quitar rol
+            </button>
+            <span className="header-actions-sep" aria-hidden="true" />
+            <button type="button" className="btn btn-primary" onClick={abrirCrear}>
+              <i className="fas fa-plus" aria-hidden="true" /> Nuevo Docente
+            </button>
           </div>
+        )}
+      </div>
+
+      {!readOnly && (
+        <div>
+          <FiltrosDocentesVista
+            anioLectivo={anioLectivo}
+            curso={curso}
+            materia={materia}
+            onAnio={(v) => {
+              setAnioLectivo(v);
+              setCurso('');
+            }}
+            onCurso={setCurso}
+            onMateria={setMateria}
+          />
+          {!readOnly && (
+            <div className="mb-12">
+              <input
+                type="text"
+                placeholder="Buscar por nombre, apellido, DNI o usuario..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+            </div>
+          )}
         </div>
       )}
 
-      {(modo === 'crear' || modo === 'modificar') && (
-        <FormModal title={tituloModo[modo]} onClose={() => resetModo('')}>
+      {mensaje && (
+        <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+          {mensaje}
+        </p>
+      )}
+
+      {renderAccionLegend()}
+
+      {renderTablaVista()}
+
+      {(modo === 'crear' || (modo === 'modificar' && seleccionado)) && (
+        <FormModal title={tituloModal} onClose={cerrarFormulario}>
           {mensaje && (
             <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '0 0 8px' }}>
               {mensaje}
             </p>
           )}
           <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
-            {renderContenido()}
+            {esCrear ? renderFormCrear() : renderFormModificar()}
           </div>
           <div className="standard-modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={() => resetModo('')}>
+            <button type="button" className="btn btn-secondary" onClick={cerrarFormulario}>
               Cancelar
             </button>
             <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>

@@ -1495,6 +1495,14 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     color: var(--text-light);
 }
 
+.materia-docente-card-count {
+    display: block;
+    padding: 0 20px 16px;
+    font-size: 0.85rem;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
 .actividades-publicaciones {
     display: flex;
     flex-direction: column;
@@ -5385,6 +5393,17 @@ tbody tr:hover td:first-child {
 .badge {
     box-shadow: 0 1px 2px rgba(13, 35, 58, 0.07);
     background: linear-gradient(180deg, #f0f4f9, #e4eaf2);
+}
+
+/* ---- Agrupación por fecha (asistencias preceptor, tab materias) ---- */
+tr.date-group-header td {
+    background: #eef3f9;
+    border-left: 3px solid var(--primary-color, #2c5aa0);
+    color: #24334a;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+    padding: 7px 14px;
 }
 
 /* ---- Pestañas: hover con fondo suave ---- */

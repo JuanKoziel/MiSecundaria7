@@ -9,6 +9,9 @@ import Asistencias from './asistencias';
 import Notas from './notas';
 import Actas from './actas';
 import Docentes from './docentes';
+import GestionDiaria from './GestionDiaria';
+import Proyectos from './Proyectos';
+import ActividadesView from '../Shared/ActividadesView';
 import Horarios from '../Administracion/horarios';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
@@ -20,7 +23,7 @@ import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function PreceptorDashboard({ user, onLogout }) {
 
-  const { preceptores, navIntent } = useData();
+  const { preceptores, navIntent, cursosObj } = useData();
 
   const userId = user?.id_usuario ?? user?.id ?? null;
   const miPreceptor = useMemo(
@@ -53,6 +56,11 @@ function PreceptorDashboard({ user, onLogout }) {
     onAnioChange: handleAnioChange,
     onCursoChange: setCurso,
   };
+
+  const cursoId = useMemo(
+    () => (curso ? (cursosObj || []).find((c) => c.nombre_curso === curso)?.id_curso || null : null),
+    [curso, cursosObj],
+  );
 
   const renderView = () => {
 
@@ -96,6 +104,27 @@ function PreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Horarios esControlado cursoGlobal={curso} />
+          </div>
+        );
+
+      case 'panel-diario':
+        return (
+          <div className="view-section active">
+            <GestionDiaria anioLectivo={anioLectivo} curso={curso} />
+          </div>
+        );
+
+      case 'proyectos':
+        return (
+          <div className="view-section active">
+            <Proyectos anioLectivo={anioLectivo} curso={curso} />
+          </div>
+        );
+
+      case 'actividades':
+        return (
+          <div className="view-section active">
+            <ActividadesView userRole="preceptor" cursoId={cursoId} cursoNombre={curso} />
           </div>
         );
 

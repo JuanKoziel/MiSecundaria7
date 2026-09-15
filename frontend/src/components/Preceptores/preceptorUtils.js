@@ -9,32 +9,42 @@ export function clampNota(value) {
   return String(Math.min(10, Math.max(1, num)));
 }
 
+function normalizeCursoPermitido(c) {
+  if (!c) return '';
+  if (typeof c === 'string') return c;
+  if (typeof c === 'object') return c.nombre_curso || '';
+  return '';
+}
+
 export function alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosPermitidos = []) {
   if (!anioLectivo || !curso) return [];
-  if (cursosPermitidos.length > 0 && !cursosPermitidos.includes(curso)) return [];
+  const nombresPermitidos = cursosPermitidos.map(normalizeCursoPermitido).filter(Boolean);
+  if (nombresPermitidos.length > 0 && !nombresPermitidos.includes(curso)) return [];
   const anio = Number(anioLectivo);
   const idsInscripcion = inscripciones
     .filter((i) => i.anioLectivo === anio && i.curso === curso)
     .map((i) => i.alumnoId);
   return alumnos.filter(
-    (a) => idsInscripcion.includes(a.id) || (a.curso === curso && a.ciclo_anio === anio),
+    (a) => idsInscripcion.includes(a.id) || (a.curso === curso && Number(a.ciclo_anio) === anio),
   );
 }
 
 export function cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj, cursosPermitidos = []) {
   if (!anioLectivo) return [];
+  const anioNum = Number(anioLectivo);
   const delAnio = [...new Set(
     inscripciones
-      .filter((i) => i.anioLectivo === Number(anioLectivo))
+      .filter((i) => i.anioLectivo === anioNum)
       .map((i) => i.curso),
   )];
   const delAnioCursos = (cursosObj || []).filter(
-    (c) => c.ciclo_anio === Number(anioLectivo),
+    (c) => Number(c.ciclo_anio) === anioNum,
   ).map((c) => c.nombre_curso);
   const todos = [...new Set([...delAnio, ...delAnioCursos])];
   let resultado = cursos.filter((c) => todos.includes(c));
-  if (cursosPermitidos.length > 0) {
-    resultado = resultado.filter((c) => cursosPermitidos.includes(c));
+  const nombresPermitidos = cursosPermitidos.map(normalizeCursoPermitido).filter(Boolean);
+  if (nombresPermitidos.length > 0) {
+    resultado = resultado.filter((c) => nombresPermitidos.includes(c));
   }
   return resultado;
 }

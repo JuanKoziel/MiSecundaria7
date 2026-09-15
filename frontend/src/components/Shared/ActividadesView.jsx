@@ -51,7 +51,7 @@ function separarDocente(completo = '') {
   };
 }
 
-function ActividadesView({ userRole, selectedChild }) {
+function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = null, cursoNombre: cursoNombreOverride = null }) {
   const { alumnos, cursosObj, cursoMateria } = useData();
   const { user } = useAuth();
   const [actividades, setActividades] = useState([]);
@@ -62,6 +62,7 @@ function ActividadesView({ userRole, selectedChild }) {
   const [menuAbiertoId, setMenuAbiertoId] = useState(null);
 
   const cursoId = useMemo(() => {
+    if (cursoIdOverride) return cursoIdOverride;
     if (userRole === 'alumno') {
       const miAlumno = alumnos.find((a) => a.id_usuario === user?.id);
       return miAlumno?.id_curso;
@@ -71,13 +72,14 @@ function ActividadesView({ userRole, selectedChild }) {
       return alumno?.id_curso;
     }
     return null;
-  }, [userRole, selectedChild, alumnos, user]);
+  }, [cursoIdOverride, userRole, selectedChild, alumnos, user]);
 
   const cursoNombre = useMemo(() => {
+    if (cursoNombreOverride) return cursoNombreOverride;
     if (!cursoId) return '';
     const curso = cursosObj.find((c) => Number(c.id_curso) === Number(cursoId));
     return curso?.nombre_curso || '';
-  }, [cursoId, cursosObj]);
+  }, [cursoNombreOverride, cursoId, cursosObj]);
 
   const materiasDocentesDelCurso = useMemo(() => {
     if (!cursoId) return [];
@@ -360,7 +362,6 @@ function ActividadesView({ userRole, selectedChild }) {
     <div className="card">
       <div className="card-header-flex">
         <h3><i className="fas fa-tasks" aria-hidden="true" /> Actividades</h3>
-        {userRole !== 'alumno' && <span className="badge role-badge-display">Solo lectura</span>}
       </div>
 
       {cursoNombre && (
@@ -377,17 +378,23 @@ function ActividadesView({ userRole, selectedChild }) {
         </p>
       ) : (
         <div className="materias-docentes-grid">
-          {materiasDocentesDelCurso.map((md) => (
-            <button
-              key={md.id}
-              type="button"
-              className="materia-docente-card"
-              onClick={() => setSelectedMateriaDocente(md.id)}
-            >
-              <span className="materia-docente-card-title">{md.materia}</span>
-              <span className="materia-docente-card-teacher">{md.docente}</span>
-            </button>
-          ))}
+          {materiasDocentesDelCurso.map((md) => {
+            const count = (actividadesPorMateriaDocente[md.id] || []).length;
+            return (
+              <button
+                key={md.id}
+                type="button"
+                className="materia-docente-card"
+                onClick={() => setSelectedMateriaDocente(md.id)}
+              >
+                <span className="materia-docente-card-title">{md.materia}</span>
+                <span className="materia-docente-card-teacher">{md.docente}</span>
+                <span className="materia-docente-card-count">
+                  {count > 0 ? `${count} actividad(es)` : 'Sin actividades'}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

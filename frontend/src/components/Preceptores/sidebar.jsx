@@ -5,7 +5,7 @@ import CambiarRolButton from '../Shared/CambiarRolButton';
 import CampanaNotificaciones from '../Shared/CampanaNotificaciones';
 
 function Sidebar({ setView, onLogout, view }) {
-  const [expandedSection, setExpandedSection] = useState('gestion-alumnos');
+  const [expandedSection, setExpandedSection] = useState(null);
   const menuWrapperRef = useRef(null);
 
   const toggleSection = (sectionId) => {

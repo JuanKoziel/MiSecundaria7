@@ -476,56 +476,81 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                   </tr>
                 </thead>
                 <tbody>
-                  {dataMateria.map((r, idx) => {
-                    const puedeJustificar = r.estado_nombre !== 'Presente' && r.estado_nombre !== 'Sin registro' && r.id;
-                    return (
-                      <tr key={r.id ?? `sin-reg-${idx}`}>
-                        <td className="table-cell-strong">{r.alumno_nombre}</td>
-                        <td>{r.fecha || '-'}</td>
-                        <td className="nowrap">{r.horario}</td>
-                        <td>{r.docente_nombre}</td>
-                        <td>
-                          <span className={`badge ${
-                            r.estado_nombre === 'Presente' ? 'badge-presente' :
-                            r.estado_nombre === 'Ausente' ? 'badge-ausente' :
-                            r.estado_nombre === 'Tarde' ? 'badge-tarde' :
-                            r.estado_nombre === 'Retirado' ? 'badge-tarde' : ''
-                          }`}>
-                            {r.estado_nombre}
-                          </span>
-                        </td>
-                        <td>{r.hora_carga || '-'}</td>
-                        <td>
-                          {puedeJustificar ? (
-                            <label className="cb-label" style={{ cursor: 'pointer' }}>
-                              <input
-                                type="checkbox"
-                                checked={r.justificado}
-                                onChange={async (e) => {
-                                  const nuevoValor = e.target.checked;
-                                  setDataMateria((prev) =>
-                                    prev.map((x) =>
-                                      x.id === r.id ? { ...x, justificado: nuevoValor } : x,
-                                    ),
-                                  );
-                                  try {
-                                    await patchJustificar(r.id, nuevoValor);
-                                  } catch {
-                                    setDataMateria((prev) =>
-                                      prev.map((x) =>
-                                        x.id === r.id ? { ...x, justificado: !nuevoValor } : x,
-                                      ),
-                                    );
-                                  }
-                                }}
-                              />
-                              <span>Sí</span>
-                            </label>
-                          ) : '-'}
-                        </td>
-                      </tr>
+                  {(() => {
+                    const ordenadas = [...dataMateria].sort(
+                      (a, b) =>
+                        String(a.fecha || '').localeCompare(String(b.fecha || '')) ||
+                        (a.alumno_nombre || '').localeCompare(b.alumno_nombre || ''),
                     );
-                  })}
+                    let ultimaFecha = null;
+                    const filas = [];
+                    ordenadas.forEach((r, idx) => {
+                      if (r.fecha && r.fecha !== ultimaFecha) {
+                        ultimaFecha = r.fecha;
+                        filas.push(
+                          <tr key={`fecha-${idx}`} className="date-group-header">
+                            <td colSpan={7}>
+                              <i className="far fa-calendar-alt" aria-hidden="true" />{' '}
+                              {new Intl.DateTimeFormat('es-AR', { dateStyle: 'long' }).format(new Date(r.fecha))}
+                            </td>
+                          </tr>,
+                        );
+                      }
+                      filas.push(
+                        (() => {
+                          const puedeJustificar = r.estado_nombre !== 'Presente' && r.estado_nombre !== 'Sin registro' && r.id;
+                          return (
+                            <tr key={r.id ?? `sin-reg-${idx}`}>
+                              <td className="table-cell-strong">{r.alumno_nombre}</td>
+                              <td>{r.fecha || '-'}</td>
+                              <td className="nowrap">{r.horario}</td>
+                              <td>{r.docente_nombre}</td>
+                              <td>
+                                <span className={`badge ${
+                                  r.estado_nombre === 'Presente' ? 'badge-presente' :
+                                  r.estado_nombre === 'Ausente' ? 'badge-ausente' :
+                                  r.estado_nombre === 'Tarde' ? 'badge-tarde' :
+                                  r.estado_nombre === 'Retirado' ? 'badge-tarde' : ''
+                                }`}>
+                                  {r.estado_nombre}
+                                </span>
+                              </td>
+                              <td>{r.hora_carga || '-'}</td>
+                              <td>
+                                {puedeJustificar ? (
+                                  <label className="cb-label" style={{ cursor: 'pointer' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={r.justificado}
+                                      onChange={async (e) => {
+                                        const nuevoValor = e.target.checked;
+                                        setDataMateria((prev) =>
+                                          prev.map((x) =>
+                                            x.id === r.id ? { ...x, justificado: nuevoValor } : x,
+                                          ),
+                                        );
+                                        try {
+                                          await patchJustificar(r.id, nuevoValor);
+                                        } catch {
+                                          setDataMateria((prev) =>
+                                            prev.map((x) =>
+                                              x.id === r.id ? { ...x, justificado: !nuevoValor } : x,
+                                            ),
+                                          );
+                                        }
+                                      }}
+                                    />
+                                    <span>Sí</span>
+                                  </label>
+                                ) : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })(),
+                      );
+                    });
+                    return filas;
+                  })()}
                 </tbody>
               </table>
             </div>

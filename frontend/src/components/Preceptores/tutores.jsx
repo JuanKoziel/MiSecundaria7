@@ -1,8 +1,7 @@
 import { useState, useEffect, Fragment, useMemo } from 'react';
-import { formatDNI } from '../../utils/dni';
+import { formatDNI, cleanDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
 import { createPadreTutor, updatePadreTutor, deletePadreTutor, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getAlumnos } from '../../services/api';
-import SelectorModo from './SelectorModo';
 import FormModal from '../../components/Shared/FormModal';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
@@ -45,6 +44,11 @@ function formatDateTime(value) {
   return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
 }
 
+function normalize(str) {
+  if (!str) return '';
+  return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 function estadoLabel(estado) {
   if (estado === null || estado === undefined) return 'Sin usuario';
   return estado ? 'Habilitado' : 'Deshabilitado';
@@ -82,7 +86,7 @@ function nombreTutor(t) {
 }
 
 function Tutores({ readOnly = false }) {
-  const { aniosLectivos, inscripciones, cursos, cursosObj, alumnos, padresTutores, refreshData, docentes, preceptores, administradores } = useData();
+  const { aniosLectivos, inscripciones, cursos, cursosObj, alumnos, padresTutores: lista, refreshData } = useData();
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [form, setForm] = useState(formVacio);
@@ -93,6 +97,7 @@ function Tutores({ readOnly = false }) {
   const [progForm, setProgForm] = useState({ fecha_deshabilitacion_programada: '', fecha_habilitacion_programada: '' });
   const [anioAlumno, setAnioAlumno] = useState('');
   const [cursoAlumno, setCursoAlumno] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [mostrarAgregarRol, setMostrarAgregarRol] = useState(false);
   const [guardandoAgregarRol, setGuardandoAgregarRol] = useState(false);
   const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
@@ -118,17 +123,56 @@ function Tutores({ readOnly = false }) {
     cargarPersonasSinRol();
   }, []);
 
-  const lista = padresTutores || [];
   const tutorSel = lista.find((t) => String(t.id_tutor) === seleccionado);
-  const esCrear = modo === 'crear';
 
-  const resetModo = (m) => {
-    setModo(readOnly ? 'vista' : m);
+  const listaFiltrada = useMemo(() => {
+    if (!searchTerm) return lista;
+    const q = normalize(searchTerm);
+    return lista.filter(
+      (t) =>
+        normalize(t.nombre).includes(q) ||
+        normalize(t.apellido).includes(q) ||
+        normalize(`${t.nombre} ${t.apellido}`).includes(q) ||
+        normalize(cleanDNI(t.dni)).includes(q) ||
+        normalize(t.usuario).includes(q),
+    );
+  }, [lista, searchTerm]);
+
+  const cerrarFormulario = () => {
+    setModo(readOnly ? 'vista' : '');
     setSeleccionado('');
     setForm(formVacio);
-    setMensaje('');
     setAnioAlumno('');
     setCursoAlumno('');
+  };
+
+  const abrirCrear = () => {
+    setModo('crear');
+    setSeleccionado('');
+    setForm(formVacio);
+    setAnioAlumno('');
+    setCursoAlumno('');
+  };
+
+  const abrirEditar = (t) => {
+    setModo('modificar');
+    setSeleccionado(String(t.id_tutor));
+    setForm({
+      usuario_nombre: t.usuario || '',
+      contrasena: '',
+      estado: t.usuario_estado !== false,
+      fecha_deshabilitacion_programada: toInputDateTime(t.usuario_fecha_deshabilitacion_programada),
+      fecha_habilitacion_programada: toInputDateTime(t.usuario_fecha_habilitacion_programada),
+      dni: t.dni,
+      nombre: t.nombre,
+      apellido: t.apellido,
+      correo: t.correo || '',
+      tipo: t.tipo || '',
+      telefono: t.telefono || '',
+      direccion: t.direccion || '',
+      alumnos_ids: (t.alumnos || []).map((a) => a.id_alumno),
+    });
+    setMensaje('');
   };
 
   const handleGuardar = async () => {
@@ -163,7 +207,7 @@ function Tutores({ readOnly = false }) {
         };
         await createPadreTutor(tutorPayload);
         toast.success('Tutor creado correctamente.');
-        setForm(formVacio);
+        cerrarFormulario();
       } else if (modo === 'modificar') {
         if (!seleccionado) {
           toast.warning('Seleccioná un tutor para modificar.');
@@ -186,19 +230,7 @@ function Tutores({ readOnly = false }) {
           alumnos_ids: form.alumnos_ids,
         });
         toast.success('Tutor actualizado correctamente.');
-      } else if (modo === 'borrar') {
-        if (!seleccionado) {
-          toast.warning('Seleccioná un tutor para eliminar.');
-          setGuardando(false);
-          return;
-        }
-        await confirmarEliminacion('¿Estás seguro de que querés eliminar este tutor?\n\nEsta acción no se puede deshacer.', {
-          onConfirm: async () => {
-            await deletePadreTutor(seleccionado);
-            toast.success('Tutor eliminado correctamente.');
-            setSeleccionado('');
-          },
-        });
+        cerrarFormulario();
       }
       await refreshData();
     } catch (err) {
@@ -206,6 +238,24 @@ function Tutores({ readOnly = false }) {
     } finally {
       setGuardando(false);
     }
+  };
+
+  const eliminarTutor = async (t) => {
+    await confirmarEliminacion('¿Estás seguro de que querés eliminar este tutor?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        setGuardando(true);
+        setMensaje('');
+        try {
+          await deletePadreTutor(t.id_tutor);
+          toast.success('Tutor eliminado correctamente.');
+          await refreshData();
+        } catch (err) {
+          toast.error(mensajeError(err));
+        } finally {
+          setGuardando(false);
+        }
+      },
+    });
   };
 
   const handleAgregarRol = async ({ persona, asignaciones }) => {
@@ -232,7 +282,6 @@ function Tutores({ readOnly = false }) {
     }
   };
 
-  // Función para obtener alumnos disponibles para asignar a tutores
   const fetchAlumnosParaTutor = async () => {
     try {
       const data = await getAlumnos({ estado: '1' });
@@ -348,114 +397,134 @@ function Tutores({ readOnly = false }) {
       <table>
         <thead>
           <tr>
-            <th>Nombre</th>
-            <th>Apellido</th>
+            <th>Nombre y Apellido</th>
             <th>DNI</th>
             <th>Teléfono</th>
             <th>Email</th>
             <th>Tipo</th>
             <th>Estudiantes asignados</th>
-            {!readOnly && <th>Acción</th>}
+            <th>Estado</th>
+            {!readOnly && <th>Próxima acción</th>}
+            {!readOnly && <th>Acciones</th>}
           </tr>
         </thead>
         <tbody>
-          {lista.length === 0 ? (
+          {listaFiltrada.length === 0 ? (
             <tr>
-              <td colSpan={readOnly ? 7 : 8} className="empty-state-message">
-                No hay tutores registrados.
+              <td colSpan={readOnly ? 7 : 9} className="empty-state-message">
+                {searchTerm
+                  ? 'No se encontraron tutores con ese criterio.'
+                  : 'No hay tutores registrados.'}
               </td>
             </tr>
           ) : (
-            lista.map((t) => {
+            listaFiltrada.map((t) => {
               const puedeCambiarEstado = t.usuario_estado !== null && t.usuario_estado !== undefined;
               const alumnosAsignados = t.alumnos || [];
-              return (
-                <Fragment key={t.id_tutor}>
-                  <tr>
-                    <td>{t.nombre}</td>
-                    <td>{t.apellido}</td>
-                    <td><strong>{formatDNI(t.dni)}</strong></td>
-                    <td>{t.telefono || '---'}</td>
-                    <td>{t.correo || '---'}</td>
-                    <td>{t.tipo || '---'}</td>
-                    <td>
-                      {alumnosAsignados.length === 0 ? (
-                        <span style={{ color: '#888' }}>Sin estudiantes</span>
-                      ) : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                          {alumnosAsignados.map((al) => (
-                            <span key={al.id_alumno} className="badge badge-neutral">
-                              {al.apellido}, {al.nombre}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    {!readOnly && (
-                      <td>
-                        {puedeCambiarEstado ? (
-                          <div className="flex-row--center flex-gap-16">
-                            <button
-                              type="button"
-                              className={`btn btn-sm ${t.usuario_estado === false ? 'btn-danger' : 'btn-success'}`}
-                              onClick={() => toggleEstado(t)}
-                              disabled={guardando}
-                            >
-                              <i className="fas fa-toggle-on" aria-hidden="true" />{' '}
-                              {t.usuario_estado === false ? 'Deshabilitado' : 'Habilitado'}
-                            </button>
-                            <button
-                              type="button"
-                              className={`btn btn-sm btn-secondary${programando === t.id_tutor ? ' active' : ''}`}
-                              onClick={() => abrirProgramar(t)}
-                              title="Programar"
-                            >
-                              <i className="fas fa-calendar-alt" aria-hidden="true" />
-                            </button>
-                          </div>
-                        ) : '—'}
-                      </td>
+              return [
+                <tr key={t.id_tutor}>
+                  <td className="table-cell-strong">{nombreTutor(t)}</td>
+                  <td><strong>{formatDNI(t.dni)}</strong></td>
+                  <td>{t.telefono || '---'}</td>
+                  <td>{t.correo || '---'}</td>
+                  <td>{t.tipo || '---'}</td>
+                  <td>
+                    {alumnosAsignados.length === 0 ? (
+                      <span style={{ color: '#888' }}>Sin estudiantes</span>
+                    ) : (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {alumnosAsignados.map((al) => (
+                          <span key={al.id_alumno} className="badge badge-neutral">
+                            {al.apellido}, {al.nombre}
+                          </span>
+                        ))}
+                      </div>
                     )}
-                  </tr>
-                  {!readOnly && programando === t.id_tutor && (
-                    <tr>
-                      <td colSpan={8} style={{ padding: 0 }}>
-                        <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
-                          <div className="preceptor-form-row preceptor-form-row--two">
-                            <div className="form-group-filter">
-                              <label>Fecha deshabilitación programada</label>
-                              <input
-                                type="datetime-local"
-                                value={progForm.fecha_deshabilitacion_programada}
-                                onChange={(e) => setProgForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
-                              />
-                            </div>
-                            <div className="form-group-filter">
-                              <label>Fecha habilitación programada</label>
-                              <input
-                                type="datetime-local"
-                                value={progForm.fecha_habilitacion_programada}
-                                onChange={(e) => setProgForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
-                              />
-                            </div>
+                  </td>
+                  <td>
+                    <span className={`badge ${t.usuario_estado === false ? 'badge-danger' : t.usuario_estado !== null && t.usuario_estado !== undefined ? 'badge-success' : 'badge-neutral'}`}>
+                      {estadoLabel(t.usuario_estado)}
+                    </span>
+                  </td>
+                  {!readOnly && <td>{proximaAccion(t)}</td>}
+                  {!readOnly && (
+                    <td className="acciones-cell" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', justifyItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => abrirEditar(t)}
+                        title="Editar"
+                      >
+                        <i className="fas fa-edit" aria-hidden="true" />
+                      </button>
+                      {puedeCambiarEstado && (
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${t.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
+                          onClick={() => toggleEstado(t)}
+                          title={t.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
+                          disabled={guardando}
+                        >
+                          <i className={`fas ${t.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={`btn btn-sm btn-secondary${programando === t.id_tutor ? ' active' : ''}`}
+                        onClick={() => abrirProgramar(t)}
+                        title="Programar"
+                      >
+                        <i className="fas fa-calendar-alt" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        onClick={() => eliminarTutor(t)}
+                        title="Eliminar"
+                      >
+                        <i className="fas fa-trash" aria-hidden="true" />
+                      </button>
+                    </td>
+                  )}
+                </tr>,
+                !readOnly && programando === t.id_tutor && (
+                  <tr key={t.id_tutor + '-prog'}>
+                    <td colSpan={9} style={{ padding: 0 }}>
+                      <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
+                        <div className="preceptor-form-row preceptor-form-row--two">
+                          <div className="form-group-filter">
+                            <label>Fecha deshabilitación programada</label>
+                            <input
+                              type="datetime-local"
+                              value={progForm.fecha_deshabilitacion_programada}
+                              onChange={(e) => setProgForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
+                            />
                           </div>
-                          <div className="flex-row flex-gap-16 mt-16">
-                            <button type="button" className="btn btn-primary" onClick={guardarProgramar} disabled={guardando}>
-                              {guardando ? 'Guardando...' : 'Guardar'}
-                            </button>
-                            <button type="button" className="btn btn-danger" onClick={limpiarProgramar} disabled={guardando}>
-                              Limpiar
-                            </button>
-                            <button type="button" className="btn btn-secondary" onClick={cerrarProgramar}>
-                              Cancelar
-                            </button>
+                          <div className="form-group-filter">
+                            <label>Fecha habilitación programada</label>
+                            <input
+                              type="datetime-local"
+                              value={progForm.fecha_habilitacion_programada}
+                              onChange={(e) => setProgForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
+                            />
                           </div>
                         </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
+                        <div className="flex-row flex-gap-16 mt-16">
+                          <button type="button" className="btn btn-primary" onClick={guardarProgramar} disabled={guardando}>
+                            {guardando ? 'Guardando...' : 'Guardar'}
+                          </button>
+                          <button type="button" className="btn btn-danger" onClick={limpiarProgramar} disabled={guardando}>
+                            Limpiar
+                          </button>
+                          <button type="button" className="btn btn-secondary" onClick={cerrarProgramar}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ),
+              ];
             })
           )}
         </tbody>
@@ -463,368 +532,80 @@ function Tutores({ readOnly = false }) {
     </div>
   );
 
-  const renderSelectTutor = (label) => (
-    <div className="filter-row">
-      <div className="form-group-filter">
-        <label htmlFor="tutor-select">{label}</label>
-        <select
-          id="tutor-select"
-          value={seleccionado}
-          onChange={(e) => {
-            setSeleccionado(e.target.value);
-            const t = lista.find((x) => String(x.id_tutor) === e.target.value);
-            if (t) {
-              setForm({
-                usuario_nombre: t.usuario || '',
-                contrasena: '',
-                estado: t.usuario_estado !== false,
-                fecha_deshabilitacion_programada: toInputDateTime(t.usuario_fecha_deshabilitacion_programada),
-                fecha_habilitacion_programada: toInputDateTime(t.usuario_fecha_habilitacion_programada),
-                dni: t.dni,
-                nombre: t.nombre,
-                apellido: t.apellido,
-                correo: t.correo || '',
-                tipo: t.tipo || '',
-                telefono: t.telefono || '',
-                direccion: t.direccion || '',
-                alumnos_ids: (t.alumnos || []).map((a) => a.id_alumno),
-              });
-            }
-          }}
-        >
-          <option value="">Seleccionar tutor...</option>
-          {lista.map((t) => (
-            <option key={t.id_tutor} value={t.id_tutor}>
-              {nombreTutor(t)} — {formatDNI(t.dni)}
-            </option>
-          ))}
-        </select>
+  const renderAccionLegend = () => (
+    <div className="legend-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px', padding: '8px', background: 'var(--sidebar)', borderRadius: 'var(--radius)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span className="legend-icon"><i className="fas fa-edit" aria-hidden="true" /></span>
+        <span className="legend-text">Editar</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span className="legend-icon"><i className="fas fa-calendar-alt" aria-hidden="true" /></span>
+        <span className="legend-text">Programar</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span className="legend-icon"><i className="fas fa-check" aria-hidden="true" /></span>
+        <span className="legend-text">Habilitar</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span className="legend-icon"><i className="fas fa-ban" aria-hidden="true" /></span>
+        <span className="legend-text">Deshabilitar</span>
       </div>
     </div>
   );
 
-  const renderFormTutor = () => (
-    <>
-      <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
-        <div className="form-group-filter preceptor-form-full">
-          <label htmlFor="tutor-usuario">Usuario</label>
-          <input
-            id="tutor-usuario"
-            type="text"
-            value={form.usuario_nombre}
-            onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
-            required
-            
-          />
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="tutor-contrasena">
-            Contraseña {modo === 'modificar' && tutorSel?.usuario ? '(dejar en blanco para mantener)' : ''}
-          </label>
-          <input
-            id="tutor-contrasena"
-            type="password"
-            value={form.contrasena}
-onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
-            required={modo === 'crear'}
-          />
-        </div>
-        <div className="form-group-filter">
-          <label>Estado</label>
-          <label htmlFor="tutor-estado" className="preceptor-status-toggle">
-            <input
-              id="tutor-estado"
-              type="checkbox"
-              checked={form.estado}
-              onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
-            />
-            <span>{estadoLabel(form.estado)}</span>
-          </label>
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="tutor-fecha-deshabilitacion">Fecha deshabilitación programada</label>
-          <input
-            id="tutor-fecha-deshabilitacion"
-            type="datetime-local"
-            value={form.fecha_deshabilitacion_programada}
-            onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
-          />
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="tutor-fecha-habilitacion">Fecha habilitación programada</label>
-          <input
-            id="tutor-fecha-habilitacion"
-            type="datetime-local"
-            value={form.fecha_habilitacion_programada}
-            onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
-          />
-        </div>
-
-        <div className="form-group-filter preceptor-form-full">
-          <p className="preceptor-section-title" style={{ margin: '8px 0 0' }}>
-            Datos personales
-          </p>
-        </div>
-        <div className="form-group-filter preceptor-form-full">
-          <label htmlFor="tutor-dni">DNI</label>
-          <input
-            id="tutor-dni"
-            type="text"
-            value={form.dni}
-            onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
-            
-          />
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="tutor-nombre">Nombre</label>
-          <input
-            id="tutor-nombre"
-            type="text"
-            value={form.nombre}
-            onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
-            
-          />
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="tutor-apellido">Apellido</label>
-          <input
-            id="tutor-apellido"
-            type="text"
-            value={form.apellido}
-            onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
-            
-          />
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="tutor-tipo">Tipo</label>
-          <select
-            id="tutor-tipo"
-            value={form.tipo}
-            onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))}
-            
-          >
-            <option value="">Seleccionar...</option>
-            {TIPOS_TUTOR.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="tutor-email">Email</label>
-          <input
-            id="tutor-email"
-            type="email"
-            value={form.correo}
-            onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
-            
-          />
-        </div>
-        <div className="form-group-filter preceptor-form-full">
-          <label htmlFor="tutor-telefono">Teléfono</label>
-          <input
-            id="tutor-telefono"
-            type="text"
-            value={form.telefono}
-            onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
-            
-          />
-        </div>
-        <div className="form-group-filter preceptor-form-full">
-          <label htmlFor="tutor-direccion">Dirección</label>
-          <input
-            id="tutor-direccion"
-            type="text"
-            value={form.direccion}
-            onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
-            
-          />
-        </div>
-      </div>
-
-      <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
-        <div className="form-group-filter preceptor-form-full">
-          <p className="preceptor-section-title" style={{ margin: '8px 0 0' }}>
-            Estudiantes asignados
-          </p>
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="alumno-anio">Año lectivo</label>
-          <select
-            id="alumno-anio"
-            value={anioAlumno}
-            onChange={(e) => { setAnioAlumno(e.target.value); setCursoAlumno(''); }}
-          >
-            <option value="">Seleccionar año...</option>
-            {aniosLectivos.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group-filter">
-          <label htmlFor="alumno-curso">Curso</label>
-          <select
-            id="alumno-curso"
-            value={cursoAlumno}
-            onChange={(e) => setCursoAlumno(e.target.value)}
-            disabled={!anioAlumno}
-          >
-            <option value="">Seleccionar curso...</option>
-            {cursosPorAnio(anioAlumno, inscripciones, cursos, cursosObj).map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group-filter preceptor-form-full">
-          {alumnos.length === 0 ? (
-            <p style={{ color: '#888', margin: 0 }}>No hay alumnos disponibles.</p>
-          ) : filtrosCompletos(anioAlumno, cursoAlumno) ? (() => {
-            const alumnosFiltrados = alumnosPorAnioYCurso(anioAlumno, cursoAlumno, inscripciones, alumnos);
-            const seleccionadosExistentes = (alumnos || []).filter((a) => form.alumnos_ids.includes(a.id) && !alumnosFiltrados.some((f) => f.id === a.id));
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto', padding: '4px 0' }}>
-                {seleccionadosExistentes.length > 0 && (
-                  <>
-                    <span style={{ fontSize: 12, color: '#888', marginBottom: 2 }}>Ya asignados (no en este curso):</span>
-                    {seleccionadosExistentes.map((a) => (
-                      <label
-                        key={a.id}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked
-                          onChange={() => {
-                            setForm((p) => ({
-                              ...p,
-                              alumnos_ids: p.alumnos_ids.filter((x) => x !== a.id),
-                            }));
-                          }}
-                        />
-                        <span>{a.apellido}, {a.nombre} — {a.curso || 'Sin curso'}</span>
-                      </label>
-                    ))}
-                    {alumnosFiltrados.length > 0 && <span style={{ fontSize: 12, color: '#888', marginTop: 4 }}>Del curso seleccionado:</span>}
-                  </>
-                )}
-                {alumnosFiltrados.map((a) => {
-                  const aId = a.id;
-                  const checked = form.alumnos_ids.includes(aId);
-                  return (
-                    <label
-                      key={aId}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          setForm((p) => ({
-                            ...p,
-                            alumnos_ids: checked
-                              ? p.alumnos_ids.filter((x) => x !== aId)
-                              : [...p.alumnos_ids, aId],
-                          }));
-                        }}
-                      />
-                      <span>{a.apellido}, {a.nombre} — {a.curso || 'Sin curso'}</span>
-                    </label>
-                  );
-                })}
-                {alumnosFiltrados.length === 0 && seleccionadosExistentes.length === 0 && (
-                  <p style={{ color: '#888', margin: 0 }}>No se encontraron alumnos en este curso.</p>
-                )}
-              </div>
-            );
-          })() : (
-            <p style={{ color: '#888', margin: 0 }}>Seleccioná año y curso para ver los alumnos disponibles.</p>
-          )}
-        </div>
-      </div>
-    </>
-  );
-
-  const tituloModo = {
-    vista: 'Vista general',
-    crear: 'Crear tutor',
-    modificar: 'Modificar tutor',
-    borrar: 'Borrar tutor',
-  };
+  const tituloModal = modo === 'crear' ? 'Crear tutor' : 'Modificar tutor';
 
   return (
     <div className="card">
+      <div className="card-header-flex">
+        <h3><i className="fas fa-user-shield" aria-hidden="true" /> Tutores</h3>
+        {!readOnly && (
+          <div className="header-actions">
+            <button type="button" className="btn btn-outline-primary" onClick={() => setMostrarAgregarRol(true)}>
+              <i className="fas fa-user-tag" aria-hidden="true" /> Agregar rol
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-danger"
+              onClick={() => {
+                cargarPersonasConRol();
+                setMostrarQuitarRol(true);
+              }}
+            >
+              <i className="fas fa-user-minus" aria-hidden="true" /> Quitar rol
+            </button>
+            <span className="header-actions-sep" aria-hidden="true" />
+            <button type="button" className="btn btn-primary" onClick={abrirCrear}>
+              <i className="fas fa-plus" aria-hidden="true" /> Nuevo Tutor
+            </button>
+          </div>
+        )}
+      </div>
+
       {!readOnly && (
-        <SelectorModo modo={modo} onModoChange={resetModo} titulo="Tutores — ¿Qué deseás hacer?">
-          <button
-            type="button"
-            className="preceptor-modo-card preceptor-modo-card--agregar"
-            onClick={() => setMostrarAgregarRol(true)}
-          >
-            <i className="fas fa-user-tag" aria-hidden="true" />
-            <strong>Agregar rol</strong>
-            <span>Asignar el rol a una persona existente</span>
-          </button>
-          <button
-            type="button"
-            className="preceptor-modo-card preceptor-modo-card--quitar"
-            onClick={() => {
-              cargarPersonasConRol();
-              setMostrarQuitarRol(true);
-            }}
-          >
-            <i className="fas fa-user-minus" aria-hidden="true" />
-            <strong>Quitar rol</strong>
-            <span>Quitar el rol a una persona con más de un rol</span>
-          </button>
-        </SelectorModo>
-      )}
-
-      {modo === 'vista' && (
-        <div>
-          <div className="card-header-flex">
-            <h3><i className="fas fa-user-shield" aria-hidden="true" /> {tituloModo.vista}</h3>
-          </div>
-          {mensaje && (
-            <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
-              {mensaje}
-            </p>
-          )}
-          {renderTablaVista()}
+        <div className="mb-12">
+          <input
+            type="text"
+            placeholder="Buscar por nombre, apellido, DNI o usuario..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
         </div>
       )}
 
-      {modo === 'modificar' && (
-        <div>
-          <div className="card-header-flex">
-            <h3>{tituloModo.modificar}</h3>
-          </div>
-          {mensaje && (
-            <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
-              {mensaje}
-            </p>
-          )}
-          {renderSelectTutor('Tutor a modificar')}
-        </div>
+      {mensaje && (
+        <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
+          {mensaje}
+        </p>
       )}
 
-      {modo === 'borrar' && (
-        <div>
-          <div className="card-header-flex">
-            <h3>{tituloModo.borrar}</h3>
-          </div>
-          {mensaje && (
-            <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
-              {mensaje}
-            </p>
-          )}
-          {renderSelectTutor('Tutor a eliminar')}
-        </div>
-      )}
+      {renderAccionLegend()}
+
+      {renderTablaVista()}
 
       {(modo === 'crear' || (modo === 'modificar' && seleccionado)) && (
-        <FormModal
-          title={tituloModo[modo]}
-          onClose={() => resetModo('')}
-        >
+        <FormModal title={tituloModal} onClose={cerrarFormulario}>
           {mensaje && (
             <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '0 0 8px' }}>
               {mensaje}
@@ -834,7 +615,7 @@ onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
             {renderFormTutor()}
           </div>
           <div className="standard-modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={() => resetModo('')}>
+            <button type="button" className="btn btn-secondary" onClick={cerrarFormulario}>
               Cancelar
             </button>
             <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
@@ -844,7 +625,7 @@ onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
         </FormModal>
       )}
 
-{mostrarAgregarRol && (
+      {mostrarAgregarRol && (
         <AgregarRolModal
           titulo="Agregar rol: tutor"
           subtitulo="Seleccioná una persona existente para asignarle el rol. Se reutilizará su mismo usuario: no se crean usuarios y no se sobrescriben roles."

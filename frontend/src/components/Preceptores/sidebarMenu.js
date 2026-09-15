@@ -13,13 +13,24 @@ export const menuItems = [
   },
 
   {
-    id: 'evaluacion',
-    label: 'Evaluación',
+    id: 'gestion-diaria',
+    label: 'Gestión Diaria',
     icon: 'fa-clipboard-list',
     children: [
+      { id: 'panel-diario', label: 'Panel Diario', icon: 'fa-clipboard-check' },
       { id: 'asistencias', label: 'Asistencias', icon: 'fa-user-check' },
       { id: 'notas', label: 'Calificaciones', icon: 'fa-graduation-cap' },
+    ],
+  },
+
+  {
+    id: 'contenido',
+    label: 'Contenido',
+    icon: 'fa-folder-open',
+    children: [
+      { id: 'proyectos', label: 'Proyectos', icon: 'fa-project-diagram' },
       { id: 'actas', label: 'Actas', icon: 'fa-file-signature' },
+      { id: 'actividades', label: 'Actividades', icon: 'fa-tasks' },
     ],
   },
 
