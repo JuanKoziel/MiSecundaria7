@@ -18,13 +18,42 @@ import EstadisticasPreceptoria from './EstadisticasPreceptoria';
 import Historial from '../Administracion/historial';
 import AdelantosHoras from '../Shared/AdelantosHoras';
 import { useData } from '../../context/DataContext';
+import { useMemo } from 'react';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function JefePreceptorDashboard({ user, onLogout }) {
-  const { preceptores, navIntent } = useData();
+  const { preceptores, administradores, navIntent } = useData();
 
   const userId = user?.id_usuario ?? user?.id ?? null;
-  const miPreceptor = preceptores.find((p) => p.id_usuario === userId) || null;
+  const miPreceptor = useMemo(() => {
+    // Primero busca en preceptores (perfil normal de preceptor/jefe)
+    let found = preceptores.find((p) => p.id_usuario === userId) || null;
+    // Si no hay perfil de preceptor, busca en directivos/administradores
+    // por un cargo relacionado con "Preceptor" (ej: "Jefa de Preceptores")
+    if (!found && administradores?.length) {
+      const admin = administradores.find(
+        (a) => a.id_usuario === userId && /preceptor/i.test(a.cargo || '')
+      );
+      if (admin) {
+        // Normalizar campos del directivo para que coincidan con lo que espera PanelJefePreceptor
+        found = {
+          id_preceptor: null,
+          id_usuario: admin.id_usuario,
+          usuario: admin.usuario,
+          nombre: admin.nombre,
+          apellido: admin.apellido,
+          dni: admin.dni,
+          correo: admin.correo,
+          telefono: admin.telefono,
+          estado: admin.usuario_estado !== false,
+          usuario_fecha_ultimo_acceso: admin.usuario_fecha_ultimo_acceso || null,
+          cursos: [],
+        };
+      }
+    }
+    return found;
+  }, [preceptores, administradores, userId]);
+
   const nombreCompletoJefe = miPreceptor ? `${miPreceptor.apellido}, ${miPreceptor.nombre}` : null;
 
   const [view, setView] = useState('perfil');
