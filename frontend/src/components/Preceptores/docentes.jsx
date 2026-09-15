@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import { createDocente, updateDocente, deleteDocente, createCursoMateria, updateCursoMateria, deleteCursoMateria, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getCursoMateria, getCursos, getMaterias } from '../../services/api';
 import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
+import FiltrosDocentesVista from './FiltrosDocentesVista';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import FormModal from '../../components/Shared/FormModal';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
@@ -48,6 +49,23 @@ function normalize(str) {
 function estadoLabel(estado) {
   if (estado === null || estado === undefined) return 'Sin usuario';
   return estado ? 'Habilitado' : 'Deshabilitado';
+}
+
+function proximaAccion(d) {
+  if (d.usuario_estado === null || d.usuario_estado === undefined) return '---';
+  if (d.usuario_estado && d.usuario_fecha_deshabilitacion_programada) {
+    return `Deshabilitar el ${formatDateTime(d.usuario_fecha_deshabilitacion_programada)}`;
+  }
+  if (!d.usuario_estado && d.usuario_fecha_habilitacion_programada) {
+    return `Habilitar el ${formatDateTime(d.usuario_fecha_habilitacion_programada)}`;
+  }
+  if (d.usuario_fecha_deshabilitacion_programada) {
+    return `Deshabilitar el ${formatDateTime(d.usuario_fecha_deshabilitacion_programada)}`;
+  }
+  if (d.usuario_fecha_habilitacion_programada) {
+    return `Habilitar el ${formatDateTime(d.usuario_fecha_habilitacion_programada)}`;
+  }
+  return '---';
 }
 
 function Docentes({ readOnly = false }) {
