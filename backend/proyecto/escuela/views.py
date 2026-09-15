@@ -14,6 +14,15 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from escuela.auth_backend import get_roles_for_usuario
+from escuela.carga_unica import (
+    CLAVE_ITEMS,
+    bloques_del_dia,
+    carga_de_item,
+    crear_o_renovar_carga,
+    info_ventana,
+    marcar_item_cargado,
+    ventana_del_dia,
+)
 from escuela.notifications import notificar, notificar_alumno
 from escuela.permissions import (
     IsAdminOrDirectorForWrite,
@@ -61,6 +70,7 @@ from escuela.models import (
     ActividadDocente,
     ActividadDocenteArchivo,
     Calificacion,
+    CargaUnica,
     CicloLectivo,
     Comunicado,
     ComunicadoAlcance,
@@ -126,6 +136,7 @@ from escuela.serializers import (
     AsistenciaSerializer,
     AsistenciaDocenteSerializer,
     CalificacionSerializer,
+    CargaUnicaSerializer,
     CicloLectivoSerializer,
     CursoMateriaSerializer,
     CursoSerializer,
@@ -2779,12 +2790,18 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         cm = serializer.instance.id_curso_materia
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
+            estado_carga = carga_de_item(cm.id_curso_materia, serializer.instance.fecha, 'asistencias')
+            if estado_carga['estado'] in ('bloqueado_cargado', 'bloqueado_vencido'):
+                raise PermissionDenied(estado_carga['mensaje'])
         super().perform_update(serializer)
 
     def perform_destroy(self, instance):
         cm = instance.id_curso_materia
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
+            estado_carga = carga_de_item(cm.id_curso_materia, instance.fecha, 'asistencias')
+            if estado_carga['estado'] in ('bloqueado_cargado', 'bloqueado_vencido'):
+                raise PermissionDenied(estado_carga['mensaje'])
         super().perform_destroy(instance)
 
     @action(detail=False, methods=['get'], url_path='server-time')
@@ -3252,16 +3269,26 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         cm_id = request.data.get('id_curso_materia')
         if not cm_id:
             return Response({'error': 'id_curso_materia es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
-        horarios_hoy = self._horarios_hoy(cm_id, dia)
-        estado = self._estado_horario(horarios_hoy, ahora)
-        if estado['codigo'] != 'en_horario':
-            return Response({'error': estado['mensaje']}, status=status.HTTP_403_FORBIDDEN)
 
-        activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(ahora.date(), ahora.time())
-        if activo:
-            return Response({
-                'error': f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". {desc_ev}. Horario afectado: {horario_ev}.',
-            }, status=status.HTTP_403_FORBIDDEN)
+        # Carga única de 20 minutos otorgada por el preceptor: dentro de la
+        # ventana activa el docente puede cargar aunque no esté en horario;
+        # una vez cargada (o vencida la ventana) no puede volver a cargarse.
+        estado_carga = carga_de_item(cm_id, ahora.date(), 'asistencias')
+        if estado_carga['estado'] in ('bloqueado_cargado', 'bloqueado_vencido'):
+            return Response({'error': estado_carga['mensaje']}, status=status.HTTP_403_FORBIDDEN)
+        ventana_carga_autoriza = estado_carga['estado'] == 'permitido'
+
+        if not ventana_carga_autoriza:
+            horarios_hoy = self._horarios_hoy(cm_id, dia)
+            estado = self._estado_horario(horarios_hoy, ahora)
+            if estado['codigo'] != 'en_horario':
+                return Response({'error': estado['mensaje']}, status=status.HTTP_403_FORBIDDEN)
+
+            activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(ahora.date(), ahora.time())
+            if activo:
+                return Response({
+                    'error': f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". {desc_ev}. Horario afectado: {horario_ev}.',
+                }, status=status.HTTP_403_FORBIDDEN)
 
         roles = roles_efectivos(request)
         if 'docente' in roles:
@@ -4146,8 +4173,7 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        username = self.request.user.username if self.request.user.is_authenticated else None
-        roles = get_roles_for_usuario(username) if username else []
+        roles = roles_efectivos(self.request)
 
         if 'docente' in roles:
             docente = self._docente_actual()
@@ -4277,6 +4303,18 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
         serializer.save(**kwargs)
         self._historial_alta(serializer)
 
+    def _verificar_carga_unica(self, instance):
+        """Bloquea modificar/eliminar un Libro de Temas bajo carga única.
+
+        Si la carga fue otorgada pero el ítem ya se cargó, o la ventana de
+        20 minutos venció sin cargarse, no se permite editar ni borrar.
+        """
+        estado_carga = carga_de_item(
+            instance.id_curso_materia_id, instance.fecha, 'libro_temas',
+        )
+        if estado_carga['estado'] in ('bloqueado_cargado', 'bloqueado_vencido'):
+            raise PermissionDenied(estado_carga['mensaje'])
+
     def create(self, request, *args, **kwargs):
         cm_id = request.data.get('id_curso_materia')
         if not cm_id:
@@ -4284,7 +4322,47 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
                 {'id_curso_materia': ['Debe indicar la asignación curso/materia.']},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        info = self._validar_puede_cargar(cm_id)
+
+        fecha_hoy = timezone.localtime().date()
+        estado_carga = carga_de_item(cm_id, fecha_hoy, 'libro_temas')
+        if estado_carga['estado'] in ('bloqueado_cargado', 'bloqueado_vencido'):
+            return Response({'error': estado_carga['mensaje']}, status=status.HTTP_403_FORBIDDEN)
+
+        if estado_carga['estado'] == 'permitido':
+            # La ventana de 20 minutos autoriza la carga aunque no se esté en
+            # horario de clase. Se persiste la franja del bloque del día que
+            # todavía no tiene registro (o la primera del día si todas ya
+            # fueron cubiertas).
+            _verificar_docente_activo_materia(request, cm_id, fecha_hoy)
+            activo = obtener_docente_activo(cm_id, fecha_hoy)
+            bloques = bloques_del_dia(cm_id, fecha_hoy)
+            elegido = None
+            for b in bloques:
+                if not LibroTema.objects.filter(
+                    id_curso_materia_id=cm_id, fecha=fecha_hoy,
+                    hora_inicio=b['hora_inicio'], hora_fin=b['hora_fin'],
+                ).exists():
+                    elegido = b
+                    break
+            if elegido is None:
+                elegido = bloques[0] if bloques else None
+            ahora = timezone.localtime()
+            if elegido:
+                info = {
+                    'fecha': fecha_hoy,
+                    'hora_inicio': elegido['hora_inicio'],
+                    'hora_fin': elegido['hora_fin'],
+                    'activo': activo,
+                }
+            else:
+                info = {
+                    'fecha': fecha_hoy,
+                    'hora_inicio': ahora.time().replace(second=0, microsecond=0),
+                    'hora_fin': (ahora + timedelta(minutes=20)).time().replace(second=0, microsecond=0),
+                    'activo': activo,
+                }
+        else:
+            info = self._validar_puede_cargar(cm_id)
 
         mutable = request.data.copy()
         mutable['fecha'] = info['fecha']
@@ -4318,6 +4396,7 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         self._verificar_dueño(instance)
         self._verificar_puede_modificar(instance)
+        self._verificar_carga_unica(instance)
 
         mutable = request.data.copy()
         for campo in ('id_curso_materia', 'id_docente', 'fecha', 'hora_inicio', 'hora_fin', 'fecha_creacion'):
@@ -4331,6 +4410,7 @@ class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         self._verificar_dueño(instance)
         self._verificar_puede_modificar(instance)
+        self._verificar_carga_unica(instance)
         super().perform_destroy(instance)
 
 
@@ -4497,6 +4577,242 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
         # de Familia, que solo afecta a las de su hijo seleccionado).
         cantidad = self.get_queryset().filter(leida=False).update(leida=True)
         return Response({'actualizadas': cantidad})
+
+    @action(detail=False, methods=['post'], url_path='enviar-carga-unica')
+    def enviar_carga_unica(self, request):
+        """Envía una notificación al docente activo de una materia avisándole
+        que dispone de 20 minutos para completar las cargas pendientes del día
+        (asistencias y/o libro de temas).
+
+        Las calificaciones NO son una carga diaria y nunca disparan esta
+        notificación: si los únicos faltantes son calificaciones no se envía
+        nada.
+        """
+        if not es_rol_amplio(request):
+            raise PermissionDenied('No tenés permisos para notificar cargas pendientes.')
+
+        cm_id = request.data.get('id_curso_materia')
+        if not cm_id:
+            return Response(
+                {'detail': 'Falta id_curso_materia.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cm = CursoMateria.objects.select_related(
+            'id_curso__id_ciclo', 'id_materia',
+        ).filter(pk=cm_id).first()
+        if cm is None:
+            return Response(
+                {'detail': 'Curso-materia no encontrado.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        roles = set(get_roles_for_usuario(request.user.username) or [])
+        if 'preceptor' in roles:
+            cursos_permitidos = _preceptor_cursos_ids(request)
+            if not cursos_permitidos:
+                raise PermissionDenied('No tenés cursos asignados para notificar.')
+            if cm.id_curso_id not in cursos_permitidos:
+                raise PermissionDenied('No podés notificar cursos que no están entre tus cursos asignados.')
+
+        CLAVE_TEXTO = {'asistencias': 'Asistencias', 'libro_temas': 'Libro de temas'}
+        faltantes = [
+            p for p in (request.data.get('pendientes') or [])
+            if p in CLAVE_TEXTO
+        ]
+        if not faltantes:
+            return Response(
+                {'enviado': False, 'detail': 'No hay cargas pendientes para notificar.'},
+                status=status.HTTP_200_OK,
+            )
+
+        resultado = obtener_docente_activo(cm.id_curso_materia)
+        if not resultado.docente or not resultado.docente.id_usuario_id:
+            return Response(
+                {'enviado': False, 'detail': 'El docente de la materia no tiene usuario para recibir notificaciones.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Se abre (o renueva) la ventana de carga única de 20 minutos.
+        fecha_hoy = timezone.localtime().date()
+        carga = crear_o_renovar_carga(cm, fecha_hoy, faltantes, resultado.docente)
+
+        textos = [CLAVE_TEXTO[p] for p in faltantes]
+        pendiente_texto = ' y '.join(textos) if len(textos) == 1 else ', '.join(textos[:-1]) + ' y ' + textos[-1]
+
+        materia = cm.id_materia.nombre_materia if cm.id_materia_id else '—'
+        curso_nombre = cm.id_curso.nombre_curso if cm.id_curso_id else '—'
+        ciclo = cm.id_curso.id_ciclo.anio if (cm.id_curso_id and cm.id_curso.id_ciclo_id) else ''
+        contexto = f'{materia} · {curso_nombre}'
+        if ciclo:
+            contexto = f'{contexto} ({ciclo})'
+
+        titulo = 'Carga pendiente — 20 minutos'
+        mensaje = (
+            f'El preceptor te notifica que disponés de 20 minutos para cargar '
+            f'{pendiente_texto} de {contexto}.'
+        )
+
+        notif = notificar(
+            id_usuario=resultado.docente.id_usuario,
+            titulo=titulo,
+            mensaje=mensaje,
+        )
+        if notif is None:
+            return Response(
+                {
+                    'enviado': False,
+                    'detail': 'No se pudo enviar la notificación (límites alcanzados).',
+                    'id_carga_unica': carga.id_carga_unica if carga else None,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response({
+            'enviado': True,
+            'id_notificacion': notif.id_notificacion,
+            'id_carga_unica': carga.id_carga_unica if carga else None,
+            'mensaje': mensaje,
+        })
+
+
+class CargaUnicaViewSet(viewsets.ReadOnlyModelViewSet):
+    """Consulta y cierre de las ventanas de carga única de 20 minutos.
+
+    GET  /api/cargas-unica/?curso_materia=&fecha=  → estado de la ventana.
+    POST /api/cargas-unica/marcar/                 → fija un ítem como
+        cargado (asistencias | libro_temas), bloquenando su re-edición.
+    """
+
+    queryset = CargaUnica.objects.select_related(
+        'id_curso_materia__id_materia', 'id_curso_materia__id_curso', 'id_docente',
+    ).all()
+    serializer_class = CargaUnicaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        roles = roles_efectivos(self.request)
+        if 'admin' in roles or 'director' in roles or 'jefe_preceptores' in roles:
+            pass
+        elif 'preceptor' in roles:
+            cursos = _preceptor_cursos_ids(self.request)
+            if not cursos:
+                return qs.none()
+            qs = qs.filter(id_curso_materia__id_curso_id__in=cursos)
+        elif 'docente' in roles:
+            username = self.request.user.username if self.request.user.is_authenticated else None
+            docente = Docente.objects.filter(id_usuario__usuario=username).first()
+            if not docente:
+                return qs.none()
+            qs = qs.filter(id_docente=docente)
+        else:
+            return qs.none()
+
+        cm = self.request.query_params.get('curso_materia')
+        fecha = self.request.query_params.get('fecha')
+        if cm:
+            qs = qs.filter(id_curso_materia=cm)
+        if fecha:
+            qs = qs.filter(fecha=fecha)
+        return qs.order_by('-fecha_creacion', '-id_carga_unica')
+
+    @action(detail=False, methods=['post'], url_path='marcar')
+    def marcar(self, request):
+        """Marca un ítem como cargado, evitando que se re-edite después."""
+        cm_id = request.data.get('id_curso_materia')
+        fecha_raw = request.data.get('fecha')
+        item = request.data.get('item')
+
+        if not cm_id or not fecha_raw or not item:
+            return Response(
+                {'detail': 'Se requieren id_curso_materia, fecha e item.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if item not in CLAVE_ITEMS:
+            return Response(
+                {'detail': f'El ítem "{item}" no es válido.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            fecha = datetime.strptime(str(fecha_raw), '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {'detail': 'La fecha debe tener el formato YYYY-MM-DD.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cm = CursoMateria.objects.select_related(
+            'id_materia', 'id_curso', 'id_docente',
+        ).filter(pk=cm_id).first()
+        if cm is None:
+            return Response(
+                {'detail': 'Curso-materia no encontrado.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        roles = roles_efectivos(request)
+        if 'admin' in roles or 'director' in roles or 'jefe_preceptores' in roles:
+            pass
+        elif 'preceptor' in roles:
+            if cm.id_curso_id not in _preceptor_cursos_ids(request):
+                raise PermissionDenied('No podés marcar cargas de cursos que no están entre tus cursos asignados.')
+        elif 'docente' in roles:
+            _verificar_docente_activo_materia(request, cm_id, fecha)
+        else:
+            raise PermissionDenied('No tenés permisos para marcar esta carga.')
+
+        cu = ventana_del_dia(cm_id, fecha)
+        if cu is None:
+            return Response(
+                {'detail': 'No existe una carga única para esa fecha y materia.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        cargado = (cu.asistencias_cargada if item == 'asistencias' else cu.libro_cargada)
+        if cargado:
+            return Response(info_ventana(cu))
+
+        if timezone.localtime() > cu.fecha_vencimiento:
+            return Response(
+                {'detail': 'La carga única venció; ya no puede marcarse como realizada.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        cu = marcar_item_cargado(cm_id, fecha, item)
+        self._notificar_preceptores_carga(cm, cu, item)
+        return Response(info_ventana(cu))
+
+    def _notificar_preceptores_carga(self, cm, cu, item):
+        """Avisa a los preceptores del curso que el docente completó una carga."""
+        nombre_item = CLAVE_ITEMS.get(item, item)
+        materia = cm.id_materia.nombre_materia if cm.id_materia_id else '—'
+        curso_nombre = cm.id_curso.nombre_curso if cm.id_curso_id else '—'
+        contexto = f'{materia} · {curso_nombre}'
+
+        if cu.id_docente_id:
+            docente = cu.id_docente
+            autor = f'{docente.apellido}, {docente.nombre}'
+        else:
+            autor = 'El docente'
+
+        preceptores = Preceptor.objects.filter(
+            id_preceptor__in=Curso.objects.filter(
+                id_curso=cm.id_curso_id, id_preceptor__isnull=False,
+            ).values('id_preceptor'),
+        ).select_related('id_usuario')
+
+        for preceptor in preceptores:
+            if not preceptor.id_usuario_id:
+                continue
+            notificar(
+                id_usuario=preceptor.id_usuario,
+                titulo='Carga completada — 20 minutos',
+                mensaje=(
+                    f'{autor} cargó {nombre_item} de {contexto}. '
+                    f'La verificación del Panel Diario puede marcarse como realizada.'
+                ),
+            )
 
 
 class TipoAccionViewSet(viewsets.ReadOnlyModelViewSet):

@@ -417,6 +417,21 @@ export async function marcarTodasLeidas(params) {
   return data;
 }
 
+export async function enviarCargaUnica(payload) {
+  const { data } = await api.post('/notificaciones/enviar-carga-unica/', payload);
+  return data;
+}
+
+export async function getCargasUnica(params) {
+  const { data } = await api.get('/cargas-unica/', { params });
+  return data;
+}
+
+export async function marcarCargaUnica(payload) {
+  const { data } = await api.post('/cargas-unica/marcar/', payload);
+  return data;
+}
+
 export async function getPlanificaciones(params) {
   const { data } = await api.get('/planificaciones/', { params });
   return data;

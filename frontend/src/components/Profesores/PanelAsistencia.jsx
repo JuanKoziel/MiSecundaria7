@@ -1,8 +1,18 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
-import { getServerTime, createAsistencia, getAsistencias } from '../../services/api';
+import { getServerTime, createAsistencia, getAsistencias, getCargasUnica, marcarCargaUnica } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+
+function formatearTiempoRestante(fechaVencimiento) {
+  if (!fechaVencimiento) return '--:--';
+  const restaMs = Date.parse(fechaVencimiento) - Date.now();
+  if (restaMs <= 0) return '0:00';
+  const totalSeg = Math.floor(restaMs / 1000);
+  const mm = Math.floor(totalSeg / 60);
+  const ss = totalSeg % 60;
+  return `${mm}:${String(ss).padStart(2, '0')}`;
+}
 
 function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = true }) {
   const { alumnos, estadosAsistencia, refreshData } = useData();
@@ -14,6 +24,8 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [fechaSeleccionada, setFechaSeleccionada] = useState('');
+  const [cargaUnica, setCargaUnica] = useState(null);
+  const [, setSegundoTick] = useState(0);
 
   const alumnosCurso = useMemo(
     () => alumnos.filter((a) => a.id_curso === cursoId),
@@ -39,6 +51,25 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
   useEffect(() => {
     cargarServerTime();
   }, [cargarServerTime]);
+
+  const cargarCargaUnica = useCallback(async () => {
+    if (!cursoMateriaId || !serverInfo?.fecha) return;
+    try {
+      const data = await getCargasUnica({ curso_materia: cursoMateriaId, fecha: serverInfo.fecha });
+      setCargaUnica(Array.isArray(data) ? (data[0] || null) : data);
+    } catch {
+      setCargaUnica(null);
+    }
+  }, [cursoMateriaId, serverInfo?.fecha]);
+
+  useEffect(() => {
+    cargarCargaUnica();
+  }, [cargarCargaUnica]);
+
+  useEffect(() => {
+    const iv = setInterval(() => setSegundoTick((t) => t + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
 
   useEffect(() => {
     if (serverInfo?.fecha && !fechaSeleccionada) {
@@ -102,8 +133,18 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
     };
   }, [alumnosCurso, cursoMateriaId, fechaSeleccionada]);
 
+  // Carga única de 20 minutos otorgada por el preceptor: la ventana activa
+  // autoriza cargar aunque no se esté en horario; al cargar (o vencer) el
+  // panel queda de solo lectura.
+  const cargaDelDia = cargaUnica && cargaUnica.fecha === serverInfo?.fecha ? cargaUnica : null;
+  const asistenciasPedida = Boolean(cargaDelDia?.pendientes?.includes('asistencias'));
+  const asistCargada = Boolean(cargaDelDia?.asistencias_cargada);
+  const cargaVencida = cargaDelDia?.estado === 'vencida';
+  const ventanaActiva = Boolean(cargaDelDia) && asistenciasPedida && !asistCargada && !cargaVencida;
+
   const enHorario = serverInfo?.estado?.codigo === 'en_horario';
   const esFechaHoy = fechaSeleccionada === serverInfo?.fecha;
+  const enHorarioEfectivo = enHorario || ventanaActiva;
 
   const handleEstadoChange = (id, nuevoEstado) => {
     setFilas((prev) =>
@@ -116,7 +157,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
   };
 
   const handleGuardar = async () => {
-    if (!enHorario) return;
+    if (!enHorarioEfectivo) return;
     if (!esFechaHoy) {
       toast.warning('Solo puede guardar asistencias para la fecha de hoy.');
       return;
@@ -143,6 +184,18 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
         });
       });
       await Promise.all(promises);
+      if (ventanaActiva) {
+        try {
+          await marcarCargaUnica({
+            id_curso_materia: cursoMateriaId,
+            fecha: fechaSeleccionada,
+            item: 'asistencias',
+          });
+        } catch {
+          // La carga igual quedó guardada; el banner se refresca en pantalla.
+        }
+        await cargarCargaUnica();
+      }
       toast.success('Asistencia guardada exitosamente.');
       await refreshData();
       await cargarServerTime();
@@ -237,7 +290,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
               type="button"
               className="btn btn-primary"
               onClick={handleGuardar}
-              disabled={guardando || !enHorario || !esFechaHoy || filas.length === 0}
+              disabled={guardando || !enHorarioEfectivo || !esFechaHoy || filas.length === 0}
             >
               <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Asistencia'}
             </button>
@@ -268,6 +321,49 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
         </p>
       )}
 
+      {cargaDelDia && asistenciasPedida && !asistCargada && !cargaVencida && (
+        <p
+          className="mb-12"
+          style={{
+            padding: '10px 14px', borderRadius: '6px', fontSize: '0.9rem',
+            background: '#d1e7dd', borderLeft: '4px solid #198754', color: '#0f5132', lineHeight: '1.5',
+          }}
+        >
+          <i className="fas fa-hourglass-half" style={{ marginRight: '8px' }} aria-hidden="true" />
+          <strong>Carga única activa (20 minutos):</strong>{' '}
+          te quedan <strong>{formatearTiempoRestante(cargaDelDia.fecha_vencimiento)}</strong> para
+          cargar las asistencias. Se guarda una sola vez: al cargarlas ya no podrás editarlas.
+        </p>
+      )}
+
+      {asistCargada && (
+        <p
+          className="mb-12"
+          style={{
+            padding: '10px 14px', borderRadius: '6px', fontSize: '0.9rem',
+            background: '#f8f9fa', borderLeft: '4px solid #6c757d', color: '#495057', lineHeight: '1.5',
+          }}
+        >
+          <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+          <strong>Carga única realizada.</strong> Las asistencias de hoy quedaron bloqueadas y no
+          pueden modificarse de nuevo.
+        </p>
+      )}
+
+      {cargaDelDia && asistenciasPedida && !asistCargada && cargaVencida && (
+        <p
+          className="mb-12"
+          style={{
+            padding: '10px 14px', borderRadius: '6px', fontSize: '0.9rem',
+            background: '#f8d7da', borderLeft: '4px solid #dc3545', color: '#842029', lineHeight: '1.5',
+          }}
+        >
+          <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+          <strong>La carga única de asistencias venció.</strong> El plazo de 20 minutos finalizó y ya
+          no podés cargarlas por este medio.
+        </p>
+      )}
+
       <div className="filter-row">
         <div className="form-group-filter">
           <label>Fecha</label>
@@ -287,7 +383,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
         </div>
       </div>
 
-      {serverInfo?.estado?.mensaje && (
+      {serverInfo?.estado?.mensaje && !ventanaActiva && (
         <p className={`asist-info-banner ${enHorario ? 'asist-ok' : 'asist-bloqueado'} mb-12`}
            style={{ padding: '8px 12px', borderRadius: '4px',
                    backgroundColor: enHorario ? '#d4edda' : '#fff3cd',
@@ -324,7 +420,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
             </tr>
           </thead>
           <tbody>
-            {!enHorario && esFechaHoy ? (
+            {!enHorarioEfectivo && esFechaHoy ? (
               <tr>
                 <td colSpan={2} className="empty-state-message">
                   {serverInfo?.estado?.mensaje || 'No hay horario disponible.'}
@@ -348,7 +444,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
                         const est = estObj.nombre_estado;
                         const seleccionado = fila.estado === est;
                         const deshabilitado = fila.estado !== '' && !seleccionado;
-                        const bloq = !puedeEditar || !enHorario || !esFechaHoy;
+                        const bloq = !puedeEditar || !enHorarioEfectivo || !esFechaHoy;
                         const colorMap = {
                           Presente: { border: '#28a745', bg: '#d4edda' },
                           Ausente: { border: '#dc3545', bg: '#f8d7da' },

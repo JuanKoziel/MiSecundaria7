@@ -749,6 +749,49 @@ class Notificacion(models.Model):
         db_table = 'notificaciones'
 
 
+class CargaUnica(models.Model):
+    """Carga única de 20 minutos otorgada por el preceptor a un docente.
+
+    Tabla creada manualmente en MySQL (managed=False), como el resto del
+    esquema. El preceptor la activa desde el Panel Diario presionando
+    "Notificar": dentro de la ventana de 20 minutos el docente puede cargar
+    las Asistencias y/o el Libro de Temas pendientes de la fecha; cada ítem
+    solo puede cargarse una vez (los flags `*_cargada` bloquean re-ediciones)
+    y vence a los 20 minutos.
+    """
+
+    id_carga_unica = models.AutoField(primary_key=True)
+    id_curso_materia = models.ForeignKey(
+        CursoMateria, on_delete=models.CASCADE, db_column='id_curso_materia',
+        related_name='cargas_unicas',
+    )
+    id_docente = models.ForeignKey(
+        Docente, on_delete=models.CASCADE, db_column='id_docente',
+        blank=True, null=True, related_name='cargas_unicas',
+    )
+    fecha = models.DateField()
+    fecha_inicio = models.DateTimeField()
+    fecha_vencimiento = models.DateTimeField()
+    pendientes = models.CharField(max_length=120, default='[]')
+    asistencias_cargada = models.BooleanField(default=False)
+    libro_cargada = models.BooleanField(default=False)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'cargas_unicas'
+
+    def pendientes_lista(self):
+        import json
+        try:
+            return json.loads(self.pendientes or '[]')
+        except (TypeError, ValueError):
+            return []
+
+    def __str__(self):
+        return f'Carga única {self.id_carga_unica} - cm {self.id_curso_materia_id} {self.fecha}'
+
+
 class TipoAccion(models.Model):
     id_tipo_accion = models.AutoField(primary_key=True)
     nombre_accion = models.CharField(max_length=50, unique=True)

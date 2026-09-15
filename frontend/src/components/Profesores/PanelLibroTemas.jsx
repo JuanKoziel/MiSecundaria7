@@ -6,6 +6,8 @@ import {
   updateLibroTema,
   deleteLibroTema,
   uploadFile,
+  getCargasUnica,
+  marcarCargaUnica,
 } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
@@ -23,6 +25,16 @@ function mensajeError(err) {
   return data?.detail || err.message || 'Error inesperado';
 }
 
+function formatearTiempoRestante(fechaVencimiento) {
+  if (!fechaVencimiento) return '--:--';
+  const restaMs = Date.parse(fechaVencimiento) - Date.now();
+  if (restaMs <= 0) return '0:00';
+  const totalSeg = Math.floor(restaMs / 1000);
+  const mm = Math.floor(totalSeg / 60);
+  const ss = totalSeg % 60;
+  return `${mm}:${String(ss).padStart(2, '0')}`;
+}
+
 function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente, puedeEditar = true }) {
   const toast = useToast();
   const [registros, setRegistros] = useState([]);
@@ -31,6 +43,8 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
   const [formData, setFormData] = useState(formVacio);
   const [editing, setEditing] = useState(null);
   const [guardando, setGuardando] = useState(false);
+  const [cargaUnica, setCargaUnica] = useState(null);
+  const [, setSegundoTick] = useState(0);
 
   const cargar = useCallback(async () => {
     if (!cursoMateriaId) return;
@@ -62,8 +76,37 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
     cargarServerTime();
   }, [cargarServerTime]);
 
+  const cargarCargaUnica = useCallback(async () => {
+    if (!cursoMateriaId || !serverInfo?.fecha) return;
+    try {
+      const data = await getCargasUnica({ curso_materia: cursoMateriaId, fecha: serverInfo.fecha });
+      setCargaUnica(Array.isArray(data) ? (data[0] || null) : data);
+    } catch {
+      setCargaUnica(null);
+    }
+  }, [cursoMateriaId, serverInfo?.fecha]);
+
+  useEffect(() => {
+    cargarCargaUnica();
+  }, [cargarCargaUnica]);
+
+  useEffect(() => {
+    const iv = setInterval(() => setSegundoTick((t) => t + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
+
   const enHorario = serverInfo?.estado?.codigo === 'en_horario';
   const eventoActivo = Boolean(serverInfo?.evento_activo);
+
+  // Carga única de 20 minutos otorgada por el preceptor: durante la ventana
+  // se puede crear el registro de hoy aunque no se esté en horario; al
+  // cargarlo (o vencer el plazo) el panel pasa a solo lectura.
+  const cargaDelDia = cargaUnica && cargaUnica.fecha === serverInfo?.fecha ? cargaUnica : null;
+  const libroPedido = Boolean(cargaDelDia?.pendientes?.includes('libro_temas'));
+  const libroCargada = Boolean(cargaDelDia?.libro_cargada);
+  const cargaVencida = cargaDelDia?.estado === 'vencida';
+  const ventanaActiva = Boolean(cargaDelDia) && libroPedido && !libroCargada && !cargaVencida;
+  const bloqueadoPorCarga = libroCargada || (libroPedido && cargaVencida);
 
   const horarioFinalizado = (reg) => {
     const fechaActual = String(serverInfo?.fecha || '');
@@ -77,7 +120,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
     return horaActual >= horaFin;
   };
 
-  const puedeCrear = enHorario && !eventoActivo && puedeEditar;
+  const puedeCrear = puedeEditar && (ventanaActiva || (enHorario && !eventoActivo));
   const mostrarFormulario = puedeCrear || Boolean(editing);
 
   const bloqueActual = useMemo(() => {
@@ -112,7 +155,11 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!enHorario || eventoActivo || !puedeEditar) return;
+    if (!puedeCrear) return;
+    if (editing && bloqueadoPorCarga) {
+      toast.error('Este registro quedó bloqueado por la carga única; ya no puede modificarse.');
+      return;
+    }
     setGuardando(true);
     try {
       let rutaArchivo = formData.ruta_archivo || null;
@@ -131,6 +178,18 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
       } else {
         await createLibroTema(payload);
         toast.success('Libro de Temas creado correctamente.');
+        if (ventanaActiva) {
+          try {
+            await marcarCargaUnica({
+              id_curso_materia: cursoMateriaId,
+              fecha: serverInfo?.fecha,
+              item: 'libro_temas',
+            });
+          } catch {
+            // La carga igual quedó creada; el banner se refresca en pantalla.
+          }
+          await cargarCargaUnica();
+        }
       }
       limpiar();
       await cargar();
@@ -155,7 +214,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
     });
   };
 
-  const formularioBloqueado = !enHorario || eventoActivo || !puedeEditar;
+  const formularioBloqueado = !puedeCrear;
 
   return (
     <div className="card">
@@ -199,6 +258,52 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
           Actualmente hay un evento institucional activo
           {serverInfo?.evento_tipo ? ` (${serverInfo.evento_tipo})` : ''}.
           No se puede cargar el Libro de Temas hasta que finalice el evento.
+        </p>
+      )}
+
+      {bloqueadoPorCarga && (
+        <p
+          style={{
+            background: libroCargada ? '#f8f9fa' : '#f8d7da',
+            borderLeft: '4px solid ' + (libroCargada ? '#6c757d' : '#dc3545'),
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '0.9rem',
+            color: libroCargada ? '#495057' : '#842029',
+            lineHeight: '1.6',
+          }}
+        >
+          <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
+          {libroCargada ? (
+            <>
+              <strong>Carga única realizada.</strong> El Libro de Temas de hoy quedó bloqueado: ya no
+              puede modificarse de nuevo.
+            </>
+          ) : (
+            <>
+              <strong>La carga única de hoy venció.</strong> El plazo de 20 minutos finalizó y ya no
+              podés cargar el Libro de Temas por este medio.
+            </>
+          )}
+        </p>
+      )}
+
+      {ventanaActiva && (
+        <p
+          style={{
+            background: '#d1e7dd',
+            borderLeft: '4px solid #198754',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '0.9rem',
+            color: '#0f5132',
+            lineHeight: '1.6',
+          }}
+        >
+          <i className="fas fa-hourglass-half" style={{ marginRight: '8px' }} aria-hidden="true" />
+          <strong>Carga única activa (20 minutos):</strong> te quedan{' '}
+          <strong>{formatearTiempoRestante(cargaDelDia?.fecha_vencimiento)}</strong> para cargar el
+          Libro de Temas. Se guarda una sola vez: al cargarlo ya no podrás modificarlo.
         </p>
       )}
 
@@ -265,7 +370,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
         </form>
       )}
 
-      {!enHorario && serverInfo?.estado?.mensaje && (
+      {!enHorario && !ventanaActiva && serverInfo?.estado?.mensaje && (
         <p
           style={{
             background: '#fff3cd',
@@ -340,6 +445,10 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
                       {horarioFinalizado(reg) ? (
                         <span className="badge badge-warning">
                           <i className="fas fa-lock" aria-hidden="true" /> Solo lectura
+                        </span>
+                      ) : (bloqueadoPorCarga && String(reg.fecha) === String(serverInfo?.fecha)) ? (
+                        <span className="badge badge-warning">
+                          <i className="fas fa-lock" aria-hidden="true" /> Carga única
                         </span>
                       ) : puedeEditar ? (
                         <>

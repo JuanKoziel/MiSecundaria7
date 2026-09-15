@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { getLibroTemas } from '../../services/api';
+import { getLibroTemas, enviarCargaUnica } from '../../services/api';
 import EmptyFiltros from './EmptyFiltros';
 import { filtrosCompletos } from './preceptorUtils';
 import LoadingSpinner from '../Shared/LoadingSpinner';
+import { useToast } from '../../context/ToastContext';
 
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -12,6 +13,16 @@ function formatFecha(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' }).format(date);
+}
+
+function mensajeError(err) {
+  const data = err.response?.data;
+  if (data && typeof data === 'object' && !data.detail) {
+    return Object.entries(data)
+      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
+      .join(' | ');
+  }
+  return data?.detail || err.message || 'Error inesperado';
 }
 
 function ultimaFecha(items, keyF = 'fecha') {
@@ -23,28 +34,39 @@ function ultimaFecha(items, keyF = 'fecha') {
   return ultima;
 }
 
-function EstadoCelda({ ok, textoOk, textoNo }) {
-  if (ok) {
-    return (
-      <div>
-        <span className="badge badge-success">Sí</span>
-        {textoOk && <div className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>{textoOk}</div>}
-      </div>
-    );
-  }
+function CargaTipoItem({ tipo, ok, detalle, onVer, neutro = false }) {
+  const estado = !ok ? (neutro ? 'neutro' : 'no') : 'ok';
+  const icono = ok ? 'fa-check' : (neutro ? 'fa-info' : 'fa-times');
   return (
-    <div>
-      <span className="badge badge-danger">No</span>
-      {textoNo && <div style={{ fontSize: '12px', marginTop: '4px', color: '#dc3545', fontWeight: 500 }}>{textoNo}</div>}
+    <div className={`carga-item carga-item-${estado}`}>
+      <span className={`carga-item-icon ${estado}`}>
+        <i className={`fas ${icono}`} aria-hidden="true" />
+      </span>
+      <div className="carga-item-info">
+        <span className="carga-item-tipo">{tipo}</span>
+        <span className="carga-item-detalle">{detalle}</span>
+      </div>
+      {ok && (
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary carga-item-btn"
+          onClick={onVer}
+          title={`Ver ${tipo.toLowerCase()}`}
+        >
+          <i className="fas fa-eye" aria-hidden="true" /> Ver
+        </button>
+      )}
     </div>
   );
 }
 
-function GestionDiaria({ anioLectivo, curso }) {
+function GestionDiaria({ anioLectivo, curso, onNavigate }) {
   const { cursosObj, cursoMateria, asistenciasAdmin, calificacionesCompletas, horarios, preceptores } = useData();
+  const toast = useToast();
   const [libroTemas, setLibroTemas] = useState([]);
   const [cargandoLibro, setCargandoLibro] = useState(false);
   const [modoCargaUnica, setModoCargaUnica] = useState(null); // { id_curso_materia, temporizador }
+  const [guardandoCargaUnica, setGuardandoCargaUnica] = useState(false);
   const [notificacionesEnviadas, setNotificacionesEnviadas] = useState(new Set());
 
   const filtrosOk = filtrosCompletos(anioLectivo, curso);
@@ -119,8 +141,35 @@ function GestionDiaria({ anioLectivo, curso }) {
       setModoCargaUnica(null);
       return;
     }
-    // Activar modo carga única con temporizador de 20 minutos
-    setModoCargaUnica({ id_curso_materia: cmId, inicio: new Date() });
+    // Solo las cargas diarias obligatorias disparan la notificación:
+    // asistencias y libro de temas. Las calificaciones no son diarias.
+    const asigs = asistenciasDe(cmId);
+    const hayAsistencias = asigs.length > 0;
+    const libros = (libroTemas || []).filter((lt) => lt.id_curso_materia === cmId);
+    const hayLibro = libros.length > 0;
+    const faltantes = [];
+    if (!hayAsistencias) faltantes.push('asistencias');
+    if (!hayLibro) faltantes.push('libro_temas');
+
+    if (faltantes.length === 0) {
+      toast.info('No hay cargas pendientes para notificar.');
+      return;
+    }
+
+    setGuardandoCargaUnica(true);
+    try {
+      const resultado = await enviarCargaUnica({ id_curso_materia: cmId, pendientes: faltantes });
+      if (resultado && resultado.enviado === false) {
+        toast.info(resultado.detail || 'No se pudo enviar la notificación.');
+        return;
+      }
+      toast.success('Notificación enviada: el docente tiene 20 minutos para cargar.');
+      setModoCargaUnica({ id_curso_materia: cmId, inicio: new Date() });
+    } catch (err) {
+      toast.error(mensajeError(err));
+    } finally {
+      setGuardandoCargaUnica(false);
+    }
   };
 
   const puedeEnviarCargaUnica = (cmId) => {
@@ -145,7 +194,8 @@ function GestionDiaria({ anioLectivo, curso }) {
       </div>
 
       <p className="upload-hint m-0 mb-12">
-        Verificación por materia: el preceptor verifica si el docente cargó las asistencias, subió el libro de temas y cargó calificaciones nuevas.
+        Verificación por materia: el preceptor verifica si el docente cargó las asistencias y subió el libro de temas. 
+        La sección de calificaciones es solo informativa (no son cargas diarias).
         {hayClasesHoy && (
           <> Mostrando únicamente las materias con clases el <strong>{diaHoy}</strong>.</>
         )}
@@ -212,7 +262,11 @@ function GestionDiaria({ anioLectivo, curso }) {
                   ? (horarios || []).find((h) => h.id_curso_materia === cm.id)?.hora_inicio || '—'
                   : '—';
 
-                const filaPendiente = !haAsist || !haLibro || !haCal;
+                // Las calificaciones no son una carga diaria: no marcan
+                // pendiente. La fila solo se resalta por asistencias o
+                // libro de temas faltantes.
+                const filaPendiente = !haAsist || !haLibro;
+                const sinPendientes = haAsist && haLibro;
 
                 return (
                   <tr key={cm.id} style={filaPendiente ? { background: 'rgba(220, 53, 69, 0.06)' } : undefined}>
@@ -220,10 +274,26 @@ function GestionDiaria({ anioLectivo, curso }) {
                     <td>{cm.docente_nombre || '—'}</td>
                     <td>{horaClase}</td>
                     <td>
-                      <div>
-                        {haAsist && <EstadoCelda ok={true} textoOk={txtAsist} />}{!haAsist && <EstadoCelda ok={false} textoNo="Sin asistencias registradas" />}
-                        {haLibro && <EstadoCelda ok={true} textoOk={txtLibro} />}{!haLibro && <EstadoCelda ok={false} textoNo="Sin libro de temas" />}
-                        {haCal && <EstadoCelda ok={true} textoOk={txtCal} />}{!haCal && <EstadoCelda ok={false} textoNo="Sin calificaciones" />}
+                      <div className="carga-realizada">
+                        <CargaTipoItem
+                          tipo="Asistencias"
+                          ok={haAsist}
+                          detalle={txtAsist}
+                          onVer={() => onNavigate && onNavigate('asistencias')}
+                        />
+                        <CargaTipoItem
+                          tipo="Libro de temas"
+                          ok={haLibro}
+                          detalle={txtLibro}
+                          onVer={() => onNavigate && onNavigate('actividades')}
+                        />
+                        <CargaTipoItem
+                          tipo="Calificaciones"
+                          ok={haCal}
+                          neutro
+                          detalle={txtCal}
+                          onVer={() => onNavigate && onNavigate('notas')}
+                        />
                       </div>
                     </td>
                     <td>
@@ -244,9 +314,15 @@ function GestionDiaria({ anioLectivo, curso }) {
                           type="button"
                           className="btn btn-sm btn-outline-primary"
                           onClick={() => toggleCargaUnica(cm.id)}
-                          title="Notificar y habilitar carga única"
+                          title={sinPendientes ? 'No hay cargas pendientes para notificar' : 'Notificar y habilitar carga única'}
+                          disabled={guardandoCargaUnica || sinPendientes}
                         >
-                          <i className="fas fa-bell" aria-hidden="true" /> Notificar
+                          {guardandoCargaUnica ? (
+                            <LoadingSpinner text="" size="sm" inline />
+                          ) : (
+                            <i className="fas fa-bell" aria-hidden="true" />
+                          )}{' '}
+                          Notificar
                         </button>
                       )}
                     </td>

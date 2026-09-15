@@ -16,6 +16,7 @@ from escuela.models import (
     Asistencia,
     AsistenciaDocente,
     Calificacion,
+    CargaUnica,
     CicloLectivo,
     ActividadDocente,
     ActividadDocenteArchivo,
@@ -2355,6 +2356,27 @@ class EventoInstitucionalSerializer(serializers.ModelSerializer):
 
 
 # ---------- Libro de Temas ----------
+
+class CargaUnicaSerializer(serializers.ModelSerializer):
+    """Serializa una ventana de carga única de 20 minutos para el frontend."""
+    pendientes = serializers.SerializerMethodField()
+    estado = serializers.SerializerMethodField()
+    tiempo_restante_seg = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CargaUnica
+        fields = '__all__'
+
+    def get_pendientes(self, obj):
+        return obj.pendientes_lista()
+
+    def get_estado(self, obj):
+        return 'vencida' if timezone.localtime() > obj.fecha_vencimiento else 'activa'
+
+    def get_tiempo_restante_seg(self, obj):
+        restante = obj.fecha_vencimiento - timezone.localtime()
+        return 0 if restante.total_seconds() <= 0 else int(restante.total_seconds())
+
 
 class LibroTemaSerializer(serializers.ModelSerializer):
     curso_nombre = serializers.CharField(

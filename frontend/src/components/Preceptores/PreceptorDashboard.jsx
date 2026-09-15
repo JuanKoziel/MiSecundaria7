@@ -110,7 +110,7 @@ function PreceptorDashboard({ user, onLogout }) {
       case 'panel-diario':
         return (
           <div className="view-section active">
-            <GestionDiaria anioLectivo={anioLectivo} curso={curso} />
+            <GestionDiaria anioLectivo={anioLectivo} curso={curso} onNavigate={setView} />
           </div>
         );
 
