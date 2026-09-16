@@ -21,6 +21,7 @@ const MAPA_POR_ROL = {
     comunicados: 'comunicados',
     horarios: 'horarios',
     eventos: 'calendario',
+    actividades: 'actividades',
     perfil: 'perfil',
   },
   familia: {
@@ -35,6 +36,7 @@ const MAPA_POR_ROL = {
     comunicados: 'comunicados',
     horarios: 'horarios',
     eventos: 'calendario',
+    actividades: 'actividades',
     resumen: 'resumen',
     perfil: 'perfil',
   },

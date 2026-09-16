@@ -956,6 +956,10 @@ def _notificar_comunicado_publicado(comunicado):
         if preceptor.id_usuario_id:
             _notificar_usuario(preceptor.id_usuario)
 
+    # Jefes de preceptores
+    for u in _usuarios_con_rol('jefe_preceptores'):
+        _notificar_usuario(u)
+
 
 def _notificar_calificacion(calificacion, accion='cargada'):
     """E1/E6 — Calificación cargada / actualizada.
@@ -1419,6 +1423,20 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
             raise PermissionDenied("Solo directores pueden crear usuarios con rol administrador")
 
         super().perform_create(serializer)
+        self._historial_alta(serializer)
+        usuario = serializer.instance
+        directivo = Directivo.objects.filter(id_usuario=usuario).first()
+        nombre = (
+            f'{directivo.apellido}, {directivo.nombre}'
+            if directivo else (usuario.usuario or '')
+        )
+        _notificar_carga_usuario(
+            etiqueta='Administrador',
+            nombre_completo=nombre,
+            curso_ids=None,
+            actor=_usuario_request(self.request),
+            solo_directores=True,
+        )
 
     def perform_update(self, serializer):
         from escuela.auth_backend import get_roles_for_usuario
@@ -1690,6 +1708,13 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
         if 'preceptor' in roles:
             self._require_preceptor_course_access(serializer.validated_data.get('id_curso'))
         super().perform_create(serializer)
+        alumno = serializer.instance
+        _notificar_carga_usuario(
+            etiqueta='Alumno',
+            nombre_completo=f'{alumno.apellido}, {alumno.nombre}',
+            curso_ids=[alumno.id_curso_id] if alumno.id_curso_id else None,
+            actor=_usuario_request(self.request),
+        )
 
     def perform_update(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -1752,10 +1777,22 @@ class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
         if 'jefe_preceptores' in roles:
             raise PermissionDenied('No tenés permiso para crear docentes.')
         super().perform_create(serializer)
+        docente = serializer.instance
+        curso_ids = list(
+            CursoMateria.objects.filter(id_docente=docente, activo=True)
+            .values_list('id_curso_id', flat=True)
+        )
+        _notificar_carga_usuario(
+            etiqueta='Docente',
+            nombre_completo=f'{docente.apellido}, {docente.nombre}',
+            curso_ids=curso_ids or None,
+            actor=_usuario_request(self.request),
+        )
 
     def perform_update(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
+
         if 'jefe_preceptores' in roles:
             raise PermissionDenied('No tenés permiso para modificar docentes.')
         self._require_preceptor_access(serializer.instance)
@@ -2047,7 +2084,8 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         cm = serializer.validated_data.get('id_curso_materia')
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
-        serializer.save(id_docente=docente)
+        instance = serializer.save(id_docente=docente)
+        _notificar_actividad_docente(instance)
 
     def perform_update(self, serializer):
         docente = self._docente_actual()
@@ -2056,7 +2094,8 @@ class ActividadDocenteViewSet(viewsets.ModelViewSet):
         cm = serializer.instance.id_curso_materia
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
-        serializer.save()
+        instance = serializer.save()
+        _notificar_actividad_docente(instance, accion='actualizada')
 
     def perform_destroy(self, instance):
         docente = self._docente_actual()
@@ -2144,6 +2183,16 @@ class PreceptorViewSet(HistorialMixin, viewsets.ModelViewSet):
         else:
             self._require_admin_or_director()
         super().perform_create(serializer)
+        preceptor = serializer.instance
+        _notificar_carga_usuario(
+            etiqueta='Preceptor',
+            nombre_completo=f'{preceptor.apellido}, {preceptor.nombre}',
+            curso_ids=list(
+                Curso.objects.filter(id_preceptor=preceptor, activo=True)
+                .values_list('id_curso', flat=True)
+            ) or None,
+            actor=_usuario_request(self.request),
+        )
 
     def perform_update(self, serializer):
         if self._is_jefe_target():
@@ -2231,6 +2280,17 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
         if 'preceptor' not in roles:
             self._require_admin_or_director()
         super().perform_create(serializer)
+        padre = serializer.instance
+        curso_ids = list(
+            TutorAlumno.objects.filter(id_tutor=padre)
+            .values_list('id_alumno__id_curso_id', flat=True)
+        )
+        _notificar_carga_usuario(
+            etiqueta='Tutor',
+            nombre_completo=f'{padre.apellido}, {padre.nombre}',
+            curso_ids=curso_ids or None,
+            actor=_usuario_request(self.request),
+        )
 
     def perform_update(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
@@ -2317,14 +2377,30 @@ class CursoViewSet(HistorialMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         self._require_write_permiso()
         super().perform_create(serializer)
+        _notificar_cambio_estructura(
+            accion='creado',
+            objeto_label=f'el curso {serializer.instance.nombre_curso}',
+            actor=_usuario_request(self.request),
+        )
 
     def perform_update(self, serializer):
         self._require_write_permiso()
         super().perform_update(serializer)
+        _notificar_cambio_estructura(
+            accion='actualizado',
+            objeto_label=f'el curso {serializer.instance.nombre_curso}',
+            actor=_usuario_request(self.request),
+        )
 
     def perform_destroy(self, instance):
+        nombre = instance.nombre_curso
         self._require_write_permiso()
         super().perform_destroy(instance)
+        _notificar_cambio_estructura(
+            accion='eliminado',
+            objeto_label=f'el curso {nombre}',
+            actor=_usuario_request(self.request),
+        )
 
 
 class MateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
@@ -2340,8 +2416,30 @@ class MateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
             qs = qs.filter(activo=True)
         return qs
 
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        _notificar_cambio_estructura(
+            accion='creado',
+            objeto_label=f'la materia {serializer.instance.nombre_materia}',
+            actor=_usuario_request(self.request),
+        )
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        _notificar_cambio_estructura(
+            accion='actualizado',
+            objeto_label=f'la materia {serializer.instance.nombre_materia}',
+            actor=_usuario_request(self.request),
+        )
+
     def perform_destroy(self, instance):
+        nombre = instance.nombre_materia
         super().perform_destroy(instance)
+        _notificar_cambio_estructura(
+            accion='eliminado',
+            objeto_label=f'la materia {nombre}',
+            actor=_usuario_request(self.request),
+        )
 
 
 class CursoMateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
@@ -2665,13 +2763,16 @@ class HorarioViewSet(viewsets.ModelViewSet):
             self._check_preceptor_curso_access(cm)
         instance = serializer.save()
         self._check_preceptor_curso_access(instance)
+        _notificar_cambio_horario(instance, accion='creado')
 
     def perform_update(self, serializer):
         instance = serializer.save()
         self._check_preceptor_curso_access(instance)
+        _notificar_cambio_horario(instance, accion='actualizado')
 
     def perform_destroy(self, instance):
         self._check_preceptor_curso_access(instance)
+        _notificar_cambio_horario(instance, accion='eliminado')
         instance.delete()
 
 
@@ -2731,14 +2832,30 @@ class CalificacionViewSet(viewsets.ModelViewSet):
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
         super().perform_create(serializer)
-        _notificar_calificacion(serializer.instance, accion='cargada')
+        instancia = serializer.instance
+        _notificar_calificacion(instancia, accion='cargada')
+        if instancia.pre_nota:
+            _notificar_prenota(instancia)
+        _notificar_carga_notas(
+            instancia.id_curso_materia,
+            instancia.id_periodo.nombre_periodo if instancia.id_periodo else None,
+            accion='cargada',
+        )
 
     def perform_update(self, serializer):
         cm = serializer.validated_data.get('id_curso_materia') or serializer.instance.id_curso_materia
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
         super().perform_update(serializer)
-        _notificar_calificacion(serializer.instance, accion='actualizada')
+        instancia = serializer.instance
+        _notificar_calificacion(instancia, accion='actualizada')
+        if instancia.pre_nota:
+            _notificar_prenota(instancia)
+        _notificar_carga_notas(
+            instancia.id_curso_materia,
+            instancia.id_periodo.nombre_periodo if instancia.id_periodo else None,
+            accion='actualizada',
+        )
 
     def perform_destroy(self, instance):
         cm = instance.id_curso_materia
@@ -3329,11 +3446,13 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             asistencia = serializer.save()
             _notificar_inasistencia(asistencia)
+            _notificar_carga_asistencias(asistencia.id_curso_materia, asistencia.fecha)
             return Response(serializer.data, status=status.HTTP_200_OK)
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         _notificar_inasistencia(serializer.instance)
+        _notificar_carga_asistencias(serializer.instance.id_curso_materia, serializer.instance.fecha)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -3557,6 +3676,7 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
             fecha=fecha_hoy,
             hora=ahora.time(),
         )
+        _notificar_falta_docente(asistencia)
 
         return Response({
             'id_asistencia_docente': asistencia.id_asistencia_docente,
@@ -3927,6 +4047,10 @@ class ActaCursoViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     queryset = ActaCurso.objects.select_related('id_acta', 'id_curso').all()
     serializer_class = ActaCursoSerializer
     permission_classes = [IsAuthenticated, PuedeGestionarActas]
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        _notificar_acta_curso(serializer.instance)
 
 
 class ActaDocenteViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
@@ -5463,14 +5587,16 @@ class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
         if doc and not es_rol_amplio(self.request):
             if not CursoMateria.objects.filter(id_curso_materia=cm_id, id_docente=doc).exists():
                 raise PermissionDenied('No puede crear actividades para materias que no tiene asignadas.')
-            serializer.save(id_docente=doc)
+            instance = serializer.save(id_docente=doc)
         else:
-            serializer.save()
+            instance = serializer.save()
+        _notificar_actividad_adeudada(instance)
 
     def perform_update(self, serializer):
         if not self._es_dueno_o_amplio(self.get_object()):
             raise PermissionDenied('No puede modificar actividades de otro docente.')
-        serializer.save()
+        instance = serializer.save()
+        _notificar_actividad_adeudada(instance, accion='actualizada')
 
     def perform_destroy(self, instance):
         if not self._es_dueno_o_amplio(instance):
@@ -5632,6 +5758,215 @@ def _usuarios_directivos():
     return usuarios_ids
 
 
+def _usuario_request(request):
+    """Usuario del sistema (tabla `usuarios`) correspondiente al `request`,
+    o None si no hay sesión."""
+    username = request.user.username if request.user.is_authenticated else None
+    if not username:
+        return None
+    return Usuario.objects.filter(usuario=username).first()
+
+
+def _usuarios_con_rol(nombre_rol):
+    """Usuarios activos que tienen el rol indicado (p. ej. 'jefe_preceptores')."""
+    return list(
+        Usuario.objects.filter(
+            estado=True,
+            usuariorol__id_rol__nombre_rol=nombre_rol,
+        ).distinct()
+    )
+
+
+def _notificar_carga_usuario(*, etiqueta, nombre_completo, curso_ids=None,
+                             actor=None, solo_directores=False):
+    """E20 — Carga de un nuevo usuario en el sistema.
+
+    Notifica a los usuarios que pueden gestionar al nuevo usuario:
+    - Preceptores asignados a los cursos alcanzados por la persona creada
+      (alumno → su curso; docente → cursos donde dicta; tutor → cursos de sus
+      hijos; preceptor → cursos a su cargo);
+    - Jefes de preceptores;
+    - Todos los administradores y directores.
+    - Si `solo_directores` es True (alta de administrador), solo se notifica a
+      los usuarios con rol 'director' (los admin se crean/corresponden a
+      director).
+    - Siempre se excluye al usuario autenticado que realizó la creación.
+    """
+    titulo = f'Nuevo usuario creado: {etiqueta}'
+    mensaje = nombre_completo or ''
+    if curso_ids:
+        nombres = list(
+            Curso.objects.filter(
+                id_curso__in=[c for c in curso_ids if c], activo=True,
+            ).values_list('nombre_curso', flat=True)
+        )
+        if nombres:
+            mensaje = f'{nombre_completo} — Curso: {", ".join(nombres)}'
+
+    receptores = set()
+    if solo_directores:
+        receptores.update(_usuarios_con_rol('director'))
+    else:
+        receptores.update(_usuarios_directivos())
+        receptores.update(_usuarios_con_rol('jefe_preceptores'))
+        for preceptor in _preceptores_para_cursos(curso_ids or []):
+            if preceptor.id_usuario_id:
+                receptores.add(preceptor.id_usuario)
+    if actor is not None:
+        receptores.discard(actor)
+
+    for u in receptores:
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=None)
+
+
+def _notificar_carga_notas(cm, periodo_nombre=None, accion='cargada'):
+    """Carga de notas por curso.
+
+    Avisa a administradores/directores y a los preceptores del curso cuando un
+    docente carga o actualiza calificaciones de una materia. La
+    deduplicación por contenido de `notificar` evita repetir el aviso cuando
+    la carga se hace por alumno (una sola notificación por materia+período).
+    """
+    if cm is None or cm.id_curso_id is None:
+        return
+    materia = cm.id_materia.nombre_materia if cm.id_materia_id else 'la materia'
+    curso = cm.id_curso.nombre_curso if cm.id_curso_id else 'el curso'
+    actualizada = accion == 'actualizada'
+    titulo = 'Notas actualizadas' if actualizada else 'Notas cargadas'
+    mensaje = (
+        f'Se actualizaron las notas de {materia} ({curso}).'
+        if actualizada else
+        f'Se cargaron las notas de {materia} ({curso}).'
+    )
+    if periodo_nombre:
+        mensaje = mensaje.rstrip('.') + f' — Período: {periodo_nombre}.'
+    nav = {
+        'destino': 'notas',
+        'params': {
+            'cursoMateriaId': cm.id_curso_materia,
+        }
+    }
+    receptores = set(_usuarios_directivos())
+    for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
+        if preceptor.id_usuario_id:
+            receptores.add(preceptor.id_usuario)
+    for u in receptores:
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
+
+
+def _notificar_carga_asistencias(cm, fecha):
+    """Carga de asistencias por curso.
+
+    Avisa a administradores/directores y a los preceptores del curso cuando se
+    registran asistencias de una materia. Única notificación por
+    materia+fecha gracias a la deduplicación de `notificar`.
+    """
+    if cm is None or cm.id_curso_id is None:
+        return
+    materia = cm.id_materia.nombre_materia if cm.id_materia_id else 'la materia'
+    curso = cm.id_curso.nombre_curso if cm.id_curso_id else 'el curso'
+    titulo = 'Asistencias cargadas'
+    mensaje = f'Se cargaron las asistencias de {materia} ({curso}) del {fecha}.'
+    nav = {
+        'destino': 'asistencias',
+        'params': {
+            'cursoMateriaId': cm.id_curso_materia,
+            'fecha': str(fecha),
+        }
+    }
+    receptores = set(_usuarios_directivos())
+    for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
+        if preceptor.id_usuario_id:
+            receptores.add(preceptor.id_usuario)
+    for u in receptores:
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
+
+
+def _notificar_prenota(calificacion):
+    """Pre-nota (TED/TEP/TEA) cargada o actualizada.
+
+    Avisa solo al alumno y a su familia (es informativa, no afecta al
+    boletín definitivo).
+    """
+    if not calificacion.pre_nota:
+        return
+    if not calificacion.id_alumno_id:
+        return
+    alumno = calificacion.id_alumno
+    materia = (
+        calificacion.id_curso_materia.id_materia.nombre_materia
+        if calificacion.id_curso_materia_id and calificacion.id_curso_materia.id_materia
+        else 'la materia'
+    )
+    periodo = calificacion.id_periodo.nombre_periodo if calificacion.id_periodo_id else None
+    titulo = 'Pre-nota cargada'
+    mensaje = f'Tu pre-nota ({calificacion.pre_nota}) de {materia}.'
+    if periodo:
+        mensaje = mensaje.rstrip('.') + f' ({periodo}).'
+    nav = {
+        'destino': 'calificaciones',
+        'params': {
+            'alumnoId': alumno.id_alumno if alumno else None,
+            'materiaId': calificacion.id_curso_materia.id_materia.id_materia if calificacion.id_curso_materia and calificacion.id_curso_materia.id_materia else None,
+            'cursoMateriaId': calificacion.id_curso_materia_id,
+        }
+    }
+    notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
+
+
+def _notificar_cambio_estructura(*, accion, objeto_label, actor=None):
+    """Cambio en la estructura académica (curso o materia creado/modificado/
+    eliminado).
+
+    Avisa a los administradores y directores que no realizaron el cambio.
+    """
+    accion_txt = {
+        'creado': 'Se creó',
+        'actualizado': 'Se modificó',
+        'eliminado': 'Se eliminó',
+    }.get(accion, 'Se modificó')
+    titulo = 'Cambio de estructura académica'
+    mensaje = f'{accion_txt} {objeto_label}.'
+    nav = None
+    for u in _usuarios_directivos():
+        if actor is not None and u == actor:
+            continue
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
+
+
+def _notificar_acta_curso(acta_curso):
+    """E21 — Carga de un acta asociada a un curso.
+
+    Avisa a los preceptores del curso (y a los jefes de preceptores) cuando se
+    carga un acta para un curso.
+    """
+    acta = acta_curso.id_acta
+    curso = acta_curso.id_curso
+    if acta is None or curso is None:
+        return
+    tipo = acta.id_tipo_acta.nombre_tipo if acta.id_tipo_acta else 'acta'
+    titulo = f'Acta de {tipo}'
+    mensaje = (
+        f'Se cargó un acta de {tipo} para el curso {curso.nombre_curso}: '
+        f'{acta.titulo or acta.descripcion or "sin detalles"}.'
+    )
+    nav = {
+        'destino': 'actas',
+        'params': {
+            'actaId': acta.id_acta,
+        }
+    }
+    preceptores = _preceptores_para_cursos([curso.id_curso])
+    if not preceptores:
+        return
+    for preceptor in preceptores:
+        if preceptor.id_usuario_id:
+            notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
+                      titulo=titulo, mensaje=mensaje, nav=nav)
+    for u in _usuarios_con_rol('jefe_preceptores'):
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
+
+
 def _notificar_adelanto_aprobado(adelanto):
     """E15 — Adelanto de horas aprobado.
 
@@ -5666,6 +6001,17 @@ def _notificar_adelanto_aprobado(adelanto):
     # Estudiantes de la materia/curso afectado y sus familias
     if adelanto.id_curso_id is None:
         return
+    # Preceptores del curso y directivos (además del docente y los estudiantes)
+    for preceptor in _preceptores_para_cursos([adelanto.id_curso_id]):
+        if preceptor.id_usuario_id:
+            notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
+                      titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
+    for u in _usuarios_directivos():
+        notificar(id_usuario=u, id_alumno=None,
+                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
+    for u in _usuarios_con_rol('jefe_preceptores'):
+        notificar(id_usuario=u, id_alumno=None,
+                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
     alumnos = Alumno.objects.filter(
         estado=True, id_curso_id=adelanto.id_curso_id,
     ).select_related('id_tutor')
@@ -5706,22 +6052,34 @@ def _notificar_suplencia_asignada(suplencia):
 
     # Notificación profesional al docente suplente
     suplente = suplencia.id_docente_suplente
+    titulo = 'Suplencia asignada'
     if suplente and getattr(suplente, 'id_usuario_id', None):
-        titulo_doc = 'Suplencia asignada'
-        mensaje_doc = (
+        mensaje = (
             f'Se te ha asignado una suplencia para {materia} ({curso}) '
             f'desde {suplencia.fecha_inicio} hasta {suplencia.fecha_fin}.'
         )
         notificar(id_usuario=suplente.id_usuario, id_alumno=None,
-                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
+                  titulo=titulo, mensaje=mensaje, nav=nav)
 
     # Estudiantes del curso afectado y sus familias
     if cm is None or cm.id_curso_id is None:
         return
+    # Preceptores del curso y directivos (además del docente suplente)
+    mensaje = (
+        f'Se asignó una suplencia para {materia} ({curso}) '
+        f'desde {suplencia.fecha_inicio} hasta {suplencia.fecha_fin}.'
+    )
+    for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
+        if preceptor.id_usuario_id:
+            notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
+                      titulo=titulo, mensaje=mensaje, nav=nav)
+    for u in _usuarios_directivos():
+        notificar(id_usuario=u, id_alumno=None,
+                  titulo=titulo, mensaje=mensaje, nav=nav)
     alumnos = Alumno.objects.filter(
         estado=True, id_curso_id=cm.id_curso_id,
     ).select_related('id_tutor')
-    titulo_al = 'Suplencia asignada'
+    titulo_al = titulo
     for alumno in alumnos:
         mensaje_al = (
             f'La materia {materia} ({curso}) será dictada por un docente '
@@ -5838,21 +6196,28 @@ def _notificar_acta_conducta(acta_alumno):
     )
 
     if alumno is not None:
+        nombre = f'{alumno.apellido}, {alumno.nombre}'
+        mensaje_preceptor = (
+            f'Se ha registrado un acta de {tipo} para {nombre}: {detalle}.'
+        )
         preceptores = _preceptores_para_cursos([alumno.id_curso_id])
-        if preceptores:
-            nombre = f'{alumno.apellido}, {alumno.nombre}'
-            mensaje_preceptor = (
-                f'Se ha registrado un acta de {tipo} para {nombre}: {detalle}.'
+        for preceptor in preceptores:
+            if preceptor.id_usuario_id:
+                notificar(
+                    id_usuario=preceptor.id_usuario,
+                    id_alumno=None,
+                    titulo=titulo,
+                    mensaje=mensaje_preceptor,
+                    nav=nav,
+                )
+        for u in _usuarios_con_rol('jefe_preceptores'):
+            notificar(
+                id_usuario=u,
+                id_alumno=None,
+                titulo=titulo,
+                mensaje=mensaje_preceptor,
+                nav=nav,
             )
-            for preceptor in preceptores:
-                if preceptor.id_usuario_id:
-                    notificar(
-                        id_usuario=preceptor.id_usuario,
-                        id_alumno=None,
-                        titulo=titulo,
-                        mensaje=mensaje_preceptor,
-                        nav=nav,
-                    )
 
 
 def _notificar_usuario_estado(usuario, estado_anterior):
@@ -5937,6 +6302,10 @@ def _notificar_evento_institucional(evento):
     for preceptor in Preceptor.objects.exclude(id_usuario=None).select_related('id_usuario'):
         _emitir(preceptor.id_usuario)
 
+    # Jefes de preceptores con cuenta propia
+    for u in _usuarios_con_rol('jefe_preceptores'):
+        _emitir(u)
+
     # Directivos y Admin
     for usuario in _usuarios_directivos():
         _emitir(usuario)
@@ -5975,6 +6344,137 @@ def _notificar_bloqueo_horario(bloqueo, accion='creado'):
             'bloqueoId': bloqueo.id_bloqueo,
         }
     })
+
+
+def _notificar_actividad_docente(actividad, accion='creada'):
+    """Actividad publicada por un docente (tareas, trabajos, etc.).
+
+    Notifica a los estudiantes del curso de la materia y a sus familias
+    cuando el docente crea o actualiza una actividad.
+    """
+    cm = actividad.id_curso_materia
+    if cm is None or cm.id_curso_id is None:
+        return
+    materia = cm.id_materia.nombre_materia if cm.id_materia_id else 'la materia'
+    curso = cm.id_curso.nombre_curso if cm.id_curso_id else 'el curso'
+    titulo = 'Actividad actualizada' if accion == 'actualizada' else 'Nueva actividad'
+    mensaje = f'{titulo} de {materia} ({curso}): {actividad.titulo}.'
+    nav = {
+        'destino': 'actividades',
+        'params': {
+            'actividadId': actividad.id_actividad,
+            'cursoMateriaId': cm.id_curso_materia,
+        }
+    }
+    alumnos = Alumno.objects.filter(estado=True, id_curso_id=cm.id_curso_id).select_related('id_tutor')
+    for alumno in alumnos:
+        notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
+
+
+def _notificar_actividad_adeudada(actividad, accion='publicada'):
+    """Actividad publicada para materias adeudadas (intensificación/previa).
+
+    Notifica a los estudiantes que adeudan esa materia y a sus familias.
+    """
+    cm = actividad.id_curso_materia
+    if cm is None or cm.id_materia_id is None:
+        return
+    materia = cm.id_materia.nombre_materia if cm.id_materia_id else 'la materia'
+    etiqueta = 'Intensificación' if actividad.tipo == 'INTENSIFICACION' else 'Previa'
+    titulo = 'Actividad de intensificación' if actividad.tipo == 'INTENSIFICACION' else 'Actividad de previa'
+    mensaje = f'{titulo}: {actividad.titulo} — {materia}.'
+    nav = {
+        'destino': 'actividades',
+        'params': {
+            'actividadId': actividad.id_actividad,
+            'materiaId': cm.id_materia_id,
+        }
+    }
+    alumnos = Alumno.objects.filter(
+        estado=True,
+        id_alumno__in=MateriaAdeudada.objects.filter(
+            id_materia_id=cm.id_materia_id,
+            estado__in=['ADEUDADA', 'RECURSANDO'],
+        ).values('id_alumno'),
+    ).select_related('id_tutor')
+    for alumno in alumnos:
+        notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
+
+
+def _notificar_cambio_horario(horario, accion='creado'):
+    """Cambio en un horario (creado/actualizado/eliminado).
+
+    Notifica a los alumnos del curso y sus familias, al docente de la
+    materia, a los preceptores del curso y a los directivos.
+    """
+    cm = horario.id_curso_materia
+    if cm is None or cm.id_curso_id is None:
+        return
+    materia = cm.id_materia.nombre_materia if cm.id_materia_id else 'la materia'
+    curso = cm.id_curso.nombre_curso if cm.id_curso_id else 'el curso'
+    dia = horario.dia_semana or 'en días variados'
+    aula = horario.aula or 'sin aula'
+    verbo = {
+        'creado': 'se añadió',
+        'actualizado': 'se modificó',
+        'eliminado': 'se eliminó',
+    }.get(accion, 'se modificó')
+    titulo = 'Cambio de horario'
+    mensaje = f'{materia} ({curso}) {verbo} del horario ({dia}, aula: {aula}).'
+    nav = {
+        'destino': 'horarios',
+        'params': {
+            'horarioId': horario.id_horario,
+            'cursoMateriaId': cm.id_curso_materia,
+        }
+    }
+    alumnos = Alumno.objects.filter(estado=True, id_curso_id=cm.id_curso_id).select_related('id_tutor')
+    for alumno in alumnos:
+        notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
+    if cm.id_docente_id and getattr(cm.id_docente, 'id_usuario', None):
+        notificar(id_usuario=cm.id_docente.id_usuario, id_alumno=None,
+                  titulo=titulo, mensaje=mensaje, nav=nav)
+    for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
+        if preceptor.id_usuario_id:
+            notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
+                      titulo=titulo, mensaje=mensaje, nav=nav)
+    for u in _usuarios_directivos():
+        notificar(id_usuario=u, id_alumno=None,
+                  titulo=titulo, mensaje=mensaje, nav=nav)
+
+
+def _notificar_falta_docente(asistencia_docente):
+    """Falta de un docente registrada por el preceptor (estado Ausente).
+
+    Avisa a los alumnos del curso afectado y a sus familias.
+    """
+    estado = asistencia_docente.id_estado_asistencia
+    if estado is None or (estado.nombre_estado or '').lower() != 'ausente':
+        return
+    cm = asistencia_docente.id_curso_materia
+    if cm is None or cm.id_curso_id is None:
+        return
+    materia = cm.id_materia.nombre_materia if cm.id_materia_id else 'la materia'
+    curso = cm.id_curso.nombre_curso if cm.id_curso_id else 'el curso'
+    docente = asistencia_docente.id_docente
+    nombre_doc = f'{docente.apellido}, {docente.nombre}' if docente else 'El docente'
+    fecha_txt = asistencia_docente.fecha.isoformat() if asistencia_docente.fecha else ''
+    hora_txt = str(asistencia_docente.hora)[:5] if asistencia_docente.hora else ''
+    titulo = 'Falta de docente'
+    mensaje = f'{nombre_doc} no dictó {materia} ({curso}) el {fecha_txt}.' + (f' Estaba previsto a las {hora_txt}.' if hora_txt else '')
+    nav = {
+        'destino': 'asistencias',
+        'params': {
+            'cursoMateriaId': cm.id_curso_materia,
+            'fecha': fecha_txt,
+        }
+    }
+    alumnos = Alumno.objects.filter(estado=True, id_curso_id=cm.id_curso_id).select_related('id_tutor')
+    for alumno in alumnos:
+        notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
+
+    for u in _usuarios_con_rol('jefe_preceptores'):
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
 
 
 class RecursadaCalificacionViewSet(viewsets.ModelViewSet):
