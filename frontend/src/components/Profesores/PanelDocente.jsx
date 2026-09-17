@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import { uploadMiDdjjDocente } from '../../services/api';
+import { uploadMiDdjjDocente, BASE_URL } from '../../services/api';
 import { formatDNI } from '../../utils/dni';
 import { useToast } from '../../context/ToastContext';
 import ProfileBanner from '../Shared/ProfileBanner';
@@ -56,7 +56,7 @@ function PanelDocente({ miDocente, mapSuplencias }) {
   const fileInputRef = useRef(null);
   const [mensaje, setMensaje] = useState('');
   const [subiendo, setSubiendo] = useState(false);
-  const MEDIA_BASE = 'http://localhost:8000';
+  const MEDIA_BASE = BASE_URL;
 
   const stats = useMemo(() => {
     if (!miDocente) return null;

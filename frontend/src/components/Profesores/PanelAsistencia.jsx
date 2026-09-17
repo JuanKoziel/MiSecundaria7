@@ -4,9 +4,15 @@ import { getServerTime, createAsistencia, getAsistencias, getCargasUnica, marcar
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
-function formatearTiempoRestante(fechaVencimiento) {
+function serverTimestamp(serverInfo) {
+  if (!serverInfo?.fecha) return Date.now();
+  if (serverInfo.hora) return Date.parse(`${serverInfo.fecha}T${serverInfo.hora}`) || Date.now();
+  return Date.parse(serverInfo.fecha) || Date.now();
+}
+
+function formatearTiempoRestante(fechaVencimiento, refMs) {
   if (!fechaVencimiento) return '--:--';
-  const restaMs = Date.parse(fechaVencimiento) - Date.now();
+  const restaMs = Date.parse(fechaVencimiento) - (refMs || Date.now());
   if (restaMs <= 0) return '0:00';
   const totalSeg = Math.floor(restaMs / 1000);
   const mm = Math.floor(totalSeg / 60);
@@ -331,7 +337,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
         >
           <i className="fas fa-hourglass-half" style={{ marginRight: '8px' }} aria-hidden="true" />
           <strong>Carga única activa (20 minutos):</strong>{' '}
-          te quedan <strong>{formatearTiempoRestante(cargaDelDia.fecha_vencimiento)}</strong> para
+          te quedan <strong>{formatearTiempoRestante(cargaDelDia.fecha_vencimiento, serverTimestamp(serverInfo))}</strong> para
           cargar las asistencias. Se guarda una sola vez: al cargarlas ya no podrás editarlas.
         </p>
       )}

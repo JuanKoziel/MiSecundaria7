@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
-import { getActividades } from '../../services/api';
+import { getActividades, BASE_URL } from '../../services/api';
 import LoadingSpinner from './LoadingSpinner';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = BASE_URL;
 const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif'];
 
 function getExtension(nombre = '') {

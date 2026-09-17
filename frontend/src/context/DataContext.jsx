@@ -761,7 +761,7 @@ export function DataProvider({ children }) {
 
   const marcarTodasNotificacionesLeidas = useCallback(async (ids) => {
     try {
-      await marcarTodasLeidas();
+      await marcarTodasLeidas(ids);
     } catch {
       return false;
     }

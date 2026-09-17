@@ -1,11 +1,11 @@
 import { Fragment, useState, useEffect, useCallback } from 'react';
-import { getPlanificaciones, createPlanificacion, updatePlanificacion, deletePlanificacion } from '../../services/api';
+import { getPlanificaciones, createPlanificacion, updatePlanificacion, deletePlanificacion, BASE_URL } from '../../services/api';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = BASE_URL;
 
 const formVacio = { contenido: '', objetivos: '', salidas: '', fundamentacion: '' };
 

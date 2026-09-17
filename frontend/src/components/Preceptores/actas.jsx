@@ -14,6 +14,8 @@ import {
   deleteActaCurso,
   deleteActaDocente,
   uploadFile,
+  BASE_URL,
+  getTiposActa,
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
@@ -22,7 +24,21 @@ import FormModal from '../../components/Shared/FormModal';
 import FilePicker from '../../components/Shared/FilePicker';
 import { useToast } from '../../context/ToastContext';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = BASE_URL;
+
+async function resolverTipoActa() {
+  try {
+    const tipos = await getTiposActa();
+    const porNombre = (tipos || []).find(
+      (t) => (t.nombre_tipo || '').toLowerCase().includes('evaluaci'),
+    );
+    const tipo = porNombre || (tipos || [])[0];
+    if (tipo && tipo.id_tipo_acta != null) return tipo.id_tipo_acta;
+  } catch {
+    // fallback: mantiene el comportamiento previo
+  }
+  return 1;
+}
 
 const formVacio = { tipo: '', titulo: '', fecha: '', descripcion: '', alumnoId: '', docenteId: '' };
 
@@ -253,11 +269,12 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
       const uploaded = await uploadFile(archivo, 'actas');
       rutaArchivo = uploaded.url;
     }
+    const idTipoActa = await resolverTipoActa();
     const actaPayload = {
       titulo: payload.titulo,
       fecha: payload.fecha,
       descripcion: payload.descripcion,
-      id_tipo_acta: 1,
+      id_tipo_acta: idTipoActa,
       ...(rutaArchivo ? { ruta_archivo: rutaArchivo } : {}),
     };
 

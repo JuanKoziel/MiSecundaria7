@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { parseCurso } from '../../utils/orientacion';
+import { BASE_URL } from '../../services/api';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = BASE_URL;
 
 function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';

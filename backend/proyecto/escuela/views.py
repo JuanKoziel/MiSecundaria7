@@ -1679,11 +1679,22 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
             if not cursos_ids:
                 return qs.none()
             qs = qs.filter(id_curso__in=cursos_ids)
+            qs = qs.filter(estado=True)
         elif 'familia' in roles and usuario_obj:
             hijo_ids = alumno_ids_familia(self.request)
             if not hijo_ids:
                 return qs.none()
             qs = qs.filter(id_alumno__in=hijo_ids)
+            qs = qs.filter(estado=True)
+        elif 'docente' in roles and usuario_obj:
+            docente = Docente.objects.filter(id_usuario=usuario_obj).first()
+            if not docente:
+                return qs.none()
+            cm_ids = _materias_docente_ids(docente)
+            cursos_ids = CursoMateria.objects.filter(
+                id_curso_materia__in=cm_ids,
+            ).values_list('id_curso_id', flat=True)
+            qs = qs.filter(id_curso__in=cursos_ids, estado=True)
 
         curso_id = self.request.query_params.get('curso')
         if curso_id:
@@ -2869,7 +2880,7 @@ class EstadoAsistenciaViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = EstadoAsistenciaSerializer
 
 
-DIAS_SEMANA_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+DIAS_SEMANA_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 
 def _dia_semana_es(dt=None):
     dt = dt or timezone.localtime()
@@ -4198,6 +4209,7 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=mutable)
         serializer.is_valid(raise_exception=True)
         save_kwargs = {}
+        roles = set()
         cm = serializer.validated_data.get('id_curso_materia')
         if cm is not None:
             _verificar_docente_activo_materia(request, cm.id_curso_materia)
@@ -4237,6 +4249,7 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=mutable, partial=partial)
         serializer.is_valid(raise_exception=True)
         save_kwargs = {}
+        roles = set()
         cm = serializer.validated_data.get('id_curso_materia') or instance.id_curso_materia
         if cm is not None:
             _verificar_docente_activo_materia(request, cm.id_curso_materia)
@@ -4699,7 +4712,16 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
         # Solo las propias: get_queryset restringe a id_usuario autenticado y
         # a un eventual filtro por id_alumno (para la vista "Del Estudiante"
         # de Familia, que solo afecta a las de su hijo seleccionado).
-        cantidad = self.get_queryset().filter(leida=False).update(leida=True)
+        # Si el frontend envía `ids`, solo se marcan esas (las visibles en la
+        # pestaña actual); si no, se marcan todas las del queryset.
+        qs = self.get_queryset().filter(leida=False)
+        ids = request.data.get('ids') or request.query_params.get('ids')
+        if ids:
+            try:
+                qs = qs.filter(id__in=[int(i) for i in ids])
+            except (TypeError, ValueError):
+                return Response({'error': 'ids inválidos.'}, status=status.HTTP_400_BAD_REQUEST)
+        cantidad = qs.update(leida=True)
         return Response({'actualizadas': cantidad})
 
     @action(detail=False, methods=['post'], url_path='enviar-carga-unica')
@@ -5431,13 +5453,32 @@ class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        nota_num = float(nota)
+        try:
+            nota_num = float(str(nota).replace(',', '.'))
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'La nota debe ser un número entre 0 y 10.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (0 <= nota_num <= 10):
+            return Response(
+                {'error': 'La nota debe estar entre 0 y 10.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        id_docente = request.data.get('id_docente')
+        if not id_docente:
+            return Response(
+                {'error': 'El docente que toma la rendición es obligatorio.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         resultado = 'APROBADA' if nota_num >= 7 else 'DESAPROBADA'
 
         rendicion = RendicionMateriaAdeudada.objects.create(
             id_materia_adeudada=ma,
             id_alumno=ma.id_alumno,
-            id_docente_id=request.data.get('id_docente'),
+            id_docente_id=id_docente,
             anio_rendicion=anio,
             periodo=periodo,
             nota=nota_num,
@@ -5456,7 +5497,7 @@ class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
             periodo=periodo,
             nota=nota_num,
             resultado=resultado,
-            id_docente_id=request.data.get('id_docente'),
+            id_docente_id=id_docente,
             observaciones=observaciones,
             fecha_rendicion=timezone.now()
         )

@@ -31,7 +31,7 @@ CLAVE_ITEMS = {
     'libro_temas': 'Libro de temas',
 }
 
-DIAS_SEMANA_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+DIAS_SEMANA_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 
 DURACION_VENTANA = timedelta(minutes=20)
 

@@ -6,13 +6,14 @@ import {
   deleteActividadArchivo,
   getActividades,
   updateActividad,
+  BASE_URL,
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 import PanelMateriasAdeudadasDocente from './PanelMateriasAdeudadasDocente';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = BASE_URL;
 const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif'];
 
 function getExtension(nombre = '') {

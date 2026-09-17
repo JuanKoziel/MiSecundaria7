@@ -8,12 +8,13 @@ import {
   uploadFile,
   getCargasUnica,
   marcarCargaUnica,
+  BASE_URL,
 } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FilePicker from '../Shared/FilePicker';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = BASE_URL;
 
 const formVacio = { descripcion: '', archivo: null, ruta_archivo: null };
 
@@ -25,9 +26,15 @@ function mensajeError(err) {
   return data?.detail || err.message || 'Error inesperado';
 }
 
-function formatearTiempoRestante(fechaVencimiento) {
+function serverTimestamp(serverInfo) {
+  if (!serverInfo?.fecha) return Date.now();
+  if (serverInfo.hora) return Date.parse(`${serverInfo.fecha}T${serverInfo.hora}`) || Date.now();
+  return Date.parse(serverInfo.fecha) || Date.now();
+}
+
+function formatearTiempoRestante(fechaVencimiento, refMs) {
   if (!fechaVencimiento) return '--:--';
-  const restaMs = Date.parse(fechaVencimiento) - Date.now();
+  const restaMs = Date.parse(fechaVencimiento) - (refMs || Date.now());
   if (restaMs <= 0) return '0:00';
   const totalSeg = Math.floor(restaMs / 1000);
   const mm = Math.floor(totalSeg / 60);
@@ -302,7 +309,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
         >
           <i className="fas fa-hourglass-half" style={{ marginRight: '8px' }} aria-hidden="true" />
           <strong>Carga única activa (20 minutos):</strong> te quedan{' '}
-          <strong>{formatearTiempoRestante(cargaDelDia?.fecha_vencimiento)}</strong> para cargar el
+          <strong>{formatearTiempoRestante(cargaDelDia?.fecha_vencimiento, serverTimestamp(serverInfo))}</strong> para cargar el
           Libro de Temas. Se guarda una sola vez: al cargarlo ya no podrás modificarlo.
         </p>
       )}
@@ -450,7 +457,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
                         <span className="badge badge-warning">
                           <i className="fas fa-lock" aria-hidden="true" /> Carga única
                         </span>
-                      ) : puedeEditar ? (
+                      ) : (puedeEditar && puedeCrear) ? (
                         <>
                           <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(reg)} title="Editar" aria-label="Editar">
                             <i className="fas fa-edit" aria-hidden="true" />
@@ -459,6 +466,10 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
                             <i className="fas fa-trash-alt" aria-hidden="true" />
                           </button>
                         </>
+                      ) : puedeEditar ? (
+                        <span className="badge badge-neutral">
+                          <i className="fas fa-lock" aria-hidden="true" /> Solo lectura
+                        </span>
                       ) : null}
                     </td>
                   </tr>

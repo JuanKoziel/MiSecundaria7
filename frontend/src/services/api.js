@@ -2,6 +2,8 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
+export const BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
+
 const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
@@ -298,6 +300,11 @@ export async function getActas(params) {
   return data;
 }
 
+export async function getTiposActa() {
+  const { data } = await api.get('/tipos-acta/');
+  return data;
+}
+
 export async function createActa(payload) {
   const { data } = await api.post('/actas/', payload);
   return data;
@@ -412,8 +419,8 @@ export async function marcarLeida(id) {
   return data;
 }
 
-export async function marcarTodasLeidas(params) {
-  const { data } = await api.patch('/notificaciones/marcar_todas_leidas/', null, { params });
+export async function marcarTodasLeidas(ids) {
+  const { data } = await api.patch('/notificaciones/marcar_todas_leidas/', { ids });
   return data;
 }
 

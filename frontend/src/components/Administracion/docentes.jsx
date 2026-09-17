@@ -3,11 +3,11 @@ import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { cursoConOrientacion } from '../../utils/orientacion';
-import { deleteMiDdjjDocente } from '../../services/api';
+import { deleteMiDdjjDocente, BASE_URL } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = BASE_URL;
 const PREVIEWABLE_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp']);
 
 function getFileExtension(nombre = '') {

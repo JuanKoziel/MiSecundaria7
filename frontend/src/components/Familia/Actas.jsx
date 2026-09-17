@@ -1,6 +1,7 @@
 import { useData } from '../../context/DataContext';
+import { BASE_URL } from '../../services/api';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = BASE_URL;
 
 function Actas({ hijo }) {
   const { actasAlumno } = useData();

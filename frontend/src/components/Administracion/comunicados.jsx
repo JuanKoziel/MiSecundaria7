@@ -9,12 +9,13 @@ import {
   createComunicadoArchivo,
   deleteComunicado,
   uploadFile,
+  BASE_URL,
 } from '../../services/api';
 import { cursoConOrientacion, parseCurso } from '../../utils/orientacion';
 import { findCursoObj, getAniosCurso, getDivisiones } from '../Shared/cursoFilters';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = BASE_URL;
 
 function getDestinoKey(destino) {
   if (!destino) return '';

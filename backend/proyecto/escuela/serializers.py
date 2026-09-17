@@ -2580,13 +2580,19 @@ class AdelantoHorasSerializer(serializers.ModelSerializer):
 # ---------- Sistema Académico Avanzado ----------
 
 class HistorialAcademicoSerializer(serializers.ModelSerializer):
-    alumno_nombre = serializers.CharField(source='id_alumno.apellido_nombre', read_only=True, default='')
+    alumno_nombre = serializers.SerializerMethodField()
     materia_nombre = serializers.CharField(source='id_materia.nombre_materia', read_only=True, default='')
     curso_nombre = serializers.CharField(source='id_curso.nombre_curso', read_only=True, default='')
 
     class Meta:
         model = HistorialAcademico
         fields = '__all__'
+
+    def get_alumno_nombre(self, obj):
+        alumno = getattr(obj, 'id_alumno', None)
+        if alumno:
+            return f'{alumno.apellido}, {alumno.nombre}'
+        return ''
 
 
 class IntensificacionAcademicaSerializer(serializers.ModelSerializer):
@@ -2611,11 +2617,17 @@ class MateriaAdeudadaSerializer(serializers.ModelSerializer):
     materia_nombre = serializers.CharField(source='id_materia.nombre_materia', read_only=True, default='')
     curso_origen_nombre = serializers.CharField(source='id_curso_origen.nombre_curso', read_only=True, default='')
     curso_actual_nombre = serializers.CharField(source='id_curso_actual.nombre_curso', read_only=True, default='')
-    alumno_nombre = serializers.CharField(source='id_alumno.apellido_nombre', read_only=True, default='')
+    alumno_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = MateriaAdeudada
         fields = '__all__'
+
+    def get_alumno_nombre(self, obj):
+        alumno = getattr(obj, 'id_alumno', None)
+        if alumno:
+            return f'{alumno.apellido}, {alumno.nombre}'
+        return ''
 
 
 class ActividadMateriaAdeudadaSerializer(serializers.ModelSerializer):
