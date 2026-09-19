@@ -3,7 +3,6 @@ import { useData } from '../../context/DataContext';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 import {
   getAsistenciasPreceptorMateria,
-  patchJustificar,
   getAsistenciaDiaria,
   getRegistroDiario,
   getServerTime,
@@ -410,30 +409,13 @@ function Asistencias() {
                           <td>{r.hora_carga || '-'}</td>
                           <td>
                             {puedeJustificar ? (
-                              <label className="cb-label" style={{ cursor: 'pointer' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={r.justificado}
-                                  onChange={async (e) => {
-                                    const nuevoValor = e.target.checked;
-                                    setDataMateria((prev) =>
-                                      prev.map((x) =>
-                                        x.id === r.id ? { ...x, justificado: nuevoValor } : x,
-                                      ),
-                                    );
-                                    try {
-                                      await patchJustificar(r.id, nuevoValor);
-                                    } catch {
-                                      setDataMateria((prev) =>
-                                        prev.map((x) =>
-                                          x.id === r.id ? { ...x, justificado: !nuevoValor } : x,
-                                        ),
-                                      );
-                                    }
-                                  }}
-                                />
-                                <span>Sí</span>
-                              </label>
+                              r.justificado ? (
+                                <span className="badge badge-success">Justificado</span>
+                              ) : (
+                                <span className="badge badge-warning">No justificado</span>
+                              )
+                            ) : r.justificado ? (
+                              <span className="badge badge-success">Justificado</span>
                             ) : '-'}
                           </td>
                         </tr>,

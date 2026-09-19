@@ -8,6 +8,7 @@ export const menuItems = [
     children: [
       { id: 'calificaciones', label: 'Calificaciones', icon: 'fa-book-open' },
       { id: 'asistencias', label: 'Asistencias', icon: 'fa-user-check' },
+      { id: 'previas', label: 'Materias Adeudadas y Previas', icon: 'fa-exclamation-triangle' },
     ],
   },
 
@@ -28,6 +29,7 @@ export const menuItems = [
       { id: 'horarios', label: 'Horarios', icon: 'fa-calendar-alt' },
       { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
       { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
+      { id: 'info', label: 'Diagnósticos', icon: 'fa-info-circle' },
     ],
   },
 ];

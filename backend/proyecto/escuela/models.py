@@ -267,6 +267,7 @@ class DdjjDocente(models.Model):
         related_name='ddjj_docente',
     )
     ruta_archivo = models.FileField(upload_to='ddjj_docentes/', max_length=255)
+    verificada = models.BooleanField(default=False)
     fecha_carga = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -743,6 +744,7 @@ class Notificacion(models.Model):
     mensaje = models.TextField(blank=True, null=True)
     fecha = models.DateTimeField(blank=True, null=True)
     leida = models.BooleanField(default=False)
+    rol = models.CharField(max_length=32, blank=True, null=True)
 
     class Meta:
         managed = False
@@ -890,6 +892,7 @@ class EventoInstitucional(models.Model):
     TIPO_EVENTO_CHOICES = [
         ('Feriado', 'Feriado'),
         ('Suspension', 'Suspensión de clases'),
+        ('No se cancelan las clases', 'No se cancelan las clases'),
         ('Jornada Institucional', 'Jornada Institucional'),
         ('Otro', 'Otro'),
     ]
@@ -902,8 +905,9 @@ class EventoInstitucional(models.Model):
     PRIORIDAD_MAP = {
         'Feriado': 1,
         'Suspension': 2,
-        'Jornada Institucional': 3,
-        'Otro': 4,
+        'No se cancelan las clases': 3,
+        'Jornada Institucional': 4,
+        'Otro': 5,
     }
 
     id_evento = models.AutoField(primary_key=True)

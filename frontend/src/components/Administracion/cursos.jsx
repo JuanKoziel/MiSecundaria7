@@ -177,6 +177,18 @@ function Cursos() {
     );
   };
 
+  const handleReactivar = async (curso) => {
+    setError('');
+    setSuccess('');
+    try {
+      await updateCurso(curso.id_curso, { activo: true });
+      toast.success('Curso reactivado correctamente.');
+      await refreshAdminCursos(mostrarInactivos);
+    } catch (err) {
+      toast.error(mensajeError(err));
+    }
+  };
+
   const cursoNombre = (curso) => curso.nombre_curso || '';
 
   return (
@@ -242,7 +254,7 @@ function Cursos() {
                         </span>
                       </td>
                       <td className="acciones-cell flex-row--center">
-                        {c.activo && (
+                        {c.activo ? (
                           <div>
                             <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(c)} aria-label="Editar curso" title="Editar">
                               <i className="fas fa-edit" aria-hidden="true" />
@@ -251,6 +263,10 @@ function Cursos() {
                               <i className="fas fa-ban" aria-hidden="true" />
                             </button>
                           </div>
+                        ) : (
+                          <button type="button" className="btn btn-sm btn-success" onClick={() => handleReactivar(c)} title="Reactivar">
+                            <i className="fas fa-check" aria-hidden="true" /> Reactivar
+                          </button>
                         )}
                       </td>
                     </tr>

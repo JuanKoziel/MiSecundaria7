@@ -101,17 +101,6 @@ function PanelJefePreceptor({ miPreceptor }) {
         <StatCard icon="fa-user-shield" value={stats.tutoresSupervisados} label="Tutores supervisados" />
         <StatCard icon="fa-file-alt" value={stats.actasCreadas} label="Actas creadas" />
         <StatCard icon="fa-bullhorn" value={stats.comunicadosEnviados} label="Comunicados enviados" />
-        <StatCard
-          icon={stats.estado === 'Activo' ? 'fa-check-circle' : 'fa-exclamation-circle'}
-          value={stats.estado}
-          label="Estado de la cuenta"
-          color={stats.estado === 'Activo' ? '#15803d' : '#b91c1c'}
-        />
-      </div>
-
-      <div className="info-box mb-28">
-        <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
-        Supervisor general de la actividad preceptoría. Gestiona preceptores, supervisa cursos, alumnos y tutores, y coordina la comunicación institucional.
       </div>
     </div>
   );

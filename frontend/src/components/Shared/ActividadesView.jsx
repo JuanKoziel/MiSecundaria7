@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
-import { getActividades, BASE_URL } from '../../services/api';
+import { getActividades, getActividadesMateriasAdeudadas, BASE_URL } from '../../services/api';
 import LoadingSpinner from './LoadingSpinner';
 
 const API_BASE = BASE_URL;
@@ -60,6 +60,8 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
   const [selectedActividad, setSelectedActividad] = useState(null);
   const [previewArchivo, setPreviewArchivo] = useState(null);
   const [menuAbiertoId, setMenuAbiertoId] = useState(null);
+  const [seccionActivas, setSeccionActivas] = useState('actividades');
+  const [actividadesAdeudadas, setActividadesAdeudadas] = useState([]);
 
   const cursoId = useMemo(() => {
     if (cursoIdOverride) return cursoIdOverride;
@@ -149,6 +151,36 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
       .catch(() => setActividades([]))
       .finally(() => setLoading(false));
   }, [cursoId]);
+
+  useEffect(() => {
+    if (!user || !user.id) {
+      setActividadesAdeudadas([]);
+      return;
+    }
+    getActividadesMateriasAdeudadas()
+      .then((data) => {
+        const lista = Array.isArray(data) ? data : data.results || [];
+        setActividadesAdeudadas(lista);
+      })
+      .catch(() => setActividadesAdeudadas([]));
+  }, [user]);
+
+  const actividadesAdeudadasPorMateria = useMemo(() => {
+    const grupos = {};
+    actividadesAdeudadas.forEach((act) => {
+      const key = act.materia_nombre || 'Sin materia';
+      if (!grupos[key]) grupos[key] = [];
+      grupos[key].push(act);
+    });
+    Object.keys(grupos).forEach((k) => {
+      grupos[k].sort((a, b) => {
+        const fa = a.fecha_publicacion || '';
+        const fb = b.fecha_publicacion || '';
+        return fb.localeCompare(fa);
+      });
+    });
+    return grupos;
+  }, [actividadesAdeudadas]);
 
   if (selectedActividad) {
     const actividad = selectedActividad;
@@ -362,40 +394,116 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
     <div className="card">
       <div className="card-header-flex">
         <h3><i className="fas fa-tasks" aria-hidden="true" /> Actividades</h3>
+        <div className="btn-group" role="group" aria-label="Sección de actividades">
+          <button
+            type="button"
+            className={`btn btn-sm ${seccionActivas === 'actividades' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setSeccionActivas('actividades')}
+          >
+            <i className="fas fa-clipboard-list" aria-hidden="true" /> Actividades
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${seccionActivas === 'adeudadas' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setSeccionActivas('adeudadas')}
+          >
+            <i className="fas fa-book-medical" aria-hidden="true" /> Materias adeudadas
+          </button>
+        </div>
       </div>
 
-      {cursoNombre && (
-        <p className="upload-hint m-0 mb-12">
-          Curso: <strong>{cursoNombre}</strong>
-        </p>
-      )}
-
-      {loading ? (
-        <LoadingSpinner text="Cargando actividades..." size="sm" inline />
-      ) : materiasDocentesDelCurso.length === 0 ? (
-        <p className="empty-state-message empty-state-centered">
-          No hay materias disponibles.
-        </p>
+      {seccionActivas === 'adeudadas' ? (
+        <>
+          <p className="upload-hint m-0 mb-12">
+            Actividades de intensificación y previas publicadas por los docentes.
+          </p>
+          {actividadesAdeudadas.length === 0 ? (
+            <p className="empty-state-message empty-state-centered">
+              No hay actividades de materias adeudadas publicadas.
+            </p>
+          ) : (
+            <div className="actividades-publicaciones">
+              {Object.keys(actividadesAdeudadasPorMateria)
+                .sort((a, b) => a.localeCompare(b))
+                .map((materia) => (
+                  <div key={materia} className="mb-12">
+                    <h4 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+                      {materia}
+                    </h4>
+                    {actividadesAdeudadasPorMateria[materia].map((act) => (
+                      <article key={act.id_actividad} className="publicacion-box">
+                        <div className="publicacion-icon">
+                          <i className={`fas ${act.tipo === 'PREVIA' ? 'fa-book' : 'fa-book-medical'}`} aria-hidden="true" />
+                        </div>
+                        <div className="publicacion-contenido">
+                          <p className="publicacion-usuario">
+                            {act.docente_nombre || 'Docente'} publicó{' '}
+                            {act.tipo === 'PREVIA' ? 'una actividad de previa' : 'una actividad de intensificación'}:
+                          </p>
+                          <h4 className="publicacion-titulo">{act.titulo}</h4>
+                          {act.descripcion && (
+                            <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', marginTop: '4px' }}>{act.descripcion}</p>
+                          )}
+                          <p className="publicacion-fecha">
+                            <span className={`badge ${act.tipo === 'PREVIA' ? 'badge-danger' : 'badge-warning'}`}>
+                              {act.tipo === 'PREVIA' ? 'Previa' : act.periodo_intensificacion || 'Intensificación'}
+                            </span>
+                            {' '}· {formatFecha(act.fecha_publicacion)}
+                          </p>
+                        </div>
+                        {act.archivo_pdf && (
+                          <a
+                            href={resolveUrl(act.archivo_pdf)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-success table-download-btn"
+                          >
+                            <i className="fas fa-file-pdf" /> Ver PDF
+                          </a>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                ))}
+            </div>
+          )}
+        </>
       ) : (
-        <div className="materias-docentes-grid">
-          {materiasDocentesDelCurso.map((md) => {
-            const count = (actividadesPorMateriaDocente[md.id] || []).length;
-            return (
-              <button
-                key={md.id}
-                type="button"
-                className="materia-docente-card"
-                onClick={() => setSelectedMateriaDocente(md.id)}
-              >
-                <span className="materia-docente-card-title">{md.materia}</span>
-                <span className="materia-docente-card-teacher">{md.docente}</span>
-                <span className="materia-docente-card-count">
-                  {count > 0 ? `${count} actividad(es)` : 'Sin actividades'}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <>
+          {cursoNombre && (
+            <p className="upload-hint m-0 mb-12">
+              Curso: <strong>{cursoNombre}</strong>
+            </p>
+          )}
+
+          {loading ? (
+            <LoadingSpinner text="Cargando actividades..." size="sm" inline />
+          ) : materiasDocentesDelCurso.length === 0 ? (
+            <p className="empty-state-message empty-state-centered">
+              No hay materias disponibles.
+            </p>
+          ) : (
+            <div className="materias-docentes-grid">
+              {materiasDocentesDelCurso.map((md) => {
+                const count = (actividadesPorMateriaDocente[md.id] || []).length;
+                return (
+                  <button
+                    key={md.id}
+                    type="button"
+                    className="materia-docente-card"
+                    onClick={() => setSelectedMateriaDocente(md.id)}
+                  >
+                    <span className="materia-docente-card-title">{md.materia}</span>
+                    <span className="materia-docente-card-teacher">{md.docente}</span>
+                    <span className="materia-docente-card-count">
+                      {count > 0 ? `${count} actividad(es)` : 'Sin actividades'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

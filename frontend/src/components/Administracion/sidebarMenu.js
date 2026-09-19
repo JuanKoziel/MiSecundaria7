@@ -9,6 +9,7 @@ export const menuItems = [
       { id: 'alumnos', label: 'Estudiantes', icon: 'fa-user-graduate' },
       { id: 'docentes', label: 'Docentes', icon: 'fa-chalkboard-teacher' },
       { id: 'preceptores', label: 'Preceptores', icon: 'fa-user-tie' },
+      { id: 'jefes-preceptores', label: 'Jefes de Preceptores', icon: 'fa-user-cog' },
       { id: 'administradores', label: 'Administradores', icon: 'fa-user-shield', directorOnly: true },
       { id: 'cursos', label: 'Cursos', icon: 'fa-book-open' },
       { id: 'materias', label: 'Materias', icon: 'fa-book' },

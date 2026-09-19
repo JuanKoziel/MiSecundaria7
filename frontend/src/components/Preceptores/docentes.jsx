@@ -5,6 +5,7 @@ import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUti
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import FiltrosDocentesVista from './FiltrosDocentesVista';
 import { formatDNI, cleanDNI } from '../../utils/dni';
+import AsignacionesEditor from '../Shared/AsignacionesEditor';
 import FormModal from '../../components/Shared/FormModal';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
@@ -44,6 +45,14 @@ function formatDateTime(value) {
 function normalize(str) {
   if (!str) return '';
   return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function mensajeError(err) {
+  const data = err?.response?.data;
+  if (data) {
+    return data.error || data.detail || data.message || (typeof data === 'string' ? data : JSON.stringify(data));
+  }
+  return err?.message || 'Error desconocido';
 }
 
 function estadoLabel(estado) {
@@ -92,6 +101,7 @@ function Docentes({ readOnly = false }) {
   const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
   const [quitandoRol, setQuitandoRol] = useState(false);
   const [personasConRol, setPersonasConRol] = useState([]);
+  const [idsDocentesSinRol, setIdsDocentesSinRol] = useState([]);
 
   const [personasParaAgregarRol, setPersonasParaAgregarRol] = useState([]);
   const [cargandoPersonasSinRol, setCargandoPersonasSinRol] = useState(false);
@@ -113,9 +123,12 @@ function Docentes({ readOnly = false }) {
   }, []);
 
   const tieneAlgunFiltro = anioLectivo || curso || materia;
-  const lista = tieneAlgunFiltro
+  const listaBase = tieneAlgunFiltro
     ? docentesPorFiltros(anioLectivo, curso, materia, allDocentes, dataCtx.asignacionesDocente)
     : allDocentes;
+  const lista = listaBase.filter(
+    (d) => !idsDocentesSinRol.includes(Number(d.id_usuario)),
+  );
   const docenteSel = lista.find((d) => String(d.id) === seleccionado) || allDocentes.find((d) => String(d.id) === seleccionado);
 
   const listaFiltrada = useMemo(() => {
@@ -320,6 +333,9 @@ const abrirCrear = () => {
       });
       toast.success('Rol "Docente" asignado correctamente.');
       setMostrarAgregarRol(false);
+      setIdsDocentesSinRol((prev) =>
+        prev.filter((idu) => Number(idu) !== Number(persona.id_usuario ?? persona.id)),
+      );
       await dataCtx.refreshData();
     } catch (err) {
       toast.error(mensajeError(err));
@@ -373,6 +389,7 @@ const abrirCrear = () => {
       await quitarRolUsuario(Number(persona.id_usuario), 'docente');
       toast.success('Rol "Docente" quitado correctamente.');
       setMostrarQuitarRol(false);
+      setIdsDocentesSinRol((prev) => [...prev, Number(persona.id_usuario)]);
       await dataCtx.refreshData();
     } catch (err) {
       toast.error(mensajeError(err));

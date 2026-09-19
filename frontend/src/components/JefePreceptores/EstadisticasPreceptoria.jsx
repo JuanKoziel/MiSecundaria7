@@ -59,11 +59,6 @@ function EstadisticasPreceptoria() {
         <StatCard icon="fa-user-minus" value={stats.alumnos_ausentes_hoy} label="Estudiantes ausentes hoy" color="#ffc107" />
         <StatCard icon="fa-file-alt" value={stats.actas_hoy} label="Actas creadas hoy" />
       </div>
-
-      <div className="info-box">
-        <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
-        Datos actualizados en tiempo real. Las estadísticas reflejan la situación actual de la institución.
-      </div>
     </div>
   );
 }

@@ -60,6 +60,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   const [registrandoDocente, setRegistrandoDocente] = useState('');
   const [mensajeDocentes, setMensajeDocentes] = useState('');
   const [docentesEstados, setDocentesEstados] = useState({});
+  const [fechaDocentes, setFechaDocentes] = useState('');
   const [serverInfo, setServerInfo] = useState(null);
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
@@ -123,7 +124,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   const cargarDocentes = useCallback(() => {
     setCargandoDocentes(true);
     setMensajeDocentes('');
-    getDocentesDisponibles(curso)
+    getDocentesDisponibles(curso, fechaDocentes)
       .then((data) => {
         setDocentesDisponibles(data);
         setDocentesEstados({});
@@ -133,7 +134,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
         setDocentesEstados({});
       })
       .finally(() => setCargandoDocentes(false));
-  }, [curso]);
+  }, [curso, fechaDocentes]);
 
   useEffect(() => {
     if (tab === 'docentes') cargarDocentes();
@@ -156,6 +157,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
         docente_id: doc.docente_id,
         cm_id: doc.cm_id,
         estado: estadoSeleccionado,
+        fecha: fechaDocentes || undefined,
       });
       toast.success('Asistencia docente registrada correctamente.');
       cargarDocentes();
@@ -561,9 +563,22 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
       {tab === 'docentes' && (
         <div>
           <p className="asist-info-banner">
-            <i className="fas fa-info-circle" aria-hidden="true" /> Solo aparecen los docentes con
-            clase en este momento según el horario del servidor.
+            <i className="fas fa-info-circle" aria-hidden="true" /> Elegí una fecha para ver los docentes
+            con clase ese día. Hoy figura primero. Las fechas futuras permiten registrar{' '}
+            <strong>faltas anticipadas</strong>.
           </p>
+
+          <div className="filter-row">
+            <div className="form-group-filter">
+              <label htmlFor="fecha-docentes-prec">Fecha</label>
+              <input
+                id="fecha-docentes-prec"
+                type="date"
+                value={fechaDocentes}
+                onChange={(e) => setFechaDocentes(e.target.value)}
+              />
+            </div>
+          </div>
 
           <div className="card-header-flex">
             <h3>Asistencia de docentes</h3>
@@ -583,7 +598,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
           {cargandoDocentes ? (
             <LoadingSpinner text="Cargando docentes..." size="sm" inline />
           ) : docentesDisponibles.length === 0 ? (
-            <p className="empty-state-message">No hay docentes con clase en este momento.</p>
+            <p className="empty-state-message">No hay docentes con clase en la fecha seleccionada.</p>
           ) : (
             <div className="table-responsive">
               <table>
@@ -598,18 +613,26 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                   </tr>
                 </thead>
                 <tbody>
-                  {docentesDisponibles.map((doc) => (
-                    <tr key={`${doc.docente_id}-${doc.cm_id}`}>
+                  {docentesDisponibles.map((doc) => {
+                    const esAnticipado = fechaDocentes && fechaDocentes > (serverInfo?.fecha || '');
+                    const estadosPosibles = esAnticipado ? ['Ausente'] : ['Presente', 'Ausente', 'Tarde'];
+                    return (
+                    <tr key={`${doc.docente_id}-${doc.cm_id}-${doc.fecha}-${doc.horario}`}>
                       <td className="table-cell-strong">{doc.docente_nombre}</td>
-                      <td>{doc.materia_nombre}</td>
+                      <td>
+                        {doc.materia_nombre}
+                        {doc.es_adelanto && (
+                          <span className="badge badge-tarde" style={{ marginLeft: '6px' }}>Adelanto</span>
+                        )}
+                      </td>
                       <td>{doc.curso_nombre}</td>
                       <td className="nowrap">{doc.horario}</td>
                       <td>
                         {doc.ya_registrada ? (
-                          <span className="badge badge-presente">Registrada</span>
+                          <span className="badge badge-presente">{doc.estado}</span>
                         ) : !readOnly ? (
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {['Presente', 'Ausente', 'Tarde'].map((est) => {
+                            {estadosPosibles.map((est) => {
                               const seleccionado = docentesEstados[doc.docente_id] === est;
                               const deshabilitado = docentesEstados[doc.docente_id] && !seleccionado;
                               return (
@@ -655,7 +678,9 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                       </td>
                       <td>
                         {doc.ya_registrada ? (
-                          <span style={{ color: '#888' }}>Ya registrada</span>
+                          <span style={{ color: '#888' }}>
+                            {esAnticipado ? 'Falta prevista' : 'Ya registrada'}
+                          </span>
                         ) : !readOnly ? (
                           <button
                             type="button"
@@ -663,14 +688,15 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                             onClick={() => handleRegistrarDocente(doc)}
                             disabled={registrandoDocente === doc.docente_id || !docentesEstados[doc.docente_id]}
                           >
-                            {registrandoDocente === doc.docente_id ? 'Registrando...' : 'Registrar'}
+                            {registrandoDocente === doc.docente_id ? 'Registrando...' : esAnticipado ? 'Registrar falta' : 'Registrar'}
                           </button>
                         ) : (
                           <span style={{ color: '#888' }}>Pendiente</span>
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

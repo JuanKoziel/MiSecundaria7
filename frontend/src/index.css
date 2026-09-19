@@ -3895,6 +3895,25 @@ tbody tr:nth-child(even) td {
     body.sidebar-open .main-header {
         margin-left: -260px;
     }
+
+    /* A23: que los desplegables del menú mobile entren en la pantalla.
+       Al tapear una sección con submenú, este se abría hacia arriba sin
+       límite de altura y con los textos ocultos (regla de la media query
+       anterior que aplica display:none a los span): solo se veían iconos
+       diminutos y el panel quedaba cortado por la proporción de la pantalla. */
+    .sidebar-submenu {
+        max-height: 70vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sidebar-submenu-btn {
+        gap: 10px;
+    }
+
+    .sidebar-submenu-btn span {
+        display: inline !important;
+    }
 }
 
 /* ==========================================================================

@@ -2,12 +2,14 @@
 from datetime import datetime, time, timedelta
 from django.contrib.auth import authenticate
 from django.db import models
+from django.db.models import Q
 from django.http import FileResponse
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 import re
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework.response import Response
@@ -23,10 +25,21 @@ from escuela.carga_unica import (
     marcar_item_cargado,
     ventana_del_dia,
 )
-from escuela.notifications import notificar, notificar_alumno
+from escuela.notifications import (
+    SEGMENTO_DIRECTIVO,
+    SEGMENTO_DOCENTE,
+    SEGMENTO_JEFE_PRECEPTORES,
+    SEGMENTO_PRECEPTOR,
+    SEGMENTO_UNIVERSAL,
+    notificar,
+    notificar_alumno,
+    segmento_de_rol_activo,
+)
 from escuela.permissions import (
     IsAdminOrDirectorForWrite,
+    PuedeGestionarCurso,
     PuedeVerHistorial,
+    PuedeGestionarHorarios,
     PuedeGestionarAdelantos,
     PuedeEscribirCalificaciones,
     PuedeGestionarPersonas,
@@ -475,6 +488,122 @@ def clase_original_cancelada_por_adelanto(curso_id, materia_id, fecha, hora_inic
         hora_inicio=hora_inicio, hora_fin=hora_fin,
     )
     return adelanto is not None and not adelanto.mantener_horario_original
+
+
+def _evento_cubre_franja(fecha, inicio, fin):
+    """True si un evento institucional (que afecta las clases) cubre esa
+    franja horaria en la fecha dada.
+
+    Los eventos de tipo 'No se cancelan las clases' NO cubren la franja:
+    ese tipo expresa explícitamente que las clases se dictan igual.
+    """
+    query = Q(fecha=fecha) | Q(
+        fecha__month=fecha.month, fecha__day=fecha.day, permanente=True,
+    )
+    eventos = list(
+        EventoInstitucional.objects.filter(query)
+        .exclude(tipo_evento='No se cancelan las clases')
+    )
+    if not eventos:
+        return False
+
+    modulos = list(Modulos.objects.order_by('hora_inicio'))
+
+    def _rango_turno(turno_modulos):
+        if not turno_modulos:
+            return None, None
+        return turno_modulos[0].hora_inicio, turno_modulos[-1].hora_fin
+
+    manana = _rango_turno([m for m in modulos if m.hora_inicio.hour < 12])
+    tarde = _rango_turno([m for m in modulos if m.hora_inicio.hour >= 12])
+
+    def _solapa(a_ini, a_fin, b_ini, b_fin):
+        if a_ini is None or b_ini is None:
+            return False
+        return a_ini < b_fin and b_ini < a_fin
+
+    for ev in eventos:
+        if ev.alcance == 'todo_dia':
+            return True
+        if ev.alcance == 'manana' and _solapa(inicio, fin, manana[0], manana[1]):
+            return True
+        if ev.alcance == 'tarde' and _solapa(inicio, fin, tarde[0], tarde[1]):
+            return True
+        if (
+            ev.alcance == 'franja'
+            and ev.hora_inicio and ev.hora_fin
+            and _solapa(inicio, fin, ev.hora_inicio, ev.hora_fin)
+        ):
+            return True
+    return False
+
+
+def _bloque_afectado(cm, fecha, inicio, fin):
+    """True si un bloque del horario de un curso/materia está afectado por:
+      - un evento institucional que suspende/afecta las clases, o
+      - una falta (Ausente) registrada para ese curso/materia en la fecha.
+    """
+    if _evento_cubre_franja(fecha, inicio, fin):
+        return True
+    return AsistenciaDocente.objects.filter(
+        id_curso_materia=cm,
+        fecha=fecha,
+        hora__gte=inicio,
+        hora__lt=fin,
+        id_estado_asistencia__nombre_estado='Ausente',
+    ).exists()
+
+
+def _validar_contexto_adelanto(curso, materia, docente, fecha_adelanto, hora_inicio, hora_fin):
+    """A25 — Valida que un adelanto de horas tenga un motivo y no choque.
+
+    Reglas aplicadas:
+      1. La clase original (curso/materia según el horario del día de la
+         semana) debe estar afectada por una suspensión institucional o por
+         una falta (Ausente) registrada del docente. Si no, no hay motivo
+         para adelantarla y se bloquea.
+      2. El horario de destino no debe superponerse con otra clase del mismo
+         curso que siga activa (sin suspensión ni falta registrada).
+
+    Devuelve un mensaje de error o None si el adelanto es válido.
+    """
+    if not (curso and materia and docente and fecha_adelanto and hora_inicio and hora_fin):
+        return None
+
+    cm = CursoMateria.objects.filter(
+        id_curso=curso, id_materia=materia, id_docente=docente, estado=True,
+    ).first()
+    if cm is None:
+        return None  # el serializer ya valida la asignación del docente
+
+    if not isinstance(fecha_adelanto, datetime):
+        fecha_adelanto = datetime.combine(fecha_adelanto, time(12, 0))
+    dia = _dia_semana_es(fecha_adelanto)
+    bloques = _obtener_bloques_horario(cm.id_curso_materia, dia)
+    if not bloques:
+        return 'La materia no tiene clase programada ese día.'
+
+    afectada = any(_bloque_afectado(cm, fecha_adelanto.date(), ini, fin) for ini, fin in bloques)
+    if not afectada:
+        return (
+            'No se puede autorizar el adelanto: la clase de esa materia no está afectada '
+            'por una suspensión ni se informó la falta del docente para esa fecha.'
+        )
+
+    ejemplo_destino = (hora_inicio, hora_fin)
+    otras = CursoMateria.objects.filter(
+        id_curso_id=curso.id_curso, estado=True,
+    ).exclude(pk=cm.pk)
+    for otra in otras:
+        for ini, fin in _obtener_bloques_horario(otra.id_curso_materia, dia):
+            if ejemplo_destino[0] < fin and ini < ejemplo_destino[1]:
+                if not _bloque_afectado(otra, fecha_adelanto.date(), ini, fin):
+                    nombre = otra.id_materia.nombre_materia if otra.id_materia else 'otra materia'
+                    return (
+                        f'El horario elegido coincide con la clase de {nombre} en ese curso, '
+                        'que no está suspendida ni tiene falta del docente registrada.'
+                    )
+    return None
 
 
 def obtener_contexto_docente_para_clase(cm_id, fecha, hora):
@@ -939,6 +1068,7 @@ def _notificar_comunicado_publicado(comunicado):
             titulo=titulo,
             mensaje=mensaje,
             nav=nav,
+            rol=SEGMENTO_UNIVERSAL,
         )
 
     # Estudiantes y sus familias
@@ -1889,6 +2019,7 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
                     'nombre_archivo': None,
                     'fecha_carga': None,
                     'presentada': False,
+                    'verificada': False,
                 })
             return Response(self.get_serializer(ddjj).data)
 
@@ -1954,6 +2085,20 @@ class DdjjDocenteViewSet(viewsets.ModelViewSet):
             as_attachment=download,
             filename=ddjj.ruta_archivo.name.split('/')[-1],
         )
+
+    @action(detail=True, methods=['post'])
+    def verificar(self, request, *args, **kwargs):
+        """Marca una DDJJ como verificada (solo admin/director)."""
+        roles = get_roles_for_usuario(request.user.username)
+        if not ({'admin', 'director'} & set(roles)):
+            raise PermissionDenied('Solo el admin o el director pueden verificar la DDJJ.')
+        ddjj = self.get_object()
+        if not ddjj.verificada:
+            DdjjDocente.objects.filter(id_ddjj=ddjj.id_ddjj).update(verificada=True)
+            ddjj.verificada = True
+            verificado_por = f"{request.user.first_name} {request.user.last_name}".strip() or 'El directivo'
+            _notificar_ddjj_verificada(ddjj, verificado_por=verificado_por)
+        return Response(self.get_serializer(ddjj).data)
 
     def perform_create(self, serializer):
         docente = serializer.validated_data.get('id_docente')
@@ -2351,7 +2496,7 @@ class CursoViewSet(HistorialMixin, viewsets.ModelViewSet):
         ),
     ).all()
     serializer_class = CursoSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    permission_classes = [IsAuthenticated, PuedeGestionarCurso]
     historial_tabla = 'cursos'
     historial_soft_delete = True
 
@@ -2402,7 +2547,22 @@ class CursoViewSet(HistorialMixin, viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
-        self._require_write_permiso()
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
+            instance = serializer.instance
+            campos_nuevos = set(serializer.validated_data.keys())
+            if not campos_nuevos.issubset({'id_preceptor'}):
+                raise PermissionDenied('Solo administradores o directores pueden modificar cursos.')
+            if (
+                'id_preceptor' in serializer.validated_data
+                and instance.id_preceptor_id is not None
+                and serializer.validated_data['id_preceptor'] is not None
+                and instance.id_preceptor_id != serializer.validated_data['id_preceptor'].id_preceptor
+            ):
+                raise PermissionDenied('Este curso ya tiene un preceptor asignado. Desasígnelo primero.')
+        else:
+            self._require_write_permiso()
         super().perform_update(serializer)
         _notificar_cambio_estructura(
             accion='actualizado',
@@ -2634,6 +2794,16 @@ class AdelantoHorasViewSet(HistorialMixin, viewsets.ModelViewSet):
         curso = serializer.validated_data.get('id_curso')
         if curso is not None:
             self._check_curso_acceso(curso.pk)
+        error = _validar_contexto_adelanto(
+            curso,
+            serializer.validated_data.get('id_materia'),
+            serializer.validated_data.get('id_docente'),
+            serializer.validated_data.get('fecha_adelanto'),
+            serializer.validated_data.get('hora_inicio'),
+            serializer.validated_data.get('hora_fin'),
+        )
+        if error:
+            raise ValidationError({'error': error})
         usuario = self._historial_usuario_actual()
         serializer.save(id_usuario_autorizador=usuario)
         self._historial_alta(serializer)
@@ -2642,6 +2812,16 @@ class AdelantoHorasViewSet(HistorialMixin, viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instancia = serializer.instance
         self._check_curso_acceso(instancia.id_curso_id)
+        datos = serializer.validated_data
+        curso = datos.get('id_curso', getattr(instancia, 'id_curso', None))
+        materia = datos.get('id_materia', getattr(instancia, 'id_materia', None))
+        docente = datos.get('id_docente', getattr(instancia, 'id_docente', None))
+        fecha = datos.get('fecha_adelanto', instancia.fecha_adelanto)
+        h_ini = datos.get('hora_inicio', instancia.hora_inicio)
+        h_fin = datos.get('hora_fin', instancia.hora_fin)
+        error = _validar_contexto_adelanto(curso, materia, docente, fecha or instancia.fecha_adelanto, h_ini or instancia.hora_inicio, h_fin or instancia.hora_fin)
+        if error:
+            raise ValidationError({'error': error})
         super().perform_update(serializer)
 
     def perform_destroy(self, instance):
@@ -2661,7 +2841,7 @@ class HorarioEspecialViewSet(viewsets.ModelViewSet):
         'id_curso_materia__id_materia',
         ).all()
     serializer_class = HorarioEspecialSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    permission_classes = [IsAuthenticated, PuedeGestionarHorarios]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2726,7 +2906,7 @@ class HorarioViewSet(viewsets.ModelViewSet):
         'id_curso_materia__id_docente',
         ).all()
     serializer_class = HorarioSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    permission_classes = [IsAuthenticated, PuedeGestionarHorarios]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -2845,7 +3025,65 @@ class CalificacionViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_curso_materia=curso_materia)
         return qs
 
-    def perform_create(self, serializer):
+    @action(detail=False, methods=['post'], url_path='batch')
+    def batch(self, request):
+        """Crea/actualiza varias calificaciones en una sola petición.
+
+        Body: { "items": [ { "id_calificacion": opcional, ...campos } ] }.
+        El docente activo de la materia se verifica una vez por materia y las
+        notificaciones de carga se deduplican por materia+período.
+        """
+        items = request.data.get('items')
+        if not isinstance(items, list) or not items:
+            raise ValidationError('Se esperaba una lista no vacía en "items".')
+
+        created = []
+        updated = []
+        materias = {}
+        materias_verificadas = set()
+        for item in items:
+            item = dict(item)
+            cal_id = item.pop('id_calificacion', None)
+            serializer = CalificacionSerializer(data=item)
+            serializer.is_valid(raise_exception=True)
+            cm = serializer.validated_data.get('id_curso_materia')
+            if cm is None and cal_id:
+                instancia = get_object_or_404(Calificacion, pk=cal_id)
+                cm = instancia.id_curso_materia
+            if cm is not None:
+                materias.setdefault(cm.id_curso_materia, cm)
+                if cm.id_curso_materia not in materias_verificadas:
+                    _verificar_docente_activo_materia(request, cm.id_curso_materia)
+                    materias_verificadas.add(cm.id_curso_materia)
+            if cal_id:
+                instancia = get_object_or_404(Calificacion, pk=cal_id)
+                serializer = CalificacionSerializer(instancia, data=item)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                _notificar_calificacion(serializer.instance, accion='actualizada')
+                if serializer.instance.pre_nota:
+                    _notificar_prenota(serializer.instance)
+                updated.append(serializer.instance)
+            else:
+                instancia = serializer.save()
+                _notificar_calificacion(instancia, accion='cargada')
+                if instancia.pre_nota:
+                    _notificar_prenota(instancia)
+                created.append(instancia)
+
+        for cm_key, cm in materias.items():
+            periodos = set()
+            for c in created + updated:
+                if c.id_curso_materia_id == cm_key and c.id_periodo_id:
+                    periodos.add(c.id_periodo.nombre_periodo if c.id_periodo else None)
+            for p in periodos:
+                _notificar_carga_notas(cm, p, accion='actualizada' if updated and not created else 'cargada')
+
+        return Response({
+            'created': [CalificacionSerializer(c).data for c in created],
+            'updated': [CalificacionSerializer(c).data for c in updated],
+            'total': len(created) + len(updated),
+        }, status=status.HTTP_201_CREATED)
         cm = serializer.validated_data.get('id_curso_materia')
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
@@ -3495,10 +3733,17 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 return Response([])
             curso_filtro_id = curso_obj.id_curso
 
-        ahora = timezone.localtime()
-        dia = _dia_semana_es(ahora)
-        hora_actual = ahora.time()
-        fecha_hoy = ahora.date()
+        fecha_str = request.query_params.get('fecha')
+        if fecha_str:
+            try:
+                fecha_objetivo = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                return Response({'error': 'Fecha inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            fecha_objetivo = timezone.localdate()
+
+        fecha_hoy = timezone.localdate()
+        dia = _dia_semana_es(datetime.combine(fecha_objetivo, time(12, 0)))
 
         horarios_normales = Horario.objects.filter(
             id_modulo__isnull=False,
@@ -3527,7 +3772,7 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 continue
             if curso_filtro_id is not None and cm.id_curso_id != curso_filtro_id:
                 continue
-            activo = obtener_docente_activo(cm.id_curso_materia, fecha_hoy)
+            activo = obtener_docente_activo(cm.id_curso_materia, fecha_objetivo)
             docente_activo = activo.docente
             if not docente_activo:
                 continue
@@ -3551,7 +3796,7 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 continue
             if curso_filtro_id is not None and cm.id_curso_id != curso_filtro_id:
                 continue
-            activo = obtener_docente_activo(cm.id_curso_materia, fecha_hoy)
+            activo = obtener_docente_activo(cm.id_curso_materia, fecha_objetivo)
             docente_activo = activo.docente
             if not docente_activo:
                 continue
@@ -3567,6 +3812,39 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 }
             bloques_map[key]['times'].append((h.hora_inicio, h.hora_fin))
 
+        # B2 — Reflejar adelantos de horas: las franjas adelantadas también se
+        # muestran como clases del docente en esa fecha (con su horario).
+        adelantos = AdelantoHoras.objects.filter(
+            fecha_adelanto=fecha_objetivo,
+            estado=True,
+        ).select_related('id_docente', 'id_materia', 'id_curso')
+        for ad in adelantos:
+            if cursos_ids is not None and ad.id_curso_id not in cursos_ids:
+                continue
+            if curso_filtro_id is not None and ad.id_curso_id != curso_filtro_id:
+                continue
+            cm_ad = CursoMateria.objects.filter(
+                id_curso_id=ad.id_curso_id,
+                id_materia_id=ad.id_materia_id,
+                estado=True,
+            ).first()
+            if cm_ad is None:
+                continue
+            key = (ad.id_docente_id, cm_ad.id_curso_materia)
+            if key not in bloques_map:
+                bloques_map[key] = {
+                    'docente_id': ad.id_docente_id,
+                    'docente_nombre': f'{ad.id_docente.apellido}, {ad.id_docente.nombre}',
+                    'materia_nombre': ad.id_materia.nombre_materia if ad.id_materia else '-',
+                    'curso_nombre': ad.id_curso.nombre_curso,
+                    'cm_id': cm_ad.id_curso_materia,
+                    'times': [],
+                    'adelanto_rangos': [],
+                }
+            bloques_map[key].setdefault('adelanto_rangos', [])
+            bloques_map[key]['times'].append((ad.hora_inicio, ad.hora_fin))
+            bloques_map[key]['adelanto_rangos'].append((ad.hora_inicio, ad.hora_fin))
+
         resultado = []
         for key, info in bloques_map.items():
             times = sorted(info['times'], key=lambda x: x[0])
@@ -3580,29 +3858,45 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 inicio = times[s][0]
                 fin = times[e][1]
 
-                if inicio <= hora_actual < fin:
-                    ya_registrada = AsistenciaDocente.objects.filter(
-                        id_docente_id=info['docente_id'],
-                        id_curso_materia_id=info['cm_id'],
-                        fecha=fecha_hoy,
-                        hora__gte=inicio,
-                        hora__lt=fin,
-                    ).exists()
+                es_adelanto = False
+                for a_ini, a_fin in info.get('adelanto_rangos', []):
+                    if inicio <= a_ini and a_fin <= fin:
+                        es_adelanto = True
+                        break
 
-                    resultado.append({
-                        'docente_id': info['docente_id'],
-                        'docente_nombre': info['docente_nombre'],
-                        'materia_nombre': info['materia_nombre'],
-                        'curso_nombre': info['curso_nombre'],
-                        'cm_id': info['cm_id'],
-                        'horario': f'{inicio.strftime("%H:%M")} - {fin.strftime("%H:%M")}',
-                        'ya_registrada': ya_registrada,
-                    })
-                    break
+                reg = AsistenciaDocente.objects.filter(
+                    id_docente_id=info['docente_id'],
+                    id_curso_materia_id=info['cm_id'],
+                    fecha=fecha_objetivo,
+                    hora__gte=inicio,
+                    hora__lt=fin,
+                ).select_related('id_estado_asistencia').first()
+
+                estado = 'No registrada'
+                hora_carga = ''
+                if reg:
+                    estado = reg.id_estado_asistencia.nombre_estado if reg.id_estado_asistencia else 'Registrada'
+                    hora_carga = reg.hora.strftime('%H:%M') if reg.hora else ''
+
+                resultado.append({
+                    'docente_id': info['docente_id'],
+                    'docente_nombre': info['docente_nombre'],
+                    'materia_nombre': info['materia_nombre'],
+                    'curso_nombre': info['curso_nombre'],
+                    'cm_id': info['cm_id'],
+                    'horario': f'{inicio.strftime("%H:%M")} - {fin.strftime("%H:%M")}',
+                    'fecha': fecha_objetivo.strftime('%Y-%m-%d'),
+                    'es_hoy': fecha_objetivo == fecha_hoy,
+                    'es_adelanto': es_adelanto,
+                    'ya_registrada': reg is not None,
+                    'estado': estado,
+                    'hora_carga': hora_carga,
+                })
 
                 s = e + 1
 
-        resultado.sort(key=lambda r: r['docente_nombre'])
+        # Los del día de hoy primero, luego el resto por curso y horario.
+        resultado.sort(key=lambda r: (0 if r['es_hoy'] else 1, r['curso_nombre'], r['horario'], r['docente_nombre']))
         return Response(resultado)
 
     @action(detail=False, methods=['get'], url_path='hoy')
@@ -3789,6 +4083,7 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
         docente_id = request.data.get('docente_id')
         cm_id = request.data.get('cm_id')
         estado = request.data.get('estado')
+        fecha_str = request.data.get('fecha')
 
         if not docente_id or not cm_id or not estado:
             return Response(
@@ -3797,28 +4092,54 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
             )
 
         ahora = timezone.localtime()
-        dia = _dia_semana_es(ahora)
         hora_actual = ahora.time()
         fecha_hoy = ahora.date()
+
+        if fecha_str:
+            try:
+                fecha_objetivo = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                return Response({'error': 'Fecha inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            fecha_objetivo = fecha_hoy
+
+        if fecha_objetivo < fecha_hoy:
+            return Response(
+                {'error': 'No se puede registrar asistencia docente en una fecha pasada.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        es_hoy = fecha_objetivo == fecha_hoy
+        dia_objetivo = _dia_semana_es(datetime.combine(fecha_objetivo, time(12, 0)))
 
         try:
             cm = CursoMateria.objects.get(id_curso_materia=cm_id)
         except CursoMateria.DoesNotExist:
             return Response({'error': 'Curso materia no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
-        activo = obtener_docente_activo(cm.id_curso_materia, fecha_hoy)
+        activo = obtener_docente_activo(cm.id_curso_materia, fecha_objetivo)
         if not activo.docente or activo.docente.id_docente != int(docente_id):
             return Response({'error': 'El docente no corresponde a esta materia.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if cursos_ids is not None and cm.id_curso_id not in cursos_ids:
             return Response({'error': 'No autorizado para este curso.'}, status=status.HTTP_403_FORBIDDEN)
 
-        bloques = self._obtener_bloques_hoy(cm_id, dia)
+        bloques = self._obtener_bloques_hoy(cm_id, dia_objetivo)
+        if not bloques:
+            return Response(
+                {'error': 'El docente no tiene clases programadas ese día.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         bloque_encontrado = None
-        for inicio, fin in bloques:
-            if inicio <= hora_actual < fin:
-                bloque_encontrado = (inicio, fin)
-                break
+        if es_hoy:
+            for inicio, fin in bloques:
+                if inicio <= hora_actual < fin:
+                    bloque_encontrado = (inicio, fin)
+                    break
+        else:
+            # B2 — Registro anticipado: tomar el primer bloque del día.
+            bloque_encontrado = bloques[0]
 
         if not bloque_encontrado:
             return Response(
@@ -3826,17 +4147,18 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(fecha_hoy, hora_actual)
-        if activo:
-            return Response({
-                'error': f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". {desc_ev}. Horario afectado: {horario_ev}.',
-            }, status=status.HTTP_403_FORBIDDEN)
+        if es_hoy:
+            activo_ev, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(fecha_hoy, hora_actual)
+            if activo_ev:
+                return Response({
+                    'error': f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". {desc_ev}. Horario afectado: {horario_ev}.',
+                }, status=status.HTTP_403_FORBIDDEN)
 
         inicio, fin = bloque_encontrado
         duplicada = AsistenciaDocente.objects.filter(
             id_docente_id=docente_id,
             id_curso_materia_id=cm_id,
-            fecha=fecha_hoy,
+            fecha=fecha_objetivo,
             hora__gte=inicio,
             hora__lt=fin,
         ).first()
@@ -3860,8 +4182,8 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
             id_curso_materia_id=cm_id,
             id_usuario=usuario,
             id_estado_asistencia=estado_obj,
-            fecha=fecha_hoy,
-            hora=ahora.time(),
+            fecha=fecha_objetivo,
+            hora=inicio if not es_hoy else ahora.time(),
         )
         _notificar_falta_docente(asistencia)
 
@@ -3870,7 +4192,7 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
             'docente_id': docente_id,
             'cm_id': cm_id,
             'estado': estado,
-            'fecha': fecha_hoy.strftime('%Y-%m-%d'),
+            'fecha': fecha_objetivo.strftime('%Y-%m-%d'),
             'mensaje': 'Asistencia registrada correctamente.',
         }, status=status.HTTP_201_CREATED)
 
@@ -4463,6 +4785,25 @@ class PlanificacionViewSet(viewsets.ModelViewSet):
 
         return Response(PlanificacionSerializer(planificacion).data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'])
+    def verificar(self, request, *args, **kwargs):
+        """Marca una planificación como verificada (solo admin/director)."""
+        roles = get_roles_for_usuario(request.user.username)
+        if not ({'admin', 'director'} & set(roles)):
+            raise PermissionDenied('Solo el admin o el director pueden verificar planificaciones.')
+        planificacion = self.get_object()
+        if planificacion.estado != 'Verificado':
+            ahora = timezone.now()
+            Planificacion.objects.filter(id_planificacion=planificacion.id_planificacion).update(
+                estado='Verificado',
+                fecha_ultima_modificacion=ahora,
+            )
+            planificacion.estado = 'Verificado'
+            planificacion.fecha_ultima_modificacion = ahora
+            verificado_por = f"{request.user.first_name} {request.user.last_name}".strip() or 'El directivo'
+            _notificar_planificacion_verificada(planificacion, verificado_por=verificado_por)
+        return Response(PlanificacionSerializer(planificacion).data)
+
 
 class LibroTemaViewSet(HistorialMixin, viewsets.ModelViewSet):
     queryset = LibroTema.objects.select_related(
@@ -4859,6 +5200,14 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
         alumno_id = self.request.query_params.get('id_alumno')
         if alumno_id:
             qs = self._aplicar_filtro_alumno(qs, alumno_id)
+        # Filtro por rol activo: un usuario con varios roles solo ve las
+        # notificaciones del segmento correspondiente al rol con el que
+        # está operando, más las universales y las históricas (rol NULL).
+        segmento = segmento_de_rol_activo(rol_activo_usuario(self.request))
+        if segmento is not None:
+            qs = qs.filter(
+                Q(rol=segmento) | Q(rol__isnull=True) | Q(rol=SEGMENTO_UNIVERSAL)
+            )
         return qs.order_by('-fecha')
 
     def _aplicar_filtro_alumno(self, qs, alumno_id):
@@ -4894,7 +5243,7 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
         ids = request.data.get('ids') or request.query_params.get('ids')
         if ids:
             try:
-                qs = qs.filter(id__in=[int(i) for i in ids])
+                qs = qs.filter(id_notificacion__in=[int(i) for i in ids])
             except (TypeError, ValueError):
                 return Response({'error': 'ids inválidos.'}, status=status.HTTP_400_BAD_REQUEST)
         cantidad = qs.update(leida=True)
@@ -4979,6 +5328,7 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
             id_usuario=resultado.docente.id_usuario,
             titulo=titulo,
             mensaje=mensaje,
+            rol=SEGMENTO_DOCENTE,
         )
         if notif is None:
             return Response(
@@ -5134,6 +5484,7 @@ class CargaUnicaViewSet(viewsets.ReadOnlyModelViewSet):
                     f'{autor} cargó {nombre_item} de {contexto}. '
                     f'La verificación del Panel Diario puede marcarse como realizada.'
                 ),
+                rol=SEGMENTO_PRECEPTOR,
             )
 
 
@@ -6068,8 +6419,18 @@ def _notificar_carga_usuario(*, etiqueta, nombre_completo, curso_ids=None,
     if actor is not None:
         receptores.discard(actor)
 
+    directivos = set(_usuarios_directivos())
+    jefes = set(_usuarios_con_rol('jefe_preceptores'))
     for u in receptores:
-        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=None)
+        if solo_directores:
+            segmento = SEGMENTO_DIRECTIVO
+        elif u in directivos:
+            segmento = SEGMENTO_DIRECTIVO
+        elif u in jefes:
+            segmento = SEGMENTO_JEFE_PRECEPTORES
+        else:
+            segmento = SEGMENTO_PRECEPTOR
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=None, rol=segmento)
 
 
 def _notificar_carga_notas(cm, periodo_nombre=None, accion='cargada'):
@@ -6099,12 +6460,12 @@ def _notificar_carga_notas(cm, periodo_nombre=None, accion='cargada'):
             'cursoMateriaId': cm.id_curso_materia,
         }
     }
-    receptores = set(_usuarios_directivos())
+    for u in _usuarios_directivos():
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DIRECTIVO)
     for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
         if preceptor.id_usuario_id:
-            receptores.add(preceptor.id_usuario)
-    for u in receptores:
-        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
+            notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
+                      titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_PRECEPTOR)
 
 
 def _notificar_carga_asistencias(cm, fecha):
@@ -6127,12 +6488,12 @@ def _notificar_carga_asistencias(cm, fecha):
             'fecha': str(fecha),
         }
     }
-    receptores = set(_usuarios_directivos())
+    for u in _usuarios_directivos():
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DIRECTIVO)
     for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
         if preceptor.id_usuario_id:
-            receptores.add(preceptor.id_usuario)
-    for u in receptores:
-        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
+            notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
+                      titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_PRECEPTOR)
 
 
 def _notificar_prenota(calificacion):
@@ -6184,21 +6545,24 @@ def _notificar_cambio_estructura(*, accion, objeto_label, actor=None):
     for u in _usuarios_directivos():
         if actor is not None and u == actor:
             continue
-        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DIRECTIVO)
 
 
 def _notificar_acta_curso(acta_curso):
     """E21 — Carga de un acta asociada a un curso.
 
-    Avisa a los preceptores del curso (y a los jefes de preceptores) cuando se
+    Avisa a los preceptores del curso (y a los jefes de preceptores), a los
+    directivos/admin y a los estudiantes del curso con sus familias cuando se
     carga un acta para un curso.
     """
     acta = acta_curso.id_acta
     curso = acta_curso.id_curso
     if acta is None or curso is None:
         return
+    if ActaAlumno.objects.filter(id_acta_id=acta.id_acta).exists():
+        return
     tipo = acta.id_tipo_acta.nombre_tipo if acta.id_tipo_acta else 'acta'
-    titulo = f'Acta de {tipo}'
+    titulo = 'Acta de curso'
     mensaje = (
         f'Se cargó un acta de {tipo} para el curso {curso.nombre_curso}: '
         f'{acta.titulo or acta.descripcion or "sin detalles"}.'
@@ -6210,14 +6574,17 @@ def _notificar_acta_curso(acta_curso):
         }
     }
     preceptores = _preceptores_para_cursos([curso.id_curso])
-    if not preceptores:
-        return
     for preceptor in preceptores:
         if preceptor.id_usuario_id:
             notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
-                      titulo=titulo, mensaje=mensaje, nav=nav)
+                      titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_PRECEPTOR)
     for u in _usuarios_con_rol('jefe_preceptores'):
-        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_JEFE_PRECEPTORES)
+    for u in _usuarios_directivos():
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DIRECTIVO)
+    alumnos = Alumno.objects.filter(estado=True, id_curso_id=curso.id_curso).select_related('id_tutor')
+    for alumno in alumnos:
+        notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
 
 
 def _notificar_adelanto_aprobado(adelanto):
@@ -6249,7 +6616,7 @@ def _notificar_adelanto_aprobado(adelanto):
     docente = adelanto.id_docente
     if docente and getattr(docente, 'id_usuario_id', None):
         notificar(id_usuario=docente.id_usuario, id_alumno=None,
-                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
+                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav, rol=SEGMENTO_DOCENTE)
 
     # Estudiantes de la materia/curso afectado y sus familias
     if adelanto.id_curso_id is None:
@@ -6258,13 +6625,13 @@ def _notificar_adelanto_aprobado(adelanto):
     for preceptor in _preceptores_para_cursos([adelanto.id_curso_id]):
         if preceptor.id_usuario_id:
             notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
-                      titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
+                      titulo=titulo_doc, mensaje=mensaje_doc, nav=nav, rol=SEGMENTO_PRECEPTOR)
     for u in _usuarios_directivos():
         notificar(id_usuario=u, id_alumno=None,
-                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
+                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav, rol=SEGMENTO_DIRECTIVO)
     for u in _usuarios_con_rol('jefe_preceptores'):
         notificar(id_usuario=u, id_alumno=None,
-                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav)
+                  titulo=titulo_doc, mensaje=mensaje_doc, nav=nav, rol=SEGMENTO_JEFE_PRECEPTORES)
     alumnos = Alumno.objects.filter(
         estado=True, id_curso_id=adelanto.id_curso_id,
     ).select_related('id_tutor')
@@ -6312,7 +6679,7 @@ def _notificar_suplencia_asignada(suplencia):
             f'desde {suplencia.fecha_inicio} hasta {suplencia.fecha_fin}.'
         )
         notificar(id_usuario=suplente.id_usuario, id_alumno=None,
-                  titulo=titulo, mensaje=mensaje, nav=nav)
+                  titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DOCENTE)
 
     # Estudiantes del curso afectado y sus familias
     if cm is None or cm.id_curso_id is None:
@@ -6325,10 +6692,13 @@ def _notificar_suplencia_asignada(suplencia):
     for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
         if preceptor.id_usuario_id:
             notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
-                      titulo=titulo, mensaje=mensaje, nav=nav)
+                      titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_PRECEPTOR)
+    for u in _usuarios_con_rol('jefe_preceptores'):
+        notificar(id_usuario=u, id_alumno=None,
+                  titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_JEFE_PRECEPTORES)
     for u in _usuarios_directivos():
         notificar(id_usuario=u, id_alumno=None,
-                  titulo=titulo, mensaje=mensaje, nav=nav)
+                  titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DIRECTIVO)
     alumnos = Alumno.objects.filter(
         estado=True, id_curso_id=cm.id_curso_id,
     ).select_related('id_tutor')
@@ -6382,7 +6752,62 @@ def _notificar_planificacion_para_revision(planificacion, accion='creada'):
             'params': {
                 'planificacionId': planificacion.id_planificacion,
             }
-        })
+        }, rol=SEGMENTO_DIRECTIVO)
+
+
+def _notificar_planificacion_verificada(planificacion, verificado_por=''):
+    """Notifica al docente cuando un directivo marca su planificación como verificada."""
+    docente = planificacion.id_docente
+    if not docente or not docente.id_usuario_id:
+        return
+    cm = planificacion.id_curso_materia
+    if not cm:
+        return
+    materia = cm.id_materia.nombre_materia if cm.id_materia else 'la materia'
+    curso = cm.id_curso.nombre_curso if cm.id_curso else 'el curso'
+    docente_nombre = f"{docente.nombre} {docente.apellido}" if docente else 'un docente'
+    mensaje = (
+        f'{verificado_por or "El directivo"} verificó la planificación de '
+        f'{materia} ({curso}) del docente {docente_nombre}. Ya está aprobada.'
+    )
+    notificar(
+        id_usuario=docente.id_usuario,
+        id_alumno=None,
+        titulo='Planificación verificada',
+        mensaje=mensaje,
+        nav={
+            'destino': 'planificaciones',
+            'params': {
+                'planificacionId': planificacion.id_planificacion,
+            }
+        },
+        rol=SEGMENTO_DOCENTE,
+    )
+
+
+def _notificar_ddjj_verificada(ddjj, verificado_por=''):
+    """Notifica al docente cuando el admin/director verifica su Declaración Jurada."""
+    docente = ddjj.id_docente
+    if not docente or not docente.id_usuario_id:
+        return
+    docente_nombre = f"{docente.nombre} {docente.apellido}" if docente else 'un docente'
+    mensaje = (
+        f'{verificado_por or "El directivo"} verificó la Declaración Jurada '
+        f'presentada por el docente {docente_nombre}.'
+    )
+    notificar(
+        id_usuario=docente.id_usuario,
+        id_alumno=None,
+        titulo='DDJJ verificada',
+        mensaje=mensaje,
+        nav={
+            'destino': 'ddjj',
+            'params': {
+                'ddjjId': ddjj.id_ddjj,
+            }
+        },
+        rol=SEGMENTO_DOCENTE,
+    )
 
 
 def _notificar_ddjj_presentada(ddjj):
@@ -6404,7 +6829,7 @@ def _notificar_ddjj_presentada(ddjj):
             'params': {
                 'ddjjId': ddjj.id_ddjj,
             }
-        })
+        }, rol=SEGMENTO_DIRECTIVO)
 
 
 # ============================================================
@@ -6417,7 +6842,11 @@ def _es_tipo_acta_conducta(acta):
     """Verifica si un acta es de tipo conducta/apercibimiento."""
     if not acta or not acta.id_tipo_acta:
         return False
-    return acta.id_tipo_acta.nombre_tipo in TIPOS_ACTA_CONDUCTA
+    nombre = acta.id_tipo_acta.nombre_tipo or ''
+    return (
+        nombre in TIPOS_ACTA_CONDUCTA
+        or 'conducta' in nombre.lower()
+    )
 
 
 def _notificar_acta_conducta(acta_alumno):
@@ -6462,6 +6891,7 @@ def _notificar_acta_conducta(acta_alumno):
                     titulo=titulo,
                     mensaje=mensaje_preceptor,
                     nav=nav,
+                    rol=SEGMENTO_PRECEPTOR,
                 )
         for u in _usuarios_con_rol('jefe_preceptores'):
             notificar(
@@ -6470,6 +6900,16 @@ def _notificar_acta_conducta(acta_alumno):
                 titulo=titulo,
                 mensaje=mensaje_preceptor,
                 nav=nav,
+                rol=SEGMENTO_JEFE_PRECEPTORES,
+            )
+        for u in _usuarios_directivos():
+            notificar(
+                id_usuario=u,
+                id_alumno=None,
+                titulo=titulo,
+                mensaje=mensaje_preceptor,
+                nav=nav,
+                rol=SEGMENTO_DIRECTIVO,
             )
 
 
@@ -6491,7 +6931,7 @@ def _notificar_usuario_estado(usuario, estado_anterior):
     notificar(id_usuario=usuario, id_alumno=None, titulo=titulo, mensaje=mensaje, nav={
         'destino': 'perfil',
         'params': {}
-    })
+    }, rol=SEGMENTO_UNIVERSAL)
 
 
 def _notificar_evento_institucional(evento):
@@ -6508,13 +6948,15 @@ def _notificar_evento_institucional(evento):
     creación de la notificación.
     """
     fecha_str = evento.fecha.strftime('%d/%m/%Y')
-    titulo = evento.get_tipo_evento_display()
+    titulo_display = evento.get_tipo_evento_display()
+    titulo = f'Nuevo evento institucional: {titulo_display}'
     frase = {
         'Suspension': 'Se suspenden las clases',
         'Feriado': 'Feriado',
         'Jornada Institucional': 'Jornada Institucional',
-        'Otro': titulo,
-    }.get(evento.tipo_evento, titulo)
+        'No se cancelan las clases': 'No se cancelan las clases',
+        'Otro': titulo_display,
+    }.get(evento.tipo_evento, titulo_display)
     desc = f' {evento.descripcion}' if evento.descripcion else ''
     mensaje = f'{frase} el {fecha_str}{desc}'
 
@@ -6540,6 +6982,7 @@ def _notificar_evento_institucional(evento):
             titulo=titulo,
             mensaje=mensaje,
             nav=nav,
+            rol=SEGMENTO_UNIVERSAL,
         )
 
     # Estudiantes y sus familias
@@ -6686,14 +7129,16 @@ def _notificar_cambio_horario(horario, accion='creado'):
         notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
     if cm.id_docente_id and getattr(cm.id_docente, 'id_usuario', None):
         notificar(id_usuario=cm.id_docente.id_usuario, id_alumno=None,
-                  titulo=titulo, mensaje=mensaje, nav=nav)
+                  titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DOCENTE)
     for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
         if preceptor.id_usuario_id:
             notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
-                      titulo=titulo, mensaje=mensaje, nav=nav)
+                      titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_PRECEPTOR)
+    for u in _usuarios_con_rol('jefe_preceptores'):
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_JEFE_PRECEPTORES)
     for u in _usuarios_directivos():
         notificar(id_usuario=u, id_alumno=None,
-                  titulo=titulo, mensaje=mensaje, nav=nav)
+                  titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DIRECTIVO)
 
 
 def _notificar_falta_docente(asistencia_docente):
@@ -6727,7 +7172,7 @@ def _notificar_falta_docente(asistencia_docente):
         notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
 
     for u in _usuarios_con_rol('jefe_preceptores'):
-        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav)
+        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_JEFE_PRECEPTORES)
 
 
 class RecursadaCalificacionViewSet(viewsets.ModelViewSet):

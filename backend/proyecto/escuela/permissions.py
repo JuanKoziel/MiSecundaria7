@@ -111,6 +111,37 @@ class IsAdminOrDirectorForWrite(permissions.BasePermission):
         return 'admin' in roles or 'director' in roles
 
 
+class PuedeGestionarCurso(permissions.BasePermission):
+    """Escritura de cursos: admin/director para cualquier cambio; los jefes de
+    preceptores solo pueden actualizar (PUT/PATCH) la asignación de preceptor.
+    La validación de que el curso ya tenga preceptor se resuelve en el viewset."""
+
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return request.user.is_authenticated
+        username = request.user.username if request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' in roles or 'director' in roles:
+            return True
+        return 'jefe_preceptores' in roles and request.method in ('PUT', 'PATCH')
+
+
+class PuedeGestionarHorarios(permissions.BasePermission):
+    """Escritura de horarios para admin/director/preceptor.
+
+    El alcance fino (curso a cargo del preceptor) se resuelve en el
+    `perform_*` del viewset (`_check_preceptor_curso_access`), de la misma
+    forma que el resto de la gestión por preceptor.
+    """
+
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return request.user.is_authenticated
+        username = request.user.username if request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        return any(rol in roles for rol in ('admin', 'director', 'preceptor'))
+
+
 class PuedeVerHistorial(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:

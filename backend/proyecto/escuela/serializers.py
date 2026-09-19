@@ -9,6 +9,15 @@ from django.db.utils import IntegrityError
 
 from escuela.utils import normalizar_dni, obtener_docente_activo
 
+
+class EnteroOpcionalField(serializers.IntegerField):
+    """Entero que acepta '', null y no presente como 'sin valor'."""
+
+    def to_internal_value(self, data):
+        if data is None or data == '':
+            return None
+        return super().to_internal_value(data)
+
 from escuela.models import (
     AdelantoHoras,
     Acta,
@@ -233,7 +242,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(write_only=True, required=False)
     telefono = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
     cargo = serializers.CharField(write_only=True, required=False)
-    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
+    id_usuario_existente = EnteroOpcionalField(write_only=True, required=False, allow_null=True)
     estado_label = serializers.SerializerMethodField()
     proxima_accion_programada = serializers.SerializerMethodField()
     # Read-only fields from Directivo
@@ -487,7 +496,7 @@ class PadreTutorSerializer(serializers.ModelSerializer):
     estado = serializers.BooleanField(write_only=True, required=False)
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
-    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
+    id_usuario_existente = EnteroOpcionalField(write_only=True, required=False, allow_null=True)
     alumnos_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -664,7 +673,7 @@ class PreceptorSerializer(serializers.ModelSerializer):
     estado = serializers.BooleanField(write_only=True, required=False)
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
-    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
+    id_usuario_existente = EnteroOpcionalField(write_only=True, required=False, allow_null=True)
     # Declarado explícitamente para evitar el UniqueValidator automático de DRF:
     # al agregar el rol a un usuario que ya posee un perfil de preceptor (sin rol),
     # su mismo DNI no debe ser considerado como conflicto (validate() ya lo excluye).
@@ -896,6 +905,7 @@ class DdjjDocenteSerializer(serializers.ModelSerializer):
             'nombre_archivo',
             'fecha_carga',
             'presentada',
+            'verificada',
         ]
 
     def get_nombre_archivo(self, obj):
@@ -1140,7 +1150,7 @@ class DocenteSerializer(serializers.ModelSerializer):
     estado = serializers.BooleanField(write_only=True, required=False)
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
-    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
+    id_usuario_existente = EnteroOpcionalField(write_only=True, required=False, allow_null=True)
     correo = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
     curso_materia_ids = serializers.ListField(
         child=serializers.IntegerField(),
@@ -1150,6 +1160,7 @@ class DocenteSerializer(serializers.ModelSerializer):
     ddjj_id = serializers.SerializerMethodField()
     ruta_ddjj = serializers.SerializerMethodField()
     ddjj_presentada = serializers.SerializerMethodField()
+    ddjj_verificada = serializers.SerializerMethodField()
     ddjj_fecha_carga = serializers.SerializerMethodField()
     ddjj_nombre_archivo = serializers.SerializerMethodField()
     ddjj_url = serializers.SerializerMethodField()
@@ -1179,6 +1190,7 @@ class DocenteSerializer(serializers.ModelSerializer):
             'ddjj_id',
             'ruta_ddjj',
             'ddjj_presentada',
+            'ddjj_verificada',
             'ddjj_fecha_carga',
             'ddjj_nombre_archivo',
             'ddjj_url',
@@ -1219,6 +1231,10 @@ class DocenteSerializer(serializers.ModelSerializer):
 
     def get_ddjj_presentada(self, obj):
         return self._get_ddjj(obj) is not None
+
+    def get_ddjj_verificada(self, obj):
+        ddjj = self._get_ddjj(obj)
+        return bool(ddjj and ddjj.verificada)
 
     def get_ddjj_fecha_carga(self, obj):
         ddjj = self._get_ddjj(obj)
@@ -1372,7 +1388,7 @@ class AlumnoSerializer(serializers.ModelSerializer):
     estado = serializers.BooleanField(write_only=True, required=False)
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
-    id_usuario_existente = serializers.IntegerField(write_only=True, required=False)
+    id_usuario_existente = EnteroOpcionalField(write_only=True, required=False, allow_null=True)
     curso_nombre = serializers.CharField(
         source='id_curso.nombre_curso', read_only=True, default=None,
     )
@@ -1419,10 +1435,17 @@ class AlumnoSerializer(serializers.ModelSerializer):
             'direccion': {'required': False, 'allow_blank': True, 'allow_null': True},
             'telefono': {'required': False, 'allow_blank': True, 'allow_null': True},
             'procedencia': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'dni': {'validators': []},
         }
 
     def validate_dni(self, value):
-        return normalizar_dni(value)
+        value = normalizar_dni(value)
+        qs = Alumno.objects.filter(dni=value)
+        if getattr(self.instance, 'id_alumno', None) is not None:
+            qs = qs.exclude(id_alumno=self.instance.id_alumno)
+        if qs.exists():
+            raise serializers.ValidationError('Ya existe un alumno con ese DNI.')
+        return value
 
     def get_tutor_nombre(self, obj):
         if obj.id_tutor:
@@ -2150,9 +2173,25 @@ class ComunicadoSerializer(serializers.ModelSerializer):
         return instance
 
     def get_creador_nombre(self, obj):
-        if obj.id_usuario_creador:
-            return obj.id_usuario_creador.usuario
-        return None
+        if not obj.id_usuario_creador:
+            return None
+        usuario = obj.id_usuario_creador
+        preceptor = Preceptor.objects.filter(id_usuario=usuario).first()
+        if preceptor:
+            return f"{preceptor.apellido}, {preceptor.nombre}"
+        docente = Docente.objects.filter(id_usuario=usuario).first()
+        if docente:
+            return f"{docente.apellido}, {docente.nombre}"
+        directivo = Directivo.objects.filter(id_usuario=usuario).first()
+        if directivo:
+            return f"{directivo.apellido}, {directivo.nombre}"
+        alumno = Alumno.objects.filter(id_usuario=usuario).first()
+        if alumno:
+            return f"{alumno.apellido}, {alumno.nombre}"
+        padre = PadreTutor.objects.filter(id_usuario=usuario).first()
+        if padre:
+            return f"{padre.apellido}, {padre.nombre}"
+        return usuario.usuario
 
 
 # ---------- Planificaciones / Proyectos ----------

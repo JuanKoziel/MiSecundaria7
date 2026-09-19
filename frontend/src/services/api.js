@@ -2,7 +2,9 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-export const BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
+// Origen del backend sin el sufijo '/api': se usa como base para URLs de
+// archivos/medios (p. ej. '/media/planificaciones/...').
+export const BASE_URL = API_BASE.replace(/\/api\/?$/, '');
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -141,6 +143,11 @@ export async function deleteMiDdjjDocente(idDocente) {
   });
 }
 
+export async function verificarDdjj(id) {
+  const { data } = await api.post(`/ddjj-docente/${id}/verificar/`);
+  return data;
+}
+
 export async function getPreceptores(rol) {
   const { data } = await api.get('/preceptores/', {
     params: rol ? { rol } : {},
@@ -223,6 +230,11 @@ export async function updateCalificacion(id, payload) {
   return data;
 }
 
+export async function guardarCalificacionesBatch(items) {
+  const { data } = await api.post('/calificaciones/batch/', { items });
+  return data;
+}
+
 export async function getServerTime(cursoMateriaId) {
   const params = cursoMateriaId ? { curso_materia: cursoMateriaId } : {};
   const { data } = await api.get('/asistencias/server-time/', { params });
@@ -283,9 +295,10 @@ export async function getRegistroDiario(curso, params = {}) {
   return data;
 }
 
-export async function getDocentesDisponibles(curso) {
+export async function getDocentesDisponibles(curso, fecha) {
   const params = {};
   if (curso) params.curso = curso;
+  if (fecha) params.fecha = fecha;
   const { data } = await api.get('/asistencias-docentes/docentes-disponibles/', { params });
   return data;
 }
@@ -637,6 +650,11 @@ export async function updatePlanificacion(id, payload) {
 
 export async function deletePlanificacion(id) {
   await api.delete(`/planificaciones/${id}/`);
+}
+
+export async function verificarPlanificacion(id) {
+  const { data } = await api.post(`/planificaciones/${id}/verificar/`);
+  return data;
 }
 
 export async function getEventosInstitucionales(params) {

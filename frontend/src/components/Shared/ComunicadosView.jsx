@@ -59,7 +59,7 @@ function comunicadoEstaVigente(comunicado, aniosLectivos) {
   });
 }
 
-function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
+function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSeleccionada }) {
   const {
     comunicados,
     alumnos,
@@ -68,6 +68,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
     docentes,
     padresTutores,
     preceptores,
+    administradores,
     aniosLectivos,
   } = useData();
   const { user } = useAuth();
@@ -115,29 +116,35 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
         if (!miDocente) return [];
         const misAsignaciones = cursoMateria.filter((cm) => cm.id_docente === miDocente.id);
 
-        const filteredByPermission = comunicados
+        // Sin curso seleccionado no se muestran comunicados (requiere selección)
+        if (!cursoSeleccionado) return [];
+
+        const cursoSeleccionadoObj = cursosObj.find((c) => c.id_curso === Number(cursoSeleccionado));
+        if (!cursoSeleccionadoObj) return [];
+
+        // Resolver id_materia seleccionada (puede venir como nombre)
+        const idMateriaSeleccionada = materiaSeleccionada
+          ? (cursoMateria.find(
+              (cm) => cm.materia_nombre === materiaSeleccionada && String(cm.id_curso) === String(cursoSeleccionado)
+            )?.id_materia || null)
+          : null;
+
+        return comunicados
           .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
           .filter((c) => {
             if (!misAsignaciones.length) return false;
             const alcances = getAlcances(c);
-            return misAsignaciones.some((cm) => {
-              const cursoObj = cursosObj.find((curso) => curso.id_curso === cm.id_curso);
+            // Debe coincidir con el curso seleccionado
+            if (!alcances.some((alcance) => comunicadoMatchesAlcance(cursoSeleccionadoObj, alcance))) return false;
+            // Si hay materia seleccionada, filtrar por ella (comunicados de materia específica O generales del curso)
+            if (idMateriaSeleccionada !== null) {
               return alcances.some((alcance) => {
-                if (!comunicadoMatchesAlcance(cursoObj, alcance)) return false;
-                if (alcance?.id_materia !== null && alcance?.id_materia !== undefined) {
-                  return Number(alcance.id_materia) === Number(cm.id_materia);
-                }
-                return true;
+                if (alcance?.id_materia === null || alcance?.id_materia === undefined) return true;
+                return Number(alcance.id_materia) === Number(idMateriaSeleccionada);
               });
-            });
+            }
+            return true;
           });
-
-        if (cursoSeleccionado) {
-          const cursoSeleccionadoObj = cursosObj.find((c) => c.id_curso === Number(cursoSeleccionado));
-          return filteredByPermission.filter((c) => comunicadoMatchesCurso(c, cursoSeleccionadoObj));
-        }
-
-        return filteredByPermission;
       }
 
       case 'preceptor': {
@@ -197,6 +204,9 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
     // Buscar en preceptores
     const preceptor = preceptores?.find((p) => p.id_usuario === usuarioId);
     if (preceptor) return `${preceptor.apellido}, ${preceptor.nombre}`;
+    // Buscar en administradores/directivos
+    const administrador = administradores?.find((a) => a.id_usuario === usuarioId);
+    if (administrador) return `${administrador.apellido}, ${administrador.nombre}`;
     // Buscar en padres/tutores
     const tutor = padresTutores?.find((pt) => pt.id_usuario === usuarioId);
     if (tutor) return `${tutor.apellido}, ${tutor.nombre}`;
@@ -224,7 +234,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
         <div className="mt-16">
           <h2>{selectedComunicado.titulo}</h2>
           <div className="mt-12 text-muted" style={{ fontSize: '14px' }}>
-            <p><strong>Autor:</strong> {getNombreAutor(selectedComunicado.id_usuario_creador)}</p>
+            <p><strong>Autor:</strong> {selectedComunicado.creador_nombre || getNombreAutor(selectedComunicado.id_usuario_creador)}</p>
             <p><strong>Fecha y hora:</strong> {selectedComunicado.fecha}</p>
             <p><strong>Curso destinatario:</strong> {selectedComunicado.alcance_label || getNombreCurso(selectedComunicado.id_curso) || 'General'}</p>
             {selectedComunicado.id_materia && (
@@ -310,7 +320,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado }) {
                 <tr key={c.id_comunicado}>
                   <td className="table-cell-strong">{c.titulo}</td>
                   <td>{c.fecha ? c.fecha.split('T')[0] : '—'}</td>
-                  <td>{getNombreAutor(c.id_usuario_creador)}</td>
+                  <td>{c.creador_nombre || getNombreAutor(c.id_usuario_creador)}</td>
                   <td>{c.alcance_label || 'General'}</td>
                   <td>{c.id_materia ? getNombreMateria(c.id_materia) : '—'}</td>
                   <td>

@@ -14,6 +14,7 @@ import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import PanelAlumno from './PanelAlumno';
+import PanelPreviasAlumno from './PanelPreviasAlumno';
 import Sidebar from './Sidebar';
 
 function AlumnoDashboard({ user, onLogout }) {
@@ -302,6 +303,10 @@ function AlumnoDashboard({ user, onLogout }) {
                   userRole="alumno"
                 />
               </div>
+            )}
+
+            {view === 'previas' && (
+              <PanelPreviasAlumno miAlumno={miAlumno} />
             )}
           </div>
         )}

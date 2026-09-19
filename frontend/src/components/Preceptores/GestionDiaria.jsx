@@ -194,7 +194,8 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
       </div>
 
       <p className="upload-hint m-0 mb-12">
-        Verificación por materia: el preceptor verifica si el docente cargó las asistencias y subió el libro de temas. 
+        Verificación por materia: el preceptor verifica si el docente cargó las asistencias y subió el libro de temas.
+        Con <strong>"Recordar carga"</strong> se envía una notificación al docente para que complete lo pendiente en un plazo de 20 minutos.
         La sección de calificaciones es solo informativa (no son cargas diarias).
         {hayClasesHoy && (
           <> Mostrando únicamente las materias con clases el <strong>{diaHoy}</strong>.</>
@@ -285,7 +286,7 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
                           tipo="Libro de temas"
                           ok={haLibro}
                           detalle={txtLibro}
-                          onVer={() => onNavigate && onNavigate('actividades')}
+                          onVer={() => onNavigate && onNavigate('libro-temas')}
                         />
                         <CargaTipoItem
                           tipo="Calificaciones"
@@ -305,16 +306,16 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
                           border: '1px solid #ffeeba',
                           borderRadius: '4px',
                         }}>
-                          <span>Carga única de {obtenerTiempoRestante(cm.id)} min restantes</span>
+                          <span>Notificación enviada — el docente cargará en {obtenerTiempoRestante(cm.id)} min</span>
                           <br />
-                          <small>Máximo 20 minutos para entregar</small>
+                          <small>Plazo máximo: 20 minutos para cargar asistencias y libro de temas</small>
                         </div>
                       ) : (
                         <button
                           type="button"
                           className="btn btn-sm btn-outline-primary"
                           onClick={() => toggleCargaUnica(cm.id)}
-                          title={sinPendientes ? 'No hay cargas pendientes para notificar' : 'Notificar y habilitar carga única'}
+                          title={sinPendientes ? 'No hay cargas pendientes para notificar' : 'Recordar al docente cargar asistencias y libro de temas (plazo de 20 minutos)'}
                           disabled={guardandoCargaUnica || sinPendientes}
                         >
                           {guardandoCargaUnica ? (
@@ -322,7 +323,7 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
                           ) : (
                             <i className="fas fa-bell" aria-hidden="true" />
                           )}{' '}
-                          Notificar
+                          Recordar carga
                         </button>
                       )}
                     </td>

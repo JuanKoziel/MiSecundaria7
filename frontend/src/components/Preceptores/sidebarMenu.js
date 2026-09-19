@@ -29,6 +29,7 @@ export const menuItems = [
     icon: 'fa-folder-open',
     children: [
       { id: 'proyectos', label: 'Proyectos', icon: 'fa-project-diagram' },
+      { id: 'libro-temas', label: 'Libros de Temas', icon: 'fa-book-open' },
       { id: 'actas', label: 'Actas', icon: 'fa-file-signature' },
       { id: 'actividades', label: 'Actividades', icon: 'fa-tasks' },
     ],

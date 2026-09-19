@@ -329,7 +329,8 @@ const handleSubmit = async (e) => {
       setMostrarAgregarRol(false);
       fetchUsuarios();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Error al asignar rol');
+      const data = err.response?.data;
+      toast.error(data?.error || data?.detail || 'Error al asignar rol');
     } finally {
       setGuardandoAgregarRol(false);
     }
@@ -352,7 +353,8 @@ const handleSubmit = async (e) => {
       setMostrarQuitarRol(false);
       fetchUsuarios();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Error al quitar rol');
+      const data = err.response?.data;
+      toast.error(data?.error || data?.detail || 'Error al quitar rol');
     } finally {
       setQuitandoRol(false);
     }

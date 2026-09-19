@@ -10,6 +10,7 @@ import Notas from './notas';
 import Actas from './actas';
 import Docentes from './docentes';
 import GestionDiaria from './GestionDiaria';
+import LibroTemasPreceptor from './LibroTemasPreceptor';
 import Proyectos from './Proyectos';
 import ActividadesView from '../Shared/ActividadesView';
 import Horarios from '../Administracion/horarios';
@@ -118,6 +119,13 @@ function PreceptorDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Proyectos anioLectivo={anioLectivo} curso={curso} />
+          </div>
+        );
+
+      case 'libro-temas':
+        return (
+          <div className="view-section active">
+            <LibroTemasPreceptor {...filtrosProps} />
           </div>
         );
 

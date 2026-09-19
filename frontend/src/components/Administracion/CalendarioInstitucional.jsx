@@ -16,11 +16,12 @@ const DIAS_CAB = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const TIPO_COLORS = {
   'Feriado': '#0d6efd',
   'Suspension': '#fd7e14',
+  'No se cancelan las clases': '#6f42c1',
   'Jornada Institucional': '#198754',
   'Otro': '#6c757d',
 };
 
-const TIPOS = ['Feriado', 'Suspension', 'Jornada Institucional', 'Otro'];
+const TIPOS = ['Feriado', 'Suspension', 'No se cancelan las clases', 'Jornada Institucional', 'Otro'];
 const ALCANCE_OPCIONES = [
   { value: 'todo_dia', label: 'Todo el día' },
   { value: 'manana', label: 'Turno mañana' },

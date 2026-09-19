@@ -43,7 +43,7 @@ async function resolverTipoActa() {
 
 const formVacio = { tipo: '', titulo: '', fecha: '', descripcion: '', alumnoId: '', docenteId: '' };
 
-function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCancel, listaAlumnos, docentesDelCurso, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje }) {
+function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCancel, listaAlumnos, docentesDelCurso, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje, onlyCursos = false }) {
   return (
     <FormModal title={editing ? 'Editar acta' : 'Nueva acta'} onClose={onCancel}>
       <form onSubmit={onSubmit}>
@@ -72,8 +72,8 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
                   <label>Tipo de acta</label>
                   <select value={formData.tipo} onChange={(e) => setFormData((p) => ({ ...p, tipo: e.target.value, alumnoId: '', docenteId: '' }))}>
                     <option value="">Seleccionar tipo</option>
-                    <option value="alumno">Estudiante</option>
-                    <option value="docente">Docente</option>
+                    {!onlyCursos && <option value="alumno">Estudiante</option>}
+                    {!onlyCursos && <option value="docente">Docente</option>}
                     <option value="curso">Curso</option>
                   </select>
                 </div>
@@ -165,7 +165,7 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
   );
 }
 
-function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = false }) {
+function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = false, onlyCursos = false }) {
   const {
     actas: actasCurso,
     actasAlumno,
@@ -238,7 +238,11 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
     }
   });
 
-  const actasDelCurso = actasCurso.filter((a) => a.curso === curso);
+  const actasDelCurso = onlyCursos
+    ? actasCurso.filter(
+        (a) => a.curso === curso && !actasAlumno.some((aa) => aa.actaId === a.actaId),
+      )
+    : actasCurso.filter((a) => a.curso === curso);
 
   const limpiar = () => {
     setShowNewForm(false);
@@ -253,7 +257,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
     if (showNewForm) {
       limpiar();
     } else {
-      setFormData(formVacio);
+      setFormData({ ...formVacio, tipo: onlyCursos ? 'curso' : '' });
       setEditando(null);
       setArchivo(null);
       setRemoveArchivo(false);
@@ -466,9 +470,12 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
           removeArchivo={removeArchivo}
           setRemoveArchivo={setRemoveArchivo}
           mensaje={!editando ? mensaje : ''}
+          onlyCursos={onlyCursos}
         />
       )}
 
+      {!onlyCursos && (
+        <>
       {/* Actas de Estudiantes */}
       <div className="card-header-flex mt-20">
         <h4 className="preceptor-section-title">Actas de Estudiantes</h4>
@@ -600,6 +607,8 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
           </table>
         </div>
       )}
+        </>
+      )}
 
       {/* Actas de Curso */}
       <div className="card-header-flex mt-20">
@@ -680,6 +689,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
           removeArchivo={removeArchivo}
           setRemoveArchivo={setRemoveArchivo}
           mensaje={mensaje}
+          onlyCursos={onlyCursos}
         />
       )}
     </div>

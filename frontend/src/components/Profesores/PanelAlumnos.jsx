@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import {
-  createCalificacion,
-  updateCalificacion,
+  guardarCalificacionesBatch,
   getIntensificacionesAcademicas,
   updateIntensificacionAcademica,
   createIntensificacionAcademica,
@@ -368,10 +367,11 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
         return;
       }
 
-      const promises = [];
+      const items = [];
       for (const fila of filas) {
         if (fila.prenota1 || fila.nota1 || fila.diag) {
-          const payload1 = {
+          items.push({
+            ...(fila.calId1 ? { id_calificacion: fila.calId1 } : {}),
             id_alumno: fila.id,
             id_curso_materia: cursoMateriaId,
             id_docente: docenteId,
@@ -379,16 +379,12 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
             pre_nota: fila.prenota1 || '',
             nota_numerica: fila.nota1 !== '' ? fila.nota1 : null,
             diagnostico: fila.diag || '',
-          };
-          if (fila.calId1) {
-            promises.push(updateCalificacion(fila.calId1, payload1));
-          } else {
-            promises.push(createCalificacion(payload1));
-          }
+          });
         }
 
         if (periodo2 && (fila.prenota2 || fila.nota2)) {
-          const payload2 = {
+          items.push({
+            ...(fila.calId2 ? { id_calificacion: fila.calId2 } : {}),
             id_alumno: fila.id,
             id_curso_materia: cursoMateriaId,
             id_docente: docenteId,
@@ -396,22 +392,17 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
             pre_nota: fila.prenota2 || '',
             nota_numerica: fila.nota2 !== '' ? fila.nota2 : null,
             diagnostico: '',
-          };
-          if (fila.calId2) {
-            promises.push(updateCalificacion(fila.calId2, payload2));
-          } else {
-            promises.push(createCalificacion(payload2));
-          }
+          });
         }
       }
 
-      if (promises.length === 0) {
+      if (items.length === 0) {
         toast.info('No hay notas para guardar.');
         setGuardando(false);
         return;
       }
 
-      await Promise.all(promises);
+      await guardarCalificacionesBatch(items);
       toast.success('Calificaciones guardadas exitosamente.');
       await refreshData();
     } catch (err) {

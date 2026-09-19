@@ -30,6 +30,7 @@ export const menuItems = [
     children: [
       { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
       { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
+      { id: 'info', label: 'Diagnósticos', icon: 'fa-info-circle' },
     ],
   },
 ];

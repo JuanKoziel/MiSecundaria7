@@ -7,6 +7,8 @@ export const menuItems = [
     icon: 'fa-cogs',
     children: [
       { id: 'admin-preceptores', label: 'Administración de Preceptores', icon: 'fa-user-cog' },
+      { id: 'asignacion-cursos', label: 'Asignación de Cursos', icon: 'fa-calendar-day' },
+      { id: 'supervision-preceptores', label: 'Supervisión de Preceptores', icon: 'fa-user-shield' },
       { id: 'estadisticas', label: 'Estadísticas', icon: 'fa-chart-bar' },
     ],
   },
@@ -41,6 +43,7 @@ export const menuItems = [
     children: [
       { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
       { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
+      { id: 'historial', label: 'Historial de Cambios', icon: 'fa-history' },
     ],
   },
 ];

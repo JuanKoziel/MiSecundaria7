@@ -155,11 +155,9 @@ function ComunicadosJefe() {
       toast.success('Comunicado publicado correctamente.');
       setForm({ titulo: '', cuerpo: '', cicloId: '', destinos: [] });
       setArchivos([]);
+      setMensaje('');
+      setMostrarFormulario(false);
       await refreshData();
-      setTimeout(() => {
-        setMensaje('');
-        setMostrarFormulario(false);
-      }, 2000);
     } catch (err) {
       const detail = err.response?.data;
       const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;

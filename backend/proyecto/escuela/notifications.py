@@ -31,6 +31,34 @@ MAX_NOTIFICACIONES_POR_USUARIO_DIA = 50
 MAX_NOTIFICACIONES_POR_USUARIO_HORA = 10
 RETENCION_DIAS = 180  # días para purga automática
 
+# Segmentos destino de una notificación: coinciden con el `rol` persistido en
+# la columna `rol` de `notificaciones`. Sirven para que un usuario con varios
+# roles solo vea, al operar con un rol activo, las notificaciones dirigidas a
+# ese segmento (más las universales).
+SEGMENTO_ALUMNO = 'alumno'
+SEGMENTO_FAMILIA = 'familia'
+SEGMENTO_DOCENTE = 'docente'
+SEGMENTO_PRECEPTOR = 'preceptor'
+SEGMENTO_JEFE_PRECEPTORES = 'jefe_preceptores'
+SEGMENTO_DIRECTIVO = 'directivo'
+SEGMENTO_UNIVERSAL = 'universal'
+
+# Mapeo rol_activo_usuario (admin/director comparten el segmento directivo).
+SEGMENTO_POR_ROL_ACTIVO = {
+    'admin': SEGMENTO_DIRECTIVO,
+    'director': SEGMENTO_DIRECTIVO,
+    'jefe_preceptores': SEGMENTO_JEFE_PRECEPTORES,
+    'preceptor': SEGMENTO_PRECEPTOR,
+    'docente': SEGMENTO_DOCENTE,
+    'alumno': SEGMENTO_ALUMNO,
+    'familia': SEGMENTO_FAMILIA,
+}
+
+
+def segmento_de_rol_activo(rol_activo):
+    """Devuelve el segmento destino asociado a un rol activo (o None)."""
+    return SEGMENTO_POR_ROL_ACTIVO.get(rol_activo)
+
 
 def _limite_diario_excedido(id_usuario, limite=MAX_NOTIFICACIONES_POR_USUARIO_DIA):
     """Verifica si el usuario ya superó el límite diario de notificaciones."""
@@ -76,7 +104,7 @@ def _formatear_nav(nav):
 
 
 def notificar(*, id_usuario, titulo='', mensaje='', id_alumno=None, fecha=None,
-              check_limits=True, dedupe_key=None, nav=None):
+              check_limits=True, dedupe_key=None, nav=None, rol=None):
     """Crea una notificación para un usuario destinatario con anti-spam.
 
     Parámetros:
@@ -93,13 +121,17 @@ def notificar(*, id_usuario, titulo='', mensaje='', id_alumno=None, fecha=None,
             funcione la deduplicación.
         nav (dict | None): metadatos de navegación (Parte 8) con claves
             'destino' (str: vista destino) y 'params' (dict: parámetros).
+        rol (str | None): segmento destino (SEGMENTO_*). Si es None queda
+            'universal' (visible en cualquier rol activo).
 
     Devuelve la instancia `Notificacion` creada, o None si se bloqueó por
     límites o deduplicación.
     """
-    if check_limits:
-        if _limite_diario_excedido(id_usuario) or _limite_horario_excedido(id_usuario):
-            return None
+    # TODO(limitadores): desactivado temporalmente por solicitud del cliente.
+    # Para reactivar, volver a habilitar el bloque siguiente:
+    # if check_limits:
+    #     if _limite_diario_excedido(id_usuario) or _limite_horario_excedido(id_usuario):
+    #         return None
 
     if dedupe_key:
         # Deduplicación por clave de referencia externa
@@ -135,6 +167,7 @@ def notificar(*, id_usuario, titulo='', mensaje='', id_alumno=None, fecha=None,
         titulo=titulo,
         mensaje=mensaje,
         fecha=fecha or timezone.now(),
+        rol=rol or SEGMENTO_UNIVERSAL,
     )
 
 
@@ -142,6 +175,10 @@ def notificar_alumno(*, alumno, titulo='', mensaje='', dedupe=True, strategy='CO
     """Emite una notificación académica a los usuarios que conciernen a un
     alumno: el propio `id_usuario` del alumno y, si existe, el `id_usuario`
     de su tutor/familia.
+
+    Se etiqueta cada notificación con su segmento destino: 'alumno' para el
+    propio alumno y 'familia' para cada tutor, de modo que un usuario con
+    varios roles solo las vea al operar con el rol correspondiente.
 
     Toda creación sigue pasando por `notificar(...)`, que es la puerta única
     de la aplicación.
@@ -158,9 +195,9 @@ def notificar_alumno(*, alumno, titulo='', mensaje='', dedupe=True, strategy='CO
 
     Devuelve la lista de notificaciones creadas.
     """
-    usuarios = []
+    destinatarios = []  # (usuario, segmento)
     if alumno is not None and getattr(alumno, 'id_usuario_id', None):
-        usuarios.append(alumno.id_usuario)
+        destinatarios.append((alumno.id_usuario, SEGMENTO_ALUMNO))
     tutor_ids = tutor_ids_de_alumno(alumno) if alumno is not None else []
     if tutor_ids:
         tutores = PadreTutor.objects.filter(
@@ -168,10 +205,10 @@ def notificar_alumno(*, alumno, titulo='', mensaje='', dedupe=True, strategy='CO
             id_usuario_id__isnull=False,
         )
         for tutor in tutores:
-            usuarios.append(tutor.id_usuario)
+            destinatarios.append((tutor.id_usuario, SEGMENTO_FAMILIA))
 
     creadas = []
-    for usuario in usuarios:
+    for usuario, segmento in destinatarios:
         if strategy == 'DAILY':
             # Deduplicación diaria: buscar notificación del mismo día
             hoy_inicio = timezone.make_aware(
@@ -220,6 +257,7 @@ def notificar_alumno(*, alumno, titulo='', mensaje='', dedupe=True, strategy='CO
                     mensaje=mensaje_con_ref,
                     dedupe_key=dedupe_key,
                     nav=nav,
+                    rol=segmento,
                 )
             )
             continue
@@ -234,7 +272,7 @@ def notificar_alumno(*, alumno, titulo='', mensaje='', dedupe=True, strategy='CO
             continue
 
         creadas.append(
-            notificar(id_usuario=usuario, id_alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
+            notificar(id_usuario=usuario, id_alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav, rol=segmento)
         )
     return creadas
 

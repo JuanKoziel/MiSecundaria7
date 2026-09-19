@@ -29,6 +29,7 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
   const [modalMateriaNombre, setModalMateriaNombre] = useState('');
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [tipo, setTipo] = useState('INTENSIFICACION');
   const [periodoIntensificacion, setPeriodoIntensificacion] = useState('Intensificación del primer cuatrimestre');
   const [archivo, setArchivo] = useState(null);
   const [editingId, setEditingId] = useState(null);
@@ -69,6 +70,7 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
     setModalMateriaNombre(misCursoMateriaActiva ? misCursoMateriaActiva.materia_nombre : '');
     setTitulo('');
     setDescripcion('');
+    setTipo('INTENSIFICACION');
     setPeriodoIntensificacion('Intensificación del primer cuatrimestre');
     setArchivo(null);
     setShowModal(true);
@@ -82,6 +84,7 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
     setModalMateriaNombre(act.materia_nombre || '');
     setTitulo(act.titulo || '');
     setDescripcion(act.descripcion || '');
+    setTipo(act.tipo || 'INTENSIFICACION');
     setPeriodoIntensificacion(act.periodo_intensificacion || 'Intensificación del primer cuatrimestre');
     setArchivo(null);
     setShowModal(true);
@@ -95,6 +98,7 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
     setModalMateriaNombre('');
     setTitulo('');
     setDescripcion('');
+    setTipo('INTENSIFICACION');
     setPeriodoIntensificacion('Intensificación del primer cuatrimestre');
     setArchivo(null);
   };
@@ -105,8 +109,12 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
       toast.error('No se pudo identificar la materia asignada.');
       return;
     }
-    if (!titulo || !periodoIntensificacion) {
-      toast.error('Período y título son obligatorios.');
+    if (!titulo) {
+      toast.error('El título es obligatorio.');
+      return;
+    }
+    if (tipo === 'INTENSIFICACION' && !periodoIntensificacion) {
+      toast.error('El período de intensificación es obligatorio.');
       return;
     }
 
@@ -123,8 +131,8 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
         titulo,
         descripcion,
         archivo_pdf: archivoUrl,
-        tipo: 'INTENSIFICACION',
-        periodo_intensificacion: periodoIntensificacion
+        tipo,
+        periodo_intensificacion: tipo === 'INTENSIFICACION' ? periodoIntensificacion : ''
       };
 
       if (editingId) {
@@ -171,30 +179,56 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
           className="btn btn-primary"
           onClick={abrirModalNueva}
         >
-          <i className="fas fa-plus" aria-hidden="true" /> Nueva intensificación
+          <i className="fas fa-plus" aria-hidden="true" /> Nueva actividad
         </button>
       </div>
-      <p className="text-muted" style={{ margin: '-10px 0 20px' }}>Gestión de actividades de intensificación.</p>
+      <p className="text-muted" style={{ margin: '-10px 0 20px' }}>Gestión de actividades de intensificación y previas.</p>
 
       {showModal && (
-        <FormModal title={editingId ? 'Editar intensificación' : 'Nueva intensificación'} onClose={cerrarModal}>
+        <FormModal title={editingId ? 'Editar actividad' : 'Nueva actividad'} onClose={cerrarModal}>
           <form onSubmit={handleGuardarActividad}>
             <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
 
               <div className="form-group-filter">
-                <label htmlFor="modal-periodo">Período de intensificación</label>
-                <select
-                  id="modal-periodo"
-                  className="form-control"
-                  value={periodoIntensificacion}
-                  onChange={(e) => setPeriodoIntensificacion(e.target.value)}
-                  required
-                >
-                  <option value="Intensificación del primer cuatrimestre">Intensificación del primer cuatrimestre</option>
-                  <option value="Intensificación de diciembre">Intensificación de diciembre</option>
-                  <option value="Intensificación de febrero/marzo">Intensificación de febrero/marzo</option>
-                </select>
+                <label>Tipo de actividad</label>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'normal' }}>
+                    <input
+                      type="radio"
+                      name="modal-tipo"
+                      value="INTENSIFICACION"
+                      checked={tipo === 'INTENSIFICACION'}
+                      onChange={() => setTipo('INTENSIFICACION')}
+                    /> Intensificación
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'normal' }}>
+                    <input
+                      type="radio"
+                      name="modal-tipo"
+                      value="PREVIA"
+                      checked={tipo === 'PREVIA'}
+                      onChange={() => setTipo('PREVIA')}
+                    /> Previa
+                  </label>
+                </div>
               </div>
+
+              {tipo === 'INTENSIFICACION' && (
+                <div className="form-group-filter">
+                  <label htmlFor="modal-periodo">Período de intensificación</label>
+                  <select
+                    id="modal-periodo"
+                    className="form-control"
+                    value={periodoIntensificacion}
+                    onChange={(e) => setPeriodoIntensificacion(e.target.value)}
+                    required
+                  >
+                    <option value="Intensificación del primer cuatrimestre">Intensificación del primer cuatrimestre</option>
+                    <option value="Intensificación de diciembre">Intensificación de diciembre</option>
+                    <option value="Intensificación de febrero/marzo">Intensificación de febrero/marzo</option>
+                  </select>
+                </div>
+              )}
 
               <div className="form-group-filter">
                 <label htmlFor="modal-titulo">Título de la actividad</label>
@@ -255,6 +289,7 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
           <thead>
             <tr>
               <th>Curso / Materia</th>
+              <th>Tipo</th>
               <th>Período</th>
               <th>Título</th>
               <th>Fecha</th>
@@ -265,13 +300,18 @@ function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {
           <tbody>
             {actividadesMateria.length === 0 ? (
               <tr>
-                <td colSpan={6} className="empty-state-message">No hay actividades de intensificación publicadas para esta materia.</td>
+                <td colSpan={7} className="empty-state-message">No hay actividades publicadas para esta materia.</td>
               </tr>
             ) : (
               actividadesMateria.map((act) => (
                 <tr key={act.id_actividad}>
                   <td><strong>{act.curso_nombre}</strong><br/>{act.materia_nombre}</td>
-                  <td><span className="badge badge-warning">{act.periodo_intensificacion || 'Intensificación del primer cuatrimestre'}</span></td>
+                  <td>
+                    <span className={`badge ${act.tipo === 'PREVIA' ? 'badge-danger' : 'badge-warning'}`}>
+                      {act.tipo === 'PREVIA' ? 'Previa' : 'Intensificación'}
+                    </span>
+                  </td>
+                  <td>{act.tipo === 'INTENSIFICACION' ? (act.periodo_intensificacion || 'Intensificación del primer cuatrimestre') : '—'}</td>
                   <td><strong>{act.titulo}</strong><br/><small>{act.descripcion}</small></td>
                   <td>{act.fecha_publicacion ? new Date(act.fecha_publicacion).toLocaleDateString('es-AR') : '—'}</td>
                   <td>

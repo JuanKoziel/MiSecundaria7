@@ -64,6 +64,7 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
   const [asistencias, setAsistencias] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [resumenReciente, setResumenReciente] = useState({ presente: 0, ausente: 0, tarde: 0, pendiente: 0 });
+  const [resumenPorMateria, setResumenPorMateria] = useState([]);
   const [estadoHoy, setEstadoHoy] = useState('Pendiente');
   const [estadosHoy, setEstadosHoy] = useState([]);
 
@@ -109,12 +110,39 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
         return acc;
       }, { presente: 0, ausente: 0, tarde: 0, pendiente: 0 });
       setResumenReciente(resumen);
+
+      // Resumen por materia: últimas asistencias de cada materia.
+      // `todas` viene ordenado -fecha, -hora, así el primer registro por
+      // materia ya es el más reciente.
+      const mapa = {};
+      todas.forEach((r) => {
+        const nombre = r.materia_nombre || 'General';
+        if (!mapa[nombre]) {
+          mapa[nombre] = { presente: 0, ausente: 0, tarde: 0, ultimaFecha: '', ultimoEstado: 'Sin registros' };
+        }
+        const est = r.estado_nombre;
+        if (est === 'Presente') mapa[nombre].presente++;
+        else if (est === 'Ausente') mapa[nombre].ausente++;
+        else if (est === 'Tarde' || est === 'Retirado') mapa[nombre].tarde++;
+        if (!mapa[nombre].ultimaFecha) {
+          mapa[nombre].ultimaFecha = r.fecha || '';
+          mapa[nombre].ultimoEstado = est;
+        }
+      });
+      setResumenPorMateria(
+        materias.map((m) => ({
+          nombre: m.nombre,
+          id: m.id,
+          ...(mapa[m.nombre] || { presente: 0, ausente: 0, tarde: 0, ultimaFecha: '', ultimoEstado: 'Sin registros' }),
+        }))
+      );
     } catch {
       setEstadoHoy('Pendiente');
       setEstadosHoy([]);
       setResumenReciente({ presente: 0, ausente: 0, tarde: 0, pendiente: 0 });
+      setResumenPorMateria([]);
     }
-  }, [alumnoId]);
+  }, [alumnoId, materias]);
 
   useEffect(() => {
     cargarResumen();
@@ -184,6 +212,63 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
             <strong>{resumenReciente.pendiente}</strong> Pendientes
           </div>
         </div>
+      </div>
+
+      <div className="card mt-16">
+        <div className="card-header-flex">
+          <h4><i className="fas fa-layer-group icon-muted" aria-hidden="true" /> Últimas asistencias por materia</h4>
+        </div>
+
+        {resumenPorMateria.length === 0 ? (
+          <p className="empty-state-message">No hay asistencias registradas para este estudiante.</p>
+        ) : (
+          <div className="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Materia</th>
+                  <th className="text-center">Presentes</th>
+                  <th className="text-center">Ausencias</th>
+                  <th className="text-center">Tardanzas</th>
+                  <th>Última</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumenPorMateria.map((m) => (
+                  <tr
+                    key={m.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setMateriaId(String(m.id))}
+                    title={`Ver detalle de ${m.nombre}`}
+                  >
+                    <td>{m.nombre}</td>
+                    <td className="text-center">
+                      <span className="badge badge-presente">{m.presente}</span>
+                    </td>
+                    <td className="text-center">
+                      <span className="badge badge-ausente">{m.ausente}</span>
+                    </td>
+                    <td className="text-center">
+                      <span className="badge badge-tarde">{m.tarde}</span>
+                    </td>
+                    <td>
+                      {m.ultimoEstado === 'Sin registros' ? (
+                        'Sin registros'
+                      ) : (
+                        <>
+                          {formatearFecha(m.ultimaFecha)}{' '}
+                          <span className={`badge ${ESTADO_BADGES[m.ultimoEstado] || 'badge-pendiente'}`}>
+                            {ESTADO_LABELS[m.ultimoEstado] || m.ultimoEstado}
+                          </span>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="card mt-16">

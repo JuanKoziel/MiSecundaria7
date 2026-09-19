@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { updateCurso } from '../../services/api';
+import { getPreceptores, updateCurso } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 
@@ -20,14 +20,36 @@ function mensajeError(err) {
 }
 
 function AsignacionCursos() {
-  const { cursosObj, preceptores, refreshData } = useData();
+  const { cursosObj, refreshData } = useData();
   const toast = useToast();
+  const [preceptores, setPreceptores] = useState([]);
   const [selectedPreceptorId, setSelectedPreceptorId] = useState('');
   const [searchAsignados, setSearchAsignados] = useState('');
   const [searchDisponibles, setSearchDisponibles] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [guardando, setGuardando] = useState(false);
+
+  const fetchPreceptores = async () => {
+    try {
+      const data = await getPreceptores('preceptor');
+      const arr = Array.isArray(data) ? data : [];
+      const mapeados = arr.map((p) => ({
+        id: p.id_preceptor,
+        id_usuario: p.id_usuario || null,
+        apellido: p.apellido || '',
+        nombre: p.nombre || '',
+        cursos: Array.isArray(p.cursos_asignados) ? p.cursos_asignados : [],
+      }));
+      setPreceptores(mapeados);
+    } catch (err) {
+      setError('Error al cargar preceptores.');
+    }
+  };
+
+  useEffect(() => {
+    fetchPreceptores();
+  }, []);
 
   const preceptoresOrdenados = useMemo(
     () => [...(preceptores || [])].sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '')),
@@ -86,6 +108,11 @@ function AsignacionCursos() {
   const handleAsignar = async (cursoId) => {
     setError('');
     setSuccess('');
+    const yaTienePreceptor = preceptorDeCurso(cursoId);
+    if (yaTienePreceptor) {
+      setError('Este curso ya tiene un preceptor asignado. Desasígnelo primero.');
+      return;
+    }
     setGuardando(true);
     try {
       await updateCurso(cursoId, { id_preceptor: selectedPreceptorId });

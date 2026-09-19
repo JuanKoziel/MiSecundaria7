@@ -694,17 +694,15 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
 
       {filtrosOk ? (
         <>
-          {!readOnly && (
-            <div className="mb-12">
-              <input
-                type="text"
-                placeholder="Buscar por nombre, apellido, DNI o usuario..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-            </div>
-          )}
+          <div className="mb-12">
+            <input
+              type="text"
+              placeholder="Buscar por nombre, apellido, DNI o usuario..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
           {mensaje && (
             <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
               {mensaje}

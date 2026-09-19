@@ -5,6 +5,7 @@ import { createPadreTutor, updatePadreTutor, deletePadreTutor, getUsuariosConRol
 import FormModal from '../../components/Shared/FormModal';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
+import TutoresAlumnosEditor from '../../components/Shared/TutoresAlumnosEditor';
 import { cursosPorAnio, alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
@@ -284,6 +285,7 @@ function Tutores({ readOnly = false }) {
       toast.success('Rol "Tutor" asignado correctamente.');
       setMostrarAgregarRol(false);
       await refreshData();
+      await cargarPersonasSinRol();
     } catch (err) {
       toast.error(mensajeError(err));
     } finally {
@@ -543,13 +545,154 @@ function Tutores({ readOnly = false }) {
 
   const tituloModal = modo === 'crear' ? 'Crear tutor' : 'Modificar tutor';
 
+  const renderFormTutor = () => (
+    <div style={{ maxWidth: 760 }} className="preceptor-form-grid">
+      <div className="form-group-filter preceptor-form-full">
+        <label htmlFor="tut-usuario">Usuario</label>
+        <input
+          id="tut-usuario"
+          type="text"
+          value={form.usuario_nombre}
+          onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
+          required
+        />
+      </div>
+      <div className="form-group-filter">
+        <label htmlFor="tut-contrasena">Contraseña</label>
+        <input
+          id="tut-contrasena"
+          type="password"
+          value={form.contrasena}
+          onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
+        />
+      </div>
+      <div className="form-group-filter">
+        <label>Estado</label>
+        <label htmlFor="tut-estado" className="preceptor-status-toggle">
+          <input
+            id="tut-estado"
+            type="checkbox"
+            checked={form.estado}
+            onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
+          />
+          <span>{estadoLabel(form.estado)}</span>
+        </label>
+      </div>
+      <div className="form-group-filter">
+        <label htmlFor="tut-fecha-deshabilitacion">Fecha deshabilitación programada</label>
+        <input
+          id="tut-fecha-deshabilitacion"
+          type="datetime-local"
+          value={form.fecha_deshabilitacion_programada}
+          onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
+        />
+      </div>
+      <div className="form-group-filter">
+        <label htmlFor="tut-fecha-habilitacion">Fecha habilitación programada</label>
+        <input
+          id="tut-fecha-habilitacion"
+          type="datetime-local"
+          value={form.fecha_habilitacion_programada}
+          onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
+        />
+      </div>
+      <div className="form-group-filter preceptor-form-full">
+        <label htmlFor="tut-dni">DNI</label>
+        <input
+          id="tut-dni"
+          type="text"
+          value={form.dni}
+          onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
+        />
+      </div>
+      <div className="form-group-filter">
+        <label htmlFor="tut-nombre">Nombre</label>
+        <input
+          id="tut-nombre"
+          type="text"
+          value={form.nombre}
+          onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+        />
+      </div>
+      <div className="form-group-filter">
+        <label htmlFor="tut-apellido">Apellido</label>
+        <input
+          id="tut-apellido"
+          type="text"
+          value={form.apellido}
+          onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+        />
+      </div>
+      <div className="form-group-filter">
+        <label htmlFor="tut-tipo">Tipo de tutor</label>
+        <select
+          id="tut-tipo"
+          value={form.tipo}
+          onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))}
+        >
+          <option value="">Seleccione...</option>
+          {TIPOS_TUTOR.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="form-group-filter">
+        <label htmlFor="tut-correo">Correo</label>
+        <input
+          id="tut-correo"
+          type="email"
+          value={form.correo}
+          onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
+        />
+      </div>
+      <div className="form-group-filter">
+        <label htmlFor="tut-telefono">Teléfono</label>
+        <input
+          id="tut-telefono"
+          type="text"
+          value={form.telefono}
+          onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+        />
+      </div>
+      <div className="form-group-filter">
+        <label htmlFor="tut-direccion">Dirección</label>
+        <input
+          id="tut-direccion"
+          type="text"
+          value={form.direccion}
+          onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
+        />
+      </div>
+      <div className="preceptor-form-full">
+        <TutoresAlumnosEditor
+          anioAlumno={anioAlumno}
+          setAnioAlumno={setAnioAlumno}
+          cursoAlumno={cursoAlumno}
+          setCursoAlumno={setCursoAlumno}
+          alumnos_ids={form.alumnos_ids}
+          setAlumnosIds={(ids) => setForm((p) => ({ ...p, alumnos_ids: ids }))}
+          idPrefix="tut"
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="card">
       <div className="card-header-flex">
         <h3><i className="fas fa-user-shield" aria-hidden="true" /> Tutores</h3>
         {!readOnly && (
           <div className="header-actions">
-            <button type="button" className="btn btn-outline-primary" onClick={() => setMostrarAgregarRol(true)}>
+            <button
+              type="button"
+              className="btn btn-outline-primary"
+              onClick={() => {
+                cargarPersonasSinRol();
+                setMostrarAgregarRol(true);
+              }}
+            >
               <i className="fas fa-user-tag" aria-hidden="true" /> Agregar rol
             </button>
             <button

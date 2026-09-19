@@ -186,7 +186,7 @@ function PanelProfesores({ user, onLogout }) {
           </div>
         ) : seccionActiva === 'comunicados' ? (
           <div className="view-section active">
-            <ComunicadosView userRole="docente" cursoSeleccionado={cursoId} />
+            <ComunicadosView userRole="docente" cursoSeleccionado={cursoId} materiaSeleccionada={materiaSeleccionada} />
           </div>
         ) : seccionActiva === 'info' ? (
           <div className="view-section active">

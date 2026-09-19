@@ -52,7 +52,8 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
     } finally {
       setCargando(false);
     }
-  }, [cursoMateriaId, fechaSeleccionada]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursoMateriaId]);
 
   useEffect(() => {
     cargarServerTime();

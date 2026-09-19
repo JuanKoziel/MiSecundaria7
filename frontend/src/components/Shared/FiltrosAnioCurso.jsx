@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { parseCurso, orientacionDeCurso } from '../../utils/orientacion';
 import {
@@ -120,6 +120,16 @@ function FiltrosAutonomo({ cursosObj, onCursoChange, onCursoObjChange, defaultTo
   const [anioCurso, setAnioCurso] = useState('');
   const [division, setDivision] = useState('');
 
+  // Mantiene los últimos callbacks del padre sin re-disparar los efectos
+  // de sincronización cuando estos cambian de identidad (p. ej. si el padre
+  // re-renderiza por otro estado, como la selección de materia/notas).
+  const onCursoChangeRef = useRef(onCursoChange);
+  const onCursoObjChangeRef = useRef(onCursoObjChange);
+  useEffect(() => {
+    onCursoChangeRef.current = onCursoChange;
+    onCursoObjChangeRef.current = onCursoObjChange;
+  }, [onCursoChange, onCursoObjChange]);
+
   const aniosLectivos = useMemo(() => getAniosLectivos(cursosObj), [cursosObj]);
   const aniosCurso = useMemo(() => getAniosCurso(cursosObj, anioLectivo), [cursosObj, anioLectivo]);
   const divisiones = useMemo(
@@ -130,8 +140,8 @@ function FiltrosAutonomo({ cursosObj, onCursoChange, onCursoObjChange, defaultTo
   useEffect(() => {
     if (!cursosObj.length) return;
     if (!defaultToFirst && !anioLectivo && !anioCurso && !division) {
-      onCursoChange?.('');
-      onCursoObjChange?.(null);
+      onCursoChangeRef.current?.('');
+      onCursoObjChangeRef.current?.(null);
       return;
     }
     if (defaultToFirst && !anioLectivo && !anioCurso && !division) {
@@ -141,13 +151,13 @@ function FiltrosAutonomo({ cursosObj, onCursoChange, onCursoObjChange, defaultTo
       setAnioCurso(parts.anioCurso);
       setDivision(parts.division);
     }
-  }, [cursosObj, defaultToFirst, anioLectivo, anioCurso, division, onCursoChange, onCursoObjChange]);
+  }, [cursosObj, defaultToFirst, anioLectivo, anioCurso, division]);
 
   useEffect(() => {
     const cursoObj = findCursoObj(cursosObj, anioLectivo, anioCurso, division);
-    onCursoChange?.(cursoObj?.nombre_curso || '');
-    onCursoObjChange?.(cursoObj || null);
-  }, [cursosObj, anioLectivo, anioCurso, division, onCursoChange, onCursoObjChange]);
+    onCursoChangeRef.current?.(cursoObj?.nombre_curso || '');
+    onCursoObjChangeRef.current?.(cursoObj || null);
+  }, [cursosObj, anioLectivo, anioCurso, division]);
 
   return (
     <div className={`filter-row ${className}`.trim()}>
