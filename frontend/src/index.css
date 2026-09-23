@@ -3191,23 +3191,39 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     table {
         border-spacing: 0;
         width: 100%;
-        table-layout: fixed;
     }
 
     th,
     td {
-        white-space: nowrap;
         padding: 8px 6px;
         font-size: 0.75rem;
+        white-space: normal;
+        overflow-wrap: break-word;
+        word-break: break-word;
     }
 
     th {
-        min-width: 120px;
+        white-space: nowrap;
     }
 
     .table-responsive {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+    }
+
+    /* Tablas dentro de .table-responsive: ancho natural con scroll
+       horizontal en vez de apretar las columnas (evita texto superpuesto). */
+    .table-responsive table {
+        width: max-content;
+        min-width: 100%;
+        table-layout: auto;
+    }
+
+    .table-responsive th,
+    .table-responsive td {
+        white-space: nowrap;
+        overflow-wrap: normal;
+        word-break: normal;
     }
 }
 
@@ -3910,15 +3926,6 @@ tbody tr:nth-child(even) td {
     .table-responsive {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-    }
-
-    table {
-        min-width: 650px;
-    }
-
-    td,
-    th {
-        white-space: nowrap;
     }
 
     .btn {

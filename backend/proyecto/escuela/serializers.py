@@ -133,6 +133,10 @@ def _build_usuario_account(
         raise serializers.ValidationError({username_key: 'El usuario es obligatorio.'})
     if creating_usuario and require_password_on_create and not contrasena:
         raise serializers.ValidationError({'contrasena': 'La contrasena es obligatoria para crear el usuario.'})
+    if creating_usuario and username and Usuario.objects.filter(usuario=username).exists():
+        raise serializers.ValidationError({
+            username_key: 'Ya existe un usuario con ese nombre de usuario.'
+        })
 
     if usuario is None:
         usuario = Usuario(
@@ -157,12 +161,21 @@ def _build_usuario_account(
     elif creating_usuario and require_password_on_create:
         raise serializers.ValidationError({'contrasena': 'La contrasena es obligatoria para crear el usuario.'})
 
-    usuario.save()
+    try:
+        usuario.save()
+    except IntegrityError:
+        raise serializers.ValidationError({
+            username_key: 'Ya existe un usuario con ese nombre de usuario.'
+        })
     if getattr(instance, 'id_usuario_id', None) != usuario.id_usuario:
         instance.id_usuario = usuario
 
     if role_name:
         _assign_role(usuario, role_name)
+
+    if creating_usuario and usuario.estado:
+        from escuela.notifications import notificar_estado_cuenta
+        notificar_estado_cuenta(usuario)
 
     return usuario, validated_data
 

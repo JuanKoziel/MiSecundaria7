@@ -238,7 +238,7 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
                 </td>
                 <td>
                   {planificacion?.ruta_archivo ? (
-                    <div style={{ display: 'grid', gap: '6px', justifyItems: 'start' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                       <a
                         href={`${API_BASE}${planificacion.ruta_archivo}`}
                         target="_blank"
@@ -247,22 +247,19 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
                       >
                         <i className="fas fa-folder-open" aria-hidden="true" /> Ver proyecto
                       </a>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                        <span className={`badge ${esVerificado ? 'badge-success' : 'badge-warning'}`}>
-                          {esVerificado ? 'Verificado' : planificacion?.estado || 'Borrador'}
-                        </span>
-                        {!esVerificado && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary table-download-btn"
-                            onClick={() => handleVerificar(planificacion)}
-                            disabled={verificandoId === planificacion.id_planificacion}
-                          >
-                            <i className="fas fa-check" aria-hidden="true" />{' '}
-                            {verificandoId === planificacion.id_planificacion ? 'Verificando...' : 'Marcar como verificado'}
-                          </button>
-                        )}
-                      </div>
+                      {!esVerificado ? (
+                        <button
+                          type="button"
+                          className="btn btn-secondary table-download-btn"
+                          onClick={() => handleVerificar(planificacion)}
+                          disabled={verificandoId === planificacion.id_planificacion}
+                        >
+                          <i className="fas fa-check" aria-hidden="true" />{' '}
+                          {verificandoId === planificacion.id_planificacion ? 'Verificando...' : 'Marcar como verificado'}
+                        </button>
+                      ) : (
+                        <span className="badge badge-success">Verificado</span>
+                      )}
                     </div>
                   ) : (
                     <button type="button" className="btn btn-danger table-download-btn" disabled>
@@ -576,14 +573,18 @@ function Docentes() {
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
                               <button
                                 type="button"
-                                className="btn btn-sm btn-warning"
+                                className={`btn btn-sm ${d.ddjj_verificada ? 'btn-success' : 'btn-warning'}`}
                                 onClick={() => setPreviewDocente(d)}
                                 title={`Ver ${archivoNombre}`}
                               >
                                 <i className="fas fa-file-alt" aria-hidden="true" /> Ver DDJJ
                               </button>
                               {d.ddjj_verificada ? (
-                                <span className="badge badge-success" title="DDJJ verificada" style={{ alignSelf: 'center', justifyContent: 'center' }}>
+                                <span
+                                  className="badge badge-success"
+                                  title="DDJJ verificada"
+                                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', boxSizing: 'border-box', minHeight: '31px' }}
+                                >
                                   <i className="fas fa-check-circle" aria-hidden="true" /> Verificada
                                 </span>
                               ) : (

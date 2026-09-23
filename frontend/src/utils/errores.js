@@ -42,6 +42,9 @@ export function mensajeErrorAmigable(err, fallback = 'Ocurrió un error. Intént
   const data = err?.response?.data ?? err?.data;
 
   if (typeof data === 'string') {
+    if (/^\s*</.test(data) || /<!DOCTYPE html/i.test(data)) {
+      return fallback;
+    }
     return limpiarTexto(data) || fallback;
   }
 

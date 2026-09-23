@@ -13,15 +13,16 @@ const MAPA_POR_ROL = {
     calificaciones: 'calificaciones',
     boletin: 'calificaciones',
     asistencias: 'asistencias',
-    previas: 'calificaciones',
-    // Las rendiciones se consultan junto a las calificaciones del alumno.
-    rendiciones: 'calificaciones',
-    recursadas: 'calificaciones',
-    intensificaciones: 'calificaciones',
+    // Las adeudadas/previas/rendiciones/intensificaciones se consultan en
+    // el panel unificado "Materias Adeudadas" del estudiante.
+    previas: 'materias-adeudadas',
+    rendiciones: 'materias-adeudadas',
+    recursadas: 'materias-adeudadas',
+    intensificaciones: 'materias-adeudadas',
+    actividades: 'materias-adeudadas',
     comunicados: 'comunicados',
     horarios: 'horarios',
     eventos: 'calendario',
-    actividades: 'actividades',
     perfil: 'perfil',
   },
   familia: {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { getLibroTemas, enviarCargaUnica } from '../../services/api';
+import { getLibroTemas, enviarCargaUnica, getAsistencias } from '../../services/api';
 import EmptyFiltros from './EmptyFiltros';
 import { filtrosCompletos } from './preceptorUtils';
 import LoadingSpinner from '../Shared/LoadingSpinner';
@@ -55,10 +55,24 @@ function CargaTipoItem({ tipo, ok, detalle, onVer, neutro = false }) {
   );
 }
 
+function fechaHoyLocal() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function hhmmAhora() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function GestionDiaria({ anioLectivo, curso, onNavigate }) {
-  const { cursosObj, cursoMateria, asistenciasAdmin, calificacionesCompletas, horarios, preceptores } = useData();
+  const { cursosObj, cursoMateria, calificacionesCompletas, horarios, preceptores } = useData();
   const toast = useToast();
   const [libroTemas, setLibroTemas] = useState([]);
+  const [asistenciasHoy, setAsistenciasHoy] = useState([]);
   const [cargandoLibro, setCargandoLibro] = useState(false);
   const [modoCargaUnica, setModoCargaUnica] = useState(null); // { id_curso_materia, temporizador }
   const [guardandoCargaUnica, setGuardandoCargaUnica] = useState(false);
@@ -82,6 +96,15 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
         .map((h) => h.id_curso_materia),
     );
   }, [cursoId, horarios, diaHoy]);
+
+  // Bloques horarios de HOY de un curso-materia (para mostrar el horario real
+  // y saber si la clase ya comenzó).
+  const bloquesHoraDe = (cmId) =>
+    (horarios || [])
+      .filter((h) => Number(h.id_curso_materia) === Number(cmId) && h.dia_semana === diaHoy)
+      .map((h) => ({ inicio: h.hora_inicio || '', fin: h.hora_fin || '' }))
+      .filter((b) => b.inicio)
+      .sort((a, b) => a.inicio.localeCompare(b.inicio));
 
   const materiasCurso = useMemo(() => {
     if (!cursoId) return [];
@@ -116,6 +139,20 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
       .finally(() => setCargandoLibro(false));
   }, [cursoId]);
 
+  // Las asistencias del panel diario se piden puntualmente por curso y fecha
+  // (la tabla completa no se baja al DataContext desde B13).
+  useEffect(() => {
+    if (!cursoId) {
+      setAsistenciasHoy([]);
+      return;
+    }
+    getAsistencias({ curso: cursoId, fecha: fechaHoyLocal() })
+      .then((data) => {
+        setAsistenciasHoy(Array.isArray(data) ? data : data.results || []);
+      })
+      .catch(() => setAsistenciasHoy([]));
+  }, [cursoId]);
+
   if (!filtrosOk) {
     return (
       <div className="card">
@@ -127,7 +164,7 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
     );
   }
 
-  const asistenciasDe = (cmId) => (asistenciasAdmin || []).filter((a) => a.id_curso_materia === cmId);
+  const asistenciasDe = (cmId) => asistenciasHoy.filter((a) => Number(a.id_curso_materia) === Number(cmId));
   const calificacionesDe = (cmId) => (calificacionesCompletas || []).filter((c) => c.id_curso_materia === cmId);
 
   const toggleCargaUnica = async (cmId) => {
@@ -243,16 +280,25 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
                   return { texto: 'Sin asistencias registradas', hayCarga: false };
                 })();
 
+                // B12: el libro de temas es una carga DIARIA — solo cuenta
+                // como realizado si hay una subida de HOY. Un libro de temas
+                // viejo (de un día anterior) no debe mostrarse como "ya
+                // subido": el docente tiene que subirlo de nuevo cada día que
+                // tenga clase.
                 const { texto: txtLibro, hayCarga: haLibro } = (() => {
                   const librosMateria = (libroTemas || []).filter((lt) => lt.id_curso_materia === cm.id);
-                  if (librosMateria.length > 0) {
-                    const ultLibro = libroPorMateria[cm.id];
+                  const libroHoy = librosMateria.filter((lt) => String(lt.fecha || '').slice(0, 10) === diaHoyLocal());
+                  if (libroHoy.length > 0) {
                     return {
-                      texto: ultLibro ? `Última carga: ${formatFecha(ultLibro)} (${librosMateria.length})` : 'Sin libro de temas',
+                      texto: `Libro de temas cargado hoy (${formatFecha(libroHoy[0].fecha)})`,
                       hayCarga: true,
                     };
                   }
-                  return { texto: 'Sin libro de temas', hayCarga: false };
+                  const ultLibro = libroPorMateria[cm.id];
+                  return {
+                    texto: ultLibro ? `Pendiente: solo hay libro del ${formatFecha(ultLibro)} — subí uno de hoy` : 'Sin libro de temas',
+                    hayCarga: false,
+                  };
                 })();
 
                 const { texto: txtCal, hayCarga: haCal } = (() => {
@@ -267,15 +313,31 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
                   return { texto: 'Sin calificaciones', hayCarga: false };
                 })();
 
-                const horaClase = cmIdsConClaseHoy.has(cm.id)
-                  ? (horarios || []).find((h) => h.id_curso_materia === cm.id)?.hora_inicio || '—'
-                  : '—';
+                // B12: la hora de clase se toma de los bloques de HOY de la
+                // materia (bloquesHoraDe ya filtra por diaHoy), no del primer
+                // horario de la tabla que puede corresponder a otro día
+                // (ej. clase hoy de 12 a 13 pero primer registro de 9:55).
+                const horaClase = (() => {
+                  const bloques = bloquesHoraDe(cm.id);
+                  if (bloques.length === 0) return '—';
+                  return bloques
+                    .map((b) => (b.inicio && b.fin ? `${b.inicio} - ${b.fin}` : b.inicio))
+                    .join(', ');
+                })();
 
                 // Las calificaciones no son una carga diaria: no marcan
                 // pendiente. La fila solo se resalta por asistencias o
                 // libro de temas faltantes.
                 const filaPendiente = !haAsist || !haLibro;
                 const sinPendientes = haAsist && haLibro;
+
+                // B12: la clase de HOY todavía puede NO haber comenzado (ej.
+                // son las 10:24 pero la clase es de 12 a 13). En ese caso el
+                // botón queda deshabilitado: no tiene sentido abrir una
+                // ventana de 20 min antes de que el docente esté en horario.
+                const bloquesCm = bloquesHoraDe(cm.id);
+                const primerInicioHoy = bloquesCm.length ? bloquesCm[0].inicio : null;
+                const claseNoComenzo = !!primerInicioHoy && hhmmAhora() < primerInicioHoy;
 
                 return (
                   <tr key={cm.id} style={filaPendiente ? { background: 'rgba(220, 53, 69, 0.06)' } : undefined}>
@@ -323,8 +385,14 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
                           type="button"
                           className="btn btn-sm btn-outline-primary"
                           onClick={() => toggleCargaUnica(cm.id)}
-                          title={sinPendientes ? 'No hay cargas pendientes para notificar' : 'Recordar al docente cargar asistencias y libro de temas (plazo de 20 minutos)'}
-                          disabled={guardandoCargaUnica || sinPendientes}
+                          title={
+                            claseNoComenzo
+                              ? `La clase de HOY todavía no comenzó (empieza a las ${primerInicioHoy}). Esperá a que el docente esté en horario para abrir el plazo de 20 minutos.`
+                              : sinPendientes
+                              ? 'No hay cargas pendientes para recordar'
+                              : 'Recordar al docente cargar asistencias y libro de temas (plazo de 20 minutos)'
+                          }
+                          disabled={guardandoCargaUnica || sinPendientes || claseNoComenzo}
                         >
                           {guardandoCargaUnica ? (
                             <LoadingSpinner text="" size="sm" inline />

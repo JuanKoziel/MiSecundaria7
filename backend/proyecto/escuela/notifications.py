@@ -171,6 +171,34 @@ def notificar(*, id_usuario, titulo='', mensaje='', id_alumno=None, fecha=None,
     )
 
 
+def notificar_estado_cuenta(usuario):
+    """E14 — Informa al usuario sobre el estado de su cuenta.
+
+    Se usa tanto al CREAR una cuenta nueva (usuario habilitado) como cuando
+    su estado cambia por bajas/reactivaciones. Aparece como notificación
+    "personal" del usuario (``id_alumno=None``, segmento universal).
+    """
+    if not getattr(usuario, 'pk', None):
+        return None
+    if usuario.estado:
+        titulo = 'Cuenta habilitada'
+        mensaje = 'Tu cuenta de usuario ha sido habilitada. Ya puedes acceder al sistema.'
+    else:
+        titulo = 'Cuenta deshabilitada'
+        mensaje = 'Tu cuenta de usuario ha sido deshabilitada. Contacta a la administración para más información.'
+    return notificar(
+        id_usuario=usuario,
+        id_alumno=None,
+        titulo=titulo,
+        mensaje=mensaje,
+        nav={
+            'destino': 'perfil',
+            'params': {},
+        },
+        rol=SEGMENTO_UNIVERSAL,
+    )
+
+
 def notificar_alumno(*, alumno, titulo='', mensaje='', dedupe=True, strategy='CONTENT', dedupe_key=None, nav=None):
     """Emite una notificación académica a los usuarios que conciernen a un
     alumno: el propio `id_usuario` del alumno y, si existe, el `id_usuario`

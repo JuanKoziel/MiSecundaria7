@@ -3,7 +3,6 @@ import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
 import DiagnosticosView from '../Shared/DiagnosticosView';
-import ActividadesView from '../Shared/ActividadesView';
 import AsistenciasUnificada from '../Shared/AsistenciasUnificada';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { viewDesdeDestino } from '../../utils/navDestinos';
@@ -14,7 +13,7 @@ import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import PanelAlumno from './PanelAlumno';
-import PanelPreviasAlumno from './PanelPreviasAlumno';
+import PanelMateriasAdeudadasAlumno from './PanelMateriasAdeudadasAlumno';
 import Sidebar from './Sidebar';
 import SidebarToggle from '../Shared/SidebarToggle';
 
@@ -219,14 +218,6 @@ function AlumnoDashboard({ user, onLogout }) {
               <VistaHorarios cursosOptions={cursosObj} cursoForzado={miAlumno?.id_curso} mostrarTitulo />
             </div>
           </div>
-        ) : view === 'actividades' ? (
-          <div className="view-section active">
-            <ActividadesView userRole="alumno" />
-          </div>
-        ) : view === 'materias-adeudadas' ? (
-          <div className="view-section active">
-            <ActividadesView userRole="alumno" initialTab="adeudadas" />
-          </div>
         ) : view === 'comunicados' ? (
           <div className="view-section active">
             <ComunicadosView userRole="alumno" />
@@ -311,8 +302,8 @@ function AlumnoDashboard({ user, onLogout }) {
               </div>
             )}
 
-            {view === 'previas' && (
-              <PanelPreviasAlumno miAlumno={miAlumno} />
+            {view === 'materias-adeudadas' && (
+              <PanelMateriasAdeudadasAlumno miAlumno={miAlumno} />
             )}
           </div>
         )}

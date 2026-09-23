@@ -145,6 +145,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
   const {
     actas: actasCurso,
     actasAlumno,
+    actasDocente,
     nombreCorto,
     alumnos,
     cursosObj,
@@ -170,6 +171,13 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
   const [mensaje, setMensaje] = useState('');
   const [showAlumnos, setShowAlumnos] = useState(true);
   const [showCurso, setShowCurso] = useState(true);
+
+  // Actas de docentes cargadas hacia este docente (él es el sujeto del acta)
+  const misActasDeDocente = useMemo(() => {
+    return (Array.isArray(actasDocente) ? actasDocente : []).filter(
+      (a) => Number(a.docenteId) === Number(docenteId),
+    );
+  }, [actasDocente, docenteId]);
 
   // Filtrar actas creadas por este docente
   const misActasAlumno = useMemo(() => 
@@ -356,18 +364,6 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
     });
   };
 
-  if (!cursoId) {
-    return (
-      <div className="card empty-state-card">
-        <p className="empty-state-message empty-state-centered">
-          <i className="fas fa-file-signature" style={{ fontSize: '2rem', marginBottom: '12px', color: 'var(--primary-color)' }} />
-          <br />
-          Seleccioná un curso en el Panel de Control superior para gestionar actas.
-        </p>
-      </div>
-    );
-  }
-
   const cursoObj = cursosObj.find((c) => c.id_curso === Number(cursoId));
   const cursoNombre = cursoObj?.nombre_curso || '';
 
@@ -375,7 +371,13 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
     <div className="card">
       <div className="card-header-flex">
         <h3><i className="fas fa-file-signature" aria-hidden="true" /> Actas</h3>
-        <button type="button" className="btn btn-primary" onClick={abrirNuevo}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={abrirNuevo}
+          disabled={!cursoId}
+          title={!cursoId ? 'Seleccioná un curso en el Panel de Control superior primero.' : undefined}
+        >
           <i className="fas fa-plus" aria-hidden="true" /> Nueva Acta
         </button>
       </div>
@@ -386,7 +388,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
         </div>
       )}
 
-      {showNewForm && (
+      {showNewForm && cursoId && (
         <FormActa
           formData={formData}
           setFormData={setFormData}
@@ -404,6 +406,60 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
         />
       )}
 
+      {/* Tus Actas: actas de docentes cargadas para este docente (M16) */}
+      <div className="card-header-flex mt-20">
+        <h4 className="preceptor-section-title"><i className="fas fa-user-tie" aria-hidden="true" /> Tus Actas</h4>
+        <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+          Actas de docentes donde vos sos el sujeto.
+        </span>
+      </div>
+      {misActasDeDocente.length === 0 ? (
+        <p className="text-muted" style={{ fontSize: '0.9rem' }}>
+          No tenés actas de docente cargadas.
+        </p>
+      ) : (
+        <div className="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Autor</th>
+                <th>Fecha</th>
+                <th>Descripción</th>
+                <th>Archivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {misActasDeDocente.map((acta) => (
+                <tr key={acta.id}>
+                  <td className="table-cell-strong">{acta.titulo}</td>
+                  <td>{acta.autor || '—'}</td>
+                  <td>{(acta.fecha || '').slice(0, 10)}</td>
+                  <td>{acta.descripcion}</td>
+                  <td>
+                    {acta.ruta_archivo ? (
+                      <a href={`${API_BASE}${acta.ruta_archivo}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
+                        <i className="fas fa-file-pdf" aria-hidden="true" /> Ver
+                      </a>
+                    ) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!cursoId ? (
+        <div className="empty-state-card mt-20">
+          <p className="empty-state-message empty-state-centered">
+            <i className="fas fa-graduation-cap" style={{ fontSize: '2rem', marginBottom: '12px', color: 'var(--primary-color)' }} />
+            <br />
+            Seleccioná un curso en el Panel de Control superior para gestionar actas.
+          </p>
+        </div>
+      ) : (
+        <>
       {/* Actas de Estudiantes */}
       <div className="card-header-flex mt-20">
         <h4 className="preceptor-section-title"><i className="fas fa-user-graduate" aria-hidden="true" /> Actas de Estudiantes</h4>
@@ -527,6 +583,8 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
 
       {editando && (

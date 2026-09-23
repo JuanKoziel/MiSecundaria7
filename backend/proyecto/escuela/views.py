@@ -35,6 +35,7 @@ from escuela.notifications import (
     SEGMENTO_UNIVERSAL,
     notificar,
     notificar_alumno,
+    notificar_estado_cuenta,
     segmento_de_rol_activo,
 )
 from escuela.permissions import (
@@ -240,6 +241,20 @@ def _preceptor_cursos_ids(request):
     return set(
         Curso.objects.filter(id_preceptor=preceptor).values_list('id_curso', flat=True),
     )
+
+
+def _es_preceptor_operativo(request, roles):
+    """True solo si el usuario opera realmente como preceptor de cursos.
+
+    Un usuario que además tiene roles de gestión (admin, director o jefe de
+    preceptores) NO queda acotado a sus cursos de preceptor: esos roles ven y
+    gestionan todo el ámbito.
+    """
+    if 'preceptor' not in roles:
+        return False
+    if set(roles) & {'admin', 'director', 'jefe_preceptores'}:
+        return False
+    return True
 
 
 def _alumno_curso(request):
@@ -566,15 +581,15 @@ def _bloque_afectado(cm, fecha, inicio, fin):
 
 
 def _validar_contexto_adelanto(curso, materia, docente, fecha_adelanto, hora_inicio, hora_fin):
-    """A25 — Valida que un adelanto de horas tenga un motivo y no choque.
+    """A25 — Valida el horario de destino de un adelanto de horas.
 
-    Reglas aplicadas:
-      1. La clase original (curso/materia según el horario del día de la
-         semana) debe estar afectada por una suspensión institucional o por
-         una falta (Ausente) registrada del docente. Si no, no hay motivo
-         para adelantarla y se bloquea.
-      2. El horario de destino no debe superponerse con otra clase del mismo
-         curso que siga activa (sin suspensión ni falta registrada).
+    Regla aplicada:
+      El horario de destino elegido (hora_inicio a hora_fin) no debe
+      superponerse con otra clase del mismo curso que siga activa ese día
+      (sin suspensión institucional ni falta registrada del docente). Si la
+      materia no tiene clase ese día o su clase no está suspendida, el
+      adelanto igualmente se permite: solo se bloquea cuando el destino
+      choca con una clase activa del curso.
 
     Devuelve un mensaje de error o None si el adelanto es válido.
     """
@@ -590,27 +605,16 @@ def _validar_contexto_adelanto(curso, materia, docente, fecha_adelanto, hora_ini
     if not isinstance(fecha_adelanto, datetime):
         fecha_adelanto = datetime.combine(fecha_adelanto, time(12, 0))
     dia = _dia_semana_es(fecha_adelanto)
-    bloques = _obtener_bloques_horario(cm.id_curso_materia, dia)
-    if not bloques:
-        return 'La materia no tiene clase programada ese día.'
+    fecha = fecha_adelanto.date()
 
-    afectada = any(_bloque_afectado(cm, fecha_adelanto.date(), ini, fin) for ini, fin in bloques)
-    if not afectada:
-        return 'La clase de esa materia no está suspendida ni tiene falta del docente registrada.'
-
-    ejemplo_destino = (hora_inicio, hora_fin)
     otras = CursoMateria.objects.filter(
         id_curso_id=curso.id_curso, estado=True,
     ).exclude(pk=cm.pk)
     for otra in otras:
         for ini, fin in _obtener_bloques_horario(otra.id_curso_materia, dia):
-            if ejemplo_destino[0] < fin and ini < ejemplo_destino[1]:
-                if not _bloque_afectado(otra, fecha_adelanto.date(), ini, fin):
-                    nombre = otra.id_materia.nombre_materia if otra.id_materia else 'otra materia'
-                    return (
-                        f'El horario elegido coincide con la clase de {nombre}, '
-                        'que no está suspendida ni tiene falta registrada.'
-                    )
+            if hora_inicio < fin and ini < hora_fin:
+                if not _bloque_afectado(otra, fecha, ini, fin):
+                    return 'No se pudo crear porque hay clases asignadas a esos módulos.'
     return None
 
 
@@ -1819,7 +1823,7 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
         roles = get_roles_for_usuario(username) if username else []
         usuario_obj = Usuario.objects.filter(usuario=username).first() if username else None
 
-        if 'preceptor' in roles and usuario_obj:
+        if _es_preceptor_operativo(self.request, roles) and usuario_obj:
             cursos_ids = _preceptor_cursos_ids(self.request)
             if not cursos_ids:
                 return qs.none()
@@ -1861,9 +1865,9 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'jefe_preceptores' in roles:
+        if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
             raise PermissionDenied('No tenés permiso para crear alumnos.')
-        if 'preceptor' in roles:
+        if _es_preceptor_operativo(self.request, roles):
             self._require_preceptor_course_access(serializer.validated_data.get('id_curso'))
         super().perform_create(serializer)
         alumno = serializer.instance
@@ -1877,9 +1881,9 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
     def perform_update(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'jefe_preceptores' in roles:
+        if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
             raise PermissionDenied('No tenés permiso para modificar alumnos.')
-        if 'preceptor' in roles:
+        if _es_preceptor_operativo(self.request, roles):
             instance = serializer.instance
             self._require_preceptor_course_access(
                 serializer.validated_data.get('id_curso', instance.id_curso_id if instance else None),
@@ -1889,9 +1893,9 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'jefe_preceptores' in roles:
+        if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
             raise PermissionDenied('No tenés permiso para eliminar alumnos.')
-        if 'preceptor' in roles:
+        if _es_preceptor_operativo(self.request, roles):
             self._require_preceptor_course_access(instance.id_curso_id)
         super().perform_destroy(instance)
 
@@ -1907,7 +1911,7 @@ class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
         qs = super().get_queryset()
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'preceptor' in roles:
+        if _es_preceptor_operativo(self.request, roles):
             cursos_ids = _preceptor_cursos_ids(self.request)
             if not cursos_ids:
                 return qs.none()
@@ -1931,7 +1935,7 @@ class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
     def _require_preceptor_access(self, docente):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'preceptor' not in roles:
+        if not _es_preceptor_operativo(self.request, roles):
             return
         cursos_ids = _preceptor_cursos_ids(self.request)
         if not cursos_ids:
@@ -1943,7 +1947,7 @@ class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'jefe_preceptores' in roles:
+        if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
             raise PermissionDenied('No tenés permiso para crear docentes.')
         super().perform_create(serializer)
         docente = serializer.instance
@@ -1962,7 +1966,7 @@ class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
 
-        if 'jefe_preceptores' in roles:
+        if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
             raise PermissionDenied('No tenés permiso para modificar docentes.')
         self._require_preceptor_access(serializer.instance)
         super().perform_update(serializer)
@@ -1970,7 +1974,7 @@ class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        if 'jefe_preceptores' in roles:
+        if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
             raise PermissionDenied('No tenés permiso para eliminar docentes.')
         self._require_preceptor_access(instance)
         super().perform_destroy(instance)
@@ -4637,6 +4641,14 @@ class ActaDocenteViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
     serializer_class = ActaDocenteSerializer
     permission_classes = [IsAuthenticated, PuedeGestionarActas]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Un docente solo ve las actas de docentes donde él es el sujeto (M16).
+        doc = docente_del_usuario(self.request)
+        if doc and not es_rol_amplio(self.request):
+            qs = qs.filter(id_docente=doc)
+        return qs
+
     def perform_create(self, serializer):
         roles = self._roles_usuario()
         if 'docente' in roles:
@@ -5410,6 +5422,25 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
         if ciclo_b:
             contexto_b = f'{contexto_b} ({ciclo_b})'
 
+        # B12 — Guard previo: si la clase de HOY todavía NO comenzó (la hora
+        # actual es anterior al inicio del primer bloque de hoy), se rechaza
+        # con un mensaje claro en lugar de abrir la ventana de 20 minutos.
+        # No tiene sentido notificar al docente ni abrir un plazo antes de
+        # que empiece su clase (ej. son las 10:24 pero la clase es de 12 a 13).
+        if bloques_hoy and hora_actual < _hhmm(bloques_hoy[0][0]):
+            return Response(
+                {
+                    'enviado': False,
+                    'detail': (
+                        f'Todavía no comenzó la clase de {contexto_b}: hoy '
+                        f'empieza a las {_hhmm(bloques_hoy[0][0])}. '
+                        'Tratá de nuevo cuando el docente ya esté en horario '
+                        'de clase; no se envió ninguna notificación.'
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if _en_horario():
             # Rama 1 — el docente sigue en horario de su clase: SOLO recordatorio,
             # sin abrir la ventana de 20 minutos ni activar temporizador.
@@ -6041,6 +6072,13 @@ class IntensificacionAcademicaViewSet(viewsets.ModelViewSet):
     queryset = IntensificacionAcademica.objects.select_related('id_historial', 'id_historial__id_alumno', 'id_historial__id_materia').all()
     serializer_class = IntensificacionAcademicaSerializer
     permission_classes = [IsAuthenticated, PuedeGestionarAmbitoDocente]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitidos = alumnos_permitidos(self.request)
+        if permitidos is not None:
+            qs = qs.filter(id_historial__id_alumno__in=permitidos)
+        return qs
 
     def _procesar(self, instancia, nota):
         """Aplica las reglas académicas: valida habilitación, deriva el estado
@@ -7215,16 +7253,7 @@ def _notificar_usuario_estado(usuario, estado_anterior):
         return
     if estado_anterior is None or estado_anterior == usuario.estado:
         return
-    if usuario.estado:
-        titulo = 'Cuenta habilitada'
-        mensaje = 'Tu cuenta de usuario ha sido habilitada. Ya puedes acceder al sistema.'
-    else:
-        titulo = 'Cuenta deshabilitada'
-        mensaje = 'Tu cuenta de usuario ha sido deshabilitada. Contacta a la administración para más información.'
-    notificar(id_usuario=usuario, id_alumno=None, titulo=titulo, mensaje=mensaje, nav={
-        'destino': 'perfil',
-        'params': {}
-    }, rol=SEGMENTO_UNIVERSAL)
+    notificar_estado_cuenta(usuario)
 
 
 def _notificar_evento_institucional(evento):

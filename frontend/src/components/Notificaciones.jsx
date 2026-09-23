@@ -51,7 +51,11 @@ function agruparPorDiaYTema(items) {
     for (const [titulo, notifs] of temasMap) {
       grupos.push({ titulo, items: notifs });
     }
-    grupos.sort((a, b) => b.items.length - a.items.length);
+    grupos.sort((a, b) => {
+      const ta = new Date(a.items[0].fecha).getTime() || 0;
+      const tb = new Date(b.items[0].fecha).getTime() || 0;
+      return tb - ta;
+    });
     resultado.push({ diaKey, grupos });
   }
   resultado.sort((a, b) => (b.diaKey > a.diaKey ? 1 : b.diaKey < a.diaKey ? -1 : 0));

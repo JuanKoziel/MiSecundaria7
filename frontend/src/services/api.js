@@ -775,6 +775,11 @@ export async function rendirMateriaAdeudada(id, payload) {
   return data;
 }
 
+export async function getRendicionesMateriasAdeudadas(params) {
+  const { data } = await api.get('/rendiciones-materias-adeudadas/', { params });
+  return data;
+}
+
 export async function getActividadesMateriasAdeudadas(params) {
   const { data } = await api.get('/actividades-materias-adeudadas/', { params });
   return data;

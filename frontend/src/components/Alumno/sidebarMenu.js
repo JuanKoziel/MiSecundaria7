@@ -8,7 +8,6 @@ export const menuItems = [
     children: [
       { id: 'calificaciones', label: 'Calificaciones', icon: 'fa-book-open' },
       { id: 'asistencias', label: 'Asistencias', icon: 'fa-user-check' },
-      { id: 'previas', label: 'Materias Adeudadas y Previas', icon: 'fa-exclamation-triangle' },
     ],
   },
 
@@ -17,7 +16,6 @@ export const menuItems = [
     label: 'Contenidos',
     icon: 'fa-folder-open',
     children: [
-      { id: 'actividades', label: 'Actividades', icon: 'fa-tasks' },
       { id: 'materias-adeudadas', label: 'Materias Adeudadas', icon: 'fa-book-medical' },
     ],
   },
