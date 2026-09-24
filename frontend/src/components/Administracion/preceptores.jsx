@@ -796,7 +796,7 @@ function Preceptores({ rol = 'preceptor' }) {
           onClose={() => setMostrarProgramar(false)}
         >
           <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
-            <p style={{ color: '#555', lineHeight: '1.5', marginTop: 0 }}>
+            <p style={{ color: '#cbd5e1', lineHeight: '1.5', marginTop: 0 }}>
               Definí fechas para que el usuario se deshabilite o habilite automáticamente.
               Las fechas se aplican según el horario del servidor.
             </p>

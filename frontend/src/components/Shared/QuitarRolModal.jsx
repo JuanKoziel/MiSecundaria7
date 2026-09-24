@@ -40,11 +40,11 @@ function QuitarRolModal({ titulo, subtitulo, personas, onClose, onQuitar, quitan
     <FormModal title={titulo} onClose={onClose}>
       <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
         {subtitulo && (
-          <p className="m-0" style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>
+          <p className="m-0" style={{ fontSize: '0.9rem', color: '#cbd5e1' }}>
             {subtitulo}
           </p>
         )}
-        <p className="m-0" style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>
+        <p className="m-0" style={{ fontSize: '0.9rem', color: '#cbd5e1' }}>
           Solo se muestran personas con al menos dos roles asignados: se conservará al menos un rol.
         </p>
         {mensaje && (

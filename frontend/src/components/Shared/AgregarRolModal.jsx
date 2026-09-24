@@ -269,7 +269,7 @@ function AgregarRolModal({
   const renderPaso1 = () => (
     <>
       {subtitulo && (
-        <p className="m-0" style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>
+        <p className="m-0" style={{ fontSize: '0.9rem', color: '#cbd5e1' }}>
           {subtitulo}
         </p>
       )}
@@ -551,10 +551,10 @@ function AgregarRolModal({
 
   const renderPaso2 = () => (
     <>
-      <p className="m-0" style={{ fontSize: '0.9rem', color: 'var(--text-light)', marginBottom: '8px' }}>
+      <p className="m-0" style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '8px' }}>
         Persona seleccionada: <strong>{personaSeleccionada?.apellido}, {personaSeleccionada?.nombre}</strong>
       </p>
-      <p className="m-0" style={{ fontSize: '0.9rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+      <p className="m-0" style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '12px' }}>
         {roleConfig.stepLabel} (mínimo {roleConfig.minSelection}{' '}
         {ASSIGNMENT_LABELS[roleConfig.assignmentType] || 'elemento(s)'})
       </p>
@@ -564,7 +564,7 @@ function AgregarRolModal({
         </p>
       )}
       {cargandoAsignaciones ? (
-        <p className="m-0" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-light)' }}>
+        <p className="m-0" style={{ textAlign: 'center', padding: '20px', color: '#cbd5e1' }}>
           Cargando opciones disponibles...
         </p>
       ) : (
@@ -580,7 +580,7 @@ function AgregarRolModal({
       )}
       {(asignaciones.length > 0 || roleConfig.assignmentType === 'curso_materia') && (
         <>
-          <p className="m-0" style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+          <p className="m-0" style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
             Seleccionadas: <strong>{asignaciones.length}</strong>
           </p>
           {renderListaAsignaciones()}
@@ -591,10 +591,10 @@ function AgregarRolModal({
 
   const renderPaso3 = () => (
     <>
-      <p className="m-0" style={{ fontSize: '0.9rem', color: 'var(--text-light)', marginBottom: '8px' }}>
+      <p className="m-0" style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '8px' }}>
         Persona seleccionada: <strong>{personaSeleccionada?.apellido}, {personaSeleccionada?.nombre}</strong>
       </p>
-      <p className="m-0" style={{ fontSize: '0.9rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+      <p className="m-0" style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '12px' }}>
         Se asignará el rol <strong>{roleConfig.label}</strong> a esta persona.
       </p>
       {mensaje && (

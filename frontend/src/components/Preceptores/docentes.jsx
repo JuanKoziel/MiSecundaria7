@@ -594,7 +594,7 @@ const abrirCrear = () => {
                 !readOnly && programando === d.id && (
                   <tr key={d.id + '-prog'}>
                     <td colSpan={7} className="p-0">
-                      <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
+                      <div className="inline-form-container">
                         <div className="preceptor-form-row preceptor-form-row--two">
                           <div className="form-group-filter">
                             <label>Fecha deshabilitación programada</label>

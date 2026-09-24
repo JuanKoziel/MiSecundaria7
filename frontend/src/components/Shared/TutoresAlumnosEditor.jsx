@@ -87,7 +87,7 @@ function TutoresAlumnosEditor({
           })}
         </div>
       )}
-      <p className="m-0" style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+      <p className="m-0" style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
         Asignados: <strong>{alumnos_ids.length}</strong> estudiante(s)
       </p>
     </div>

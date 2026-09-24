@@ -80,7 +80,7 @@ function FormSuplencia({ formData, setFormData, editing, guardando, onSubmit, on
               ))}
             </select>
             {cursoSeleccionado && (
-              <small style={{ display: 'block', color: '#666', marginTop: '4px' }}>
+              <small style={{ display: 'block', color: '#cbd5e1', marginTop: '4px' }}>
                 Docente titular actual: {cursoSeleccionado.docente_nombre || '—'}
               </small>
             )}

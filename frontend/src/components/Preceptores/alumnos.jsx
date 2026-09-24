@@ -624,7 +624,7 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
                 !readOnly && programando === a.id && (
                   <tr key={a.id + '-prog'}>
                     <td colSpan={6} style={{ padding: 0 }}>
-                      <div style={{ padding: '16px', background: 'var(--sidebar-hover)', borderRadius: 'var(--radius)', margin: '8px 0' }}>
+                      <div className="inline-form-container">
                         <div className="preceptor-form-row preceptor-form-row--two">
                           <div className="form-group-filter">
                             <label>Fecha deshabilitación programada</label>

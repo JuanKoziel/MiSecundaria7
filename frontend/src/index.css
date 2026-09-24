@@ -6281,3 +6281,47 @@ tr.date-group-header td {
         margin-left: 0 !important;
     }
 }
+
+/* ==========================================================================
+   LEGIBILIDAD GENERAL — Texto claro sobre fondos navy institucionales
+   Corrige texto oscuro sobre azul en modales y formularios de todos los roles.
+   ========================================================================== */
+.standard-modal,
+.confirm-modal,
+.comunicados-form,
+.inline-form-container,
+.inline-form-container--light,
+.administradores-inline-form,
+.proyecto-form,
+.acta-form,
+.loading-screen--dark {
+    color: #e0e6ed;
+}
+
+/* Párrafos y estados secundarios dentro de modales/formularios navy */
+.standard-modal-body .empty-state-message,
+.inline-form-container .empty-state-message,
+.administradores-inline-form .empty-state-message,
+.comunicados-form .empty-state-message,
+.standard-modal-body .text-muted,
+.standard-modal-body .icon-muted,
+.standard-modal-body .table-label,
+.standard-modal-body .card-description,
+.standard-modal-body .preceptor-modo-hint {
+    color: #cbd5e1;
+}
+
+/* Mensaje de error con clase .form-error-message dentro de modales navy */
+.standard-modal-body .form-error-message {
+    color: #ff9fa3;
+}
+
+/* Opciones tipo "tarjeta" (preceptor-curso-option) dentro de modales navy */
+.standard-modal-body .preceptor-curso-option {
+    background: #ffffff;
+    color: #333;
+}
+.standard-modal-body .preceptor-curso-option--selected {
+    background: #fff3e6;
+    color: #7a3b00;
+}
