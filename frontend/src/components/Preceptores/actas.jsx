@@ -24,6 +24,7 @@ import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import FormModal from '../../components/Shared/FormModal';
 import FilePicker from '../../components/Shared/FilePicker';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const API_BASE = BASE_URL;
 
@@ -238,11 +239,9 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
     }
   });
 
-  const actasDelCurso = onlyCursos
-    ? actasCurso.filter(
-        (a) => a.curso === curso && !actasAlumno.some((aa) => aa.actaId === a.actaId),
-      )
-    : actasCurso.filter((a) => a.curso === curso);
+  const actasDelCurso = actasCurso.filter(
+    (a) => a.curso === curso && !actasAlumno.some((aa) => aa.actaId === a.actaId),
+  );
 
   const limpiar = () => {
     setShowNewForm(false);
@@ -315,9 +314,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
       limpiar();
       await refreshData();
     } catch (err) {
-      const data = err.response?.data;
-      const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }
@@ -375,9 +372,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
       limpiar();
       await refreshData();
     } catch (err) {
-      const data = err.response?.data;
-      const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }
@@ -395,9 +390,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
           toast.success('Acta eliminada correctamente.');
           await refreshData();
         } catch (err) {
-          const data = err.response?.data;
-          const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-          toast.error(msg);
+          toast.error(mensajeErrorAmigable(err));
         }
       },
     });

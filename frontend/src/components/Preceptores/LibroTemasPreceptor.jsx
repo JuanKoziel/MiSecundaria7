@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { getLibroTemas, BASE_URL } from '../../services/api';
+import { useData } from '../../context/DataContext';
 import EmptyFiltros from './EmptyFiltros';
 import { filtrosCompletos } from './preceptorUtils';
 import LoadingSpinner from '../Shared/LoadingSpinner';
@@ -14,34 +15,56 @@ function formatFecha(value) {
 }
 
 function LibroTemasPreceptor({ anioLectivo, curso }) {
+  const { cursosObj, materiasPorCurso } = useData();
   const [registros, setRegistros] = useState([]);
+  const [materiaSel, setMateriaSel] = useState('');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
 
   const filtrosOk = filtrosCompletos(anioLectivo, curso);
 
+  const cursoId = useMemo(
+    () =>
+      curso
+        ? (cursosObj || []).find((c) => c.nombre_curso === curso)?.id_curso || null
+        : null,
+    [curso, cursosObj],
+  );
+
+  const materiasDelCurso = useMemo(
+    () => (curso ? materiasPorCurso?.[curso] || [] : []),
+    [curso, materiasPorCurso],
+  );
+
   useEffect(() => {
-    if (!filtrosOk) {
+    setMateriaSel('');
+  }, [curso]);
+
+  useEffect(() => {
+    if (!filtrosOk || !cursoId) {
       setRegistros([]);
       return;
     }
     setCargando(true);
     setError('');
-    getLibroTemas({ curso })
+    getLibroTemas({ curso: cursoId })
       .then((data) => {
         setRegistros(Array.isArray(data) ? data : data.results || []);
       })
       .catch(() => setError('No se pudieron cargar los libros de temas.'))
       .finally(() => setCargando(false));
-  }, [filtrosOk, curso]);
+  }, [filtrosOk, cursoId]);
 
-  const ordenados = useMemo(
-    () =>
-      [...registros].sort((a, b) =>
-        String(b.fecha || '').localeCompare(String(a.fecha || '')),
-      ),
-    [registros],
-  );
+  const visibles = useMemo(() => {
+    const base = materiaSel
+      ? registros.filter((r) => r.materia_nombre === materiaSel)
+      : registros;
+    return [...base].sort((a, b) => {
+      const porFecha = String(b.fecha || '').localeCompare(String(a.fecha || ''));
+      if (porFecha !== 0) return porFecha;
+      return String(b.hora_inicio || '').localeCompare(String(a.hora_inicio || ''));
+    });
+  }, [registros, materiaSel]);
 
   if (!filtrosOk) {
     return (
@@ -63,8 +86,19 @@ function LibroTemasPreceptor({ anioLectivo, curso }) {
 
       <p className="upload-hint m-0 mb-12">
         <i className="fas fa-info-circle" aria-hidden="true" /> Libros de temas cargados por los
-        docentes del curso ({curso}). Contenido de solo lectura.
+        docentes del curso ({curso}). Elegí una materia para ver todos sus libros; el más reciente
+        aparece primero.
       </p>
+
+      <div className="form-group-filter" style={{ maxWidth: '320px', marginBottom: '12px' }}>
+        <label>Materia</label>
+        <select value={materiaSel} onChange={(e) => setMateriaSel(e.target.value)}>
+          <option value="">Todas las materias</option>
+          {materiasDelCurso.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+      </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -84,14 +118,16 @@ function LibroTemasPreceptor({ anioLectivo, curso }) {
               </tr>
             </thead>
             <tbody>
-              {ordenados.length === 0 ? (
+              {visibles.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="empty-state-message">
-                    No hay libros de temas cargados para este curso.
+                    {materiaSel
+                      ? `No hay libros de temas cargados para ${materiaSel}.`
+                      : 'No hay libros de temas cargados para este curso.'}
                   </td>
                 </tr>
               ) : (
-                ordenados.map((reg) => (
+                visibles.map((reg) => (
                   <Fragment key={reg.id_libro_tema}>
                     <tr>
                       <td>{formatFecha(reg.fecha)}</td>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getHistorialCambios, getTiposAccion, getUsuarios, getRoles } from '../../services/api';
 import LoadingSpinner from '../Shared/LoadingSpinner';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const TABLAS = [
   { value: 'alumnos', label: 'Estudiantes' },
@@ -53,7 +54,7 @@ function Historial({ ocultarRegistro = false }) {
       const data = await getHistorialCambios(params);
       setRegistros(data);
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || 'Error al cargar el historial');
+      setError(mensajeErrorAmigable(err, 'Error al cargar el historial'));
       setRegistros([]);
     } finally {
       setCargando(false);

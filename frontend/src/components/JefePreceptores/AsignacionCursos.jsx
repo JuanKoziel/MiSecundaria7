@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import { getPreceptores, updateCurso } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 function normalize(str) {
   if (!str) return '';
@@ -10,13 +11,7 @@ function normalize(str) {
 }
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.entries(data)
-      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
-      .join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function AsignacionCursos() {
@@ -118,6 +113,7 @@ function AsignacionCursos() {
       await updateCurso(cursoId, { id_preceptor: selectedPreceptorId });
       toast.success('Curso asignado correctamente.');
       await refreshData();
+      await fetchPreceptores();
     } catch (err) {
       toast.error(`Error al asignar curso: ${mensajeError(err)}`);
     } finally {
@@ -135,6 +131,7 @@ function AsignacionCursos() {
           await updateCurso(cursoId, { id_preceptor: null });
           toast.success('Curso quitado correctamente.');
           await refreshData();
+          await fetchPreceptores();
         } catch (err) {
           toast.error(`Error al quitar curso: ${mensajeError(err)}`);
         } finally {

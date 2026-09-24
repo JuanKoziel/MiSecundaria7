@@ -230,6 +230,22 @@ class PuedeGestionarAmbitoDocente(permissions.BasePermission):
         return _puede_escribir(request, ('admin', 'director', 'docente'))
 
 
+class PuedeGestionarCursoMateria(permissions.BasePermission):
+    """Escritura de asignaciones curso-materia para admin/director/preceptor.
+
+    Los preceptores pueden asignar materias a docentes de sus propios cursos
+    (los usa el alta de docente). El alcance fino (curso a cargo del preceptor)
+    se resuelve en los `perform_*` del viewset, igual que en horarios.
+    """
+
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return request.user.is_authenticated
+        username = request.user.username if request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        return any(rol in roles for rol in ('admin', 'director', 'preceptor'))
+
+
 class PuedePublicarComunicados(permissions.BasePermission):
     """Creación/gestión de comunicados: admin/director/jefe_preceptores.
 

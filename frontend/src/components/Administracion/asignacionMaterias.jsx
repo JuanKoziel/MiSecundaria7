@@ -4,15 +4,12 @@ import { useToast } from '../../context/ToastContext';
 import { getDocentes, createCursoMateria, updateCursoMateria } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const formVacio = { id_materia: '', id_docente: '' };
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.values(data).flat().join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function AsignacionMaterias() {

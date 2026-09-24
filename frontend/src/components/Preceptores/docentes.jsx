@@ -9,8 +9,10 @@ import AsignacionesEditor from '../Shared/AsignacionesEditor';
 import FormModal from '../../components/Shared/FormModal';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
+import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const formVacio = {
   usuario_nombre: '',
@@ -48,11 +50,7 @@ function normalize(str) {
 }
 
 function mensajeError(err) {
-  const data = err?.response?.data;
-  if (data) {
-    return data.error || data.detail || data.message || (typeof data === 'string' ? data : JSON.stringify(data));
-  }
-  return err?.message || 'Error desconocido';
+  return mensajeErrorAmigable(err);
 }
 
 function estadoLabel(estado) {
@@ -218,12 +216,29 @@ const abrirCrear = () => {
           fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
           fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
         };
+        // Validar las asignaciones ANTES de crear el docente: si alguna
+        // curso-materia no se puede resolver, no creamos un docente sin
+        // asignaciones (que el preceptor no vería en su lista).
+        const asignacionesResueltas = asignaciones.map((asig) => ({
+          asig,
+          ...resolveIds(asig),
+        }));
+        const sinResolver = asignacionesResueltas.filter(
+          (r) => !r.id_curso || !r.id_materia,
+        );
+        if (sinResolver.length > 0) {
+          const detalle = sinResolver
+            .map((r) => `${r.asig.materia || 'materia'} - ${r.asig.curso || 'curso'} (${r.asig.anioLectivo || 'año'})`)
+            .join('; ');
+          toast.warning(`No se pudieron resolver las asignaciones: ${detalle}. Revisá el curso/materia seleccionados.`);
+          setGuardando(false);
+          return;
+        }
         const docente = await createDocente(docentePayload);
         const docenteId = docente.id_docente;
         let asigOk = 0;
         const errores = [];
-        for (const asig of asignaciones) {
-          const { id_curso, id_materia } = resolveIds(asig);
+        for (const { asig, id_curso, id_materia } of asignacionesResueltas) {
           if (!id_curso || !id_materia) {
             errores.push(`No se encontró curso/materia para ${asig.materia} - ${asig.curso} (${asig.anioLectivo})`);
             continue;
@@ -493,8 +508,10 @@ const abrirCrear = () => {
   };
 
   const renderTablaVista = () => (
-    <div className="table-responsive">
-      <table>
+    <>
+      {!readOnly && <AccionesLeyenda acciones={['editar', 'programar', 'habilitar', 'deshabilitar', 'eliminar']} />}
+      <div className="table-responsive">
+        <table>
         <thead>
           <tr>
             <th>DNI</th>
@@ -617,6 +634,7 @@ const abrirCrear = () => {
         </tbody>
       </table>
     </div>
+    </>
   );
 
   const renderFormCrear = () => (

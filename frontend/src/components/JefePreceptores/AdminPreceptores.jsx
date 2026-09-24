@@ -19,6 +19,8 @@ import { getCursos } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../Shared/LoadingScreen';
+import AccionesLeyenda from '../Shared/AccionesLeyenda';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const formVacio = {
   usuario_nombre: '',
@@ -73,13 +75,7 @@ function proximaAccion(preceptor) {
 }
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.entries(data)
-      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
-      .join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function normalizarCursosIds(cursosAsignados) {
@@ -633,6 +629,8 @@ function AdminPreceptores() {
           className="search-input"
         />
       </div>
+
+      <AccionesLeyenda acciones={['editar', 'habilitar', 'deshabilitar', 'eliminar']} />
 
       <div className="table-responsive">
         <table>

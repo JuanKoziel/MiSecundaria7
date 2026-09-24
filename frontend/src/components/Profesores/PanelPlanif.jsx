@@ -4,17 +4,14 @@ import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const API_BASE = BASE_URL;
 
 const formVacio = { contenido: '', objetivos: '', salidas: '', fundamentacion: '' };
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.values(data).flat().join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function FormProyecto({ formData, setFormData, editing, guardando, onSubmit, onCancel }) {

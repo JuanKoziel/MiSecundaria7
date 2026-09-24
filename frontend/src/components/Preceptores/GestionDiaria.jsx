@@ -5,6 +5,7 @@ import EmptyFiltros from './EmptyFiltros';
 import { filtrosCompletos } from './preceptorUtils';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -16,13 +17,7 @@ function formatFecha(value) {
 }
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.entries(data)
-      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
-      .join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function ultimaFecha(items, keyF = 'fecha') {
@@ -163,8 +158,21 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
         toast.info(resultado.detail || 'No se pudo enviar la notificación.');
         return;
       }
-      toast.success('Notificación enviada: el docente tiene 20 minutos para cargar.');
-      setModoCargaUnica({ id_curso_materia: cmId, inicio: new Date() });
+      if (resultado && resultado.recordatorio) {
+        // Rama 1 (B12): el docente sigue en horario de clase; solo se envía un
+        // recordatorio, sin ventana de 20 minutos ni temporizador.
+        setModoCargaUnica(null);
+        toast.success(resultado.detail || 'Recordatorio enviado: el docente sigue en horario. No se abrió un plazo de 20 minutos.');
+      } else if (resultado && resultado.destinatarios === 'preceptores_curso') {
+        // Rama 2 (B12): terminó el horario sin cargar; se notificó a los
+        // preceptores del curso para que revisen el panel diario.
+        setModoCargaUnica(null);
+        toast.success(resultado.detail || 'El docente no cargó en su horario: se notificó a los preceptores del curso.');
+      } else {
+        // Flujo original: ventana de carga única de 20 minutos para el docente.
+        setModoCargaUnica({ id_curso_materia: cmId, inicio: new Date() });
+        toast.success('Notificación enviada: el docente tiene 20 minutos para cargar.');
+      }
     } catch (err) {
       toast.error(mensajeError(err));
     } finally {

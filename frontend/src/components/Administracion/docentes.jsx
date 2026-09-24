@@ -7,6 +7,7 @@ import { deleteMiDdjjDocente, verificarPlanificacion, verificarDdjj, createDocen
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FormModal from '../../components/Shared/FormModal';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const API_BASE = BASE_URL;
 const PREVIEWABLE_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp']);
@@ -237,7 +238,7 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
                 </td>
                 <td>
                   {planificacion?.ruta_archivo ? (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                    <div style={{ display: 'grid', gap: '6px', justifyItems: 'start' }}>
                       <a
                         href={`${API_BASE}${planificacion.ruta_archivo}`}
                         target="_blank"
@@ -246,20 +247,22 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
                       >
                         <i className="fas fa-folder-open" aria-hidden="true" /> Ver proyecto
                       </a>
-                      <span className={`badge ${esVerificado ? 'badge-success' : 'badge-warning'}`}>
-                        {esVerificado ? 'Verificado' : planificacion?.estado || 'Borrador'}
-                      </span>
-                      {!esVerificado && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary table-download-btn"
-                          onClick={() => handleVerificar(planificacion)}
-                          disabled={verificandoId === planificacion.id_planificacion}
-                        >
-                          <i className="fas fa-check" aria-hidden="true" />{' '}
-                          {verificandoId === planificacion.id_planificacion ? 'Verificando...' : 'Marcar como verificado'}
-                        </button>
-                      )}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                        <span className={`badge ${esVerificado ? 'badge-success' : 'badge-warning'}`}>
+                          {esVerificado ? 'Verificado' : planificacion?.estado || 'Borrador'}
+                        </span>
+                        {!esVerificado && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary table-download-btn"
+                            onClick={() => handleVerificar(planificacion)}
+                            disabled={verificandoId === planificacion.id_planificacion}
+                          >
+                            <i className="fas fa-check" aria-hidden="true" />{' '}
+                            {verificandoId === planificacion.id_planificacion ? 'Verificando...' : 'Marcar como verificado'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <button type="button" className="btn btn-danger table-download-btn" disabled>
@@ -290,13 +293,7 @@ function toInputDateTime(value) {
 }
 
 function formateaMensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.entries(data)
-      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
-      .join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 const formVacio = {
@@ -542,101 +539,97 @@ function Docentes() {
                       <td>{d.correo || '—'}</td>
                       <td>{d.telefono || '—'}</td>
                       <td className="acciones-cell">
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                            gap: '8px',
-                            width: '100%',
-                          }}
-                        >
-                          <button
-                            type="button"
-                            className="btn btn-success table-download-btn"
-                            onClick={() => {
-                              setActasAbierto(verActas ? null : d.id);
-                              setCursosAbierto(null);
-                            }}
-                          >
-                            <i
-                              className={`fas fa-chevron-${verActas ? 'up' : 'down'}`}
-                              aria-hidden="true"
-                            />{' '}
-                            Ver Actas
-                          </button>
+                        <div style={{ display: 'grid', gap: '6px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
+                            <button
+                              type="button"
+                              className="btn btn-success table-download-btn"
+                              onClick={() => {
+                                setActasAbierto(verActas ? null : d.id);
+                                setCursosAbierto(null);
+                              }}
+                            >
+                              <i
+                                className={`fas fa-chevron-${verActas ? 'up' : 'down'}`}
+                                aria-hidden="true"
+                              />{' '}
+                              Ver Actas
+                            </button>
 
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${tieneDdjj ? 'btn-success' : 'btn-danger'}`}
-                            onClick={() => setPreviewDocente(d)}
-                            disabled={!tieneDdjj}
-                            title={tieneDdjj ? `Ver ${archivoNombre}` : 'No hay DDJJ cargada'}
-                          >
-                            <i className="fas fa-file-alt" aria-hidden="true" /> DDJJ
-                          </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary table-download-btn"
+                              onClick={() => {
+                                setCursosAbierto(verCursos ? null : d.id);
+                                setActasAbierto(null);
+                              }}
+                            >
+                              <i
+                                className={`fas fa-chevron-${verCursos ? 'up' : 'down'}`}
+                                aria-hidden="true"
+                              />{' '}
+                              Ver Cursos y Materias
+                            </button>
+                          </div>
 
-                          {tieneDdjj && d.ddjj_verificada && (
-                            <span className="badge badge-success" title="DDJJ verificada">
-                              <i className="fas fa-check-circle" aria-hidden="true" /> Verificada
-                            </span>
+                          {tieneDdjj && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-warning"
+                                onClick={() => setPreviewDocente(d)}
+                                title={`Ver ${archivoNombre}`}
+                              >
+                                <i className="fas fa-file-alt" aria-hidden="true" /> Ver DDJJ
+                              </button>
+                              {d.ddjj_verificada ? (
+                                <span className="badge badge-success" title="DDJJ verificada" style={{ alignSelf: 'center', justifyContent: 'center' }}>
+                                  <i className="fas fa-check-circle" aria-hidden="true" /> Verificada
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={() => handleVerificarDdjj(d)}
+                                  title="Marcar la DDJJ como verificada"
+                                >
+                                  <i className="fas fa-check" aria-hidden="true" /> Marcar verificado
+                                </button>
+                              )}
+                            </div>
                           )}
 
-                          {tieneDdjj && !d.ddjj_verificada && (
+                          <div style={{ display: 'grid', gridTemplateColumns: d.usuario_estado !== null && d.usuario_estado !== undefined ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
                             <button
                               type="button"
                               className="btn btn-sm btn-secondary"
-                              onClick={() => handleVerificarDdjj(d)}
-                              title="Marcar la DDJJ como verificada"
+                              onClick={() => abrirEditarDocente(d)}
+                              title="Editar"
                             >
-                              <i className="fas fa-check" aria-hidden="true" /> Marcar verificado
+                              <i className="fas fa-edit" aria-hidden="true" />
                             </button>
-                          )}
 
-                          <button
-                            type="button"
-                            className="btn btn-secondary table-download-btn"
-                            style={{ gridColumn: '1 / -1', width: '100%' }}
-                            onClick={() => {
-                              setCursosAbierto(verCursos ? null : d.id);
-                              setActasAbierto(null);
-                            }}
-                          >
-                            <i
-                              className={`fas fa-chevron-${verCursos ? 'up' : 'down'}`}
-                              aria-hidden="true"
-                            />{' '}
-                            Ver Cursos y Materias
-                          </button>
+                            {d.usuario_estado !== null && d.usuario_estado !== undefined && (
+                              <button
+                                type="button"
+                                className={`btn btn-sm ${d.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
+                                onClick={() => handleToggleEstado(d)}
+                                title={d.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
+                                disabled={guardandoDocente}
+                              >
+                                <i className={`fas ${d.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />
+                              </button>
+                            )}
 
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => abrirEditarDocente(d)}
-                            title="Editar"
-                          >
-                            <i className="fas fa-edit" aria-hidden="true" />
-                          </button>
-
-                          {d.usuario_estado !== null && d.usuario_estado !== undefined && (
                             <button
                               type="button"
-                              className={`btn btn-sm ${d.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
-                              onClick={() => handleToggleEstado(d)}
-                              title={d.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
-                              disabled={guardandoDocente}
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleEliminarDocente(d)}
+                              title="Eliminar"
                             >
-                              <i className={`fas ${d.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />
+                              <i className="fas fa-trash" aria-hidden="true" />
                             </button>
-                          )}
-
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-danger"
-                            onClick={() => handleEliminarDocente(d)}
-                            title="Eliminar"
-                          >
-                            <i className="fas fa-trash" aria-hidden="true" />
-                          </button>
+                          </div>
                         </div>
                       </td>
                     </tr>

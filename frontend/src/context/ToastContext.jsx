@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 const ToastContext = createContext(null);
 
 const DURACION_DEFECTO = 3000;
+const DURACION_ERROR = 8000;
 const DURACION_SALIDA = 250;
 
 const ICONOS = {
@@ -71,10 +72,10 @@ export function ToastProvider({ children }) {
 
   const toast = useMemo(
     () => ({
-      success: (mensaje, duracion) => mostrar('success', mensaje, duracion),
-      error: (mensaje, duracion) => mostrar('error', mensaje, duracion),
-      warning: (mensaje, duracion) => mostrar('warning', mensaje, duracion),
-      info: (mensaje, duracion) => mostrar('info', mensaje, duracion),
+      success: (mensaje, duracion) => mostrar('success', mensaje, duracion || DURACION_DEFECTO),
+      error: (mensaje, duracion) => mostrar('error', mensaje, duracion || DURACION_ERROR),
+      warning: (mensaje, duracion) => mostrar('warning', mensaje, duracion || DURACION_ERROR),
+      info: (mensaje, duracion) => mostrar('info', mensaje, duracion || DURACION_DEFECTO),
       cerrar,
     }),
     [mostrar, cerrar],

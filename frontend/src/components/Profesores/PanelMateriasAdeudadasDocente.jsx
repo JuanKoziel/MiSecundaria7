@@ -10,13 +10,10 @@ import FormModal from '../Shared/FormModal';
 import FilePicker from '../Shared/FilePicker';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.values(data).flat().join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function PanelMateriasAdeudadasDocente({ cursoMateriaId, misAsignaciones }) {

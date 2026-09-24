@@ -8,7 +8,6 @@ import {
   getMaterias,
   getCursoMateria,
   getCalificaciones,
-  getAsistencias,
   getActas,
   getActaAlumno,
   getActaCurso,
@@ -193,7 +192,13 @@ export function DataProvider({ children }) {
           return [];
         }),
         getCalificaciones().catch(() => []),
-        getAsistencias().catch(() => []),
+        // La tabla completa de asistencias NO se descarga al inicio: es la
+        // petición más pesada (toda la tabla, sin paginación ni filtros) y
+        // ningún componente la consume desde el contexto global (los paneles
+        // de asistencia del preceptor cargan por curso/fecha/materia con sus
+        // propios endpoints). Se deja la posición para no alterar el "map"
+        // posicional del Promise.all.
+        Promise.resolve([]),
         getActas().catch(() => []),
         getActaAlumno().catch(() => []),
         getActaCurso().catch(() => []),
@@ -522,7 +527,9 @@ export function DataProvider({ children }) {
       };
       });
 
-      const actasCurso = actaCursoArr.map((ac) => {
+      const actasCurso = actaCursoArr
+        .filter((ac) => actasArr.some((a) => a.id === ac.id_acta))
+        .map((ac) => {
         const acta = actasArr.find((a) => a.id === ac.id_acta);
         const cursoObj = cursosObjArr.find((c) => c.id_curso === ac.id_curso);
         return {
@@ -628,8 +635,14 @@ export function DataProvider({ children }) {
 
       const planificaciones = (Array.isArray(planificacionesRaw) ? planificacionesRaw : []).map((p) => ({
         id: p.id_planificacion,
+        id_planificacion: p.id_planificacion,
         id_docente: p.id_docente,
         id_curso_materia: p.id_curso_materia,
+        estado: p.estado || 'Borrador',
+        contenido: p.contenido || '',
+        objetivos: p.objetivos || '',
+        salidas: p.salidas || '',
+        fundamentacion: p.fundamentacion || '',
         ruta_archivo: p.ruta_archivo || null,
         fecha_subida: p.fecha_subida || null,
       }));

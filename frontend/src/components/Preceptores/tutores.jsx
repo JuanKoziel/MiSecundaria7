@@ -6,9 +6,11 @@ import FormModal from '../../components/Shared/FormModal';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
 import TutoresAlumnosEditor from '../../components/Shared/TutoresAlumnosEditor';
+import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
 import { cursosPorAnio, alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const TIPOS_TUTOR = ['Padre', 'Madre', 'Tutor'];
 
@@ -73,13 +75,7 @@ function proximaAccion(t) {
 }
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.entries(data)
-      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
-      .join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function nombreTutor(t) {
@@ -319,6 +315,7 @@ function Tutores({ readOnly = false }) {
       toast.success('Rol "Tutor" quitado correctamente.');
       setMostrarQuitarRol(false);
       await refreshData();
+      await cargarPersonasSinRol();
     } catch (err) {
       toast.error(mensajeError(err));
     } finally {
@@ -404,8 +401,10 @@ function Tutores({ readOnly = false }) {
   };
 
   const renderTablaVista = () => (
-    <div className="table-responsive">
-      <table>
+    <>
+      {!readOnly && <AccionesLeyenda acciones={['editar', 'programar', 'habilitar', 'deshabilitar', 'eliminar']} />}
+      <div className="table-responsive">
+        <table>
         <thead>
           <tr>
             <th>Nombre y Apellido</th>
@@ -541,6 +540,7 @@ function Tutores({ readOnly = false }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 
   const tituloModal = modo === 'crear' ? 'Crear tutor' : 'Modificar tutor';

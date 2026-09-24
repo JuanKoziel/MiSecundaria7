@@ -7,6 +7,7 @@ import { createUsuario, deleteUsuario, getUsuarios, updateUsuario, getDocentes, 
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingScreen from '../Shared/LoadingScreen';
+import AccionesLeyenda from '../Shared/AccionesLeyenda';
 
 function toInputDateTime(value) {
   if (!value) return '';
@@ -547,11 +548,7 @@ const handleSubmit = async (e) => {
         </div>
       </div>
 
-      <div className="empty-state-message flex-gap-16--wrap mb-12">
-        <span><i className="fas fa-edit" aria-hidden="true" /> Editar</span>
-        <span><i className="fas fa-toggle-on" aria-hidden="true" /> Habilitar / Deshabilitar</span>
-        <span><i className="fas fa-trash" aria-hidden="true" /> Eliminar</span>
-      </div>
+      <AccionesLeyenda acciones={['editar', 'habilitar', 'deshabilitar', 'eliminar']} />
 
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}

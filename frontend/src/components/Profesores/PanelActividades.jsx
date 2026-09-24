@@ -10,6 +10,7 @@ import {
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 import PanelMateriasAdeudadasDocente from './PanelMateriasAdeudadasDocente';
 
@@ -42,21 +43,7 @@ function formatDateTime(value) {
 }
 
 function getErrorMessage(err) {
-  const data = err?.response?.data;
-  if (!data) return err?.message || 'No se pudo completar la operación.';
-  if (typeof data === 'string') return data;
-  if (data.error) return data.error;
-  if (data.detail) return data.detail;
-  if (typeof data === 'object') {
-    return Object.entries(data)
-      .map(([key, value]) => {
-        if (Array.isArray(value)) return `${key}: ${value.join(' ')}`;
-        if (value && typeof value === 'object') return `${key}: ${JSON.stringify(value)}`;
-        return `${key}: ${String(value)}`;
-      })
-      .join(' | ');
-  }
-  return 'No se pudo completar la operación.';
+  return mensajeErrorAmigable(err);
 }
 
 function ArchivoRow({ archivo, onVer, onDescargar, onEliminar, editable = false }) {

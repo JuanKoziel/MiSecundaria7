@@ -18,6 +18,7 @@ import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FormModal from '../Shared/FormModal';
 import FilePicker from '../Shared/FilePicker';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const API_BASE = BASE_URL;
 
@@ -277,9 +278,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
       limpiar();
       await refreshData();
     } catch (err) {
-      const data = err.response?.data;
-      const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }
@@ -334,9 +333,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
       limpiar();
       await refreshData();
     } catch (err) {
-      const data = err.response?.data;
-      const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }
@@ -353,9 +350,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
           toast.success('Acta eliminada correctamente.');
           await refreshData();
         } catch (err) {
-          const data = err.response?.data;
-          const msg = data && typeof data === 'object' ? Object.values(data).flat().join(' | ') : (data || err.message);
-          toast.error(msg);
+          toast.error(mensajeErrorAmigable(err));
         }
       },
     });

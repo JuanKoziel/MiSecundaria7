@@ -58,6 +58,7 @@ const MAPA_POR_ROL = {
     horarios: 'horarios',
     comunicados: 'comunicados',
     eventos: 'calendario',
+    gestion_diaria: 'panel-diario',
     perfil: 'perfil',
   },
   admin: {

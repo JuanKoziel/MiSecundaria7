@@ -6,6 +6,7 @@ import FormModal from './FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingSpinner from './LoadingSpinner';
 import { suplenciasActivasEnFecha } from '../../utils/suplencias';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const formVacio = {
   id_docente: '',
@@ -18,11 +19,7 @@ const formVacio = {
 };
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.values(data).flat().join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function fmtFecha(iso) {

@@ -1,12 +1,60 @@
 import { useState, useEffect } from 'react';
 import { getSupervisionPreceptores } from '../../services/api';
 import LoadingScreen from '../Shared/LoadingScreen';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 function formatDateTime(value) {
   if (!value) return 'Nunca';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Nunca';
   return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+}
+
+function fechaHoyLabel() {
+  return new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+}
+
+function ProgresoTarea({ icon, color, value, total, label }) {
+  const esperadoValido = total > 0;
+  const pct = esperadoValido ? Math.min(100, Math.round(((value || 0) / total) * 100)) : 0;
+  const ok = esperadoValido ? (value || 0) >= total : null;
+  return (
+    <li className="stats-panel-cell">
+      <div className="stats-panel-header" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <i className={`fas ${icon}`} style={{ color }} aria-hidden="true" />
+        <strong style={{ fontSize: '0.82rem', color: '#334' }}>{label}</strong>
+      </div>
+      <div className="stats-cobertura-nums" style={{ marginTop: '8px' }}>
+        <span style={{ color: '#334' }}>
+          {esperadoValido ? `${value || 0} de ${total}` : 'Sin clase hoy'}
+        </span>
+        {esperadoValido && (
+          <span style={{ color: ok ? '#198754' : '#d97706', fontWeight: 600 }}>{pct}%</span>
+        )}
+      </div>
+      <div className="stats-progress-track">
+        <div
+          className="stats-progress-fill"
+          style={{
+            width: esperadoValido ? `${pct}%` : 0,
+            background: ok ? '#198754' : '#d97706',
+            minWidth: pct > 0 ? '10px' : 0,
+          }}
+        />
+      </div>
+      {esperadoValido && (
+        <div className="stats-panel-foot" style={{ marginTop: '14px', fontSize: '0.72rem', textAlign: 'center' }}>
+          {ok ? (
+            <span className="badge badge-presente"><i className="fas fa-check" aria-hidden="true" /> Completado</span>
+          ) : (
+            <span className="badge badge-ausente" style={{ background: '#fde8e8', color: '#b91c1c' }}>
+              <i className="fas fa-hourglass-half" aria-hidden="true" /> Faltan {total - (value || 0)}
+            </span>
+          )}
+        </div>
+      )}
+    </li>
+  );
 }
 
 function SupervisionPreceptores() {
@@ -22,7 +70,7 @@ function SupervisionPreceptores() {
         const data = await getSupervisionPreceptores();
         setPreceptores(Array.isArray(data) ? data : []);
       } catch (err) {
-        setError(err.response?.data?.detail || err.message || 'Error al cargar datos de supervisión');
+        setError(mensajeErrorAmigable(err, 'Error al cargar datos de supervisión'));
       } finally {
         setLoading(false);
       }
@@ -40,102 +88,81 @@ function SupervisionPreceptores() {
 
   const tareas = (p) => p.tareas_diarias || {};
 
-  const itemTarea = (icon, label, valor, ok = null) => (
-    <li className="supervision-tarea">
-      <i className={`fas ${icon} icon-muted`} aria-hidden="true" />
-      <span className="supervision-tarea-label">{label}</span>
-      <span className="supervision-tarea-valor">
-        {ok === true && <i className="fas fa-check supervision-ok" aria-hidden="true" />}
-        {ok === false && <i className="fas fa-exclamation-triangle supervision-warn" aria-hidden="true" />}
-        {valor}
-      </span>
-    </li>
-  );
-
   return (
-    <div className="card">
-      <div className="card-header-flex">
-        <h3><i className="fas fa-user-shield" aria-hidden="true" /> Supervisión de Preceptores</h3>
-        <span className="badge role-badge-display">Solo lectura</span>
+    <div>
+      <div className="card">
+        <div className="card-header-flex">
+          <h3><i className="fas fa-user-shield" aria-hidden="true" /> Supervisión de Preceptores</h3>
+          <span className="badge role-badge-display">Solo lectura</span>
+          <span className="badge asistencias-badge-hoy">
+            <i className="fas fa-calendar-day" aria-hidden="true" /> {fechaHoyLabel()}
+          </span>
+        </div>
+        <p className="info-box" style={{ marginBottom: 0 }}>
+          <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
+          Seguí el estado de las tareas diarias de cada preceptor: tomar asistencia de{' '}
+          <strong>docentes</strong> por la mañana y verificar que los docentes <strong>registren
+          sus asistencias de estudiantes</strong> durante la jornada.
+        </p>
       </div>
 
-      <div className="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>Preceptor</th>
-              <th>Cursos Asignados</th>
-              <th>Estudiantes</th>
-              <th>Tutores</th>
-              <th>Tareas del día</th>
-              <th>Último Acceso</th>
-            </tr>
-          </thead>
-          <tbody>
-            {preceptores.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="empty-state-message">
-                  No hay preceptores registrados.
-                </td>
-              </tr>
-            ) : (
-              preceptores.map((p) => {
-                const t = tareas(p);
-                const docentesOk = t.docentes_esperados_hoy > 0
-                  ? (t.docentes_registrados_hoy || 0) >= t.docentes_esperados_hoy
-                  : null;
-                return (
-                  <tr key={p.id_preceptor}>
-                    <td className="table-cell-strong">
-                      <i className="fas fa-user-tie icon-muted" aria-hidden="true" />
-                      {p.apellido}, {p.nombre}
-                    </td>
-                    <td>
-                      {(p.cursos_asignados || []).length > 0
-                        ? p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
-                        : <span style={{ color: '#999' }}>Sin cursos</span>}
-                    </td>
-                    <td>{p.cantidad_alumnos}</td>
-                    <td>{p.cantidad_tutores}</td>
-                    <td>
-                      <ul className="supervision-tareas-list">
-                        {itemTarea(
-                          'fa-chalkboard-teacher',
-                          'Asistencia docentes (hoy)',
-                          `${t.asistencias_docentes_hoy || 0} registrada/s de ${t.docentes_esperados_hoy || 0} esperado/s`,
-                          docentesOk,
-                        )}
-                        {itemTarea(
-                          'fa-chalkboard',
-                          'Asistencia docentes (semana)',
-                          t.asistencias_docentes_semana || 0,
-                        )}
-                        {itemTarea(
-                          'fa-user-graduate',
-                          'Asistencia estudiantes (hoy)',
-                          t.asistencias_alumnos_hoy || 0,
-                        )}
-                        {itemTarea(
-                          'fa-users',
-                          'Asistencia estudiantes (semana)',
-                          t.asistencias_alumnos_semana || 0,
-                        )}
-                      </ul>
-                    </td>
-                    <td>{formatDateTime(p.ultimo_acceso)}</td>
-                  </tr>
-                );
-              })
+      {(preceptores || []).map((p) => {
+        const t = tareas(p);
+        const esperadosHoy = p.docentes_esperados_hoy ?? t.docentes_esperados_hoy ?? 0;
+        const registradosHoy = t.docentes_registrados_hoy ?? 0;
+        return (
+          <div className="card mt-16" key={p.id_preceptor}>
+            <div className="card-header-flex">
+              <h4>
+                <i className="fas fa-user-tie" aria-hidden="true" /> {p.nombre} {p.apellido}
+                <span className="badge role-badge-display" style={{ marginLeft: 10 }}>
+                  {p.cursos_asignados?.length || 0} {p.cursos_asignados?.length === 1 ? 'curso' : 'cursos'}
+                </span>
+              </h4>
+              <div className="stat-chip-items">
+                <span className="stat-chip stat-chip-blue"><i className="fas fa-user-graduate" aria-hidden="true" /> {p.cantidad_alumnos ?? 0} estudiantes</span>
+                <span className="stat-chip stat-chip-green"><i className="fas fa-users" aria-hidden="true" /> {p.cantidad_tutores ?? 0} tutores</span>
+              </div>
+            </div>
+
+            {(p.cursos_asignados || []).length > 0 && (
+              <p className="stats-panel-foot" style={{ marginTop: 0 }}>
+                <i className="fas fa-school" aria-hidden="true" /> Curso{ (p.cursos_asignados || []).length > 1 ? 's' : '' }: {p.cursos_asignados.map((c) => c.nombre_curso).join(', ')}
+              </p>
             )}
-          </tbody>
-        </table>
-      </div>
 
-      <div className="info-box">
-        <i className="fas fa-info-circle info-box-icon" aria-hidden="true" />
-        Resumen de las tareas diarias que cada preceptor debe realizar (tomar asistencia de docentes y de
-        estudiantes). Solo lectura.
-      </div>
+            <div className="stats-grid-custom">
+              <ProgresoTarea
+                icon="fa-chalkboard-teacher"
+                color="#0d6efd"
+                value={registradosHoy}
+                total={esperadosHoy}
+                label="Asistencia de docentes (hoy)"
+              />
+              <ProgresoTarea
+                icon="fa-user-graduate"
+                color="#198754"
+                value={t.asistencias_alumnos_hoy ?? 0}
+                total={p.cantidad_alumnos ?? 0}
+                label="Asistencia de estudiantes (hoy)"
+              />
+              <ProgresoTarea
+                icon="fa-calendar-week"
+                color="#7c3aed"
+                value={t.asistencias_docentes_semana ?? 0}
+                total={-1}
+                label="Asistencia de docentes (semana)"
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      {(!preceptores || preceptores.length === 0) && (
+        <div className="card">
+          <p className="empty-state-message">No hay preceptores registrados.</p>
+        </div>
+      )}
     </div>
   );
 }

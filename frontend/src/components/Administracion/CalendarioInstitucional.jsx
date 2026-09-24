@@ -9,6 +9,7 @@ import {
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingSpinner from '../Shared/LoadingSpinner';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_CAB = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -16,17 +17,17 @@ const DIAS_CAB = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const TIPO_COLORS = {
   'Feriado': '#0d6efd',
   'Suspension': '#fd7e14',
-  'No se cancelan las clases': '#6f42c1',
   'Jornada Institucional': '#198754',
   'Otro': '#6c757d',
 };
 
-const TIPOS = ['Feriado', 'Suspension', 'No se cancelan las clases', 'Jornada Institucional', 'Otro'];
+const TIPOS = ['Feriado', 'Suspension', 'Jornada Institucional', 'Otro'];
 const ALCANCE_OPCIONES = [
   { value: 'todo_dia', label: 'Todo el día' },
   { value: 'manana', label: 'Turno mañana' },
   { value: 'tarde', label: 'Turno tarde' },
   { value: 'franja', label: 'Franja horaria personalizada' },
+  { value: 'sin_bloqueo', label: 'No se cancelan las clases (sin bloqueo)' },
 ];
 
 const FORM_DEFAULT = {
@@ -183,9 +184,7 @@ function CalendarioInstitucional({ readOnly = false }) {
       setModalAbierto(false);
       await cargarEventos();
     } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(`Error: ${msg}`);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }

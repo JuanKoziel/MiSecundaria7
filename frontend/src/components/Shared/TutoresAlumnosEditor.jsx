@@ -22,9 +22,12 @@ function TutoresAlumnosEditor({
 
   const toggleAlumno = (id) => {
     const idNum = Number(id);
-    setAlumnosIds((prev) =>
-      prev.includes(idNum) ? prev.filter((x) => x !== idNum) : [...prev, idNum],
-    );
+    const yaExiste = alumnos_ids.includes(idNum);
+    if (yaExiste) {
+      setAlumnosIds(alumnos_ids.filter((x) => x !== idNum));
+    } else {
+      setAlumnosIds([...alumnos_ids, idNum]);
+    }
   };
 
   return (

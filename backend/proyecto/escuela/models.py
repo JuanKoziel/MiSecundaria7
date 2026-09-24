@@ -61,6 +61,10 @@ class Rol(models.Model):
 
 
 class UsuarioRol(models.Model):
+    # La tabla física `usuario_roles` usa clave primaria compuesta
+    # (id_usuario, id_rol). Django no soporta PK compuestas, así que se usa
+    # primary_key=True en una FK (implica unique=True y dispara W342, que se
+    # silencia en settings.SILENCED_SYSTEM_CHECKS por ser falso positivo).
     id_usuario = models.ForeignKey(
         Usuario, on_delete=models.CASCADE, db_column='id_usuario',
         primary_key=True,
@@ -892,7 +896,6 @@ class EventoInstitucional(models.Model):
     TIPO_EVENTO_CHOICES = [
         ('Feriado', 'Feriado'),
         ('Suspension', 'Suspensión de clases'),
-        ('No se cancelan las clases', 'No se cancelan las clases'),
         ('Jornada Institucional', 'Jornada Institucional'),
         ('Otro', 'Otro'),
     ]
@@ -901,11 +904,11 @@ class EventoInstitucional(models.Model):
         ('manana', 'Turno mañana'),
         ('tarde', 'Turno tarde'),
         ('franja', 'Franja horaria personalizada'),
+        ('sin_bloqueo', 'No se cancelan las clases (sin bloqueo)'),
     ]
     PRIORIDAD_MAP = {
         'Feriado': 1,
         'Suspension': 2,
-        'No se cancelan las clases': 3,
         'Jornada Institucional': 4,
         'Otro': 5,
     }

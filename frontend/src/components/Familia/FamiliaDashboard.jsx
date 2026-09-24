@@ -19,7 +19,7 @@ import { useData } from '../../context/DataContext';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function FamiliaDashboard({ user, onLogout }) {
-  const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj, navIntent, navegarDesdeNotificacion } = useData();
+  const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj, navIntent, navegarDesdeNotificacion, notificaciones = [] } = useData();
   const [view, setView] = useState('perfil');
 
   const miTutor = useMemo(
@@ -37,9 +37,13 @@ function FamiliaDashboard({ user, onLogout }) {
         ...hijo,
         nombre: alumno ? nombreCompleto(alumno) : 'Estudiante',
         dni: alumno?.dni ?? '—',
+        // Contador de notificaciones sin leer por hijo (académicas).
+        sinLeer: notificaciones.filter(
+          (n) => !n.leida && Number(n.id_alumno) === Number(hijo.alumnoId),
+        ).length,
       };
     });
-  }, [hijosFamilia, getAlumnoById, nombreCompleto]);
+  }, [hijosFamilia, getAlumnoById, nombreCompleto, notificaciones]);
 
   const [hijoId, setHijoId] = useState(() => hijos.length > 0 ? String(hijos[0].id) : '');
 
@@ -147,6 +151,7 @@ function FamiliaDashboard({ user, onLogout }) {
         view={view}
         setView={setView}
         onLogout={onLogout}
+        hijoSeleccionado={hijoSeleccionado}
       />
 
       <main className="main-content">

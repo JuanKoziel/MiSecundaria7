@@ -5,15 +5,12 @@ import { createMateria, updateMateria } from '../../services/api';
 import AsignacionMaterias from './asignacionMaterias';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const formVacio = { nombre_materia: '' };
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.values(data).flat().join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function FormMateria({ formData, setFormData, editing, guardando, onSubmit, onCancel }) {

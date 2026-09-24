@@ -4,9 +4,23 @@ import Logo from '../Shared/Logo';
 import CambiarRolButton from '../Shared/CambiarRolButton';
 import CampanaNotificaciones from '../Shared/CampanaNotificaciones';
 
+function seccionDeVista(viewId, items) {
+  const section = items.find((item) => item.children && item.children.some((child) => child.id === viewId));
+  return section ? section.id : null;
+}
+
 function Sidebar({ view, setView, onLogout }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const menuWrapperRef = useRef(null);
+
+  useEffect(() => {
+    const sectionId = seccionDeVista(view, menuItems);
+    if (sectionId) {
+      setExpandedSection((prev) => (prev === sectionId ? prev : sectionId));
+    } else {
+      setExpandedSection(null);
+    }
+  }, [view]);
 
   const toggleSection = (sectionId) => {
     const willExpand = expandedSection !== sectionId;

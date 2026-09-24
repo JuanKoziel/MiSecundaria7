@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { getSuplencias, createSuplencia, updateSuplencia, deleteSuplencia, finalizarSuplencia } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { mensajeErrorAmigable } from '../../utils/errores';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 
 const formVacio = {
@@ -18,11 +19,7 @@ const formVacio = {
 };
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.values(data).flat().join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function fmtFecha(iso) {

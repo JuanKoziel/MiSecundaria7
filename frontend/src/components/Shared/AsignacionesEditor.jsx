@@ -1,14 +1,24 @@
 import { useData } from '../../context/DataContext';
 
 function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix = 'asig' }) {
-  const { aniosLectivos, cursosObj, materiasObj } = useData();
+  const { aniosLectivos, cursosObj, getMateriasByCurso } = useData();
 
   const cursosDelCiclo = (anioLectivo) =>
     (cursosObj || []).filter((c) => String(c.ciclo_anio) === String(anioLectivo));
 
+  const materiasDelCurso = (curso) => {
+    if (!curso) return [];
+    return getMateriasByCurso ? getMateriasByCurso(curso) : [];
+  };
+
   const actualizar = (index, campo, valor) => {
     setAsignaciones((prev) =>
-      prev.map((a, i) => (i === index ? { ...a, [campo]: valor } : a)),
+      prev.map((a, i) => {
+        if (i !== index) return a;
+        if (campo === 'anioLectivo') return { ...a, anioLectivo: valor, curso: '', materia: '' };
+        if (campo === 'curso') return { ...a, curso: valor, materia: '' };
+        return { ...a, [campo]: valor };
+      }),
     );
   };
 
@@ -39,6 +49,11 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix = 'asig' }
         <div style={{ display: 'grid', gap: '12px' }}>
           {asignaciones.map((asig, index) => {
             const cursos = cursosDelCiclo(asig.anioLectivo);
+            const materias = materiasDelCurso(asig.curso);
+            const opcionesMateria =
+              asig.materia && !materias.includes(asig.materia)
+                ? [asig.materia, ...materias]
+                : materias;
             return (
               <div
                 key={asig.cmId || `${idPrefix}-${index}`}
@@ -90,11 +105,12 @@ function AsignacionesEditor({ asignaciones, setAsignaciones, idPrefix = 'asig' }
                     onChange={(e) =>
                       actualizar(index, 'materia', e.target.value)
                     }
+                    disabled={!asig.curso}
                   >
                     <option value="">Seleccione materia...</option>
-                    {(materiasObj || []).map((m) => (
-                      <option key={m.id_materia} value={m.nombre_materia}>
-                        {m.nombre_materia}
+                    {opcionesMateria.map((nombre) => (
+                      <option key={nombre} value={nombre}>
+                        {nombre}
                       </option>
                     ))}
                   </select>

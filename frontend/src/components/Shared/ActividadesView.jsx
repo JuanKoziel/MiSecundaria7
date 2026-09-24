@@ -51,7 +51,7 @@ function separarDocente(completo = '') {
   };
 }
 
-function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = null, cursoNombre: cursoNombreOverride = null }) {
+function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = null, cursoNombre: cursoNombreOverride = null, initialTab = 'actividades' }) {
   const { alumnos, cursosObj, cursoMateria } = useData();
   const { user } = useAuth();
   const [actividades, setActividades] = useState([]);
@@ -60,7 +60,7 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
   const [selectedActividad, setSelectedActividad] = useState(null);
   const [previewArchivo, setPreviewArchivo] = useState(null);
   const [menuAbiertoId, setMenuAbiertoId] = useState(null);
-  const [seccionActivas, setSeccionActivas] = useState('actividades');
+  const [seccionActivas, setSeccionActivas] = useState(initialTab);
   const [actividadesAdeudadas, setActividadesAdeudadas] = useState([]);
 
   const cursoId = useMemo(() => {
@@ -157,13 +157,22 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
       setActividadesAdeudadas([]);
       return;
     }
-    getActividadesMateriasAdeudadas()
+    const params = {};
+    // El filtro global de curso aplica a los roles que navegan por curso
+    // (preceptor). Para alumno/familia el backend ya acota por el propio
+    // alumno (o por el hijo seleccionado), evitando ocultar previas de otros
+    // cursos.
+    if (userRole === 'preceptor' && cursoId) params.curso = cursoId;
+    if (userRole === 'familia' && selectedChild?.alumnoId) {
+      params.alumno = selectedChild.alumnoId;
+    }
+    getActividadesMateriasAdeudadas(params)
       .then((data) => {
         const lista = Array.isArray(data) ? data : data.results || [];
         setActividadesAdeudadas(lista);
       })
       .catch(() => setActividadesAdeudadas([]));
-  }, [user]);
+  }, [user, cursoId, userRole, selectedChild]);
 
   const actividadesAdeudadasPorMateria = useMemo(() => {
     const grupos = {};
@@ -185,6 +194,8 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
   if (selectedActividad) {
     const actividad = selectedActividad;
     const archivos = Array.isArray(actividad.archivos) ? actividad.archivos : [];
+    const esAdeudada = !actividad.fecha_creacion && (Boolean(actividad.tipo) || Boolean(actividad.fecha_publicacion));
+    const fechaMostrar = actividad.fecha_publicacion || actividad.fecha_creacion;
 
     return (
       <div className="card">
@@ -205,9 +216,17 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
           <div className="mt-12 text-muted" style={{ fontSize: '14px' }}>
             <p><strong>Materia:</strong> {actividad.materia_nombre || '—'}</p>
             <p><strong>Curso:</strong> {actividad.curso_nombre || '—'}</p>
-            <p><strong>Docente:</strong> {actividad.docente_apellido ? `${actividad.docente_apellido}, ${actividad.docente_nombre}` : '—'}</p>
-            <p><strong>Fecha:</strong> {formatFecha(actividad.fecha_creacion)}</p>
-            <p><strong>Hora:</strong> {formatHora(actividad.fecha_creacion)}</p>
+            <p><strong>Docente:</strong> {actividad.docente_apellido ? `${actividad.docente_apellido}, ${actividad.docente_nombre}` : (actividad.docente_nombre || '—')}</p>
+            {esAdeudada && (
+              <p>
+                <strong>Tipo:</strong>{' '}
+                <span className={`badge ${actividad.tipo === 'PREVIA' ? 'badge-danger' : 'badge-warning'}`}>
+                  {actividad.tipo === 'PREVIA' ? 'Previa' : (actividad.periodo_intensificacion || 'Intensificación')}
+                </span>
+              </p>
+            )}
+            <p><strong>Fecha:</strong> {formatFecha(fechaMostrar)}</p>
+            {actividad.fecha_creacion && <p><strong>Hora:</strong> {formatHora(actividad.fecha_creacion)}</p>}
           </div>
 
           {actividad.descripcion && (
@@ -274,6 +293,22 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {actividad.archivo_pdf && (
+            <div className="mt-20">
+              <h4>Archivo adjunto</h4>
+              <div className="flex-row" style={{ marginTop: '12px' }}>
+                <a
+                  href={resolveUrl(actividad.archivo_pdf)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-sm btn-primary"
+                >
+                  <i className="fas fa-file-pdf" aria-hidden="true" /> Ver / Descargar PDF
+                </a>
               </div>
             </div>
           )}
@@ -431,7 +466,20 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
                       {materia}
                     </h4>
                     {actividadesAdeudadasPorMateria[materia].map((act) => (
-                      <article key={act.id_actividad} className="publicacion-box">
+                      <article
+                        key={act.id_actividad}
+                        className="publicacion-box"
+                        role="button"
+                        tabIndex={0}
+                        style={{ cursor: 'pointer', borderLeft: `4px solid ${act.tipo === 'PREVIA' ? '#e53935' : '#ff9800'}` }}
+                        onClick={() => setSelectedActividad(act)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedActividad(act);
+                          }
+                        }}
+                      >
                         <div className="publicacion-icon">
                           <i className={`fas ${act.tipo === 'PREVIA' ? 'fa-book' : 'fa-book-medical'}`} aria-hidden="true" />
                         </div>
@@ -451,16 +499,22 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
                             {' '}· {formatFecha(act.fecha_publicacion)}
                           </p>
                         </div>
-                        {act.archivo_pdf && (
-                          <a
-                            href={resolveUrl(act.archivo_pdf)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-success table-download-btn"
-                          >
-                            <i className="fas fa-file-pdf" /> Ver PDF
-                          </a>
-                        )}
+                        <div className="publicacion-menu" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {act.archivo_pdf && (
+                            <a
+                              href={resolveUrl(act.archivo_pdf)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-success table-download-btn"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <i className="fas fa-file-pdf" /> Ver PDF
+                            </a>
+                          )}
+                          <span className="btn btn-sm btn-secondary" aria-hidden="true">
+                            <i className="fas fa-eye" /> Ver detalle
+                          </span>
+                        </div>
                       </article>
                     ))}
                   </div>

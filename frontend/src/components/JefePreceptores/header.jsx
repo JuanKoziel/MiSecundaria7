@@ -1,5 +1,6 @@
 import { useData } from '../../context/DataContext';
 import { parseCurso, orientacionDeCurso } from '../../utils/orientacion';
+import SidebarToggle from '../Shared/SidebarToggle';
 
 function inicialesDesdeNombre(nombreCompleto, user) {
   if (nombreCompleto) {
@@ -62,6 +63,7 @@ function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCurs
   return (
     <header className="main-header main-header--dark">
       <div className="main-header-left">
+        <SidebarToggle />
         <div className="main-header-greeting">
           <h2>
             <span className="greeting-saludo">Bienvenido:</span>{' '}

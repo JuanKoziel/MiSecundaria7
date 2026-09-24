@@ -208,3 +208,11 @@ AUTHENTICATION_BACKENDS = [
     'escuela.auth_backend.UsuarioBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+
+# El modelo UsuarioRol mapea la PK compuesta real (id_usuario, id_rol) de la
+# tabla `usuario_roles` (managed=False). Django la modela con primary_key=True
+# en una FK, lo que activa W342; es un falso positivo, por eso se silencia.
+SILENCED_SYSTEM_CHECKS = [
+    'fields.W342',
+]

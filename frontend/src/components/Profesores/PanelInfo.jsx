@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createDiagnosticoGrupal } from '../../services/api';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 function PanelInfo({ cursoId, docenteId, cursoNombre, puedeEditar = true }) {
   const { refreshData } = useData();
@@ -28,9 +29,7 @@ function PanelInfo({ cursoId, docenteId, cursoNombre, puedeEditar = true }) {
       setDiagnostico('');
       await refreshData();
     } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }

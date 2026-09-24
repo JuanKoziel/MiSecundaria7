@@ -19,6 +19,7 @@ import {
   filtrosCompletos,
 } from './preceptorUtils';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 function getBadgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
@@ -60,7 +61,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   const [registrandoDocente, setRegistrandoDocente] = useState('');
   const [mensajeDocentes, setMensajeDocentes] = useState('');
   const [docentesEstados, setDocentesEstados] = useState({});
-  const [fechaDocentes, setFechaDocentes] = useState('');
+  const [fechaDocentes, setFechaDocentes] = useState(fechaHoy());
   const [serverInfo, setServerInfo] = useState(null);
 
   const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
@@ -162,9 +163,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
       toast.success('Asistencia docente registrada correctamente.');
       cargarDocentes();
     } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setRegistrandoDocente('');
     }
@@ -207,9 +206,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
       await refreshData();
       cargarDiaria();
     } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }
@@ -563,9 +560,12 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
       {tab === 'docentes' && (
         <div>
           <p className="asist-info-banner">
-            <i className="fas fa-info-circle" aria-hidden="true" /> Elegí una fecha para ver los docentes
-            con clase ese día. Hoy figura primero. Las fechas futuras permiten registrar{' '}
-            <strong>faltas anticipadas</strong>.
+            <i className="fas fa-info-circle" aria-hidden="true" />{' '}
+            {readOnly ? (
+              <>En esta vista solo podés <strong>visualizar</strong> la asistencia de docentes. Se muestra el día de hoy por defecto.</>
+            ) : (
+              <>Elegí una fecha para ver los docentes con clase ese día. Hoy figura primero. Las fechas futuras permiten registrar <strong>faltas anticipadas</strong>.</>
+            )}
           </p>
 
           <div className="filter-row">

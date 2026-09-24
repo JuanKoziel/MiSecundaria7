@@ -20,6 +20,8 @@ import { getCursos } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingScreen from '../Shared/LoadingScreen';
+import AccionesLeyenda from '../Shared/AccionesLeyenda';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const formVacio = {
   usuario_nombre: '',
@@ -74,13 +76,7 @@ function proximaAccion(preceptor) {
 }
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.entries(data)
-      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
-      .join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function normalizarCursosIds(cursosAsignados) {
@@ -676,23 +672,7 @@ function Preceptores({ rol = 'preceptor' }) {
         />
       </div>
 
-      <div className="acciones-leyenda" aria-label="Leyenda de acciones">
-        <span className="acciones-leyenda-item">
-          <span className="acciones-leyenda-emoji" aria-hidden="true">✏️</span> Editar
-        </span>
-        <span className="acciones-leyenda-item">
-          <span className="acciones-leyenda-emoji" aria-hidden="true">🗓️</span> Programar
-        </span>
-        <span className="acciones-leyenda-item">
-          <span className="acciones-leyenda-emoji" aria-hidden="true">✅</span> Habilitar
-        </span>
-        <span className="acciones-leyenda-item">
-          <span className="acciones-leyenda-emoji" aria-hidden="true">🚫</span> Deshabilitar
-        </span>
-        <span className="acciones-leyenda-item">
-          <span className="acciones-leyenda-emoji" aria-hidden="true">🗑️</span> Eliminar
-        </span>
-      </div>
+      <AccionesLeyenda acciones={['editar', 'programar', 'habilitar', 'deshabilitar', 'eliminar']} />
 
       <div className="table-responsive">
         <table>

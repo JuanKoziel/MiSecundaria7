@@ -1,14 +1,28 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { menuItems, bottomItems } from '../sidebarMenu';
 import { useAuth } from '../../../context/AuthContext';
 import Logo from '../../Shared/Logo';
 import CambiarRolButton from '../../Shared/CambiarRolButton';
 import CampanaNotificaciones from '../../Shared/CampanaNotificaciones';
 
+function seccionDeVista(viewId, items) {
+  const section = items.find((item) => item.children && item.children.some((child) => child.id === viewId));
+  return section ? section.id : null;
+}
+
 function Sidebar({ setView, onLogout, view }) {
   const { user } = useAuth();
   const [expandedSection, setExpandedSection] = useState(null);
   const menuWrapperRef = useRef(null);
+
+  useEffect(() => {
+    const sectionId = seccionDeVista(view, menuItems);
+    if (sectionId) {
+      setExpandedSection((prev) => (prev === sectionId ? prev : sectionId));
+    } else {
+      setExpandedSection(null);
+    }
+  }, [view]);
 
   const visibilidadOK = (item) => {
     if (item.directorOnly) {

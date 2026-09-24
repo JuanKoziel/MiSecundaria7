@@ -11,6 +11,7 @@ import {
 } from '../../services/api';
 import { parseCurso } from '../../utils/orientacion';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 function getDestinoKey(destino) {
   if (!destino) return '';
@@ -159,9 +160,7 @@ function ComunicadosJefe() {
       setMostrarFormulario(false);
       await refreshData();
     } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }

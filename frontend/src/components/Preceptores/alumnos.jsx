@@ -5,9 +5,11 @@ import { createAlumno, updateAlumno, deleteAlumno } from '../../services/api';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import FormModal from '../../components/Shared/FormModal';
+import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
 import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const formVacio = {
   usuario_nombre: '',
@@ -68,13 +70,7 @@ function proximaAccion(usuario) {
 }
 
 function mensajeError(err) {
-  const data = err.response?.data;
-  if (data && typeof data === 'object' && !data.detail) {
-    return Object.entries(data)
-      .map(([campo, valor]) => `${campo}: ${Array.isArray(valor) ? valor.join(', ') : valor}`)
-      .join(' | ');
-  }
-  return data?.detail || err.message || 'Error inesperado';
+  return mensajeErrorAmigable(err);
 }
 
 function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlobal, curso: cursoGlobal, onAnioChange, onCursoChange }) {
@@ -548,8 +544,10 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
   );
 
   const renderTabla = () => (
-    <div className="table-responsive">
-      <table>
+    <>
+      {!readOnly && <AccionesLeyenda acciones={['editar', 'programar', 'habilitar', 'deshabilitar', 'eliminar']} />}
+      <div className="table-responsive">
+        <table>
         <thead>
           <tr>
             <th>DNI</th>
@@ -666,6 +664,7 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         </tbody>
       </table>
     </div>
+    </>
   );
 
   const tituloModal = modo === 'crear' ? 'Crear estudiante' : 'Modificar estudiante';

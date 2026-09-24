@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import { getServerTime, createAsistencia, getAsistencias, getCargasUnica, marcarCargaUnica } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 function serverTimestamp(serverInfo) {
   if (!serverInfo?.fecha) return Date.now();
@@ -207,9 +208,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
       await refreshData();
       await cargarServerTime();
     } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }

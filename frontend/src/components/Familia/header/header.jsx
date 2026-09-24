@@ -1,3 +1,5 @@
+import SidebarToggle from '../../Shared/SidebarToggle';
+
 function inicialesDesdeNombre(nombreCompleto, user) {
   if (nombreCompleto) {
     const [apellido, nombre] = nombreCompleto.split(',').map((s) => (s || '').trim());
@@ -26,6 +28,7 @@ function Header({ user, hijoSeleccionado, nombreCompleto, view, hijos, hijoId, s
   return (
     <header className="main-header main-header--dark">
       <div className="main-header-left">
+        <SidebarToggle />
         <div className="main-header-greeting">
           <h2>
             <span className="greeting-saludo">Bienvenido:</span>{' '}
@@ -52,6 +55,7 @@ function Header({ user, hijoSeleccionado, nombreCompleto, view, hijos, hijoId, s
                 {hijos.map((hijo) => (
                   <option key={hijo.id} value={String(hijo.id)}>
                     {hijo.nombre}{hijo.curso ? ` — ${hijo.curso}` : ''}
+                    {hijo.sinLeer > 0 ? ` (${hijo.sinLeer} sin leer)` : ''}
                   </option>
                 ))}
               </select>

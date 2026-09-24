@@ -138,10 +138,18 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSe
             if (!alcances.some((alcance) => comunicadoMatchesAlcance(cursoSeleccionadoObj, alcance))) return false;
             // Si hay materia seleccionada, filtrar por ella (comunicados de materia específica O generales del curso)
             if (idMateriaSeleccionada !== null) {
-              return alcances.some((alcance) => {
-                if (alcance?.id_materia === null || alcance?.id_materia === undefined) return true;
-                return Number(alcance.id_materia) === Number(idMateriaSeleccionada);
+              const materiasDelComunicado = new Set();
+              alcances.forEach((alcance) => {
+                if (alcance?.id_materia !== null && alcance?.id_materia !== undefined) {
+                  materiasDelComunicado.add(Number(alcance.id_materia));
+                }
               });
+              if (c.id_materia !== null && c.id_materia !== undefined) {
+                materiasDelComunicado.add(Number(c.id_materia));
+              }
+              // Sin materia en ningún nivel = comunicado general del curso
+              if (materiasDelComunicado.size === 0) return true;
+              return materiasDelComunicado.has(Number(idMateriaSeleccionada));
             }
             return true;
           });
@@ -172,7 +180,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSe
       default:
         return [];
     }
-  }, [comunicados, user, userRole, alumnos, cursoMateria, cursosObj, docentes, padresTutores, preceptores, selectedChild, cursoSeleccionado, aniosLectivos]);
+  }, [comunicados, user, userRole, alumnos, cursoMateria, cursosObj, docentes, padresTutores, preceptores, selectedChild, cursoSeleccionado, materiaSeleccionada, aniosLectivos]);
 
   const comunicadosOrdenados = useMemo(() => {
     return [...comunicadosFiltrados].sort((a, b) => {

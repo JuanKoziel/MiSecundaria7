@@ -40,6 +40,9 @@ function PreceptorDashboard({ user, onLogout }) {
     if (navIntent && navIntent.destino) {
       const vista = viewDesdeDestino(navIntent.destino, 'preceptor');
       if (vista) setView(vista);
+      const { params } = navIntent;
+      if (params?.anio) setAnioLectivo(String(params.anio));
+      if (params?.curso) setCurso(String(params.curso));
     }
   }, [navIntent]);
 

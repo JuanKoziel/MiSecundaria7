@@ -4,6 +4,7 @@ import { uploadMiDdjjDocente, BASE_URL } from '../../services/api';
 import { formatDNI } from '../../utils/dni';
 import { useToast } from '../../context/ToastContext';
 import ProfileBanner from '../Shared/ProfileBanner';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 function StatCard({ icon, value, label, color }) {
   return (
@@ -20,34 +21,7 @@ function StatCard({ icon, value, label, color }) {
 }
 
 function obtenerMensajeApi(err) {
-  const data = err?.response?.data;
-  if (!data) {
-    return err?.message || 'Error al cargar DDJJ.';
-  }
-  if (typeof data === 'string') {
-    return data;
-  }
-  if (data.error) {
-    return data.error;
-  }
-  if (data.detail) {
-    return data.detail;
-  }
-  const entries = Object.entries(data);
-  if (entries.length > 0) {
-    return entries
-      .map(([campo, valor]) => {
-        if (Array.isArray(valor)) {
-          return `${campo}: ${valor.join(' ')}`;
-        }
-        if (valor && typeof valor === 'object') {
-          return `${campo}: ${JSON.stringify(valor)}`;
-        }
-        return `${campo}: ${String(valor)}`;
-      })
-      .join(' | ');
-  }
-  return 'Error al cargar DDJJ.';
+  return mensajeErrorAmigable(err);
 }
 
 function PanelDocente({ miDocente, mapSuplencias }) {
@@ -110,6 +84,7 @@ function PanelDocente({ miDocente, mapSuplencias }) {
     });
 
   const ddjjPresentada = Boolean(miDocente.ddjj_presentada || miDocente.ddjj_id || miDocente.ruta_ddjj);
+  const ddjjVerificada = ddjjPresentada && Boolean(miDocente.ddjj_verificada);
   const archivoUrl = miDocente.ddjj_url || miDocente.ruta_ddjj || null;
   const archivoHref = archivoUrl
     ? (archivoUrl.startsWith('http') ? archivoUrl : `${MEDIA_BASE}${archivoUrl}`)
@@ -186,7 +161,7 @@ function PanelDocente({ miDocente, mapSuplencias }) {
         <StatCard icon="fa-file-signature" value={stats.actas} label="Actas realizadas" />
       </div>
 
-      <div className="card ddjj-card mb-28" style={{ borderLeft: ddjjPresentada ? '4px solid #15803d' : '4px solid #b91c1c' }}>
+      <div className="card ddjj-card mb-28" style={{ borderLeft: ddjjVerificada ? '4px solid #15803d' : ddjjPresentada ? '4px solid #b45309' : '4px solid #b91c1c' }}>
         <div className="card-header-flex card-header-flex--compact">
           <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div className={`ddjj-icon-wrapper ${ddjjPresentada ? 'ddjj-presentada' : 'ddjj-pendiente'}`}>
@@ -194,9 +169,9 @@ function PanelDocente({ miDocente, mapSuplencias }) {
             </div>
             <span>Declaración Jurada (D.D.J.J.)</span>
           </h4>
-          <span className={`badge ddjj-badge ${ddjjPresentada ? 'badge-success' : 'badge-danger'}`}>
-            <i className={`fas ${ddjjPresentada ? 'fa-check-circle' : 'fa-clock'}`} aria-hidden="true" />
-            {ddjjPresentada ? 'Presentada' : 'Pendiente'}
+          <span className={`badge ddjj-badge ${ddjjVerificada ? 'badge-success' : ddjjPresentada ? 'badge-warning' : 'badge-danger'}`}>
+            <i className={`fas ${ddjjVerificada ? 'fa-check-double' : ddjjPresentada ? 'fa-check-circle' : 'fa-clock'}`} aria-hidden="true" />
+            {ddjjVerificada ? 'Verificada' : ddjjPresentada ? 'Presentada' : 'Pendiente'}
           </span>
         </div>
 
@@ -234,11 +209,17 @@ function PanelDocente({ miDocente, mapSuplencias }) {
             <div className="ddjj-presentada-section">
               <div className="ddjj-presentada-header">
                 <div className="ddjj-presentada-icon">
-                  <i className="fas fa-check-circle" aria-hidden="true" />
+                  <i className={`fas ${ddjjVerificada ? 'fa-check-double' : 'fa-check-circle'}`} aria-hidden="true" />
                 </div>
                 <div>
-                  <h5 className="ddjj-presentada-title">D.D.J.J. Presentada Correctamente</h5>
-                  <p className="ddjj-presentada-subtitle">Tu declaración jurada fue recibida y registrada en el sistema.</p>
+                  <h5 className="ddjj-presentada-title">
+                    {ddjjVerificada ? 'D.D.J.J. Verificada por el Directivo' : 'D.D.J.J. Presentada Correctamente'}
+                  </h5>
+                  <p className="ddjj-presentada-subtitle">
+                    {ddjjVerificada
+                      ? 'Tu declaración jurada fue presentada y verificada por la institución.'
+                      : 'Tu declaración jurada fue recibida y registrada en el sistema. Aún está pendiente de verificación.'}
+                  </p>
                 </div>
               </div>
               <div className="ddjj-presentada-actions">
@@ -255,11 +236,11 @@ function PanelDocente({ miDocente, mapSuplencias }) {
           )}
 
           <div className="ddjj-info-grid">
-            <div className={`ddjj-info-item ${ddjjPresentada ? 'success' : 'warning'}`}>
+            <div className={`ddjj-info-item ${ddjjVerificada ? 'success' : ddjjPresentada ? 'warning' : 'warning'}`}>
               <span className="ddjj-info-label">Estado</span>
               <span className="ddjj-info-value">
-                <i className={`fas ${ddjjPresentada ? 'fa-check-circle' : 'fa-clock'}`} aria-hidden="true" />
-                {ddjjPresentada ? 'Presentada' : 'Pendiente de presentación'}
+                <i className={`fas ${ddjjVerificada ? 'fa-check-double' : ddjjPresentada ? 'fa-check-circle' : 'fa-clock'}`} aria-hidden="true" />
+                {ddjjVerificada ? 'Verificada' : ddjjPresentada ? 'Presentada (pendiente de verificación)' : 'Pendiente de presentación'}
               </span>
             </div>
             <div className="ddjj-info-item">

@@ -10,6 +10,54 @@ function formatearFecha(fecha) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function fechaDia(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function etiquetaDia(diaKey) {
+  if (!diaKey) return '';
+  const hoy = fechaDia(new Date().toISOString());
+  if (diaKey === hoy) return 'Hoy';
+  const ayerD = new Date();
+  ayerD.setDate(ayerD.getDate() - 1);
+  const ayer = fechaDia(ayerD.toISOString());
+  if (diaKey === ayer) return 'Ayer';
+  const [, m, d] = diaKey.split('-');
+  return `${d}/${m}`;
+}
+
+function agruparPorDiaYTema(items) {
+  const dias = new Map();
+  const ordenados = [...items].sort((a, b) => {
+    const ta = new Date(a.fecha).getTime() || 0;
+    const tb = new Date(b.fecha).getTime() || 0;
+    return tb - ta;
+  });
+  for (const n of ordenados) {
+    const diaKey = fechaDia(n.fecha);
+    if (!dias.has(diaKey)) dias.set(diaKey, new Map());
+    const temas = dias.get(diaKey);
+    const titulo = n.titulo || 'Sin título';
+    if (!temas.has(titulo)) temas.set(titulo, []);
+    temas.get(titulo).push(n);
+  }
+  const resultado = [];
+  for (const [diaKey, temasMap] of dias) {
+    const grupos = [];
+    for (const [titulo, notifs] of temasMap) {
+      grupos.push({ titulo, items: notifs });
+    }
+    grupos.sort((a, b) => b.items.length - a.items.length);
+    resultado.push({ diaKey, grupos });
+  }
+  resultado.sort((a, b) => (b.diaKey > a.diaKey ? 1 : b.diaKey < a.diaKey ? -1 : 0));
+  return resultado;
+}
+
 function Notificaciones({ userRole, selectedChild }) {
   const {
     notificaciones = [],
@@ -21,6 +69,7 @@ function Notificaciones({ userRole, selectedChild }) {
   } = useData();
 
   const [activeTab, setActiveTab] = useState('alumno');
+  const [abiertos, setAbiertos] = useState(() => new Set());
 
   const esFamilia = userRole === 'familia';
 
@@ -102,7 +151,7 @@ function Notificaciones({ userRole, selectedChild }) {
       );
     }
 
-    const items = notificacionesActivas.map(function(n) {
+    const renderItem = (n) => {
       // "Ver" solo aparece si el rol actual tiene una vista real donde
       // consultar el contenido del destino; un nav_destino por sí solo no
       // implica que exista esa sección en este dashboard (regla de autorización
@@ -149,7 +198,56 @@ function Notificaciones({ userRole, selectedChild }) {
           )}
         </div>
       );
-    });
+    };
+
+    const toggleGrupo = (clave) => {
+      setAbiertos((prev) => {
+        const next = new Set(prev);
+        if (next.has(clave)) next.delete(clave);
+        else next.add(clave);
+        return next;
+      });
+    };
+
+    const gruposDia = agruparPorDiaYTema(notificacionesActivas);
+
+    const cuerpoLista = gruposDia.map(({ diaKey, grupos }) => (
+      <div key={diaKey} className="notificaciones-dia">
+        <div className="notificaciones-dia__titulo">{etiquetaDia(diaKey)}</div>
+        {grupos.map(({ titulo, items }) => {
+          const clave = `${diaKey}|${titulo}`;
+          const abierto = abiertos.has(clave);
+          const itemsVisibles = abierto ? items : items.slice(0, 1);
+          const noLeidasGrupo = items.filter((n) => !n.leida).length;
+          return (
+            <div key={clave} className="notificaciones-grupo">
+              <button
+                type="button"
+                className="notificaciones-grupo__cabecera"
+                onClick={() => toggleGrupo(clave)}
+                aria-expanded={abierto}
+              >
+                <span className="notificaciones-grupo__titulo">
+                  {titulo}
+                  {noLeidasGrupo > 0 && <span className="badge">{noLeidasGrupo} sin leer</span>}
+                </span>
+                <span className="notificaciones-grupo__meta">
+                  {items.length > 1 && (
+                    <span className="notificaciones-grupo__contador">
+                      {items.length} {abierto ? '‹' : '›'}
+                    </span>
+                  )}
+                  <i className={`fas fa-chevron-${abierto ? 'up' : 'down'}`} aria-hidden="true" />
+                </span>
+              </button>
+              <div className="notificaciones-grupo__items">
+                {itemsVisibles.map(renderItem)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ));
 
     return (
       <>
@@ -167,7 +265,7 @@ function Notificaciones({ userRole, selectedChild }) {
         )}
 
         <div className="notificaciones-lista">
-          {items}
+          {cuerpoLista}
         </div>
       </>
     );

@@ -24,6 +24,7 @@ import {
   tiposIntensifHabilitados,
   cambiosIntensificaciones,
 } from '../../utils/intensificaciones';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, docenteId, puedeEditar = true, mostrarBannerSuplencia = true }) {
   const { alumnos, calificacionesCompletas, periodos, refreshData } = useData();
@@ -294,9 +295,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
       // refrescamos la sección para que aparezca sin recargar la página.
       await cargarPrevias();
     } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     }
   };
 
@@ -351,9 +350,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
       await cargarPrevias();
       await refreshData();
     } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     }
   };
 
@@ -406,9 +403,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
       toast.success('Calificaciones guardadas exitosamente.');
       await refreshData();
     } catch (err) {
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(msg);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }

@@ -26,8 +26,10 @@ from escuela.carga_unica import (
     ventana_del_dia,
 )
 from escuela.notifications import (
+    SEGMENTO_ALUMNO,
     SEGMENTO_DIRECTIVO,
     SEGMENTO_DOCENTE,
+    SEGMENTO_FAMILIA,
     SEGMENTO_JEFE_PRECEPTORES,
     SEGMENTO_PRECEPTOR,
     SEGMENTO_UNIVERSAL,
@@ -40,6 +42,7 @@ from escuela.permissions import (
     PuedeGestionarCurso,
     PuedeVerHistorial,
     PuedeGestionarHorarios,
+    PuedeGestionarCursoMateria,
     PuedeGestionarAdelantos,
     PuedeEscribirCalificaciones,
     PuedeGestionarPersonas,
@@ -402,6 +405,11 @@ def evento_institucional_activo(fecha=None, hora=None):
     if not eventos:
         return False, None, None, None, None, None
 
+    # A26: si hay un evento con alcance 'sin_bloqueo', no se aplica ningún
+    # bloqueo ese día (anula suspensiones/feriados cargados en simultáneo).
+    if any(ev.alcance == 'sin_bloqueo' for ev in eventos):
+        return False, None, None, None, None, None
+
     prioridad = EventoInstitucional.PRIORIDAD_MAP
     eventos.sort(key=lambda e: prioridad.get(e.tipo_evento, 99))
 
@@ -414,6 +422,10 @@ def evento_institucional_activo(fecha=None, hora=None):
         return modulos[0].hora_inicio, modulos[-1].hora_fin
 
     for ev in eventos:
+        if ev.alcance == 'sin_bloqueo':
+            # A26: alcance explícito que no genera ningún bloqueo.
+            continue
+
         if ev.alcance == 'todo_dia':
             return True, ev.tipo_evento, ev.descripcion, 'Todo el día', None, None
 
@@ -494,17 +506,16 @@ def _evento_cubre_franja(fecha, inicio, fin):
     """True si un evento institucional (que afecta las clases) cubre esa
     franja horaria en la fecha dada.
 
-    Los eventos de tipo 'No se cancelan las clases' NO cubren la franja:
-    ese tipo expresa explícitamente que las clases se dictan igual.
+    Un evento con alcance 'sin_bloqueo' anula cualquier bloqueo: si existe,
+    ninguna franja queda cubierta.
     """
     query = Q(fecha=fecha) | Q(
         fecha__month=fecha.month, fecha__day=fecha.day, permanente=True,
     )
-    eventos = list(
-        EventoInstitucional.objects.filter(query)
-        .exclude(tipo_evento='No se cancelan las clases')
-    )
+    eventos = list(EventoInstitucional.objects.filter(query))
     if not eventos:
+        return False
+    if any(ev.alcance == 'sin_bloqueo' for ev in eventos):
         return False
 
     modulos = list(Modulos.objects.order_by('hora_inicio'))
@@ -585,10 +596,7 @@ def _validar_contexto_adelanto(curso, materia, docente, fecha_adelanto, hora_ini
 
     afectada = any(_bloque_afectado(cm, fecha_adelanto.date(), ini, fin) for ini, fin in bloques)
     if not afectada:
-        return (
-            'No se puede autorizar el adelanto: la clase de esa materia no está afectada '
-            'por una suspensión ni se informó la falta del docente para esa fecha.'
-        )
+        return 'La clase de esa materia no está suspendida ni tiene falta del docente registrada.'
 
     ejemplo_destino = (hora_inicio, hora_fin)
     otras = CursoMateria.objects.filter(
@@ -600,8 +608,8 @@ def _validar_contexto_adelanto(curso, materia, docente, fecha_adelanto, hora_ini
                 if not _bloque_afectado(otra, fecha_adelanto.date(), ini, fin):
                     nombre = otra.id_materia.nombre_materia if otra.id_materia else 'otra materia'
                     return (
-                        f'El horario elegido coincide con la clase de {nombre} en ese curso, '
-                        'que no está suspendida ni tiene falta del docente registrada.'
+                        f'El horario elegido coincide con la clase de {nombre}, '
+                        'que no está suspendida ni tiene falta registrada.'
                     )
     return None
 
@@ -1817,6 +1825,8 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
                 return qs.none()
             qs = qs.filter(id_curso__in=cursos_ids)
             qs = qs.filter(estado=True)
+        elif es_rol_amplio(self.request):
+            pass
         elif 'familia' in roles and usuario_obj:
             hijo_ids = alumno_ids_familia(self.request)
             if not hijo_ids:
@@ -1905,6 +1915,17 @@ class DocenteViewSet(HistorialMixin, viewsets.ModelViewSet):
             if not docente_ids:
                 return qs.none()
             qs = qs.filter(id_docente__in=docente_ids)
+        if getattr(self, 'action', None) == 'list':
+            # A24: solo listar perfiles que realmente sean docentes. Un usuario
+            # con perfil de docente pero cuyo rol real es otro (p. ej. admin)
+            # no debe aparecer en la lista. Los perfiles sin cuenta de usuario
+            # todavía se incluyen (pueden estar en proceso de alta).
+            docente_user_ids = UsuarioRol.objects.filter(
+                id_rol__nombre_rol='docente',
+            ).values_list('id_usuario_id', flat=True)
+            qs = qs.filter(
+                Q(id_usuario__isnull=True) | Q(id_usuario_id__in=docente_user_ids)
+            ).distinct()
         return qs
 
     def _require_preceptor_access(self, docente):
@@ -2508,7 +2529,10 @@ class CursoViewSet(HistorialMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if self.request.query_params.get('incluir_inactivos') != '1':
+        incluir_inactivos = self.request.query_params.get('incluir_inactivos') == '1'
+        # El filtro de activos aplica al listado. En detalle/edición (p. ej.
+        # reactivar) se debe poder acceder al registro inactivo por su ID.
+        if self.action == 'list' and not incluir_inactivos:
             qs = qs.filter(activo=True)
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
@@ -2590,7 +2614,8 @@ class MateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if self.request.query_params.get('incluir_inactivos') != '1':
+        incluir_inactivos = self.request.query_params.get('incluir_inactivos') == '1'
+        if self.action == 'list' and not incluir_inactivos:
             qs = qs.filter(activo=True)
         return qs
 
@@ -2625,13 +2650,14 @@ class CursoMateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
         'id_curso', 'id_materia',
     ).prefetch_related('id_docente', 'horario_set', 'horariosespeciales_set').all()
     serializer_class = CursoMateriaSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+    permission_classes = [IsAuthenticated, PuedeGestionarCursoMateria]
     historial_tabla = 'asignaciones_cursos'
     historial_soft_delete = True
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if self.request.query_params.get('incluir_inactivos') != '1':
+        incluir_inactivos = self.request.query_params.get('incluir_inactivos') == '1'
+        if self.action == 'list' and not incluir_inactivos:
             qs = qs.filter(activo=True)
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
@@ -2660,7 +2686,31 @@ class CursoMateriaViewSet(HistorialMixin, viewsets.ModelViewSet):
         
         return qs
 
+    def _check_preceptor_curso_access(self, curso_id):
+        username = self.request.user.username if self.request.user.is_authenticated else None
+        roles = get_roles_for_usuario(username) if username else []
+        if 'admin' in roles or 'director' in roles:
+            return
+        if 'preceptor' not in roles:
+            raise PermissionDenied('No tienes permiso para modificar asignaciones curso-materia.')
+        cursos_ids = _preceptor_cursos_ids(self.request)
+        if not cursos_ids or int(curso_id) not in {int(c) for c in cursos_ids}:
+            raise PermissionDenied('No tienes permiso para modificar asignaciones de este curso.')
+
+    def perform_create(self, serializer):
+        curso = serializer.validated_data.get('id_curso')
+        if curso is not None:
+            self._check_preceptor_curso_access(curso.id_curso)
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        curso = serializer.validated_data.get('id_curso')
+        curso_id = curso.id_curso if curso is not None else serializer.instance.id_curso_id
+        self._check_preceptor_curso_access(curso_id)
+        super().perform_update(serializer)
+
     def perform_destroy(self, instance):
+        self._check_preceptor_curso_access(instance.id_curso_id)
         super().perform_destroy(instance)
 
 
@@ -3072,12 +3122,15 @@ class CalificacionViewSet(viewsets.ModelViewSet):
                 created.append(instancia)
 
         for cm_key, cm in materias.items():
-            periodos = set()
-            for c in created + updated:
-                if c.id_curso_materia_id == cm_key and c.id_periodo_id:
-                    periodos.add(c.id_periodo.nombre_periodo if c.id_periodo else None)
+            calif_cm = [c for c in created + updated if c.id_curso_materia_id == cm_key]
+            periodos = set((c.id_periodo.nombre_periodo if c.id_periodo else None) for c in calif_cm if c.id_periodo_id)
             for p in periodos:
-                _notificar_carga_notas(cm, p, accion='actualizada' if updated and not created else 'cargada')
+                _notificar_carga_notas(
+                    cm,
+                    p,
+                    accion='actualizada' if updated and not created else 'cargada',
+                    calificaciones=[c for c in calif_cm if (c.id_periodo.nombre_periodo if c.id_periodo else None) == p],
+                )
 
         return Response({
             'created': [CalificacionSerializer(c).data for c in created],
@@ -3096,6 +3149,7 @@ class CalificacionViewSet(viewsets.ModelViewSet):
             instancia.id_curso_materia,
             instancia.id_periodo.nombre_periodo if instancia.id_periodo else None,
             accion='cargada',
+            calificaciones=[instancia],
         )
 
     def perform_update(self, serializer):
@@ -3111,6 +3165,7 @@ class CalificacionViewSet(viewsets.ModelViewSet):
             instancia.id_curso_materia,
             instancia.id_periodo.nombre_periodo if instancia.id_periodo else None,
             accion='actualizada',
+            calificaciones=[instancia],
         )
 
     def perform_destroy(self, instance):
@@ -3381,6 +3436,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         roles = get_roles_for_usuario(request.user.username)
         if 'preceptor' not in roles and 'admin' not in roles and 'director' not in roles and 'jefe_preceptores' not in roles:
             return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
+
         cursos_ids = _preceptor_cursos_ids(request) if 'preceptor' in roles else None
         if 'preceptor' in roles and not cursos_ids:
             return Response({'error': 'Preceptor sin cursos asignados.'}, status=status.HTTP_403_FORBIDDEN)
@@ -3607,27 +3663,41 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
                 e += 1
             return s, e
 
-        horarios = list(Horario.objects.filter(
-            id_curso_materia=cm_id, dia_semana=dia_semana,
-            id_modulo__isnull=False,
-        ).select_related('id_modulo').order_by('id_modulo__hora_inicio'))
+        # Caché por request: los bloques dependen solo de (curso_materia,
+        # día_semana), no de cada fila. Evita el N+1 (2 consultas por
+        # asistencia) al recorrer un curso o un alumno completos.
+        cache_key = (cm_id, dia_semana)
+        cache = getattr(self, '_cache_horarios_resueltos', None)
+        if cache is None:
+            cache = {}
+            self._cache_horarios_resueltos = cache
+        if cache_key not in cache:
+            horarios = list(Horario.objects.filter(
+                id_curso_materia=cm_id, dia_semana=dia_semana,
+                id_modulo__isnull=False,
+            ).select_related('id_modulo').order_by('id_modulo__hora_inicio'))
+            hor_esp = list(HorariosEspeciales.objects.filter(
+                id_curso_materia=cm_id, dia_semana=dia_semana,
+            ).order_by('hora_inicio'))
+            cache[cache_key] = (
+                [(x.id_modulo.hora_inicio, x.id_modulo.hora_fin) for x in horarios],
+                [(x.hora_inicio, x.hora_fin) for x in hor_esp],
+            )
+        tiempos, tiempos_esp = cache[cache_key]
 
-        for i, h in enumerate(horarios):
-            hi, hf = h.id_modulo.hora_inicio, h.id_modulo.hora_fin
+        for i, (hi, hf) in enumerate(tiempos):
             if hi is not None and hf is not None and hi <= hora < hf:
-                times = [(x.id_modulo.hora_inicio, x.id_modulo.hora_fin) for x in horarios]
-                s, e = _expandir(times, i)
-                return {'horario': f'{times[s][0].strftime("%H:%M")} - {times[e][1].strftime("%H:%M")}'}
+                s, e = _expandir(tiempos, i)
+                return {
+                    'horario': f'{tiempos[s][0].strftime("%H:%M")} - {tiempos[e][1].strftime("%H:%M")}'
+                }
 
-        hor_esp = list(HorariosEspeciales.objects.filter(
-            id_curso_materia=cm_id, dia_semana=dia_semana,
-        ).order_by('hora_inicio'))
-
-        for i, h in enumerate(hor_esp):
-            if h.hora_inicio <= hora < h.hora_fin:
-                times = [(x.hora_inicio, x.hora_fin) for x in hor_esp]
-                s, e = _expandir(times, i)
-                return {'horario': f'{times[s][0].strftime("%H:%M")} - {times[e][1].strftime("%H:%M")}'}
+        for i, (hi, hf) in enumerate(tiempos_esp):
+            if hi <= hora < hf:
+                s, e = _expandir(tiempos_esp, i)
+                return {
+                    'horario': f'{tiempos_esp[s][0].strftime("%H:%M")} - {tiempos_esp[e][1].strftime("%H:%M")}'
+                }
 
         return None
 
@@ -3718,7 +3788,7 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='docentes-disponibles')
     def docentes_disponibles(self, request):
         roles = get_roles_for_usuario(request.user.username)
-        if 'preceptor' not in roles and 'admin' not in roles and 'director' not in roles:
+        if 'preceptor' not in roles and 'admin' not in roles and 'director' not in roles and 'jefe_preceptores' not in roles:
             return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
 
         cursos_ids = _preceptor_cursos_ids(request) if 'preceptor' in roles else None
@@ -4549,7 +4619,7 @@ class ActaAlumnoViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         super().perform_create(serializer)
-        _notificar_acta_conducta(serializer.instance)
+        _notificar_acta_alumno(serializer.instance)
 
 
 class ActaCursoViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
@@ -4572,6 +4642,7 @@ class ActaDocenteViewSet(ActaRelacionMixin, viewsets.ModelViewSet):
         if 'docente' in roles:
             raise PermissionDenied("Los docentes no pueden crear actas de docentes.")
         super().perform_create(serializer)
+        _notificar_acta_docente(serializer.instance)
 
 
 class ComunicadoViewSet(HistorialMixin, viewsets.ModelViewSet):
@@ -5305,6 +5376,96 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         # Se abre (o renueva) la ventana de carga única de 20 minutos.
+        # ── B12 ── Bifurcación según el estado del horario del docente ─────────
+        ahora = timezone.localtime()
+        dia_hoy = _dia_semana_es(ahora)
+        bloques_hoy = _obtener_bloques_horario(cm.id_curso_materia, dia_hoy)
+
+        def _hhmm(v):
+            return v.strftime('%H:%M') if hasattr(v, 'strftime') else str(v)
+
+        hora_actual = ahora.strftime('%H:%M')
+
+        def _en_horario():
+            return any(
+                _hhmm(ini) <= hora_actual < _hhmm(fin)
+                for ini, fin in bloques_hoy
+            )
+
+        def _termino_sin_cargar():
+            if not bloques_hoy:
+                return False
+            return hora_actual >= _hhmm(bloques_hoy[-1][1])
+
+        textos_visibles = [CLAVE_TEXTO[p] for p in faltantes]
+        pendientes_visibles = (
+            ' y '.join(textos_visibles)
+            if len(textos_visibles) == 1
+            else ', '.join(textos_visibles[:-1]) + ' y ' + textos_visibles[-1]
+        )
+        materia_nombre = cm.id_materia.nombre_materia if cm.id_materia_id else '—'
+        curso_nombre_b = cm.id_curso.nombre_curso if cm.id_curso_id else '—'
+        ciclo_b = cm.id_curso.id_ciclo.anio if (cm.id_curso_id and cm.id_curso.id_ciclo_id) else ''
+        contexto_b = f'{materia_nombre} · {curso_nombre_b}'
+        if ciclo_b:
+            contexto_b = f'{contexto_b} ({ciclo_b})'
+
+        if _en_horario():
+            # Rama 1 — el docente sigue en horario de su clase: SOLO recordatorio,
+            # sin abrir la ventana de 20 minutos ni activar temporizador.
+            fin_clase = _hhmm(bloques_hoy[-1][1]) if bloques_hoy else 'fin del horario'
+            notificar(
+                id_usuario=resultado.docente.id_usuario,
+                titulo='Recordatorio de carga — cargá antes de que termine tu horario',
+                mensaje=(
+                    f'Tenés pendientes {pendientes_visibles} de {contexto_b}. '
+                    f'Tu horario de clase termina a las {fin_clase} — recordá cargar '
+                    'antes de que termine.'
+                ),
+                rol=SEGMENTO_DOCENTE,
+            )
+            return Response({
+                'enviado': True,
+                'recordatorio': True,
+                'ventana': False,
+                'detail': 'Recordatorio enviado (el docente sigue en horario). No se abrió temporizador.',
+            })
+
+        if _termino_sin_cargar():
+            # Rama 2 — el docente terminó su horario sin cargar: notificar a los
+            # preceptores del curso+materia con "Ver" → panel diario.
+            preceptores_curso = _preceptores_para_cursos([cm.id_curso_id])
+            enviados = 0
+            for pre in preceptores_curso:
+                if not pre.id_usuario_id:
+                    continue
+                n_notif = notificar(
+                    id_usuario=pre.id_usuario,
+                    titulo='No se cargaron en el horario',
+                    mensaje=(
+                        f'El docente no cargó {pendientes_visibles} de {contexto_b} '
+                        'en el horario de hoy. Revisá el panel diario.'
+                    ),
+                    rol=SEGMENTO_PRECEPTOR,
+                    nav={
+                        'destino': 'gestion_diaria',
+                        'params': {
+                            'curso': curso_nombre_b,
+                            'anio': ciclo_b,
+                        },
+                    },
+                )
+                if n_notif is not None:
+                    enviados += 1
+            return Response({
+                'enviado': True,
+                'destinatarios': 'preceptores_curso',
+                'cantidad_preceptores': enviados,
+                'ventana': False,
+                'detail': 'Notificación enviada a los preceptores del curso (no se cargó en el horario).',
+            })
+
+        # Fallback: sin horario hoy o aún esperando → flujo original (ventana 20 min).
         fecha_hoy = timezone.localtime().date()
         carga = crear_o_renovar_carga(cm, fecha_hoy, faltantes, resultado.docente)
 
@@ -6156,23 +6317,42 @@ class ActividadMateriaAdeudadaViewSet(viewsets.ModelViewSet):
         else:
             alumno = alumno_del_usuario(self.request)
             if alumno:
-                materia_ids = MateriaAdeudada.objects.filter(
-                    id_alumno=alumno
-                ).values_list('id_materia', flat=True)
-                qs = qs.filter(id_curso_materia__id_materia__in=materia_ids)
+                alumno_ids = [alumno.id_alumno]
             else:
                 alumno_ids = alumno_ids_familia(self.request)
-                if alumno_ids:
-                    materia_ids = MateriaAdeudada.objects.filter(
-                        id_alumno__in=alumno_ids
-                    ).values_list('id_materia', flat=True)
-                    qs = qs.filter(id_curso_materia__id_materia__in=materia_ids)
-                else:
-                    qs = qs.none()
+            # A4: la familia puede acotar al hijo elegido en el filtro global.
+            alumno_param = self.request.query_params.get('alumno')
+            if alumno_param and alumno_ids:
+                try:
+                    alumno_param_id = int(alumno_param)
+                except (TypeError, ValueError):
+                    alumno_param_id = None
+                if alumno_param_id in alumno_ids:
+                    alumno_ids = [alumno_param_id]
+            if not alumno_ids:
+                return qs.none()
+            # A4: además de las previas (MateriaAdeudada), incluir las materias
+            # en condición de intensificación (SituacionMateriaAlumno).
+            materia_ids = set(
+                MateriaAdeudada.objects.filter(
+                    id_alumno__in=alumno_ids
+                ).values_list('id_materia', flat=True)
+            )
+            materia_ids.update(
+                SituacionMateriaAlumno.objects.filter(
+                    id_alumno__in=alumno_ids, situacion='INTENSIFICANDO'
+                ).values_list('id_curso_materia__id_materia', flat=True)
+            )
+            if not materia_ids:
+                return qs.none()
+            qs = qs.filter(id_curso_materia__id_materia__in=materia_ids)
         tipo = self.request.query_params.get('tipo')
+        curso = self.request.query_params.get('curso')
         curso_materia = self.request.query_params.get('curso_materia')
         if tipo:
             qs = qs.filter(tipo=tipo)
+        if curso:
+            qs = qs.filter(id_curso_materia__id_curso=curso)
         if curso_materia:
             qs = qs.filter(id_curso_materia=curso_materia)
         return qs
@@ -6433,39 +6613,51 @@ def _notificar_carga_usuario(*, etiqueta, nombre_completo, curso_ids=None,
         notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=None, rol=segmento)
 
 
-def _notificar_carga_notas(cm, periodo_nombre=None, accion='cargada'):
-    """Carga de notas por curso.
+def _notificar_carga_notas(cm, periodo_nombre=None, accion='cargada', calificaciones=None):
+    """Carga de notas por curso (A7).
 
-    Avisa a administradores/directores y a los preceptores del curso cuando un
-    docente carga o actualiza calificaciones de una materia. La
-    deduplicación por contenido de `notificar` evita repetir el aviso cuando
-    la carga se hace por alumno (una sola notificación por materia+período).
+    Avisa a administradores/directores y a los preceptores del curso con una
+    notificación POR NOTA (por alumno), en lugar de una general por materia:
+    cada mensaje identifica al alumno, la materia, el período y el valor de la
+    nota. La deduplicación por referencia (`carga_nota_{pk}`) evita repetir el
+    aviso al re-guardar la misma nota.
     """
     if cm is None or cm.id_curso_id is None:
         return
     materia = cm.id_materia.nombre_materia if cm.id_materia_id else 'la materia'
     curso = cm.id_curso.nombre_curso if cm.id_curso_id else 'el curso'
     actualizada = accion == 'actualizada'
-    titulo = 'Notas actualizadas' if actualizada else 'Notas cargadas'
-    mensaje = (
-        f'Se actualizaron las notas de {materia} ({curso}).'
-        if actualizada else
-        f'Se cargaron las notas de {materia} ({curso}).'
-    )
-    if periodo_nombre:
-        mensaje = mensaje.rstrip('.') + f' — Período: {periodo_nombre}.'
-    nav = {
-        'destino': 'notas',
-        'params': {
-            'cursoMateriaId': cm.id_curso_materia,
+    titulo = 'Nota actualizada' if actualizada else 'Nota cargada'
+    for calificacion in (calificaciones or []):
+        alumno = calificacion.id_alumno
+        if alumno is None:
+            continue
+        nombre_alumno = f"{alumno.apellido or ''} {alumno.nombre or ''}".strip()
+        partes = [f'{materia} ({curso})']
+        if calificacion.nota_numerica is not None:
+            partes.append(f'Nota: {calificacion.nota_numerica}')
+        if periodo_nombre:
+            partes.append(f'Período: {periodo_nombre}')
+        mensaje = f'{nombre_alumno}: ' + ' | '.join(partes) + '.'
+        dedupe_key = f'carga_nota_{calificacion.pk}'
+        ref_marker = f'[ref:{dedupe_key}]'
+        mensaje_con_ref = f'{mensaje}\n{ref_marker}' if ref_marker not in mensaje else mensaje
+        nav = {
+            'destino': 'notas',
+            'params': {
+                'cursoMateriaId': cm.id_curso_materia,
+                'alumnoId': alumno.id_alumno,
+            }
         }
-    }
-    for u in _usuarios_directivos():
-        notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DIRECTIVO)
-    for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
-        if preceptor.id_usuario_id:
-            notificar(id_usuario=preceptor.id_usuario, id_alumno=None,
-                      titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_PRECEPTOR)
+        for u in _usuarios_directivos():
+            notificar(id_usuario=u, id_alumno=alumno, titulo=titulo,
+                      mensaje=mensaje_con_ref, dedupe_key=dedupe_key, nav=nav,
+                      rol=SEGMENTO_DIRECTIVO)
+        for preceptor in _preceptores_para_cursos([cm.id_curso_id]):
+            if preceptor.id_usuario_id:
+                notificar(id_usuario=preceptor.id_usuario, id_alumno=alumno,
+                          titulo=titulo, mensaje=mensaje_con_ref,
+                          dedupe_key=dedupe_key, nav=nav, rol=SEGMENTO_PRECEPTOR)
 
 
 def _notificar_carga_asistencias(cm, fecha):
@@ -6564,7 +6756,7 @@ def _notificar_acta_curso(acta_curso):
     tipo = acta.id_tipo_acta.nombre_tipo if acta.id_tipo_acta else 'acta'
     titulo = 'Acta de curso'
     mensaje = (
-        f'Se cargó un acta de {tipo} para el curso {curso.nombre_curso}: '
+        f'Se cargó "{tipo}" para el curso {curso.nombre_curso}: '
         f'{acta.titulo or acta.descripcion or "sin detalles"}.'
     )
     nav = {
@@ -6584,7 +6776,17 @@ def _notificar_acta_curso(acta_curso):
         notificar(id_usuario=u, id_alumno=None, titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_DIRECTIVO)
     alumnos = Alumno.objects.filter(estado=True, id_curso_id=curso.id_curso).select_related('id_tutor')
     for alumno in alumnos:
-        notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)
+        # Al alumno le llega como académica (vinculada a su id_alumno).
+        if alumno.id_usuario_id:
+            notificar(id_usuario=alumno.id_usuario, id_alumno=alumno,
+                      titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_ALUMNO)
+        # A la familia le llega como notificación personal (sin vínculo a un
+        # hijo, para que aparezca en el apartado "Personales" del familiar).
+        for tutor_id in tutor_ids_de_alumno(alumno):
+            tutor = PadreTutor.objects.filter(id_tutor=tutor_id, id_usuario_id__isnull=False).first()
+            if tutor is not None:
+                notificar(id_usuario=tutor.id_usuario, id_alumno=None,
+                          titulo=titulo, mensaje=mensaje, nav=nav, rol=SEGMENTO_FAMILIA)
 
 
 def _notificar_adelanto_aprobado(adelanto):
@@ -6849,20 +7051,22 @@ def _es_tipo_acta_conducta(acta):
     )
 
 
-def _notificar_acta_conducta(acta_alumno):
-    """E4 — Conducta/apercibimientos.
+def _notificar_acta_alumno(acta_alumno):
+    """E4 — Acta asociada a un estudiante.
 
-    Notifica al estudiante y a su familia cuando se asocia un acta de tipo
-    conducta/apercibimiento a un alumno (creación de ActaAlumno). Además
-    notifica al preceptor del curso del alumno, que gestiona las actas de su
-    curso.
+    Notifica al estudiante y a su familia cuando se asocia un acta a un
+    alumno (creación de ActaAlumno). Además notifica al preceptor del curso
+    del alumno, a los jefes de preceptores y a los directivos/admin.
+
+    A diferencia de la versión previa (que solo avisaba las actas de tipo
+    conducta), ahora avisa cualquier acta de estudiante, que es el tercer
+    tipo de acta que el cliente espera ver en notificaciones.
     """
     acta = acta_alumno.id_acta
-    if not _es_tipo_acta_conducta(acta):
+    if acta is None:
         return
     alumno = acta_alumno.id_alumno
-    tipo = acta.id_tipo_acta.nombre_tipo if acta.id_tipo_acta else 'acta'
-    titulo = f'Acta de {tipo}'
+    titulo = 'Acta de estudiante'
     detalle = acta.titulo or acta.descripcion or 'sin detalles'
     nav = {
         'destino': 'actas',
@@ -6870,44 +7074,133 @@ def _notificar_acta_conducta(acta_alumno):
             'actaId': acta.id_acta,
         }
     }
+    if alumno is None:
+        return
     notificar_alumno(
         alumno=alumno,
         titulo=titulo,
-        mensaje=f'Se ha registrado un acta de {tipo} a tu nombre: {detalle}.',
+        mensaje=f'Se ha registrado un acta a tu nombre: {detalle}.',
         nav=nav,
     )
 
-    if alumno is not None:
-        nombre = f'{alumno.apellido}, {alumno.nombre}'
-        mensaje_preceptor = (
-            f'Se ha registrado un acta de {tipo} para {nombre}: {detalle}.'
+    nombre = f'{alumno.apellido}, {alumno.nombre}'
+    mensaje_otros = f'Se ha registrado un acta para {nombre}: {detalle}.'
+    preceptores = _preceptores_para_cursos([alumno.id_curso_id])
+    for preceptor in preceptores:
+        if preceptor.id_usuario_id:
+            notificar(
+                id_usuario=preceptor.id_usuario,
+                id_alumno=None,
+                titulo=titulo,
+                mensaje=mensaje_otros,
+                nav=nav,
+                rol=SEGMENTO_PRECEPTOR,
+            )
+    for u in _usuarios_con_rol('jefe_preceptores'):
+        notificar(
+            id_usuario=u,
+            id_alumno=None,
+            titulo=titulo,
+            mensaje=mensaje_otros,
+            nav=nav,
+            rol=SEGMENTO_JEFE_PRECEPTORES,
         )
-        preceptores = _preceptores_para_cursos([alumno.id_curso_id])
-        for preceptor in preceptores:
-            if preceptor.id_usuario_id:
-                notificar(
-                    id_usuario=preceptor.id_usuario,
-                    id_alumno=None,
-                    titulo=titulo,
-                    mensaje=mensaje_preceptor,
-                    nav=nav,
-                    rol=SEGMENTO_PRECEPTOR,
-                )
-        for u in _usuarios_con_rol('jefe_preceptores'):
+    for u in _usuarios_directivos():
+        notificar(
+            id_usuario=u,
+            id_alumno=None,
+            titulo=titulo,
+            mensaje=mensaje_otros,
+            nav=nav,
+            rol=SEGMENTO_DIRECTIVO,
+        )
+
+
+def _notificar_acta_docente(acta_docente):
+    """Acta asociada a un docente.
+
+    Notifica al docente afectado y a los responsables "de preceptor para
+    arriba":
+    - preceptores de los cursos donde el docente dicta (titular o suplente),
+      solo si el docente está a su cargo;
+    - jefes de preceptores;
+    - directivos/admin.
+
+    Nunca se notifica al usuario autor del acta.
+    """
+    acta = acta_docente.id_acta
+    docente = acta_docente.id_docente
+    if acta is None or docente is None:
+        return
+    autor = acta.id_usuario_creador
+
+    def _es_autor(usuario):
+        return (
+            usuario is not None
+            and autor is not None
+            and getattr(usuario, 'pk', None) == autor.pk
+        )
+
+    titulo = 'Acta de docente'
+    detalle = acta.titulo or acta.descripcion or 'sin detalles'
+    nav = {
+        'destino': 'actas',
+        'params': {
+            'actaId': acta.id_acta,
+        }
+    }
+
+    # 1) Al propio docente afectado.
+    if getattr(docente, 'id_usuario_id', None) and not _es_autor(docente.id_usuario):
+        notificar(
+            id_usuario=docente.id_usuario,
+            id_alumno=None,
+            titulo=titulo,
+            mensaje=f'Se te ha registrado un acta: {detalle}.',
+            nav=nav,
+            rol=SEGMENTO_DOCENTE,
+        )
+
+    # 2) Preceptores de los cursos donde el docente dicta (titular o suplente).
+    cm_ids = _materias_docente_ids(docente)
+    curso_ids = list(
+        CursoMateria.objects.filter(id_curso_materia__in=cm_ids)
+        .values_list('id_curso_id', flat=True)
+        .distinct()
+    )
+    nombre_doc = f'{docente.apellido}, {docente.nombre}'
+    mensaje_otros = f'Se ha registrado un acta para el docente {nombre_doc}: {detalle}.'
+    for preceptor in _preceptores_para_cursos(curso_ids):
+        if preceptor.id_usuario_id and not _es_autor(preceptor.id_usuario):
+            notificar(
+                id_usuario=preceptor.id_usuario,
+                id_alumno=None,
+                titulo=titulo,
+                mensaje=mensaje_otros,
+                nav=nav,
+                rol=SEGMENTO_PRECEPTOR,
+            )
+
+    # 3) Jefes de preceptores.
+    for u in _usuarios_con_rol('jefe_preceptores'):
+        if not _es_autor(u):
             notificar(
                 id_usuario=u,
                 id_alumno=None,
                 titulo=titulo,
-                mensaje=mensaje_preceptor,
+                mensaje=mensaje_otros,
                 nav=nav,
                 rol=SEGMENTO_JEFE_PRECEPTORES,
             )
-        for u in _usuarios_directivos():
+
+    # 4) Directivos/admin.
+    for u in _usuarios_directivos():
+        if not _es_autor(u):
             notificar(
                 id_usuario=u,
                 id_alumno=None,
                 titulo=titulo,
-                mensaje=mensaje_preceptor,
+                mensaje=mensaje_otros,
                 nav=nav,
                 rol=SEGMENTO_DIRECTIVO,
             )
@@ -6954,9 +7247,10 @@ def _notificar_evento_institucional(evento):
         'Suspension': 'Se suspenden las clases',
         'Feriado': 'Feriado',
         'Jornada Institucional': 'Jornada Institucional',
-        'No se cancelan las clases': 'No se cancelan las clases',
         'Otro': titulo_display,
     }.get(evento.tipo_evento, titulo_display)
+    if evento.alcance == 'sin_bloqueo':
+        frase = 'No se cancelan las clases'
     desc = f' {evento.descripcion}' if evento.descripcion else ''
     mensaje = f'{frase} el {fecha_str}{desc}'
 
@@ -7086,12 +7380,22 @@ def _notificar_actividad_adeudada(actividad, accion='publicada'):
             'materiaId': cm.id_materia_id,
         }
     }
-    alumnos = Alumno.objects.filter(
-        estado=True,
-        id_alumno__in=MateriaAdeudada.objects.filter(
+    alumno_ids = set(
+        MateriaAdeudada.objects.filter(
             id_materia_id=cm.id_materia_id,
             estado__in=['ADEUDADA', 'RECURSANDO'],
-        ).values('id_alumno'),
+        ).values_list('id_alumno_id', flat=True)
+    )
+    # A4: incluir también a los alumnos en condición de intensificación.
+    alumno_ids.update(
+        SituacionMateriaAlumno.objects.filter(
+            id_curso_materia__id_materia_id=cm.id_materia_id,
+            situacion='INTENSIFICANDO',
+        ).values_list('id_alumno_id', flat=True)
+    )
+    alumnos = Alumno.objects.filter(
+        estado=True,
+        id_alumno__in=alumno_ids,
     ).select_related('id_tutor')
     for alumno in alumnos:
         notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav=nav)

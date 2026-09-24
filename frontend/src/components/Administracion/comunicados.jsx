@@ -14,6 +14,7 @@ import {
 import { cursoConOrientacion, parseCurso } from '../../utils/orientacion';
 import { findCursoObj, getAniosCurso, getDivisiones } from '../Shared/cursoFilters';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { mensajeErrorAmigable } from '../../utils/errores';
 
 const API_BASE = BASE_URL;
 
@@ -220,13 +221,12 @@ function Comunicados() {
         materiaId: '',
       });
       setArchivos([]);
+      setMostrarFormulario(false);
       await refreshData();
       setTimeout(() => setMensaje(''), 3000);
     } catch (err) {
       console.error('Error al crear comunicado:', err);
-      const detail = err.response?.data;
-      const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-      toast.error(`Error: ${msg}`);
+      toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
     }
@@ -241,9 +241,7 @@ function Comunicados() {
           toast.success('Comunicado eliminado correctamente.');
           await refreshData();
         } catch (err) {
-          const detail = err.response?.data;
-          const msg = typeof detail === 'object' ? JSON.stringify(detail) : detail || err.message;
-          toast.error(`Error: ${msg}`);
+          toast.error(mensajeErrorAmigable(err));
         }
       },
     });

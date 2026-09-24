@@ -16,6 +16,7 @@ import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import PanelAlumno from './PanelAlumno';
 import PanelPreviasAlumno from './PanelPreviasAlumno';
 import Sidebar from './Sidebar';
+import SidebarToggle from '../Shared/SidebarToggle';
 
 function AlumnoDashboard({ user, onLogout }) {
   const {
@@ -178,6 +179,7 @@ function AlumnoDashboard({ user, onLogout }) {
       <main className="main-content">
         <header className="main-header main-header--dark">
           <div className="main-header-left">
+            <SidebarToggle />
             <div className="main-header-greeting">
               <h2>
                 <span className="greeting-saludo">Bienvenido:</span>{' '}
@@ -220,6 +222,10 @@ function AlumnoDashboard({ user, onLogout }) {
         ) : view === 'actividades' ? (
           <div className="view-section active">
             <ActividadesView userRole="alumno" />
+          </div>
+        ) : view === 'materias-adeudadas' ? (
+          <div className="view-section active">
+            <ActividadesView userRole="alumno" initialTab="adeudadas" />
           </div>
         ) : view === 'comunicados' ? (
           <div className="view-section active">

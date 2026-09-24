@@ -8,12 +8,21 @@ import { useData } from '../../context/DataContext';
 //   notificaciones sin leer, y se actualiza automáticamente cuando:
 //     * el sondeo de DataContext incorpora notificaciones nuevas (Parte 6), o
 //     * el usuario marca como leídas (la cuenta baja sola).
+// - Para el rol familia (cada hijo tiene su propio contador): si se pasa
+//   `selectedChild`, el badge cuenta solo las sin leer de ese hijo (académicas).
 // - `campanaPulse` lo incrementa DataContext cada vez que llega una
 //   notificación NUEVA en sesión; ese cambio fuerza una breve animación de
 //   campana sin re-montar todo el menú.
-function CampanaNotificaciones() {
+function CampanaNotificaciones({ selectedChild }) {
   const { notificaciones = [], campanaPulse = 0 } = useData();
-  const noLeidas = notificaciones.filter((n) => !n.leida).length;
+  const noLeidas = useMemo(() => {
+    if (!notificaciones || notificaciones.length === 0) return 0;
+    const base = notificaciones.filter((n) => !n.leida);
+    if (selectedChild?.alumnoId != null) {
+      return base.filter((n) => Number(n.id_alumno) === Number(selectedChild.alumnoId)).length;
+    }
+    return base.length;
+  }, [notificaciones, selectedChild?.alumnoId]);
 
   // `key` distinta por pulso: reinicia la animación CSS al llegar una nueva.
   const idAnimacion = useMemo(() => `campana-pulse-${campanaPulse}`, [campanaPulse]);
