@@ -20,7 +20,7 @@ function badgeClass(estado) {
 
 function Asistencias() {
   const {
-    alumnos,
+    estudiantes,
     cursosObj,
     cursoMateria,
     nombreCorto,
@@ -30,13 +30,13 @@ function Asistencias() {
   const [tab, setTab] = useState('dia');
   const [materiaCmId, setMateriaCmId] = useState('');
   const [fechaMateria, setFechaMateria] = useState('');
-  const [alumnoMateria, setAlumnoMateria] = useState('');
+  const [estudianteMateria, setEstudianteMateria] = useState('');
   const [dataMateria, setDataMateria] = useState([]);
   const [cargandoMateria, setCargandoMateria] = useState(false);
   const [dataDiaria, setDataDiaria] = useState([]);
   const [cargandoDiaria, setCargandoDiaria] = useState(false);
   const [regFecha, setRegFecha] = useState('');
-  const [regAlumno, setRegAlumno] = useState('');
+  const [regEstudiante, setRegEstudiante] = useState('');
   const [dataRegistro, setDataRegistro] = useState([]);
   const [cargandoRegistro, setCargandoRegistro] = useState(false);
   const [serverInfo, setServerInfo] = useState(null);
@@ -56,9 +56,9 @@ function Asistencias() {
     [cursoMateria, cursoObjSel],
   );
 
-  const listaAlumnos = useMemo(
-    () => alumnos.filter((a) => a.curso === curso).sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '')),
-    [alumnos, curso],
+  const listaEstudiantes = useMemo(
+    () => estudiantes.filter((a) => a.curso === curso).sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '')),
+    [estudiantes, curso],
   );
 
   const handleCursoChange = (nuevoCurso) => {
@@ -66,7 +66,7 @@ function Asistencias() {
       if (prev === nuevoCurso) return prev;
       setMateriaCmId('');
       setFechaMateria('');
-      setAlumnoMateria('');
+      setEstudianteMateria('');
       return nuevoCurso;
     });
   };
@@ -91,26 +91,26 @@ function Asistencias() {
       setCargandoMateria(true);
       const params = {};
       if (fechaMateria) params.fecha = fechaMateria;
-      if (alumnoMateria) params.alumno = alumnoMateria;
+      if (estudianteMateria) params.alumno = estudianteMateria;
       getAsistenciasPreceptorMateria(materiaCmId, params)
         .then(setDataMateria)
         .catch(() => setDataMateria([]))
         .finally(() => setCargandoMateria(false));
     }
-  }, [tab, materiaCmId, fechaMateria, alumnoMateria]);
+  }, [tab, materiaCmId, fechaMateria, estudianteMateria]);
 
   useEffect(() => {
-    if (tab === 'dia' && curso && (regFecha || regAlumno)) {
+    if (tab === 'dia' && curso && (regFecha || regEstudiante)) {
       setCargandoRegistro(true);
       const params = {};
       if (regFecha) params.fecha = regFecha;
-      if (regAlumno) params.alumno = regAlumno;
+      if (regEstudiante) params.alumno = regEstudiante;
       getRegistroDiario(curso, params)
         .then(setDataRegistro)
         .catch(() => setDataRegistro([]))
         .finally(() => setCargandoRegistro(false));
     }
-  }, [tab, curso, regFecha, regAlumno]);
+  }, [tab, curso, regFecha, regEstudiante]);
 
   useEffect(() => {
     getServerTime().then(setServerInfo).catch(() => setServerInfo(null));
@@ -256,21 +256,21 @@ function Asistencias() {
                 />
               </div>
               <div className="form-group-filter">
-                <label htmlFor="reg-alumno-admin">Estudiante</label>
+                <label htmlFor="reg-estudiante-admin">Estudiante</label>
                 <select
-                  id="reg-alumno-admin"
-                  value={regAlumno}
-                  onChange={(e) => setRegAlumno(e.target.value)}
+                  id="reg-estudiante-admin"
+                  value={regEstudiante}
+                  onChange={(e) => setRegEstudiante(e.target.value)}
                 >
                   <option value="">Todos...</option>
-                  {listaAlumnos.map((a) => (
+                  {listaEstudiantes.map((a) => (
                     <option key={a.id} value={a.id}>{nombreCorto(a)}</option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {!regFecha && !regAlumno ? (
+            {!regFecha && !regEstudiante ? (
               <p className="empty-state-message">Seleccioná una fecha o un estudiante para ver registros.</p>
             ) : cargandoRegistro ? (
               <LoadingSpinner text="Cargando registros..." size="sm" inline />
@@ -334,14 +334,14 @@ function Asistencias() {
               />
             </div>
             <div className="form-group-filter">
-              <label htmlFor="alumno-asistencias">Estudiante</label>
+              <label htmlFor="estudiante-asistencias">Estudiante</label>
               <select
-                id="alumno-asistencias"
-                value={alumnoMateria}
-                onChange={(e) => setAlumnoMateria(e.target.value)}
+                id="estudiante-asistencias"
+                value={estudianteMateria}
+                onChange={(e) => setEstudianteMateria(e.target.value)}
               >
                 <option value="">Todos...</option>
-                {listaAlumnos.map((a) => (
+                {listaEstudiantes.map((a) => (
                   <option key={a.id} value={a.id}>{nombreCorto(a)}</option>
                 ))}
               </select>

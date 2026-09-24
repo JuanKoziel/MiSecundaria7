@@ -17,7 +17,7 @@ function formatearCalif(v) {
 
 // Cabecera idéntica a la tabla principal (Intensificaciones con sus 3 columnas),
 // con una columna extra "Año/Curso" al inicio. Se usa para "Materias a recursar".
-function CabeceraBoletinConAnio() {
+function CabeceraRiteConAnio() {
   return (
       <thead>
         <tr>
@@ -44,10 +44,10 @@ function CabeceraBoletinConAnio() {
 
 function SeccionPrevias({ previas = [] }) {
   return (
-    <div className="boletin-seccion-extra">
-      <div className="boletin-seccion-titulo">MATERIAS PREVIAS / ADEUDADAS</div>
-      <div className="table-responsive boletin-table-responsive">
-        <table className="boletin-table">
+    <div className="rite-seccion-extra">
+      <div className="rite-seccion-titulo">MATERIAS PREVIAS / ADEUDADAS</div>
+      <div className="table-responsive rite-table-responsive">
+        <table className="rite-table">
           <colgroup>
             <col style={{ width: '16%' }} />
             <col style={{ width: '10%' }} />
@@ -93,7 +93,7 @@ function SeccionPrevias({ previas = [] }) {
                     return (
                       <td
                         key={col.key}
-                        className={aprobada ? 'boletin-celda-aprobada' : undefined}
+                        className={aprobada ? 'rite-celda-aprobada' : undefined}
                       >
                         {formatearCalif(nota)}
                       </td>
@@ -112,10 +112,10 @@ function SeccionPrevias({ previas = [] }) {
 
 function SeccionRecursadas({ recursadas = [] }) {
   return (
-    <div className="boletin-seccion-extra">
-      <div className="boletin-seccion-titulo">MATERIAS A RECURSAR</div>
-      <div className="table-responsive boletin-table-responsive">
-        <table className="boletin-table">
+    <div className="rite-seccion-extra">
+      <div className="rite-seccion-titulo">MATERIAS A RECURSAR</div>
+      <div className="table-responsive rite-table-responsive">
+        <table className="rite-table">
           <colgroup>
             <col style={{ width: '8.5%' }} />
             <col style={{ width: '8%' }} />
@@ -129,7 +129,7 @@ function SeccionRecursadas({ recursadas = [] }) {
             <col style={{ width: '9%' }} />
             <col style={{ width: '14%' }} />
           </colgroup>
-          <CabeceraBoletinConAnio />
+          <CabeceraRiteConAnio />
           <tbody>
             {recursadas.length === 0 ? (
               <tr>
@@ -175,18 +175,18 @@ function SeccionRecursadas({ recursadas = [] }) {
   );
 }
 
-export default function BoletinExtras({
+export default function RiteExtras({
   recursadas = [],
   previas = [],
   intensificaciones_posteriores = [],
   loading,
 }) {
   return (
-    <div className="boletin-extras mt-16">
+    <div className="rite-extras mt-16">
       <SeccionPrevias previas={previas} />
       <SeccionRecursadas recursadas={recursadas} />
 
-      <p className="boletin-nota">Prenota = 1.ª y 2.ª Valoración Preliminar</p>
+      <p className="rite-nota">Prenota = 1.ª y 2.ª Valoración Preliminar</p>
     </div>
   );
 }

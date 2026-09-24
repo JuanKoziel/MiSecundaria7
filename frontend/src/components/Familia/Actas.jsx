@@ -4,8 +4,8 @@ import { BASE_URL } from '../../services/api';
 const API_BASE = BASE_URL;
 
 function Actas({ hijo }) {
-  const { actasAlumno } = useData();
-  const actas = actasAlumno
+  const { actasEstudiante } = useData();
+  const actas = actasEstudiante
     .filter((a) => a.alumnoId === hijo.alumnoId)
     .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 

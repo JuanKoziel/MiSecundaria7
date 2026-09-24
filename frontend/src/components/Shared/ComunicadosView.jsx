@@ -62,7 +62,7 @@ function comunicadoEstaVigente(comunicado, aniosLectivos) {
 function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSeleccionada }) {
   const {
     comunicados,
-    alumnos,
+    estudiantes,
     cursosObj,
     cursoMateria,
     docentes,
@@ -82,8 +82,8 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSe
 
     switch (userRole) {
       case 'alumno': {
-        const miAlumno = alumnos.find((a) => a.id_usuario === userId);
-        const miCurso = miAlumno ? cursosObj.find((c) => c.id_curso === miAlumno.id_curso) : null;
+        const miEstudiante = estudiantes.find((a) => a.id_usuario === userId);
+        const miCurso = miEstudiante ? cursosObj.find((c) => c.id_curso === miEstudiante.id_curso) : null;
         if (!miCurso) return [];
         return comunicados
           .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
@@ -92,8 +92,8 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSe
 
       case 'familia': {
         if (selectedChild && selectedChild.alumnoId) {
-          const alumno = alumnos.find((a) => a.id === selectedChild.alumnoId);
-          const cursoObj = alumno ? cursosObj.find((c) => c.id_curso === alumno.id_curso) : null;
+          const estudiante = estudiantes.find((a) => a.id === selectedChild.alumnoId);
+          const cursoObj = estudiante ? cursosObj.find((c) => c.id_curso === estudiante.id_curso) : null;
           if (!cursoObj) return [];
           return comunicados
             .filter((c) => comunicadoEstaVigente(c, aniosLectivos))
@@ -102,7 +102,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSe
 
         const miTutor = padresTutores.find((pt) => pt.id_usuario === userId);
         if (!miTutor) return [];
-        const misHijos = alumnos;
+        const misHijos = estudiantes;
         const cursosHijos = misHijos
           .map((h) => cursosObj.find((c) => c.id_curso === h.id_curso))
           .filter(Boolean);
@@ -180,7 +180,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSe
       default:
         return [];
     }
-  }, [comunicados, user, userRole, alumnos, cursoMateria, cursosObj, docentes, padresTutores, preceptores, selectedChild, cursoSeleccionado, materiaSeleccionada, aniosLectivos]);
+  }, [comunicados, user, userRole, estudiantes, cursoMateria, cursosObj, docentes, padresTutores, preceptores, selectedChild, cursoSeleccionado, materiaSeleccionada, aniosLectivos]);
 
   const comunicadosOrdenados = useMemo(() => {
     return [...comunicadosFiltrados].sort((a, b) => {
@@ -218,9 +218,9 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSe
     // Buscar en padres/tutores
     const tutor = padresTutores?.find((pt) => pt.id_usuario === usuarioId);
     if (tutor) return `${tutor.apellido}, ${tutor.nombre}`;
-    // Buscar en alumnos
-    const alumno = alumnos?.find((a) => a.id_usuario === usuarioId);
-    if (alumno) return `${alumno.apellido}, ${alumno.nombre}`;
+    // Buscar en estudiantes
+    const estudiante = estudiantes?.find((a) => a.id_usuario === usuarioId);
+    if (estudiante) return `${estudiante.apellido}, ${estudiante.nombre}`;
     // Fallback
     return `Usuario #${usuarioId}`;
   };

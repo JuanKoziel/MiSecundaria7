@@ -16,22 +16,22 @@ function StatCard({ icon, value, label, color }) {
 }
 
 function PanelPreceptor({ miPreceptor }) {
-  const { cursosObj, alumnos, comunicados, diagnosticos } = useData();
+  const { cursosObj, estudiantes, comunicados, diagnosticos } = useData();
 
   const stats = useMemo(() => {
     if (!miPreceptor) return null;
-    const safeAlumnos = alumnos ?? [];
+    const safeEstudiantes = estudiantes ?? [];
     const safeComunicados = comunicados ?? [];
     const safeDiagnosticos = diagnosticos ?? [];
     const cursoIds = (miPreceptor.cursos || []).map((c) => c.id_curso).filter(Boolean);
     return {
       cursos: (miPreceptor.cursos || []).length,
-      alumnos: safeAlumnos.filter((a) => cursoIds.includes(a.id_curso)).length,
+      estudiantes: safeEstudiantes.filter((a) => cursoIds.includes(a.id_curso)).length,
       comunicados: safeComunicados.filter((c) => cursoIds.includes(c.id_curso)).length,
       diagnosticos: safeDiagnosticos.filter((d) => cursoIds.includes(d.id_curso)).length,
       estado: miPreceptor.estado === false ? 'Inactivo' : 'Activo',
     };
-  }, [miPreceptor, alumnos, comunicados, diagnosticos]);
+  }, [miPreceptor, estudiantes, comunicados, diagnosticos]);
 
   if (!miPreceptor) {
     return (
@@ -86,7 +86,7 @@ function PanelPreceptor({ miPreceptor }) {
 
       <div className="stats-grid">
         <StatCard icon="fa-school" value={stats.cursos} label="Cursos asignados" />
-        <StatCard icon="fa-users" value={stats.alumnos} label="Estudiantes bajo seguimiento" />
+        <StatCard icon="fa-users" value={stats.estudiantes} label="Estudiantes bajo seguimiento" />
         <StatCard icon="fa-bullhorn" value={stats.comunicados} label="Comunicados" />
         <StatCard icon="fa-chart-bar" value={stats.diagnosticos} label="Diagnósticos grupales" />
         </div>

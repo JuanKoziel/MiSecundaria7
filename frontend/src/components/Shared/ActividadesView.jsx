@@ -52,7 +52,7 @@ function separarDocente(completo = '') {
 }
 
 function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = null, cursoNombre: cursoNombreOverride = null, initialTab = 'actividades' }) {
-  const { alumnos, cursosObj, cursoMateria } = useData();
+  const { estudiantes, cursosObj, cursoMateria } = useData();
   const { user } = useAuth();
   const [actividades, setActividades] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,15 +66,15 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
   const cursoId = useMemo(() => {
     if (cursoIdOverride) return cursoIdOverride;
     if (userRole === 'alumno') {
-      const miAlumno = alumnos.find((a) => a.id_usuario === user?.id);
-      return miAlumno?.id_curso;
+      const miEstudiante = estudiantes.find((a) => a.id_usuario === user?.id);
+      return miEstudiante?.id_curso;
     }
     if (userRole === 'familia' && selectedChild) {
-      const alumno = alumnos.find((a) => a.id === selectedChild.alumnoId);
-      return alumno?.id_curso;
+      const estudiante = estudiantes.find((a) => a.id === selectedChild.alumnoId);
+      return estudiante?.id_curso;
     }
     return null;
-  }, [cursoIdOverride, userRole, selectedChild, alumnos, user]);
+  }, [cursoIdOverride, userRole, selectedChild, estudiantes, user]);
 
   const cursoNombre = useMemo(() => {
     if (cursoNombreOverride) return cursoNombreOverride;
@@ -159,8 +159,8 @@ function ActividadesView({ userRole, selectedChild, cursoId: cursoIdOverride = n
     }
     const params = {};
     // El filtro global de curso aplica a los roles que navegan por curso
-    // (preceptor). Para alumno/familia el backend ya acota por el propio
-    // alumno (o por el hijo seleccionado), evitando ocultar previas de otros
+    // (preceptor). Para estudiante/familia el backend ya acota por el propio
+    // estudiante (o por el hijo seleccionado), evitando ocultar previas de otros
     // cursos.
     if (userRole === 'preceptor' && cursoId) params.curso = cursoId;
     if (userRole === 'familia' && selectedChild?.alumnoId) {

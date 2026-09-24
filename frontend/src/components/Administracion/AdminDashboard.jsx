@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Sidebar from './sidebar/sidebar';
 import Header from './header/header';
-import Alumnos from './alumnos';
+import Estudiantes from './estudiantes';
 import Docentes from './docentes';
 import Horarios from './horarios';
 import Asistencias from './asistencias';
@@ -65,7 +65,7 @@ function AdminDashboard({ user, onLogout }) {
       case 'perfil':
         return <PanelAdmin miDirectivo={miDirectivo} user={user} />;
       case 'alumnos':
-        return <Alumnos />;
+        return <Estudiantes />;
       case 'docentes':
         return <Docentes />;
       case 'preceptores':
@@ -101,7 +101,7 @@ function AdminDashboard({ user, onLogout }) {
       case 'notificaciones':
         return <Notificaciones userRole={user.role} />;
       default:
-        return <Alumnos />;
+        return <Estudiantes />;
     }
   };
 

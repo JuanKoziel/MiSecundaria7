@@ -34,7 +34,7 @@ Se ejecutaron 3 auditorías completas del sistema: Backend/BD, Frontend/Estado G
 | # | Hallazgo | Severidad | Solución | Fecha |
 |---|----------|-----------|----------|-------|
 | 1 | 28 ViewSets sin `permission_classes` explícito — dependían de `IsAuthenticated` default | **CRÍTICO** | Permission classes creadas en `permissions.py` (clases nuevas en español) y cableadas en `views.py`: personas/cursos → `IsAdminOrDirectorForWrite` / `PuedeGestionarPersonas`; actas → `PuedeGestionarActas`; asistencias → `PuedeRegistrarAsistencias`; planificaciones → `PuedeGestionarPlanificaciones`; ámbito docente (DDJJ/libro temas/diagnósticos/materias adeudadas) → `PuedeGestionarAmbitoDocente`; comunicados → `PuedePublicarComunicados`; avanzados sin escritor UI → `IsAdminOrDirectorForWrite`. ReadOnly puros (Rol/TipoActa/EstadoAsistencia/TipoAccion) y `AsistenciaDocenteViewSet` (actions auto-cuidados) quedan como estaban. Tests: `tests/test_permisos.py` (37 casos), suite completa 138 OK. | 2026-08-24 |
-| 2 | `CalificacionViewSet` sin restricción de escritura por rol | **CRÍTICO** | `permission_classes = [IsAuthenticated, PuedeEscribirCalificaciones]` ({admin, director, docente}); el alcance fino por `CursoMateria` sigue en `_verificar_docente_activo_materia`. Alumno/familia/preceptor/jefe → 403 en la puerta. | 2026-08-24 |
+| 2 | `CalificacionViewSet` sin restricción de escritura por rol | **CRÍTICO** | `permission_classes = [IsAuthenticated, PuedeEscribirCalificaciones]` ({admin, director, docente}); el alcance fino por `CursoMateria` sigue en `_verificar_docente_activo_materia`. Estudiante/familia/preceptor/jefe → 403 en la puerta. | 2026-08-24 |
 
 ### 2.2 Frontend — Resueltos
 
@@ -42,7 +42,7 @@ Se ejecutaron 3 auditorías completas del sistema: Backend/BD, Frontend/Estado G
 |---|----------|-----------|----------|-------|
 | 1 | `API_BASE` hardcodeado en `api.js` — imposible deployar a staging/production sin cambio de código | **HIGH** | `api.js` ahora usa `import.meta.env.VITE_API_URL` con fallback local (`.env.example` ya documentaba la variable). Quedan 11 constantes `API_BASE/MEDIA_BASE = 'http://localhost:8000'` para URLs de media en componentes — corrección sugerida para próximo lote. | 2026-08-24 |
 | 10 | Race condition en refresh de tokens — requests concurrentes con 401 generaban múltiples refresh calls | **HIGH** | Mutex implementado: `refreshEnCurso` comparte la promesa de refresh entre requests concurrentes (`refrescarAccessToken`), todos los 401 esperan el mismo refresh. | 2026-08-24 |
-| 21 | Definiciones duplicadas de endpoints (`createActaCurso`, `createActaAlumno`) | **MEDIUM** | **FALSO POSITIVO** — `createActa` (línea 271, endpoint `/actas/`) y `createActaCurso`/`createActaAlumno` (líneas 489/494, endpoints `/acta-curso/`, `/acta-alumno/`) son funciones **distintas** con endpoints distintos; cada nombre se exporta una sola vez en `api.js`. No había duplicados. | 2026-08-24 |
+| 21 | Definiciones duplicadas de endpoints (`createActaCurso`, `createActaEstudiante`) | **MEDIUM** | **FALSO POSITIVO** — `createActa` (línea 271, endpoint `/actas/`) y `createActaCurso`/`createActaEstudiante` (líneas 489/494, endpoints `/acta-curso/`, `/acta-alumno/`) son funciones **distintas** con endpoints distintos; cada nombre se exporta una sola vez en `api.js`. No había duplicados. | 2026-08-24 |
 
 ### 2.3 UI — Resueltos
 
@@ -59,7 +59,7 @@ Se ejecutaron 3 auditorías completas del sistema: Backend/BD, Frontend/Estado G
 
 | # | Hallazgo | Severidad | Notas |
 |---|----------|-----------|-------|
-| 3 | Boletín generado client-side, no backend con ReportLab (viola la decisión arquitectónica de PDFs desde Django) | **ALTO** | Requiere migración de `frontend/src/utils/boletin.js` a `_generar_pdf()` en `PlanificacionViewSet` |
+| 3 | RITE generado client-side, no backend con ReportLab (viola la decisión arquitectónica de PDFs desde Django) | **ALTO** | Requiere migración de `frontend/src/utils/rite.js` a `_generar_pdf()` en `PlanificacionViewSet` |
 | 4 | `HorarioEspecialViewSet.perform_destroy` usa `delete()` físico (no `marcar_eliminado`) | **MEDIO** | Falta implementar soft delete |
 | 5 | No hay rate limiting en `login_view` (brute-force) | **MEDIO** | Considerar django-ratelimit o similar |
 | 6 | Generación de PDF de actas y actividades adeudadas no determinada | **BAJO** | |
@@ -168,7 +168,7 @@ cd frontend && npx vite build
 # Management commands read-only
 cd backend && python manage.py check_admins
 cd backend && python manage.py diagnostic_curso_materia
-cd backend && python manage.py verificar_boletin_mysql
+cd backend && python manage.py verificar_rite_mysql
 
 # Management commands mutantes (requieren Fases 0–6)
 cd backend && python manage.py actualizar_estados_usuarios
@@ -216,7 +216,7 @@ Al intentar guardar una nota de Intensificaciones en `Docente → Calificaciones
   - `anio_rendicion`
   - `nota`
 - `id_historial` se incluye cuando está disponible; en caso contrario el backend lo resuelve.
-- `PanelAlumnos.jsx` pasa `cursoMateriaId` a la lógica de cambios.
+- `PanelEstudiantes.jsx` pasa `cursoMateriaId` a la lógica de cambios.
 - Las actualizaciones de registros existentes continúan utilizando `PATCH`.
 - Se **mantiene la estructura original de 3 columnas**:
   - Intensificación 1.º Cuatrimestre
@@ -245,7 +245,7 @@ Al intentar guardar una nota de Intensificaciones en `Docente → Calificaciones
 | `backend/proyecto/escuela/views.py` | `_resolver_o_crear_historial()`, `IntensificacionAcademicaViewSet.create` (resolve historial + `fecha_registro`), corrección de detección de error en create/update (`resultado not in ('APROBADA','DESAPROBADA')`) |
 | `backend/proyecto/escuela/models.py` | Ajuste menor relacionado con el flujo de intensificaciones |
 | `backend/proyecto/escuela/tests/test_academico.py` | 16 tests, incluye `test_intensificacion_crea_sin_historial_existente` |
-| `frontend/src/components/Profesores/PanelAlumnos.jsx` | `cargarIntensificaciones`, `handleGuardarIntensificaciones`, `handleIntensifChange`, pase de `cursoMateriaId` |
+| `frontend/src/components/Profesores/PanelEstudiantes.jsx` | `cargarIntensificaciones`, `handleGuardarIntensificaciones`, `handleIntensifChange`, pase de `cursoMateriaId` |
 | `frontend/src/services/api.js` | Uso de `getHistorialAcademico` / `createIntensificacionAcademica` |
 | `frontend/src/utils/intensificaciones.js` | Nuevo: constantes + lógica pura (`cambiosIntensificaciones`, etc.) |
 | `frontend/src/utils/intensificaciones.test.js` | Nuevo: cobertura de la lógica pura |
@@ -273,7 +273,7 @@ Resultado: muchos clics en notificaciones derivaban a una sección en blanco.
   que mapea el destino **semántico** al nombre de vista **real** de cada rol.
 - `Notificaciones.jsx` ahora propaga `nav_destino`/`nav_params` **sin pre-mapear**;
   cada dashboard traduce con su rol.
-- Dashboards actualizados: `AlumnoDashboard`, `FamiliaDashboard`, `PanelProfesores`
+- Dashboards actualizados: `EstudianteDashboard`, `FamiliaDashboard`, `PanelProfesores`
   (docente), `PreceptorDashboard` y `AdminDashboard` mapean el destino y solo
   navegan si existe una vista válida (si no, el item no navega, no queda en blanco).
 - `FamiliaDashboard` además preselecciona el hijo cuando `nav_params.alumnoId`
@@ -353,18 +353,18 @@ evento y la relación real `Alumno.id_curso → Curso.id_preceptor`:
 |--------|------------------------|-----------|
 | E7 Comunicados | Sí | Ya cubierto (curso-scoped; tests actuales) |
 | E16 Eventos institucionales | Sí | Ya cubierto (alcance institucional) |
-| **E4 Conducta/apercibimientos** | **Sí (añadido)** | Se notifica al preceptor del curso del alumno |
+| **E4 Conducta/apercibimientos** | **Sí (añadido)** | Se notifica al preceptor del curso del estudiante |
 | E3 Asistencias | No (diferido) | Requiere resumen diario [REQUIERE DECISIÓN]; fuera de alcance |
 | E10 Previa | No | Issue aparte (§8.2); no tocar |
 | E19 Bloqueo horario | No | Fuera de alcance (§8.2) |
-| E5 Actas, E11/E12/E13/E18 académicos | No | Plan §5.2: alumno+familia (+ docentes) |
+| E5 Actas, E11/E12/E13/E18 académicos | No | Plan §5.2: estudiante+familia (+ docentes) |
 
 **Cambio de código (E4):**
 - Nuevo helper compartido `_preceptores_para_cursos(curso_ids)`
   (`backend/proyecto/escuela/views.py`) que devuelve los preceptores únicos
   (`Curso.id_preceptor`) con su `id_usuario`, deduplicados.
-- `_notificar_acta_conducta(...)` ahora, además de alumno y familia, notifica al
-  preceptor del curso del alumno (mensaje con el nombre del alumno y el mismo
+- `_notificar_acta_conducta(...)` ahora, además de estudiante y familia, notifica al
+  preceptor del curso del estudiante (mensaje con el nombre del estudiante y el mismo
   `nav` al destino `actas`). Usa la puerta única `notificar()` (conserva
   anti-spam y dedup del § Parte 7).
 - `_preceptores_para_comunicado(...)` se refactorizó para reutilizar el helper
@@ -372,7 +372,7 @@ evento y la relación real `Alumno.id_curso → Curso.id_preceptor`:
 
 **Test añadido:** `test_acta_conducta_notifica_al_preceptor_del_curso`
 (`test_notificaciones_eventos_parte6.py`) — verifica que el preceptor del curso
-del alumno recibe la notificación con el `nav` a `actas`, y que el preceptor de
+del estudiante recibe la notificación con el `nav` a `actas`, y que el preceptor de
 otro curso no recibe nada. Suite E4: **4 OK**.
 
 ### 9.2 Navegación clicable y verificación completa (Problema 2)
@@ -414,7 +414,7 @@ El flujo de navegación **ya existía** (destino semántico → `navegarDesdeNot
    Resultado: el usuario no percibía ni cómo activar la navegación.
 2. **Rol sin suscripción:** el rol **Jefe de Preceptores**
    (`JefePreceptorDashboard`) rendía `Notificaciones` pero NO consumía `navIntent`,
-   por lo que sus notificaciones no navegaban (las 5 roles pedidos —Alumno,
+   por lo que sus notificaciones no navegaban (las 5 roles pedidos —Estudiante,
    Familia, Docente, Preceptor, Admin/Director— sí estaban correctamente cableadas).
 
 ### 10.2 Solución
@@ -555,7 +555,7 @@ es la que autoriza.
       suplencias); **se eliminó** `adelantos → 'docente'` porque el rol no tiene
       apartado de adelantos (queda sin navegación).
   - Las secciones a las que se mapea cada destino coinciden con los identificadores
-    reales de `AlumnoDashboard`, `FamiliaDashboard`, `PanelProfesores`,
+    reales de `EstudianteDashboard`, `FamiliaDashboard`, `PanelProfesores`,
     `PreceptorDashboard`, `AdminDashboard` y `JefePreceptorDashboard`
     (normalizados por `ROL_EQUIV`: `jefe_preceptores → preceptor`,
     `director → admin`). No se inventaron vistas.
@@ -581,7 +581,7 @@ hijo en Familia vía `params.alumnoId`.
 - Frontend `npm test` → **148 OK** (14 archivos), incluidos:
   - `navDestinos.test.js`: nuevos casos para los mapas corregidos (docente sin
     adelantos, admin con adelantos-horas/suplencias/actas/asistencias, preceptor
-    con notas/asistencias/horarios, alumno rendiciones→previas, alumno sin
+    con notas/asistencias/horarios, estudiante rendiciones→previas, estudiante sin
     suplencias/adelantos).
   - `Notificaciones.test.jsx`: rol sin vista real → **no** muestra "Ver" ni
     navega; `jefe_preceptores` → "Ver" y navega a `actas` (equivalencia);
@@ -648,7 +648,7 @@ sección real. La navegación del **menú normal** no se tocó.
 
 Nuevo test de aislamiento/integración `frontend/src/components/NavIsolation.test.jsx`
 con `DataProvider` real y los `useEffect` idénticos a cada dashboard:
-- Alumno (`comunicados`), Preceptor (`actas`), JefePreceptor→preceptor (`actas`),
+- Estudiante (`comunicados`), Preceptor (`actas`), JefePreceptor→preceptor (`actas`),
   Docente (`comunicados`), Admin (`suplencias`), Director→admin (`comunicados`)
   → la sección **cambia** al clic.
 - Familia: además cambia la vista y fija el **Estudiante correcto** por

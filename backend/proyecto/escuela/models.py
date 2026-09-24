@@ -1027,18 +1027,18 @@ class LibroTema(models.Model):
 
 # ===========================================================================
 # Sistema académico: historial, materias adeudadas, intensificaciones,
-# previas, recursadas, promoción de año y reflejo en el boletín.
+# previas, recursadas, promoción de año y reflejo en el RITE.
 #
 # Todas estas tablas fueron creadas manualmente en MySQL (managed=False).
 # NO se deben ejecutar migraciones que las creen nuevamente.
 # ===========================================================================
 
 # Orden canónico de las instancias de rendición de previas/intensificaciones.
-# Reutilizado por backend (validación y boletín) y espejado en el frontend.
+# Reutilizado por backend (validación y RITE) y espejado en el frontend.
 PERIODOS_RENDICION = ['MARZO', 'JULIO', 'AGOSTO', 'DICIEMBRE_1', 'DICIEMBRE_2', 'FEBRERO']
 PERIODO_ORDEN = {p: i + 1 for i, p in enumerate(PERIODOS_RENDICION)}
-# Valores utilizados en salidas/errores (boletín, rendiciones). Se conserva el
-# formato legado del boletín: claves en mayúsculas con espacio en DICIEMBRE.
+# Valores utilizados en salidas/errores (RITE, rendiciones). Se conserva el
+# formato legado del RITE: claves en mayúsculas con espacio en DICIEMBRE.
 PERIODO_LABELS = {
     'MARZO': 'MARZO', 'JULIO': 'JULIO', 'AGOSTO': 'AGOSTO',
     'DICIEMBRE_1': 'DICIEMBRE 1', 'DICIEMBRE_2': 'DICIEMBRE 2', 'FEBRERO': 'FEBRERO',
@@ -1628,7 +1628,7 @@ class ResultadoActividadAdeudada(models.Model):
 class SituacionMateriaAlumno(models.Model):
     """Situación académica de un alumno en cada materia de cada año.
 
-    Es la fuente para el boletín: CURSANDO, APROBADA, INTENSIFICANDO,
+    Es la fuente para el RITE: CURSANDO, APROBADA, INTENSIFICANDO,
     ADEUDADA, RECURSANDO, BLOQUEADA.
     """
 

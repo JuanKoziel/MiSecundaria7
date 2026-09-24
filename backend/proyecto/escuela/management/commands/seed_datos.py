@@ -154,7 +154,7 @@ class Command(BaseCommand):
                 },
             )
             tutores.append(t)
-        self.stdout.write(self.style.SUCCESS(f'  Padres/Tutores: {len(tutores)} creados'))
+        self.stdout.write(self.style.SUCCESS(f'  Padres/Tutores/familias: {len(tutores)} creados'))
 
         # --- Alumnos ---
         c11_26 = cursos.get('1°1-2026')
@@ -189,7 +189,7 @@ class Command(BaseCommand):
                 a.id_usuario = usr
                 a.save()
             alumnos.append(a)
-        self.stdout.write(self.style.SUCCESS(f'  Alumnos: {len(alumnos)} creados'))
+        self.stdout.write(self.style.SUCCESS(f'  Estudiantes: {len(alumnos)} creados'))
 
         # --- Curso-Materia (asignaciones docentes) ---
         cm_data = [
@@ -410,7 +410,7 @@ class Command(BaseCommand):
             )
             if created:
                 aa_count += 1
-        self.stdout.write(self.style.SUCCESS(f'  Acta-Alumno: {aa_count} creadas'))
+        self.stdout.write(self.style.SUCCESS(f'  Acta-Estudiante: {aa_count} creadas'))
 
         # --- Acta-Curso ---
         ac_data = [
@@ -457,8 +457,8 @@ class Command(BaseCommand):
         self.stdout.write(f'  - 6 materias')
         self.stdout.write(f'  - 3 docentes')
         self.stdout.write(f'  - 2 preceptores')
-        self.stdout.write(f'  - 6 alumnos')
-        self.stdout.write(f'  - 3 padres/tutores')
+        self.stdout.write(f'  - 6 estudiantes')
+        self.stdout.write(f'  - 3 padres/tutores/familias')
         self.stdout.write(f'  - {len(cms)} asignaciones curso-materia')
         self.stdout.write(f'  - 3 periodos de evaluación')
         self.stdout.write(f'  - 4 estados de asistencia')

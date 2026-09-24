@@ -14,7 +14,7 @@ import {
 } from '../../services/api';
 import EmptyFiltros from './EmptyFiltros';
 import {
-  alumnosPorAnioYCurso,
+  estudiantesPorAnioYCurso,
   fechaHoy,
   filtrosCompletos,
 } from './preceptorUtils';
@@ -34,7 +34,7 @@ function estadoInicial() {
 
 function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly = false }) {
   const {
-    inscripciones, alumnos, nombreCorto: nc,
+    inscripciones, estudiantes, nombreCorto: nc,
     cursosObj, cursoMateria, estadosAsistencia,
     refreshData,
   } = useData();
@@ -44,8 +44,8 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   const [tab, setTab] = useState('dia');
   const [materiaCmId, setMateriaCmId] = useState('');
   const [fechaMateria, setFechaMateria] = useState('');
-  const [alumnoMateria, setAlumnoMateria] = useState('');
-  const [asistAlumnos, setAsistAlumnos] = useState({});
+  const [estudianteMateria, setEstudianteMateria] = useState('');
+  const [asistEstudiantes, setAsistEstudiantes] = useState({});
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [dataMateria, setDataMateria] = useState([]);
@@ -53,7 +53,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   const [dataDiaria, setDataDiaria] = useState([]);
   const [cargandoDiaria, setCargandoDiaria] = useState(false);
   const [regFecha, setRegFecha] = useState('');
-  const [regAlumno, setRegAlumno] = useState('');
+  const [regEstudiante, setRegEstudiante] = useState('');
   const [dataRegistro, setDataRegistro] = useState([]);
   const [cargandoRegistro, setCargandoRegistro] = useState(false);
   const [docentesDisponibles, setDocentesDisponibles] = useState([]);
@@ -64,7 +64,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   const [fechaDocentes, setFechaDocentes] = useState(fechaHoy());
   const [serverInfo, setServerInfo] = useState(null);
 
-  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
+  const listaEstudiantes = estudiantesPorAnioYCurso(anioLectivo, curso, inscripciones, estudiantes);
 
   const cursoObjSel = useMemo(
     () => cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === Number(anioLectivo)),
@@ -75,11 +75,11 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
     [cursoMateria, cursoObjSel],
   );
 
-  const getAlumnoReg = (id) => asistAlumnos[id] ?? estadoInicial();
-  const updateAlumno = (id, patch) => {
-    setAsistAlumnos((prev) => ({
+  const getEstudianteReg = (id) => asistEstudiantes[id] ?? estadoInicial();
+  const updateEstudiante = (id, patch) => {
+    setAsistEstudiantes((prev) => ({
       ...prev,
-      [id]: { ...getAlumnoReg(id), ...patch },
+      [id]: { ...getEstudianteReg(id), ...patch },
     }));
   };
 
@@ -101,26 +101,26 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
       setCargandoMateria(true);
       const params = {};
       if (fechaMateria) params.fecha = fechaMateria;
-      if (alumnoMateria) params.alumno = alumnoMateria;
+      if (estudianteMateria) params.alumno = estudianteMateria;
       getAsistenciasPreceptorMateria(materiaCmId, params)
         .then(setDataMateria)
         .catch(() => setDataMateria([]))
         .finally(() => setCargandoMateria(false));
     }
-  }, [tab, materiaCmId, fechaMateria, alumnoMateria]);
+  }, [tab, materiaCmId, fechaMateria, estudianteMateria]);
 
   useEffect(() => {
-    if (tab === 'dia' && curso && (regFecha || regAlumno)) {
+    if (tab === 'dia' && curso && (regFecha || regEstudiante)) {
       setCargandoRegistro(true);
       const params = {};
       if (regFecha) params.fecha = regFecha;
-      if (regAlumno) params.alumno = regAlumno;
+      if (regEstudiante) params.alumno = regEstudiante;
       getRegistroDiario(curso, params)
         .then(setDataRegistro)
         .catch(() => setDataRegistro([]))
         .finally(() => setCargandoRegistro(false));
     }
-  }, [tab, curso, regFecha, regAlumno]);
+  }, [tab, curso, regFecha, regEstudiante]);
 
   const cargarDocentes = useCallback(() => {
     setCargandoDocentes(true);
@@ -189,8 +189,8 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
       }
       const estadoMap = {};
       estadosAsistencia.forEach((e) => { estadoMap[e.nombre_estado] = e.id_estado_asistencia; });
-      const promises = listaAlumnos.map((a) => {
-        const reg = getAlumnoReg(a.id);
+      const promises = listaEstudiantes.map((a) => {
+        const reg = getEstudianteReg(a.id);
         const estadoId = estadoMap[reg.estado] || estadosAsistencia[0]?.id_estado_asistencia || 1;
         return createAsistencia({
           id_alumno: a.id,
@@ -352,21 +352,21 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                 />
               </div>
               <div className="form-group-filter">
-                <label htmlFor="reg-alumno">Estudiante</label>
+                <label htmlFor="reg-estudiante">Estudiante</label>
                 <select
-                  id="reg-alumno"
-                  value={regAlumno}
-                  onChange={(e) => setRegAlumno(e.target.value)}
+                  id="reg-estudiante"
+                  value={regEstudiante}
+                  onChange={(e) => setRegEstudiante(e.target.value)}
                 >
                   <option value="">Todos...</option>
-                  {listaAlumnos.map((a) => (
+                  {listaEstudiantes.map((a) => (
                     <option key={a.id} value={a.id}>{nc(a)}</option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {!regFecha && !regAlumno ? (
+            {!regFecha && !regEstudiante ? (
               <p className="empty-state-message">Seleccioná una fecha o un estudiante para ver registros.</p>
             ) : cargandoRegistro ? (
               <LoadingSpinner text="Cargando registros..." size="sm" inline />
@@ -440,14 +440,14 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
               />
             </div>
             <div className="form-group-filter">
-              <label htmlFor="alumno-materia-prec">Estudiante</label>
+              <label htmlFor="estudiante-materia-prec">Estudiante</label>
               <select
-                id="alumno-materia-prec"
-                value={alumnoMateria}
-                onChange={(e) => setAlumnoMateria(e.target.value)}
+                id="estudiante-materia-prec"
+                value={estudianteMateria}
+                onChange={(e) => setEstudianteMateria(e.target.value)}
               >
                 <option value="">Todos...</option>
-                {listaAlumnos.map((a) => (
+                {listaEstudiantes.map((a) => (
                   <option key={a.id} value={a.id}>{nc(a)}</option>
                 ))}
               </select>

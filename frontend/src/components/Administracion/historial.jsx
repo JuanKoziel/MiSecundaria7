@@ -5,7 +5,7 @@ import { mensajeErrorAmigable } from '../../utils/errores';
 
 const TABLAS = [
   { value: 'alumnos', label: 'Estudiantes' },
-  { value: 'tutores', label: 'Tutores' },
+  { value: 'tutores', label: 'Tutores/familias' },
   { value: 'docentes', label: 'Docentes' },
   { value: 'preceptores', label: 'Preceptores' },
   { value: 'jefes_preceptores', label: 'Jefes de Preceptores' },

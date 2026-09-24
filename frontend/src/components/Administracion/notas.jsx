@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
-import PanelAlumnos from '../Profesores/PanelAlumnos';
+import PanelEstudiantes from '../Profesores/PanelEstudiantes';
 
 function Notas() {
   const { cursosObj, cursoMateria, getMateriasByCurso } = useData();
@@ -78,7 +78,7 @@ function Notas() {
             <i className="fas fa-lock" style={{ marginRight: '8px' }} aria-hidden="true" />
             Vista de solo lectura: se muestran las calificaciones, intensificaciones y previas cargadas por el docente.
           </div>
-          <PanelAlumnos
+          <PanelEstudiantes
             cursoMateriaId={cursoMateriaEntry.id}
             cursoId={Number(cursoId)}
             cursoNombre={curso}

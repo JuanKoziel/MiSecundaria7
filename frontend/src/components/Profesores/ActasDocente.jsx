@@ -4,11 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import {
   createActa,
   createActaCurso,
-  createActaAlumno,
+  createActaEstudiante,
   updateActa,
-  updateActaAlumno,
+  updateActaEstudiante,
   deleteActa,
-  deleteActaAlumno,
+  deleteActaEstudiante,
   deleteActaCurso,
   getTiposActa,
   uploadFile,
@@ -38,7 +38,7 @@ async function resolverTipoActa() {
 
 const formVacio = { tipo: '', titulo: '', fecha: '', descripcion: '', alumnoId: '', docenteId: '' };
 
-function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaAlumnos, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje }) {
+function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaEstudiantes, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje }) {
   return (
     <FormModal title={editando ? 'Editar acta' : 'Nueva acta'} onClose={onCancel} error={mensaje && mensaje.startsWith('Error') ? mensaje : null} onClearError={() => setMensaje('')}>
       <form onSubmit={onSubmit}>
@@ -80,7 +80,7 @@ function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaA
                   <label>Estudiante</label>
                   <select value={formData.alumnoId} disabled={!!editando} onChange={(e) => setFormData((p) => ({ ...p, alumnoId: e.target.value }))}>
                     <option value="">Seleccionar estudiante</option>
-                    {listaAlumnos.map((a) => (
+                    {listaEstudiantes.map((a) => (
                       <option key={a.id} value={a.id}>{nombreCorto(a)}</option>
                     ))}
                   </select>
@@ -139,10 +139,10 @@ function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaA
 function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones }) {
   const {
     actas: actasCurso,
-    actasAlumno,
+    actasEstudiante,
     actasDocente,
     nombreCorto,
-    alumnos,
+    estudiantes,
     cursosObj,
     refreshData,
   } = useData();
@@ -164,7 +164,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
   const [removeArchivo, setRemoveArchivo] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
-  const [showAlumnos, setShowAlumnos] = useState(true);
+  const [showEstudiantes, setShowEstudiantes] = useState(true);
   const [showCurso, setShowCurso] = useState(true);
 
   // Actas de docentes cargadas hacia este docente (él es el sujeto del acta)
@@ -175,41 +175,41 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
   }, [actasDocente, docenteId]);
 
   // Filtrar actas creadas por este docente
-  const misActasAlumno = useMemo(() => 
-    actasAlumno.filter((a) => a.id_usuario_creador === user?.id),
-  [actasAlumno, user]);
+  const misActasEstudiante = useMemo(() => 
+    actasEstudiante.filter((a) => a.id_usuario_creador === user?.id),
+  [actasEstudiante, user]);
 
   const misActasCurso = useMemo(() => 
     actasCurso.filter((a) => a.id_usuario_creador === user?.id),
   [actasCurso, user]);
 
-  // Alumnos de los cursos del docente
-  const listaAlumnos = useMemo(() => {
+  // Estudiantes de los cursos del docente
+  const listaEstudiantes = useMemo(() => {
     if (!cursoId) return [];
-    return alumnos.filter((a) => Number(a.id_curso) === Number(cursoId));
-  }, [alumnos, cursoId]);
+    return estudiantes.filter((a) => Number(a.id_curso) === Number(cursoId));
+  }, [estudiantes, cursoId]);
 
-  const alumnoActas = useMemo(() => {
+  const estudianteActas = useMemo(() => {
     const map = {};
-    misActasAlumno.forEach((a) => {
-      const alumno = listaAlumnos.find((al) => al.id === a.alumnoId);
-      if (alumno) {
+    misActasEstudiante.forEach((a) => {
+      const estudiante = listaEstudiantes.find((al) => al.id === a.alumnoId);
+      if (estudiante) {
         if (!map[a.alumnoId]) map[a.alumnoId] = [];
         map[a.alumnoId].push(a);
       }
     });
     return map;
-  }, [misActasAlumno, listaAlumnos]);
+  }, [misActasEstudiante, listaEstudiantes]);
 
   const actasDelCurso = useMemo(() => {
     if (!cursoId) return [];
-    const alumnoActaIds = new Set(misActasAlumno.map((a) => a.actaId));
+    const estudianteActaIds = new Set(misActasEstudiante.map((a) => a.actaId));
     return misActasCurso.filter((a) => {
-      if (alumnoActaIds.has(a.actaId)) return false;
+      if (estudianteActaIds.has(a.actaId)) return false;
       const cursoObj = cursosObj.find((c) => c.id_curso === Number(cursoId));
       return cursoObj && a.curso === cursoObj.nombre_curso;
     });
-  }, [misActasCurso, misActasAlumno, cursosObj, cursoId]);
+  }, [misActasCurso, misActasEstudiante, cursosObj, cursoId]);
 
   const limpiar = () => {
     setShowNewForm(false);
@@ -252,7 +252,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
     const acta = await createActa(actaPayload);
     if (acta?.id_acta && cObj) {
       if (payload.tipo === 'alumno') {
-        await createActaAlumno({ id_acta: acta.id_acta, id_alumno: Number(payload.alumnoId) });
+        await createActaEstudiante({ id_acta: acta.id_acta, id_alumno: Number(payload.alumnoId) });
       } else if (payload.tipo === 'curso') {
         await createActaCurso({ id_acta: acta.id_acta, id_curso: cObj.id_curso });
       }
@@ -330,7 +330,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
       };
       await updateActa(editando.actaId, payload);
       if (editando.tipo === 'alumno' && formData.alumnoId && String(formData.alumnoId) !== String(editando.alumnoId)) {
-        await updateActaAlumno(editando.id, { id_alumno: Number(formData.alumnoId) });
+        await updateActaEstudiante(editando.id, { id_alumno: Number(formData.alumnoId) });
       }
       toast.success('Acta actualizada correctamente.');
       limpiar();
@@ -347,7 +347,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
       onConfirm: async () => {
         setMensaje('');
         try {
-          if (tipo === 'alumno') await deleteActaAlumno(item.id);
+          if (tipo === 'alumno') await deleteActaEstudiante(item.id);
           else if (tipo === 'curso') await deleteActaCurso(item.id);
           if (item.actaId) await deleteActa(item.actaId);
           toast.success('Acta eliminada correctamente.');
@@ -390,7 +390,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
           guardando={guardando}
           onSubmit={handleCreate}
           onCancel={limpiar}
-          listaAlumnos={listaAlumnos}
+          listaEstudiantes={listaEstudiantes}
           curso={cursoNombre}
           nombreCorto={nombreCorto}
           archivo={archivo}
@@ -458,11 +458,11 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
       {/* Actas de Estudiantes */}
       <div className="card-header-flex mt-20">
         <h4 className="preceptor-section-title"><i className="fas fa-user-graduate" aria-hidden="true" /> Actas de Estudiantes</h4>
-        <button type="button" className="btn btn-secondary" onClick={() => setShowAlumnos((v) => !v)}>
-          <i className={`fas fa-eye${showAlumnos ? '-slash' : ''}`} aria-hidden="true" /> {showAlumnos ? 'Ocultar' : 'Mostrar'}
+        <button type="button" className="btn btn-secondary" onClick={() => setShowEstudiantes((v) => !v)}>
+          <i className={`fas fa-eye${showEstudiantes ? '-slash' : ''}`} aria-hidden="true" /> {showEstudiantes ? 'Ocultar' : 'Mostrar'}
         </button>
       </div>
-      {showAlumnos && (
+      {showEstudiantes && (
         <div className="table-responsive">
           <table>
             <thead>
@@ -476,16 +476,16 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
               </tr>
             </thead>
             <tbody>
-              {Object.keys(alumnoActas).length === 0 ? (
-                <tr><td colSpan={6} className="empty-state-message">No hay actas de alumnos creadas por vos para este curso.</td></tr>
+              {Object.keys(estudianteActas).length === 0 ? (
+                <tr><td colSpan={6} className="empty-state-message">No hay actas de estudiantes creadas por vos para este curso.</td></tr>
               ) : (
-                Object.entries(alumnoActas).map(([alumnoId, actas]) => {
-                  const alumno = listaAlumnos.find((a) => String(a.id) === alumnoId);
+                Object.entries(estudianteActas).map(([alumnoId, actas]) => {
+                  const estudiante = listaEstudiantes.find((a) => String(a.id) === alumnoId);
                   return actas.map((acta, idx) => {
                     return (
                       <Fragment key={acta.id}>
                         <tr>
-                          <td className="table-cell-strong">{idx === 0 && alumno ? nombreCorto(alumno) : ''}</td>
+                          <td className="table-cell-strong">{idx === 0 && estudiante ? nombreCorto(estudiante) : ''}</td>
                           <td>{acta.titulo}</td>
                           <td>{(acta.fecha || '').slice(0, 10)}</td>
                           <td>{acta.descripcion}</td>
@@ -589,7 +589,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
           guardando={guardando}
           onSubmit={handleUpdate}
           onCancel={cancelEdit}
-          listaAlumnos={listaAlumnos}
+          listaEstudiantes={listaEstudiantes}
           curso={cursoNombre}
           nombreCorto={nombreCorto}
           archivo={archivo}

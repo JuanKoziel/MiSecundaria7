@@ -3,7 +3,7 @@ import { useData } from '../../context/DataContext';
 import ProfileBanner from '../Shared/ProfileBanner';
 
 function PanelFamilia({ miTutor, user, hijos }) {
-  const { getAlumnoById } = useData();
+  const { getEstudianteById } = useData();
 
   if (!miTutor) {
     return (
@@ -86,7 +86,7 @@ function PanelFamilia({ miTutor, user, hijos }) {
             Estudiantes asociados
           </h4>
           {hijos.map((hijo, idx) => {
-            const alumnoCompleto = getAlumnoById(hijo.alumnoId);
+            const estudianteCompleto = getEstudianteById(hijo.alumnoId);
             return (
               <div key={hijo.id} className="familia-hijo-card" style={{ borderBottom: idx < hijos.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
                 <div className="familia-hijo-main">
@@ -97,27 +97,27 @@ function PanelFamilia({ miTutor, user, hijos }) {
                     <span className="familia-hijo-nombre">{hijo.nombre}</span>
                     <div className="familia-hijo-meta">
                       <span>Curso: <strong>{hijo.curso || '—'}</strong></span>
-                      {alumnoCompleto && alumnoCompleto.dni && (
-                        <span>DNI: <strong>{formatDNI(alumnoCompleto.dni)}</strong></span>
+                      {estudianteCompleto && estudianteCompleto.dni && (
+                        <span>DNI: <strong>{formatDNI(estudianteCompleto.dni)}</strong></span>
                       )}
-                      {alumnoCompleto && alumnoCompleto.fecha_nacimiento && (
-                        <span>Nac.: <strong>{alumnoCompleto.fecha_nacimiento}</strong></span>
+                      {estudianteCompleto && estudianteCompleto.fecha_nacimiento && (
+                        <span>Nac.: <strong>{estudianteCompleto.fecha_nacimiento}</strong></span>
                       )}
                     </div>
                   </div>
                 </div>
-                {alumnoCompleto && (alumnoCompleto.telefono || alumnoCompleto.direccion) && (
+                {estudianteCompleto && (estudianteCompleto.telefono || estudianteCompleto.direccion) && (
                   <div className="familia-hijo-extra">
-                    {alumnoCompleto.telefono && (
+                    {estudianteCompleto.telefono && (
                       <span className="familia-hijo-extra-item">
                         <i className="fas fa-phone" aria-hidden="true" />
-                        {alumnoCompleto.telefono}
+                        {estudianteCompleto.telefono}
                       </span>
                     )}
-                    {alumnoCompleto.direccion && (
+                    {estudianteCompleto.direccion && (
                       <span className="familia-hijo-extra-item">
                         <i className="fas fa-map-marker-alt" aria-hidden="true" />
-                        {alumnoCompleto.direccion}
+                        {estudianteCompleto.direccion}
                       </span>
                     )}
                   </div>

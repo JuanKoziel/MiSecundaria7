@@ -34,7 +34,7 @@ export const menuItems = [
     label: 'Evaluación',
     icon: 'fa-clipboard-list',
     children: [
-      { id: 'notas', label: 'Boletines', icon: 'fa-file-alt' },
+      { id: 'notas', label: 'RITE', icon: 'fa-file-alt' },
       { id: 'actas', label: 'Actas', icon: 'fa-file-signature' },
     ],
   },

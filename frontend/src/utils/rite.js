@@ -1,4 +1,4 @@
-// Generación de boletín escolar en PDF (vía ventana de impresión del navegador).
+// Generación de RITE escolar en PDF (vía ventana de impresión del navegador).
 import { cursoConOrientacion } from './orientacion';
 import { formatDNI } from './dni';
 import { NOTA_APROBACION } from './previasRendicion';
@@ -80,7 +80,7 @@ function seccionRecursadas(items) {
     items && items.length
       ? items.map(filaRecursada).join('')
       : '<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
-  return `<div class="boletin-seccion boletin-seccion-recursadas"><h3>MATERIAS A RECURSAR</h3><table class="boletin-tabla-extra"><colgroup>
+  return `<div class="rite-seccion rite-seccion-recursadas"><h3>MATERIAS A RECURSAR</h3><table class="rite-tabla-extra"><colgroup>
       <col style="width:8.5%" />
       <col style="width:8%" />
       <col style="width:8.5%" />
@@ -145,7 +145,7 @@ function seccionPrevias(items) {
           })
           .join('')
       : `<tr><td></td><td></td>${periodos.map(() => '<td></td>').join('')}<td></td></tr>`;
-  return `<div class="boletin-seccion boletin-seccion-previas"><h3>MATERIAS PREVIAS / ADEUDADAS</h3><table class="boletin-tabla-extra"><colgroup>
+  return `<div class="rite-seccion rite-seccion-previas"><h3>MATERIAS PREVIAS / ADEUDADAS</h3><table class="rite-tabla-extra"><colgroup>
       <col style="width:16%" />
       <col style="width:10%" />
       <col style="width:8%" />
@@ -158,8 +158,8 @@ function seccionPrevias(items) {
     </colgroup><thead><tr><th rowspan="2">Materia</th><th rowspan="2">Año (curso)</th><th colspan="6">Período de intensificación</th><th rowspan="2">Calificación final</th></tr><tr>${headCols}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-export function boletinHTML({
-  alumnoNombre,
+export function riteHTML({
+  estudianteNombre,
   dni,
   cursoNombre,
   anioLectivo,
@@ -174,13 +174,13 @@ export function boletinHTML({
   const fechaEmision = new Date().toLocaleDateString('es-AR');
   const cursoLabel = cursoConOrientacion(cursoNombre);
   return `
-    <div class="boletin">
-      <div class="boletin-pagina boletin-pagina-1">
-        <div class="boletin-header">
+    <div class="rite">
+      <div class="rite-pagina rite-pagina-1">
+        <div class="rite-header">
           <div class="escuela">Escuela Secundaria N° 7</div>
-          <div class="titulo">Boletín de Calificaciones</div>
+          <div class="titulo">RITE de Calificaciones</div>
           <div class="datos">
-            <div><span>Estudiante:</span> ${alumnoNombre}</div>
+            <div><span>Estudiante:</span> ${estudianteNombre}</div>
             ${dni ? `<div><span>DNI:</span> ${formatDNI(dni)}</div>` : ''}
             <div><span>Curso:</span> ${cursoLabel}</div>
             <div><span>Ciclo lectivo:</span> ${anioLectivo}</div>
@@ -227,19 +227,19 @@ export function boletinHTML({
             }
           </tbody>
         </table>
-        <div class="boletin-nota">Prenota = 1.ª y 2.ª Valoración Preliminar</div>
-        <div class="boletin-footer">
+        <div class="rite-nota">Prenota = 1.ª y 2.ª Valoración Preliminar</div>
+        <div class="rite-footer">
           <div class="firma">Firma y sello</div>
         </div>
       </div>
-      <div class="boletin-pagina boletin-pagina-2">
+      <div class="rite-pagina rite-pagina-2">
         ${seccionPrevias(previas)}
         ${seccionRecursadas(recursadas)}
       </div>
     </div>`;
 }
 
-export const BOLETIN_CSS = `
+export const RITE_CSS = `
   @page {
     size: A4 portrait;
     margin: 7mm 7mm 7mm 7mm;
@@ -251,19 +251,19 @@ export const BOLETIN_CSS = `
     font-size: 12px;
     color: #1f2937;
   }
-  .boletin-pagina {
+  .rite-pagina {
     width: 100%;
     border: 2px solid #1f2937;
     border-radius: 8px;
     padding: 10px 8px;
     margin-bottom: 18px;
   }
-  .boletin-pagina-2 { page-break-before: always; }
-  .boletin-header { border-bottom: 2px solid #1f2937; padding-bottom: 10px; margin-bottom: 12px; }
-  .boletin-header .escuela { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #6b7280; }
-  .boletin-header .titulo { font-size: 20px; font-weight: bold; margin: 4px 0 10px; }
-  .boletin-header .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 24px; font-size: 13px; }
-  .boletin-header .datos span { color: #6b7280; }
+  .rite-pagina-2 { page-break-before: always; }
+  .rite-header { border-bottom: 2px solid #1f2937; padding-bottom: 10px; margin-bottom: 12px; }
+  .rite-header .escuela { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #6b7280; }
+  .rite-header .titulo { font-size: 20px; font-weight: bold; margin: 4px 0 10px; }
+  .rite-header .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 24px; font-size: 13px; }
+  .rite-header .datos span { color: #6b7280; }
   table { width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; }
   th, td {
     border: 1px solid #9ca3af;
@@ -295,8 +295,8 @@ export const BOLETIN_CSS = `
   }
   .mat-bloqueada { background-color: #fde2e2; }
   .mat-bloqueada td { color: #991b1b; }
-  .boletin-footer { margin-top: 64px; text-align: center; page-break-inside: avoid; }
-  .boletin-footer .firma {
+  .rite-footer { margin-top: 64px; text-align: center; page-break-inside: avoid; }
+  .rite-footer .firma {
     display: inline-block;
     min-width: 280px;
     border-top: 1.5px solid #1f2937;
@@ -306,23 +306,23 @@ export const BOLETIN_CSS = `
     text-transform: uppercase;
     letter-spacing: 1px;
   }
-  .boletin-seccion { margin-top: 22px; page-break-inside: avoid; }
-  .boletin-seccion h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: #17324d; color: #fff; padding: 7px 12px; margin: 0 0 0 0; page-break-after: avoid; }
-  .boletin-tabla-extra { margin-top: 0; page-break-inside: avoid; }
-  .boletin-nota { font-size: 11px; font-style: italic; color: #6b7280; margin: 8px 2px 0; }
-  .boletin-seccion-previas .boletin-tabla-extra th:first-child, .boletin-seccion-previas .boletin-tabla-extra td:first-child,
-  .boletin-seccion-previas .boletin-tabla-extra th:nth-child(2), .boletin-seccion-previas .boletin-tabla-extra td:nth-child(2) { text-align: left; }
-  .boletin-seccion-recursadas .boletin-tabla-extra th:first-child, .boletin-seccion-recursadas .boletin-tabla-extra td:first-child,
-  .boletin-seccion-recursadas .boletin-tabla-extra th:nth-child(2), .boletin-seccion-recursadas .boletin-tabla-extra td:nth-child(2) { text-align: left; }
+  .rite-seccion { margin-top: 22px; page-break-inside: avoid; }
+  .rite-seccion h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: #17324d; color: #fff; padding: 7px 12px; margin: 0 0 0 0; page-break-after: avoid; }
+  .rite-tabla-extra { margin-top: 0; page-break-inside: avoid; }
+  .rite-nota { font-size: 11px; font-style: italic; color: #6b7280; margin: 8px 2px 0; }
+  .rite-seccion-previas .rite-tabla-extra th:first-child, .rite-seccion-previas .rite-tabla-extra td:first-child,
+  .rite-seccion-previas .rite-tabla-extra th:nth-child(2), .rite-seccion-previas .rite-tabla-extra td:nth-child(2) { text-align: left; }
+  .rite-seccion-recursadas .rite-tabla-extra th:first-child, .rite-seccion-recursadas .rite-tabla-extra td:first-child,
+  .rite-seccion-recursadas .rite-tabla-extra th:nth-child(2), .rite-seccion-recursadas .rite-tabla-extra td:nth-child(2) { text-align: left; }
   @media print { button { display: none; } }
 `;
 
-export function exportarBoletinPDF(boletines, titulo) {
+export function exportarRitePDF(ritees, titulo) {
   const win = window.open('', '_blank');
   if (!win) return;
-  const cuerpo = Array.isArray(boletines) ? boletines.join('') : boletines;
+  const cuerpo = Array.isArray(ritees) ? ritees.join('') : ritees;
   win.document.write(`
-    <html><head><title>${titulo}</title><style>${BOLETIN_CSS}</style></head>
+    <html><head><title>${titulo}</title><style>${RITE_CSS}</style></head>
     <body>${cuerpo}<script>window.onload = function(){ window.print(); };<\/script></body></html>
   `);
   win.document.close();

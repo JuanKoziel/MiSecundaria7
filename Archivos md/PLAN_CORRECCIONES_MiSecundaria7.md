@@ -62,7 +62,7 @@ En Mi Perfil:
   > Desde aquí puede realizar el seguimiento académico de sus hijos, visualizar comunicados, asistencias y calificaciones.
 - mostrar un poco más de información útil del Estudiante, utilizando solamente datos que ya existan.
 
-### Alumno
+### Estudiante
 
 En Mi Perfil:
 - eliminar División por ser redundante;
@@ -99,9 +99,9 @@ Debe poder visualizar correctamente las intensificaciones que correspondan a los
 
 ### Familia
 
-Debe visualizar las Calificaciones del Estudiante de forma equivalente al modelo esperado de Alumno, incluyendo intensificaciones cuando corresponda.
+Debe visualizar las Calificaciones del Estudiante de forma equivalente al modelo esperado de Estudiante, incluyendo intensificaciones cuando corresponda.
 
-### Alumno
+### Estudiante
 
 Debe visualizar correctamente:
 - calificaciones normales;
@@ -156,9 +156,9 @@ Determinar si el archivo es realmente opcional según la implementación actual.
 
 ## Objetivo
 
-Unificar la experiencia de Alumno y Familia.
+Unificar la experiencia de Estudiante y Familia.
 
-### Alumno — Asistencias
+### Estudiante — Asistencias
 
 Debe mostrar:
 - resumen de días recientes;
@@ -172,7 +172,7 @@ Distinguir correctamente:
 
 ### Familia — Asistencias
 
-Debe seguir el mismo modelo de Alumno:
+Debe seguir el mismo modelo de Estudiante:
 - resumen reciente;
 - asistencia de hoy;
 - "Pendiente" si todavía no existe registro;
@@ -180,13 +180,13 @@ Debe seguir el mismo modelo de Alumno:
 
 "Pendiente" no significa ausencia.
 
-### Alumno — Actividades
+### Estudiante — Actividades
 
 Cambiar la presentación a tarjetas/cuadros clickeables, similar a Classroom.
 
 ### Familia — Actividades
 
-Utilizar el mismo modelo visual/funcional de Alumno, reutilizando componentes cuando sea posible.
+Utilizar el mismo modelo visual/funcional de Estudiante, reutilizando componentes cuando sea posible.
 
 No crear sistemas paralelos innecesarios.
 

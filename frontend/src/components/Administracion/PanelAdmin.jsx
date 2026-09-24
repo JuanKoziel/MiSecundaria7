@@ -18,12 +18,12 @@ function StatCard({ icon, value, label, color }) {
 }
 
 function PanelAdmin({ miDirectivo, user }) {
-  const { alumnos, docentes, preceptores, padresTutores, cursosObj, materiasObj, planificaciones, comunicados, actas } = useData();
+  const { estudiantes, docentes, preceptores, padresTutores, cursosObj, materiasObj, planificaciones, comunicados, actas } = useData();
 
   const systemStats = useMemo(() => {
     if (!miDirectivo) return null;
     return {
-      alumnos: (alumnos ?? []).length,
+      estudiantes: (estudiantes ?? []).length,
       docentes: (docentes ?? []).length,
       preceptores: (preceptores ?? []).length,
       familias: (padresTutores ?? []).length,
@@ -33,7 +33,7 @@ function PanelAdmin({ miDirectivo, user }) {
       comunicados: (comunicados ?? []).length,
       actas: (actas ?? []).length,
     };
-  }, [miDirectivo, alumnos, docentes, preceptores, padresTutores, cursosObj, materiasObj, planificaciones, comunicados, actas]);
+  }, [miDirectivo, estudiantes, docentes, preceptores, padresTutores, cursosObj, materiasObj, planificaciones, comunicados, actas]);
 
   if (!miDirectivo) {
     return (
@@ -88,7 +88,7 @@ function PanelAdmin({ miDirectivo, user }) {
       </div>
 
       <div className="stats-grid">
-        <StatCard icon="fa-user-graduate" value={systemStats.alumnos} label="Estudiantes" />
+        <StatCard icon="fa-user-graduate" value={systemStats.estudiantes} label="Estudiantes" />
         <StatCard icon="fa-chalkboard-teacher" value={systemStats.docentes} label="Docentes" />
         <StatCard icon="fa-user-tie" value={systemStats.preceptores} label="Preceptores" />
         <StatCard icon="fa-users" value={systemStats.familias} label="Familias" />

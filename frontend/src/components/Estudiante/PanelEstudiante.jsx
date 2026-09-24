@@ -16,14 +16,14 @@ function StatCard({ icon, value, label, color }) {
   );
 }
 
-function PanelAlumno({ miAlumno, user, recursadas = [] }) {
+function PanelEstudiante({ miEstudiante, user, recursadas = [] }) {
   const { materiasPorCurso, calificacionesCompletas, asistenciasAdmin, periodos } = useData();
 
   const stats = useMemo(() => {
-    if (!miAlumno) return null;
+    if (!miEstudiante) return null;
     const safeCalificaciones = calificacionesCompletas ?? [];
     const safeAsistencias = asistenciasAdmin ?? [];
-    const misNotas = safeCalificaciones.filter((c) => c.id_alumno === miAlumno.id);
+    const misNotas = safeCalificaciones.filter((c) => c.id_alumno === miEstudiante.id);
     const notasNumericas = misNotas
       .map((c) => Number(c.nota_numerica))
       .filter((n) => !isNaN(n) && n > 0);
@@ -31,7 +31,7 @@ function PanelAlumno({ miAlumno, user, recursadas = [] }) {
       ? (notasNumericas.reduce((a, b) => a + b, 0) / notasNumericas.length).toFixed(1)
       : null;
     const inasistencias = safeAsistencias.filter(
-      (a) => a.alumnoId === miAlumno.id && a.estado === 'Ausente'
+      (a) => a.alumnoId === miEstudiante.id && a.estado === 'Ausente'
     ).length;
 
     let estadoAcademico = 'Sin calificaciones';
@@ -43,9 +43,9 @@ function PanelAlumno({ miAlumno, user, recursadas = [] }) {
     }
 
     return { promedio, inasistencias, estadoAcademico, notasCount: notasNumericas.length };
-  }, [miAlumno, calificacionesCompletas, asistenciasAdmin]);
+  }, [miEstudiante, calificacionesCompletas, asistenciasAdmin]);
 
-  if (!miAlumno) {
+  if (!miEstudiante) {
     return (
       <div className="card">
         <p className="empty-state-message">
@@ -55,13 +55,13 @@ function PanelAlumno({ miAlumno, user, recursadas = [] }) {
     );
   }
 
-  const materiasDelCurso = materiasPorCurso[miAlumno.curso] || [];
+  const materiasDelCurso = materiasPorCurso[miEstudiante.curso] || [];
 
   return (
     <div className="card">
       <ProfileBanner
         icon="fa-user-graduate"
-        nombre={`${miAlumno.apellido}, ${miAlumno.nombre}`}
+        nombre={`${miEstudiante.apellido}, ${miEstudiante.nombre}`}
         rol="Estudiante"
         estado="Activo"
       />
@@ -69,33 +69,33 @@ function PanelAlumno({ miAlumno, user, recursadas = [] }) {
       <div className="profile-grid">
         <div>
           <label className="profile-label">Nombre Completo</label>
-          <p className="profile-value">{miAlumno.apellido}, {miAlumno.nombre}</p>
+          <p className="profile-value">{miEstudiante.apellido}, {miEstudiante.nombre}</p>
         </div>
         <div>
           <label className="profile-label">Documento (DNI)</label>
-          <p className="profile-value">{formatDNI(miAlumno.dni)}</p>
+          <p className="profile-value">{formatDNI(miEstudiante.dni)}</p>
         </div>
-        {miAlumno.telefono && (
+        {miEstudiante.telefono && (
           <div>
             <label className="profile-label">Teléfono de Contacto</label>
-            <p className="profile-value">{miAlumno.telefono}</p>
+            <p className="profile-value">{miEstudiante.telefono}</p>
           </div>
         )}
-        {miAlumno.direccion && (
+        {miEstudiante.direccion && (
           <div>
             <label className="profile-label">Dirección</label>
-            <p className="profile-value">{miAlumno.direccion}</p>
+            <p className="profile-value">{miEstudiante.direccion}</p>
           </div>
         )}
-        {miAlumno.fecha_nacimiento && (
+        {miEstudiante.fecha_nacimiento && (
           <div>
             <label className="profile-label">Fecha de Nacimiento</label>
-            <p className="profile-value">{miAlumno.fecha_nacimiento}</p>
+            <p className="profile-value">{miEstudiante.fecha_nacimiento}</p>
           </div>
         )}
         <div>
           <label className="profile-label">Usuario</label>
-          <p className="profile-value">{miAlumno.usuario}</p>
+          <p className="profile-value">{miEstudiante.usuario}</p>
         </div>
         <div>
           <label className="profile-label">Rol</label>
@@ -104,8 +104,8 @@ function PanelAlumno({ miAlumno, user, recursadas = [] }) {
       </div>
 
       <div className="stats-grid">
-        {miAlumno.curso && <StatCard icon="fa-users" value={cursoConOrientacion(miAlumno.curso)} label="Curso actual" />}
-        <StatCard icon="fa-calendar" value={miAlumno.ciclo_anio || '—'} label="Ciclo lectivo" />
+        {miEstudiante.curso && <StatCard icon="fa-users" value={cursoConOrientacion(miEstudiante.curso)} label="Curso actual" />}
+        <StatCard icon="fa-calendar" value={miEstudiante.ciclo_anio || '—'} label="Ciclo lectivo" />
         <StatCard icon="fa-book" value={materiasDelCurso.length} label="Materias" />
         {stats.notasCount >= 3 && <StatCard icon="fa-star" value={stats.promedio} label="Promedio general" />}
         <StatCard icon="fa-calendar-times" value={stats.inasistencias} label="Inasistencias" color={stats.inasistencias > 10 ? '#b91c1c' : stats.inasistencias > 5 ? '#e65100' : '#15803d'} />
@@ -144,4 +144,4 @@ function PanelAlumno({ miAlumno, user, recursadas = [] }) {
   );
 }
 
-export default PanelAlumno;
+export default PanelEstudiante;

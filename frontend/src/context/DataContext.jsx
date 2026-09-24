@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
-  getAlumnos,
+  getEstudiantes,
   getDocentes,
   getPreceptores,
   getDirectivos,
@@ -9,7 +9,7 @@ import {
   getCursoMateria,
   getCalificaciones,
   getActas,
-  getActaAlumno,
+  getActaEstudiante,
   getActaCurso,
   getActaDocente,
   getHorarios,
@@ -67,12 +67,12 @@ export function detectarNuevas(raw, conocidos) {
   return nuevas;
 }
 
-function nombreCompleto(alumno) {
-  return `${alumno.apellido}, ${alumno.nombre}`;
+function nombreCompleto(estudiante) {
+  return `${estudiante.apellido}, ${estudiante.nombre}`;
 }
 
-function nombreCorto(alumno) {
-  return `${alumno.nombre} ${alumno.apellido}`;
+function nombreCorto(estudiante) {
+  return `${estudiante.nombre} ${estudiante.apellido}`;
 }
 
 function scopeFromAlcance(alcance) {
@@ -156,7 +156,7 @@ export function DataProvider({ children }) {
     setError(null);
     try {
       const [
-        alumnosRaw,
+        estudiantesRaw,
         docentesRaw,
         preceptoresRaw,
         cursosRaw,
@@ -165,7 +165,7 @@ export function DataProvider({ children }) {
         calificacionesRaw,
         asistenciasRaw,
         actasRaw,
-        actaAlumnoRaw,
+        actaEstudianteRaw,
         actaCursoRaw,
         actaDocenteRaw,
         horariosRaw,
@@ -182,7 +182,7 @@ export function DataProvider({ children }) {
         administradoresRaw,
         suplenciasRaw,
       ] = await Promise.all([
-        getAlumnos().catch(() => []),
+        getEstudiantes().catch(() => []),
         getDocentes().catch(() => []),
         getPreceptores().catch(() => []),
         getCursos().catch(() => []),
@@ -200,7 +200,7 @@ export function DataProvider({ children }) {
         // posicional del Promise.all.
         Promise.resolve([]),
         getActas().catch(() => []),
-        getActaAlumno().catch(() => []),
+        getActaEstudiante().catch(() => []),
         getActaCurso().catch(() => []),
         getActaDocente().catch(() => []),
         getHorarios().catch(() => []),
@@ -218,7 +218,7 @@ export function DataProvider({ children }) {
         getSuplencias().catch(() => []),
       ]);
 
-      const alumnosPreCurso = (Array.isArray(alumnosRaw) ? alumnosRaw : []).map((a) => ({
+      const estudiantesPreCurso = (Array.isArray(estudiantesRaw) ? estudiantesRaw : []).map((a) => ({
         id: a.id_alumno,
         dni: a.dni,
         nombre: a.nombre,
@@ -340,7 +340,7 @@ export function DataProvider({ children }) {
 
       const cursosObjArr = (Array.isArray(cursosRaw) ? cursosRaw : []);
 
-      const alumnos = alumnosPreCurso.map((a) => {
+      const estudiantes = estudiantesPreCurso.map((a) => {
         const cObj = cursosObjArr.find((c) => c.id_curso === a.id_curso);
         return {
           ...a,
@@ -491,10 +491,10 @@ export function DataProvider({ children }) {
         id_usuario_creador: a.id_usuario_creador || null,
       }));
 
-      const actaAlumnoArr = (Array.isArray(actaAlumnoRaw) ? actaAlumnoRaw : []);
+      const actaEstudianteArr = (Array.isArray(actaEstudianteRaw) ? actaEstudianteRaw : []);
       const actaCursoArr = (Array.isArray(actaCursoRaw) ? actaCursoRaw : []);
 
-      const actasAlumno = actaAlumnoArr.map((aa) => {
+      const actasEstudiante = actaEstudianteArr.map((aa) => {
         const acta = actasArr.find((a) => a.id === aa.id_acta);
         return {
           id: aa.id_acta_alumno || aa.id,
@@ -545,7 +545,7 @@ export function DataProvider({ children }) {
       });
 
       const padresTutores = (Array.isArray(padresTutoresRaw) ? padresTutoresRaw : []);
-      const hijosFamilia = alumnos
+      const hijosFamilia = estudiantes
         .filter((a) => a.id)
         .map((a, idx) => ({
           id: idx + 1,
@@ -670,7 +670,7 @@ export function DataProvider({ children }) {
         idsInicialesRef.current = new Set(notificaciones.map((n) => n.id));
       }
       setData({
-        alumnos,
+        estudiantes,
         docentes,
         preceptores,
         administradores,
@@ -692,7 +692,7 @@ export function DataProvider({ children }) {
         calificacionesCompletas: calificacionesArr,
         periodos: periodosArr,
         asistenciasAdmin,
-        actasAlumno,
+        actasEstudiante,
         actasDocente,
         actas: actasCurso,
         hijosFamilia,
@@ -708,17 +708,17 @@ export function DataProvider({ children }) {
         padresTutores,
         nombreCompleto,
         nombreCorto,
-        getAlumnoById: (alumnoId) => alumnos.find((a) => a.id === alumnoId),
+        getEstudianteById: (alumnoId) => estudiantes.find((a) => a.id === alumnoId),
         getHijoLabel: (hijo) => {
-          const alumno = alumnos.find((a) => a.id === hijo.alumnoId);
-          if (!alumno) return 'Estudiante';
-          return `${nombreCorto(alumno)} (${hijo.curso})`;
+          const estudiante = estudiantes.find((a) => a.id === hijo.alumnoId);
+          if (!estudiante) return 'Estudiante';
+          return `${nombreCorto(estudiante)} (${hijo.curso})`;
         },
-        getAlumnosByCurso: (curso) => alumnos.filter((a) => a.curso === curso),
+        getEstudiantesByCurso: (curso) => estudiantes.filter((a) => a.curso === curso),
         getMateriasByCurso: (curso) => materiasPorCurso[curso] ?? [],
         getHorarioClase: (materia) => horariosClase[materia] ?? '—',
-        getActasByAlumnoId: (alumnoId) =>
-          actasAlumno
+        getActasByEstudianteId: (alumnoId) =>
+          actasEstudiante
             .filter((a) => a.alumnoId === alumnoId)
             .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
         refreshData: null,
@@ -870,7 +870,7 @@ export function useData() {
       loading: true,
       refreshing: false,
       error: ctx.error,
-      alumnos: [],
+      estudiantes: [],
       docentes: [],
       preceptores: [],
       administradores: [],
@@ -889,7 +889,7 @@ export function useData() {
       cursoMateria: [],
       notasDocenteAdmin: [],
       asistenciasAdmin: [],
-      actasAlumno: [],
+      actasEstudiante: [],
       actasDocente: [],
       actas: [],
       hijosFamilia: [],
@@ -906,12 +906,12 @@ export function useData() {
       ciclosLectivos: [],
       nombreCompleto: (a) => `${a.apellido}, ${a.nombre}`,
       nombreCorto: (a) => `${a.nombre} ${a.apellido}`,
-      getAlumnoById: () => null,
+      getEstudianteById: () => null,
       getHijoLabel: () => 'Estudiante',
-      getAlumnosByCurso: () => [],
+      getEstudiantesByCurso: () => [],
       getMateriasByCurso: () => [],
       getHorarioClase: () => '—',
-      getActasByAlumnoId: () => [],
+      getActasByEstudianteId: () => [],
       refreshData: () => {},
       adminCursos: [],
       adminMaterias: [],

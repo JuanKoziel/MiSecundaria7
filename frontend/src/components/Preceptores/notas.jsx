@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import EmptyFiltros from './EmptyFiltros';
-import { alumnosPorAnioYCurso, boletinPorAlumno, filtrosCompletos } from './preceptorUtils';
-import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
-import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
-import BoletinExtras from '../BoletinExtras';
-import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
+import { estudiantesPorAnioYCurso, ritePorEstudiante, filtrosCompletos } from './preceptorUtils';
+import { riteHTML, exportarRitePDF } from '../../utils/rite';
+import { useRiteAcademico } from '../../hooks/useRiteAcademico';
+import RiteExtras from '../RiteExtras';
+import RiteTablaPrincipal from '../RiteTablaPrincipal';
 
 function totalesInasistencias(inasistenciasPorMateria) {
   return Object.values(inasistenciasPorMateria).reduce(
@@ -14,9 +14,9 @@ function totalesInasistencias(inasistenciasPorMateria) {
   );
 }
 
-function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasistenciasPorMateria }) {
+function RiteEstudiante({ estudiante, curso, anioLectivo, expandido, onToggle, inasistenciasPorMateria }) {
   const { nombreCorto, hijosFamilia, calificacionesFamilia, materiasPorCurso } = useData();
-  const materiasConNotas = boletinPorAlumno(alumno.id, curso, hijosFamilia, calificacionesFamilia);
+  const materiasConNotas = ritePorEstudiante(estudiante.id, curso, hijosFamilia, calificacionesFamilia);
   const gradesByMateria = {};
   materiasConNotas.forEach((m) => { gradesByMateria[m.materia] = m; });
   const materiasDelCurso = materiasPorCurso[curso] || [];
@@ -32,13 +32,13 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
     recursadas,
     previas,
     loading,
-  } = useBoletinAcademico(alumno.id);
+  } = useRiteAcademico(estudiante.id);
 
   const handleExportar = (e) => {
     e.stopPropagation();
-    const html = boletinHTML({
-      alumnoNombre: `${alumno.apellido}, ${alumno.nombre}`,
-      dni: alumno.dni,
+    const html = riteHTML({
+      estudianteNombre: `${estudiante.apellido}, ${estudiante.nombre}`,
+      dni: estudiante.dni,
       cursoNombre: curso,
       anioLectivo,
       materias,
@@ -49,26 +49,26 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
       recursadas,
       previas,
     });
-    exportarBoletinPDF(html, `Boletín — ${alumno.apellido}, ${alumno.nombre}`);
+    exportarRitePDF(html, `RITE — ${estudiante.apellido}, ${estudiante.nombre}`);
   };
 
   return (
-    <div className="preceptor-boletin-card">
+    <div className="preceptor-rite-card">
       <div
-        className="preceptor-boletin-header"
+        className="preceptor-rite-header"
         role="button"
         tabIndex={0}
         onClick={onToggle}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); }}
       >
         <span>
-          Boletín de {nombreCorto(alumno)}
-          <span className="preceptor-boletin-meta">
+          RITE de {nombreCorto(estudiante)}
+          <span className="preceptor-rite-meta">
             {' '}
             — {materias.length} materia{materias.length !== 1 ? 's' : ''} — Inasist: {totales.ausencias} | Tardanzas: {totales.tardanzas}
           </span>
         </span>
-        <span className="preceptor-boletin-actions">
+        <span className="preceptor-rite-actions">
           <button type="button" className="btn btn-sm btn-secondary" onClick={handleExportar}>
             <i className="fas fa-file-pdf" aria-hidden="true" /> Exportar
           </button>
@@ -80,18 +80,18 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
       </div>
 
       {expandido && (
-        <div className="preceptor-boletin-body">
-          <BoletinTablaPrincipal
+        <div className="preceptor-rite-body">
+          <RiteTablaPrincipal
             materias={materias}
             intensificaciones_1c={intensificaciones_1c}
             bloqueos_por_materia={bloqueos_por_materia}
             intensificaciones_posteriores={intensificaciones_posteriores}
           />
-          <div className="boletin-firma-sello">
+          <div className="rite-firma-sello">
             <span>Firma y sello</span>
           </div>
 
-          <BoletinExtras
+          <RiteExtras
             recursadas={recursadas}
             previas={previas}
             intensificaciones_posteriores={intensificaciones_posteriores}
@@ -104,12 +104,12 @@ function BoletinAlumno({ alumno, curso, anioLectivo, expandido, onToggle, inasis
 }
 
 function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
-  const { inscripciones, alumnos, asistenciasAdmin } = useData();
+  const { inscripciones, estudiantes, asistenciasAdmin } = useData();
   const [expandidoId, setExpandidoId] = useState(null);
 
-  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
+  const lista = estudiantesPorAnioYCurso(anioLectivo, curso, inscripciones, estudiantes);
 
-  const inasistenciasPorAlumno = useMemo(() => {
+  const inasistenciasPorEstudiante = useMemo(() => {
     const map = {};
     lista.forEach((a) => {
       const porMateria = {};
@@ -138,28 +138,28 @@ function Notas({ anioLectivo, curso, onAnioChange, onCursoChange }) {
     <div className="card">
       <div className="card-header-flex">
         <h3>
-          <i className="fas fa-file-alt" aria-hidden="true" /> Boletines del curso
+          <i className="fas fa-file-alt" aria-hidden="true" /> RITE del curso
         </h3>
       </div>
 
       <p className="preceptor-modo-hint">
-        Vista consolidada por estudiante. Cada boletín tiene su propio botón <strong>Exportar</strong>
+        Vista consolidada por estudiante. Cada RITE tiene su propio botón <strong>Exportar</strong>
         {' '}para descargar/imprimir el PDF individual.
       </p>
 
       <div>
         {lista.length === 0 ? (
-          <EmptyFiltros mensaje="No hay alumnos inscriptos en este curso." />
+          <EmptyFiltros mensaje="No hay estudiantes inscriptos en este curso." />
         ) : (
           lista.map((a) => (
-            <BoletinAlumno
+            <RiteEstudiante
               key={a.id}
-              alumno={a}
+              estudiante={a}
               curso={curso}
               anioLectivo={anioLectivo}
               expandido={expandidoId === a.id}
               onToggle={() => setExpandidoId(expandidoId === a.id ? null : a.id)}
-              inasistenciasPorMateria={inasistenciasPorAlumno[a.id] || {}}
+              inasistenciasPorMateria={inasistenciasPorEstudiante[a.id] || {}}
             />
           ))
         )}

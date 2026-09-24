@@ -17,12 +17,12 @@ function celdaNota(n) {
   return n;
 }
 
-// Tabla principal del boletín (Hoja 1). Estructura oficial 2025:
+// Tabla principal del RITE (Hoja 1). Estructura oficial 2025:
 // Materia | 1.º Cuatrimestre (1.ª Val. Preliminar, Calificación)
 //         | 2.º Cuatrimestre (2.ª Val. Preliminar, Calificación)
 //         | Intensificación 1.º C | Diciembre | Febrero
 //         | Calificación final | Observaciones
-export default function BoletinTablaPrincipal({
+export default function RiteTablaPrincipal({
   materias = [],
   intensificaciones_1c = {},
   bloqueos_por_materia = {},
@@ -34,8 +34,8 @@ export default function BoletinTablaPrincipal({
   });
 
   return (
-    <div className="table-responsive boletin-table-responsive">
-      <table className="boletin-table boletin-tabla-principal">
+    <div className="table-responsive rite-table-responsive">
+      <table className="rite-table rite-tabla-principal">
         <colgroup>
           <col style={{ width: '15%' }} />
           <col style={{ width: '8.5%' }} />
@@ -80,11 +80,11 @@ export default function BoletinTablaPrincipal({
               const intensif = intensificaciones_1c[m.materia];
               const tieneIntensif = intensif !== undefined && intensif !== null;
               return (
-                <tr key={idx} className={bloqueada ? 'boletin-fila-bloqueada' : ''}>
+                <tr key={idx} className={bloqueada ? 'rite-fila-bloqueada' : ''}>
                   <td className="table-cell-strong">
                     {m.materia}
                     {bloqueada && (
-                      <span className="badge badge-danger boletin-badge-bloqueo">Bloqueada</span>
+                      <span className="badge badge-danger rite-badge-bloqueo">Bloqueada</span>
                     )}
                   </td>
                   <td>{celdaPrenota(m.prenota1)}</td>

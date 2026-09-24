@@ -1,32 +1,32 @@
 import { useData } from '../../context/DataContext';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
-import { alumnosPorAnioYCurso } from '../Preceptores/preceptorUtils';
+import { estudiantesPorAnioYCurso } from '../Preceptores/preceptorUtils';
 
-function TutoresAlumnosEditor({
-  anioAlumno,
-  setAnioAlumno,
-  cursoAlumno,
-  setCursoAlumno,
+function TutoresEstudiantesEditor({
+  anioEstudiante,
+  setAnioEstudiante,
+  cursoEstudiante,
+  setCursoEstudiante,
   alumnos_ids,
-  setAlumnosIds,
-  idPrefix = 'tut-alumno',
+  setEstudiantesIds,
+  idPrefix = 'tut-estudiante',
 }) {
-  const { inscripciones, alumnos, aniosLectivos, cursosObj } = useData();
+  const { inscripciones, estudiantes, aniosLectivos, cursosObj } = useData();
 
-  const listaAlumnos = alumnosPorAnioYCurso(
-    anioAlumno,
-    cursoAlumno,
+  const listaEstudiantes = estudiantesPorAnioYCurso(
+    anioEstudiante,
+    cursoEstudiante,
     inscripciones,
-    alumnos,
+    estudiantes,
   );
 
-  const toggleAlumno = (id) => {
+  const toggleEstudiante = (id) => {
     const idNum = Number(id);
     const yaExiste = alumnos_ids.includes(idNum);
     if (yaExiste) {
-      setAlumnosIds(alumnos_ids.filter((x) => x !== idNum));
+      setEstudiantesIds(alumnos_ids.filter((x) => x !== idNum));
     } else {
-      setAlumnosIds([...alumnos_ids, idNum]);
+      setEstudiantesIds([...alumnos_ids, idNum]);
     }
   };
 
@@ -35,16 +35,16 @@ function TutoresAlumnosEditor({
       <FiltrosAnioCurso
         aniosLectivos={aniosLectivos}
         cursosObj={cursosObj}
-        anioLectivo={anioAlumno}
-        curso={cursoAlumno}
-        onAnioChange={setAnioAlumno}
-        onCursoChange={setCursoAlumno}
+        anioLectivo={anioEstudiante}
+        curso={cursoEstudiante}
+        onAnioChange={setAnioEstudiante}
+        onCursoChange={setCursoEstudiante}
       />
-      {!anioAlumno || !cursoAlumno ? (
+      {!anioEstudiante || !cursoEstudiante ? (
         <p className="empty-state-message">
           Seleccioná año lectivo y curso para asignar estudiantes.
         </p>
-      ) : listaAlumnos.length === 0 ? (
+      ) : listaEstudiantes.length === 0 ? (
         <p className="empty-state-message">
           No hay estudiantes registrados en ese curso.
         </p>
@@ -57,7 +57,7 @@ function TutoresAlumnosEditor({
             borderRadius: '8px',
           }}
         >
-          {listaAlumnos.map((al) => {
+          {listaEstudiantes.map((al) => {
             const activo = alumnos_ids.includes(Number(al.id));
             return (
               <label
@@ -77,7 +77,7 @@ function TutoresAlumnosEditor({
                   type="checkbox"
                   id={`${idPrefix}-${al.id}`}
                   checked={activo}
-                  onChange={() => toggleAlumno(al.id)}
+                  onChange={() => toggleEstudiante(al.id)}
                 />
                 <span>
                   {al.apellido}, {al.nombre}
@@ -94,4 +94,4 @@ function TutoresAlumnosEditor({
   );
 }
 
-export default TutoresAlumnosEditor;
+export default TutoresEstudiantesEditor;

@@ -32,7 +32,7 @@ Arquitectura objetivo en dos capas:
 
 \| \`id\_usuario\` | FK \`Usuario\`, CASCADE | **\*\*USUARIO DESTINATARIO\*\*** (ver §2.5) |
 
-\| \`id\_alumno\` | FK \`Alumno\`, NULL | **\*\*ALUMNO SOBRE EL QUE TRATA\*\*** (ver §2.5) |
+\| \`id\_alumno\` | FK \`Alumno\`, NULL | **\*\*ESTUDIANTE SOBRE EL QUE TRATA\*\*** (ver §2.5) |
 
 \| \`titulo\` | CharField(255), null | |
 
@@ -62,7 +62,7 @@ Arquitectura objetivo en dos capas:
 
 \- Sección "notificaciones" ya integrada como pestaña/sección en:
 
-  - \`AlumnoDashboard.jsx:175-177\` (\`view === 'notificaciones'\`)
+  - \`EstudianteDashboard.jsx:175-177\` (\`view === 'notificaciones'\`)
 
   - \`FamiliaDashboard.jsx:189-193\` (pasa \`userRole="familia"\` y \`selectedChild={hijoSeleccionado}\`)
 
@@ -96,7 +96,7 @@ notificaciones
 
 ├── id\_usuario (FK → usuarios.id\_usuario, NOT NULL)
 
-├── id\_alumno (FK → alumnos.id\_alumno, NULL permitido)
+├── id\_alumno (FK → estudiantes.id\_alumno, NULL permitido)
 
 ├── titulo
 
@@ -164,7 +164,7 @@ id\_alumno : NULL permitido
 
 notificaciones.id\_usuario → usuarios.id\_usuario
 
-notificaciones.id\_alumno  → alumnos.id\_alumno
+notificaciones.id\_alumno  → estudiantes.id\_alumno
 
 \`\`\`
 
@@ -186,7 +186,7 @@ La entidad \`Notificacion\` tiene **\*\*dos relaciones principales\*\***:
 
 id\_usuario → usuarios.id\_usuario
 
-id\_alumno  → alumnos.id\_alumno
+id\_alumno  → estudiantes.id\_alumno
 
 \`\`\`
 
@@ -204,11 +204,11 @@ usuarios.id\_usuario
 
 \`\`\`
 
-La notificación **\*\*pertenece al usuario que la recibe\*\***. No debe interpretarse como "usuario relacionado con el alumno".
+La notificación **\*\*pertenece al usuario que la recibe\*\***. No debe interpretarse como "usuario relacionado con el estudiante".
 
 **##### \`id\_alumno\`**
 
-Representa al **\*\*ALUMNO SOBRE EL QUE TRATA\*\*** la notificación:
+Representa al **\*\*ESTUDIANTE SOBRE EL QUE TRATA\*\*** la notificación:
 
 \`\`\`text
 
@@ -216,7 +216,7 @@ notificaciones.id\_alumno
 
         ↓
 
-alumnos.id\_alumno
+estudiantes.id\_alumno
 
 \`\`\`
 
@@ -226,11 +226,11 @@ Este campo puede ser **\*\*NULL\*\***. La razón es permitir conservar correctam
 
 Antes del cambio existían **\*\*3 registros\*\*** en \`notificaciones\` (de ahí que \`AUTO\_INCREMENT\` arranca en 4). Por eso \`id\_alumno\` fue agregado permitiendo **\*\*NULL\*\***.
 
-**\*\*No se afirma qué alumno corresponde a esas notificaciones existentes\*\***, porque esa información no fue determinada. No se debe inventar ni asumir datos históricos.
+**\*\*No se afirma qué estudiante corresponde a esas notificaciones existentes\*\***, porque esa información no fue determinada. No se debe inventar ni asumir datos históricos.
 
 **#### 2.5.3 Caso Familia**
 
-Un usuario con rol **\*\*Familia\*\*** puede estar asociado a varios alumnos mediante las relaciones existentes:
+Un usuario con rol **\*\*Familia\*\*** puede estar asociado a varios estudiantes mediante las relaciones existentes:
 
 \`\`\`text
 
@@ -242,7 +242,7 @@ padres\_tutores
 
    ↓
 
-alumnos
+estudiantes
 
 \`\`\`
 
@@ -254,7 +254,7 @@ Notificacion
 
 ├── id\_usuario → Usuario destinatario
 
-└── id\_alumno  → Alumno relacionado
+└── id\_alumno  → Estudiante relacionado
 
 \`\`\`
 
@@ -296,7 +296,7 @@ La pestaña "Del Estudiante" de \`FamiliaDashboard\` filtra por el hijo **\*\*se
 
 \- \`id\_usuario\` determina **\*\*QUIÉN PUEDE RECIBIR/LEER\*\*** la notificación.
 
-\- \`id\_alumno\` determina **\*\*SOBRE QUÉ ALUMNO\*\*** trata la notificación.
+\- \`id\_alumno\` determina **\*\*SOBRE QUÉ ESTUDIANTE\*\*** trata la notificación.
 
 \- **\*\*No\*\*** se debe utilizar \`id\_alumno\` para conceder permisos.
 
@@ -318,17 +318,17 @@ Se relevó el inventario completo de endpoints y sus permisos de escritura (\`vi
 
 \|---|---|---|---|---|
 
-\| E1 | Calificación creada/actualizada | \`CalificacionViewSet\` (\`PuedeEscribirCalificaciones\` → admin/director/docente) | Alumno + tutor(es) del alumno | Solo calificaciones de periodos cerrados/publicadas? **\*\*[REQUIERE DECISIÓN]\*\***; avisar por periodo, no por nota insertada aislada |
+\| E1 | Calificación creada/actualizada | \`CalificacionViewSet\` (\`PuedeEscribirCalificaciones\` → admin/director/docente) | Estudiante + tutor(es) del estudiante | Solo calificaciones de periodos cerrados/publicadas? **\*\*[REQUIERE DECISIÓN]\*\***; avisar por periodo, no por nota insertada aislada |
 
-\| E2 | Calificación eliminada | \`CalificacionViewSet\` DELETE | Alumno + familia | rareza; solo admin/director normalmente |
+\| E2 | Calificación eliminada | \`CalificacionViewSet\` DELETE | Estudiante + familia | rareza; solo admin/director normalmente |
 
-\| E3 | Asistencia (ausencia) registrada | \`AsistenciaViewSet\` (\`PuedeRegistrarAsistencias\` → admin/director/preceptor/docente) | Alumno + familia | **\*\*Anti-spam crítico\*\***: agrupar por día/jornada (una notificación por fecha con resumen de ausencias), no una por inasistencia |
+\| E3 | Asistencia (ausencia) registrada | \`AsistenciaViewSet\` (\`PuedeRegistrarAsistencias\` → admin/director/preceptor/docente) | Estudiante + familia | **\*\*Anti-spam crítico\*\***: agrupar por día/jornada (una notificación por fecha con resumen de ausencias), no una por inasistencia |
 
-\| E4 | Apercibimiento / nota de conducta en acta? **\*\*[REQUIERE DECISIÓN]\*\*** | \`ActaViewSet\` / \`ActaAlumnoViewSet\` (\`PuedeGestionarActas\`) | Alumno + familia | solo si hay tipo de acta "apercibimiento/observación" |
+\| E4 | Apercibimiento / nota de conducta en acta? **\*\*[REQUIERE DECISIÓN]\*\*** | \`ActaViewSet\` / \`ActaAlumnoViewSet\` (\`PuedeGestionarActas\`) | Estudiante + familia | solo si hay tipo de acta "apercibimiento/observación" |
 
-\| E5 | Acta **\*\*cerrada/visada\*\*** por director | \`ActaViewSet\` transición de estado | Alumno + familia + docentes involucrados | notificar solo en el "cierre", no en cada edición |
+\| E5 | Acta **\*\*cerrada/visada\*\*** por director | \`ActaViewSet\` transición de estado | Estudiante + familia + docentes involucrados | notificar solo en el "cierre", no en cada edición |
 
-\| E6 | Nota/calificación de acta publicada | \`ActaAlumnoViewSet\` | Alumno + familia | coincidir con criterio E1 |
+\| E6 | Nota/calificación de acta publicada | \`ActaAlumnoViewSet\` | Estudiante + familia | coincidir con criterio E1 |
 
 \| E7 | Comunicado publicado | \`ComunicadoViewSet\` (\`PuedePublicarComunicados\` → admin/director/jefe\_preceptores) | Todos los alcanzados por \`comunicado\_alcance\` | **\*\*Reutilizar\*\*** \`\_filter\_visible\_comunicados\`/alcances; una notificación por comunicado por destinatario |
 
@@ -336,13 +336,13 @@ Se relevó el inventario completo de endpoints y sus permisos de escritura (\`vi
 
 \| E9 | DDJJ presentada por docente | \`DdjjDocenteViewSet\` (\`PuedeGestionarAmbitoDocente\`) | Director | |
 
-\| E10 | Materia adeudada / pasa a **\*\*Previa\*\*** | \`MateriaAdeudadaViewSet\`; transición Feb→Previa (\`\_pasar\_a\_previa\`) | Alumno + familia | **\*\*evento académico importante\*\*** |
+\| E10 | Materia adeudada / pasa a **\*\*Previa\*\*** | \`MateriaAdeudadaViewSet\`; transición Feb→Previa (\`\_pasar\_a\_previa\`) | Estudiante + familia | **\*\*evento académico importante\*\*** |
 
-\| E11 | Rendición de materia adeudada registrada | \`RendicionMateriaAdeudadaViewSet\` (\`IsAdminOrDirectorForWrite\`) | Alumno + familia | |
+\| E11 | Rendición de materia adeudada registrada | \`RendicionMateriaAdeudadaViewSet\` (\`IsAdminOrDirectorForWrite\`) | Estudiante + familia | |
 
-\| E12 | Intensificación cargada / resultado | \`IntensificacionAcademicaViewSet\` (\`PuedeGestionarAmbitoDocente\`) | Alumno + familia | |
+\| E12 | Intensificación cargada / resultado | \`IntensificacionAcademicaViewSet\` (\`PuedeGestionarAmbitoDocente\`) | Estudiante + familia | |
 
-\| E13 | Promoción / no promoción | \`HistorialAcademico\` / \`PromocionAlumnoViewSet\`; \`consolidar\_historial\_alumno\` (cierre de ciclo) | Alumno + familia | al cerrar ciclo, batch |
+\| E13 | Promoción / no promoción | \`HistorialAcademico\` / \`PromocionAlumnoViewSet\`; \`consolidar\_historial\_alumno\` (cierre de ciclo) | Estudiante + familia | al cerrar ciclo, batch |
 
 \| E14 | Usuario habilitado/deshabilitado (programado) | \`middleware\`/\`usuario\_estado.py\` (evento programado) | el usuario afectado, o admin | "tu usuario será deshabilitado el ..." / "fue habilitado" |
 
@@ -352,17 +352,17 @@ Se relevó el inventario completo de endpoints y sus permisos de escritura (\`vi
 
 \| E17 | Suplencia asignada | \`SuplenciaDocenteViewSet\` (\`IsAdminOrDirectorForWrite\`) | Docente suplente | |
 
-\| E18 | Recursada cargada / promovida | \`RecursadaMateriaViewSet\` / \`RecursadaCalificacionViewSet\` (\`IsAdminOrDirectorForWrite\`) | Alumno + familia | |
+\| E18 | Recursada cargada / promovida | \`RecursadaMateriaViewSet\` / \`RecursadaCalificacionViewSet\` (\`IsAdminOrDirectorForWrite\`) | Estudiante + familia | |
 
-\| E19 | Horario/bloqueo del alumno modificado | \`BloqueoHorarioAlumnoViewSet\` | Alumno + familia | |
+\| E19 | Horario/bloqueo del estudiante modificado | \`BloqueoHorarioAlumnoViewSet\` | Estudiante + familia | |
 
-\| E20 | Datos de contacto / usuario del alumno editados por un agente | \`AlumnoViewSet\` (\`PuedeGestionarPersonas\`) | familia + alumnos | menor prioridad **\*\*[REQUIERE DECISIÓN]\*\*** |
+\| E20 | Datos de contacto / usuario del estudiante editados por un agente | \`AlumnoViewSet\` (\`PuedeGestionarPersonas\`) | familia + estudiantes | menor prioridad **\*\*[REQUIERE DECISIÓN]\*\*** |
 
 **### 3.2 Por rol de destinatario**
 
-\- **\*\*Alumno\*\***: E1, E2, E3, E5, E6, E10, E11, E12, E13, E18, E19, E20.
+\- **\*\*Estudiante\*\***: E1, E2, E3, E5, E6, E10, E11, E12, E13, E18, E19, E20.
 
-\- **\*\*Familia (tutor)\*\***: los mismos que el alumno (vía \`Alumno.id\_tutor\`), salvo E20 (es sobre ellos). La pestaña "Del Estudiante" de \`FamiliaDashboard\` muestra las del hijo **\*\*seleccionado\*\***.
+\- **\*\*Familia (tutor)\*\***: los mismos que el estudiante (vía \`Alumno.id\_tutor\`), salvo E20 (es sobre ellos). La pestaña "Del Estudiante" de \`FamiliaDashboard\` muestra las del hijo **\*\*seleccionado\*\***.
 
 \- **\*\*Docente\*\***: E15 (aprobación de su adelanto), E17 (suplencia asignada), E5 (acta propia), E8/E9 (aviso de que su planificación/DDJJ fue revisada? **\*\*[REQUIERE DECISIÓN]\*\***), E7/E16 (solo los alcanzados).
 
@@ -410,7 +410,7 @@ Se relevó el inventario completo de endpoints y sus permisos de escritura (\`vi
 
   - Matiz Familia: la pestaña "Del Estudiante" filtra por el hijo seleccionado mediante \`id\_alumno\`. Como \`id\_alumno\` **\*\*ya existe en la DB\*\*** (ver §2.5), la notificación se dirige al **\*\*tutor\*\*** (usuario destinatario = \`id\_usuario\`) y lleva \`id\_alumno\` = el hijo al que se refiere. El frontend filtra por \`id\_alumno\` == hijo seleccionado.
 
-  - Autorización: \`id\_usuario\` determina quién lee (§2.5.4). Para Familia, al consultar por un \`id\_alumno\` concreto, el backend **\*\*debe validar\*\*** que ese alumno pertenece a uno de sus hijos (vía \`usuarios → padres\_tutores → alumnos\`, usando \`alumno\_ids\_familia\` / \`alumno\_del\_usuario\` de \`permissions.py\`). **\*\*No\*\*** se confía en el \`id\_alumno\` enviado por el frontend para conceder permisos (§2.5.4).
+  - Autorización: \`id\_usuario\` determina quién lee (§2.5.4). Para Familia, al consultar por un \`id\_alumno\` concreto, el backend **\*\*debe validar\*\*** que ese estudiante pertenece a uno de sus hijos (vía \`usuarios → padres\_tutores → alumnos\`, usando \`alumno\_ids\_familia\` / \`alumno\_del\_usuario\` de \`permissions.py\`). **\*\*No\*\*** se confía en el \`id\_alumno\` enviado por el frontend para conceder permisos (§2.5.4).
 
 \- Acciones de escritura: **\*\*solo el sistema\*\*** crea notificaciones (via \`permission\_classes = [IsAuthenticated]\` no basta; la creación debe ser interna). \`marcar\_leida\` debe validar que la notif pertenezca al usuario autenticado.
 
@@ -478,7 +478,7 @@ Se relevó el inventario completo de endpoints y sus permisos de escritura (\`vi
 
   - Integración: cada Generador emite la notif esperada al destinatario correcto tras el estado real (asistencia, calificación, acta cerrada, pasa a Previa, cierre de ciclo, comunicado).
 
-  - Privacidad: alumno/familia solo ven las suyas/sus hijos; docente solo sus cursos; admin/director ven las propias (según §6); \`marcar\_leida\` valida propiedad.
+  - Privacidad: estudiante/familia solo ven las suyas/sus hijos; docente solo sus cursos; admin/director ven las propias (según §6); \`marcar\_leida\` valida propiedad.
 
   - Anti-spam: dos ausencias el mismo día ≡ 1 notif; escribir mismo valor dos veces ≡ 1 notif.
 
@@ -508,7 +508,7 @@ Se relevó el inventario completo de endpoints y sus permisos de escritura (\`vi
 
 \- **\*\*DDL\*\***: \`Notificacion\` es \`managed=False\` sobre tabla real \`notificaciones\`. La columna \`id\_alumno\` ya fue agregada manualmente (ver §2.5); el resto de cambios pendientes (\`tipo\`, \`id\_referencia\`, \`fecha\`, índices) siguen requiriendo DDL manual adicional. **\*\*Ningún cambio más de BD se hace en esta fase (\*\***no tocar BD ahora\*\*).\*\*
 
-\- **\*\*Privacidad familia\*\***: el vínculo notif→alumno ya está resuelto a nivel de esquema por \`id\_alumno\` (§2.5). El "Del Estudiante" filtra al tutor con \`id\_alumno\` == hijo seleccionado, **\*\*validando\*\*** en el backend que ese alumno es realmente un hijo del usuario (§6 / §2.5.4).
+\- **\*\*Privacidad familia\*\***: el vínculo notif→estudiante ya está resuelto a nivel de esquema por \`id\_alumno\` (§2.5). El "Del Estudiante" filtra al tutor con \`id\_alumno\` == hijo seleccionado, **\*\*validando\*\*** en el backend que ese estudiante es realmente un hijo del usuario (§6 / §2.5.4).
 
 \- **\*\*Volumen\*\***: el anti-spam (§5) es condición de viabilidad, sobre todo para ausencias (E3).
 
@@ -574,7 +574,7 @@ Implementar:
 
 1. Adaptación definitiva del modelo `Notificacion` al esquema real:
    - `id_usuario` como usuario destinatario.
-   - `id_alumno` como alumno relacionado.
+   - `id_alumno` como estudiante relacionado.
    - `id_alumno` nullable.
    - respetar las FK reales.
 
@@ -590,7 +590,7 @@ Implementar:
 4. Seguridad específica para Familia:
    - `id_usuario` identifica al familiar destinatario;
    - `id_alumno` identifica al hijo al que se refiere;
-   - validar mediante las relaciones reales que el alumno pertenece al familiar;
+   - validar mediante las relaciones reales que el estudiante pertenece al familiar;
    - `id_alumno` nunca concede permisos por sí mismo.
 
 5. Tolerancia a notificaciones históricas con:
@@ -617,7 +617,7 @@ No implementar todavía la UI completa ni los eventos automáticos.
 - `id_alumno` presente;
 - `id_alumno = NULL`;
 - Familia con múltiples hijos;
-- Familia sin acceso a un alumno ajeno.
+- Familia sin acceso a un estudiante ajeno.
 
 **Criterio de finalización:** la API queda segura y preparada para que el sistema pueda generar notificaciones posteriormente.
 
@@ -815,7 +815,7 @@ Como el proyecto no utiliza React Router, la navegación debe respetar el sistem
 
 Posibles destinos:
 
-- calificaciones/boletines;
+- calificaciones/RITE;
 - asistencias;
 - intensificaciones;
 - previas;
@@ -862,7 +862,7 @@ Realizar una revisión completa del sistema:
 
 Verificar que continúen funcionando los tests existentes relevantes, incluyendo:
 
-- boletín;
+- RITE;
 - actas;
 - permisos;
 - borrado lógico;
@@ -915,7 +915,7 @@ No marcar una parte como COMPLETADA si existen tests fallidos, errores conocidos
 Estado: COMPLETADA
 Fecha: 2026-09-02
 Archivos modificados:
-- `backend/proyecto/escuela/models.py` (modelo `Notificacion`: agregado `id_alumno` FK→`alumnos`, nullable, como alumno relacionado; `id_usuario` como destinatario).
+- `backend/proyecto/escuela/models.py` (modelo `Notificacion`: agregado `id_alumno` FK→`alumnos`, nullable, como estudiante relacionado; `id_usuario` como destinatario).
 - `backend/proyecto/escuela/serializers.py` (`NotificacionSerializer`: `id_notificacion`, `id_usuario`, `id_alumno` de solo lectura).
 - `backend/proyecto/escuela/views.py` (`NotificacionViewSet` → `ReadOnlyModelViewSet` con lectura solo propia, sin confiar en `?usuario=`, validación de Familia por `id_alumno` real, `marcar_leida` solo propio).
 - `backend/proyecto/escuela/notifications.py` (nuevo): puerta única de creación `notificar(...)`.
@@ -925,11 +925,11 @@ Archivos modificados:
 Cambios realizados:
 - Modelo alineado al esquema real de la tabla `notificaciones` (`id_usuario`, `id_alumno` nullable, FKs reales).
 - `NotificacionViewSet` cierra la seguridad: lectura únicamente de las notificaciones del usuario autenticado; se ignora `?usuario=`; `marcar_leida` solo sobre notificaciones propias (404 para ajenas); la API pública no crea notificaciones (405 en POST) — la creación queda reservada a la puerta interna `notificar(...)`.
-- Seguridad Familia: `id_usuario` identifica al familiar destinatario; `id_alumno` identifica al hijo; al filtrar por `?id_alumno=`, se valida con las relaciones reales que ese alumno es hijo del familiar (si no, respuesta vacía). `id_alumno` nunca concede permisos: la frontera es siempre `id_usuario` del autenticado.
+- Seguridad Familia: `id_usuario` identifica al familiar destinatario; `id_alumno` identifica al hijo; al filtrar por `?id_alumno=`, se valida con las relaciones reales que ese estudiante es hijo del familiar (si no, respuesta vacía). `id_alumno` nunca concede permisos: la frontera es siempre `id_usuario` del autenticado.
 - Tolerancia a notificaciones históricas con `id_alumno = NULL`.
 - Frontend: solo infraestructura (servicio `marcarLeida`, carga de notificaciones propias con `id_alumno` en `DataContext`). No se implementó la UI completa (Parte 2) ni los eventos de negocio.
 Tests ejecutados:
-- `manage.py test escuela.tests.test_notificaciones`: 11 OK (lectura propia; no lee ajenas; no filtra por `?usuario=` ajeno; no marca leída ajena; marca propia; no crea por API para otro; `id_alumno` presente; `id_alumno` NULL histórica; familia multi-hijos; familia sin acceso a alumno ajeno).
+- `manage.py test escuela.tests.test_notificaciones`: 11 OK (lectura propia; no lee ajenas; no filtra por `?usuario=` ajeno; no marca leída ajena; marca propia; no crea por API para otro; `id_alumno` presente; `id_alumno` NULL histórica; familia multi-hijos; familia sin acceso a estudiante ajeno).
 - Regresión: `test_permisos`, `test_borrado_logico`, `test_autenticacion`, `test_actas`, `test_boletin_e2e`: 87 OK.
 - Frontend: `npm test` 114 OK (12 archivos); `npm run build` OK.
 Resultado:
@@ -965,7 +965,7 @@ Cambios realizados:
 - Marcar individual: botón "Marcar como leída" por notificación no leída; al pulsarlo actualiza el estado en `DataContext`.
 - Estados: vacío (ícono + mensaje), cargando (spinner + "Cargando notificaciones…") y error ("No se pudieron cargar las notificaciones.").
 - Familia: se mantienen las pestañas "Del Estudiante" (filtra por `id_alumno === selectedChild.alumnoId`; si no hay hijo seleccionado pide elegir estudiante) y "Personales" (`id_alumno` null/undefined). El frontend solo filtra para mostrar; la autorización sigue siendo del backend.
-- Otros roles (Alumno, Docente, Preceptor, Jefe de Preceptores, Admin/Director): vista única con sus notificaciones propias (ya restringidas por el backend).
+- Otros roles (Estudiante, Docente, Preceptor, Jefe de Preceptores, Admin/Director): vista única con sus notificaciones propias (ya restringidas por el backend).
 - Backend: `marcar_todas_leidas` usa `get_queryset()` (restringe a `id_usuario` autenticado y respeta `?id_alumno=`), por lo que nunca puede marcar ajenas ni las personales de otro/al filtrar por otro hijo.
 Tests ejecutados:
 - `manage.py test escuela.tests.test_notificaciones`: 15 OK (11 de la Parte 1 + 4 nuevos de `marcar_todas_leidas`).
@@ -998,11 +998,11 @@ Archivos modificados:
   - Import `from escuela.notifications import notificar`; `timedelta` añadido al import de `datetime`.
 - `backend/proyecto/escuela/tests/test_notificaciones_eventos.py` (nuevo): 8 tests (5 de E3 + 3 de E7).
 Cambios realizados:
-- E7 — Comunicado publicado: al crear (publicar) un comunicado se notifica a los estudiantes alcanzados por el alcance real (curso + ciclo + división, reutilizando `_curso_matches_alcance`) y a sus familias, una notificación por destinatario con `id_alumno` fijado (para el filtro "Del Estudiante" de Familia). Dedup por (destinatario, alumno, título, mensaje) para evitar duplicados al re-exponer. No se notifica en `update` para no generar spam por ediciones.
-- E3 — Inasistencia registrada: al registrar/actualizar una asistencia con estado "Ausente" se notifica al estudiante y a su familia (según existencia de `Alumno.id_usuario`/`PadreTutor.id_usuario`). Agrupación por día: si ya existe una notificación de inasistencia para ese (destinatario, alumno, fecha), se acumula la materia en el mensaje en lugar de crear una notificación por cada ausencia del día. La comparación del día usa un rango horario local (para no fallar por zona horaria de `Notificacion.fecha` en UTC). No notifica cuando el estado no es Ausente (evita falsos positivos en correcciones).
+- E7 — Comunicado publicado: al crear (publicar) un comunicado se notifica a los estudiantes alcanzados por el alcance real (curso + ciclo + división, reutilizando `_curso_matches_alcance`) y a sus familias, una notificación por destinatario con `id_alumno` fijado (para el filtro "Del Estudiante" de Familia). Dedup por (destinatario, estudiante, título, mensaje) para evitar duplicados al re-exponer. No se notifica en `update` para no generar spam por ediciones.
+- E3 — Inasistencia registrada: al registrar/actualizar una asistencia con estado "Ausente" se notifica al estudiante y a su familia (según existencia de `Alumno.id_usuario`/`PadreTutor.id_usuario`). Agrupación por día: si ya existe una notificación de inasistencia para ese (destinatario, estudiante, fecha), se acumula la materia en el mensaje en lugar de crear una notificación por cada ausencia del día. La comparación del día usa un rango horario local (para no fallar por zona horaria de `Notificacion.fecha` en UTC). No notifica cuando el estado no es Ausente (evita falsos positivos en correcciones).
 - Toda creación sigue pasando por `notifications.notificar` (puerta única). La autorización no depende de estos emisores: son solo emisores que replican las reglas de visibilidad existentes.
 Tests ejecutados:
-- `manage.py test escuela.tests.test_notificaciones_eventos`: 8 OK (E3: notifica a alumno+familia, Presente no notifica, agrupa por día, sin tutor solo alumno, sin usuario de alumno solo familia; E7: alcanzados+familia, alcance global, evita duplicados al re-exponer).
+- `manage.py test escuela.tests.test_notificaciones_eventos`: 8 OK (E3: notifica a estudiante+familia, Presente no notifica, agrupa por día, sin tutor solo estudiante, sin usuario de estudiante solo familia; E7: alcanzados+familia, alcance global, evita duplicados al re-exponer).
 - `manage.py test escuela.tests.test_notificaciones`: 15 OK (sin regresiones).
 - `manage.py test escuela.tests.test_permisos`: 45 OK (comunicados/asistencias intactos).
 - Suite completa `manage.py test`: 171 tests, `FAILED (failures=3)` — exactamente los 3 fallos PREEXISTENTES de `test_asistencias` (`201 != 400`), idénticos a los documentados en la Parte 1 y verificados como ajenos a esta Parte.
@@ -1014,7 +1014,7 @@ Resultado:
 Decisiones tomadas:
 - E7 se emite únicamente al publicar (create), no en `update` (para evitar notificaciones por cada edición; alinear con anti-spam §5.2).
 - E7 notifica a estudiantes alcanzados + familias. La notificación a docentes/preceptores/jefe-de-preceptores alcanzados queda pendiente de decisión (se alineará con la Parte 7 anti-spam/resúmenes).
-- E3 notifica al estudiante y a su familia, con agrupación por (destinatario, alumno, fecha) acumulando materias en un único mensaje diario.
+- E3 notifica al estudiante y a su familia, con agrupación por (destinatario, estudiante, fecha) acumulando materias en un único mensaje diario.
 Pendientes:
 - E7: notificar a docentes/preceptores alcanzados (rol) — [REQUIERE DECISIÓN], probablemente en Parte 7 (resúmenes).
 - Resto de eventos de negocio (Partes 4 a 6).
@@ -1028,7 +1028,7 @@ Pendientes:
 Estado: COMPLETADA
 Fecha: 2026-09-02
 Archivos modificados:
-- `backend/proyecto/escuela/notifications.py`: añadido `notificar_alumno(alumno, titulo, mensaje, dedupe=True)` como helper reutilizable (usa `notificar` puerta única, resuelve `id_usuario` del alumno + `id_usuario` del tutor, deduplicación por contenido idéntico).
+- `backend/proyecto/escuela/notifications.py`: añadido `notificar_alumno(alumno, titulo, mensaje, dedupe=True)` como helper reutilizable (usa `notificar` puerta única, resuelve `id_usuario` del estudiante + `id_usuario` del tutor, deduplicación por contenido idéntico).
 - `backend/proyecto/escuela/views.py`:
   - `_notificar_calificacion(calificacion, accion)` (E1/E6): hook en `CalificacionViewSet.perform_create`/`perform_update`. No existe campo "publicada" → notifica al guardar con dedup por contenido (misma materia/período/nota).
   - `_notificar_previa(alumno, materia)` (E10): hook en `_pasar_a_previa` (solo transición real a PREVIA vía get_or_create; dedup evita repetidos).
@@ -1041,13 +1041,13 @@ Archivos modificados:
 - `backend/proyecto/escuela/tests/test_notificaciones_eventos_parte4.py` (nuevo): 12 tests (E1/E6, E10, E11, E12, E13, E18).
 Cambios realizados:
 - E1/E6 — Calificaciones: se notifica al crear y al actualizar una calificación. Al no existir un estado "publicada" en el modelo, la notificación se emite al guardar (create/update); la deduplicación por contenido idéntico evita spam por re-guardados de la misma nota (misma materia/período/valor).
-- E10 — Materia pasa a Previa: se emite solo en la transición real (`_pasar_a_previa`, idempotente por `get_or_create`); notifica a alumno y tutor.
+- E10 — Materia pasa a Previa: se emite solo en la transición real (`_pasar_a_previa`, idempotente por `get_or_create`); notifica a estudiante y tutor.
 - E11 — Rendición: se emite tras registrar efectivamente la rendición (incluye instancia, nota, resultado).
 - E12 — Intensificación: se emite cuando la instancia obtiene resultado (nota procesada), tanto en create como update; usa `PERIODO_DISPLAY` para "Julio", "Diciembre 1", etc.
-- E13 — Promoción/no promoción por materia durante consolidación: se emite en `consolidar_historial_alumno` cuando `estado_materia` queda `aprobada` o `adeudada`; notifica alumno + tutor por materia; dedup evita repetidos si se re-procesa el cierre.
+- E13 — Promoción/no promoción por materia durante consolidación: se emite en `consolidar_historial_alumno` cuando `estado_materia` queda `aprobada` o `adeudada`; notifica estudiante + tutor por materia; dedup evita repetidos si se re-procesa el cierre.
 - E18 — Recursada: se emite al cargar (`perform_create`) y al pasar a APROBADA/DESAPROBADA (`perform_update` con cambio de estado).
 - E5 — Acta cerrada/visada: **DIFERIDO**. El modelo `Acta` no tiene campo/estados de cierre/visado; no se inventa lógica proxy. Se implementará cuando el modelo incorpore la transición real.
-- Toda creación pasa por `notifications.notificar` / `notificar_alumno` (puerta única). Respeta las reglas de visibilidad/alcance existentes (famlia vía `id_alumno` + tutor, alumno vía `id_usuario`).
+- Toda creación pasa por `notifications.notificar` / `notificar_alumno` (puerta única). Respeta las reglas de visibilidad/alcance existentes (famlia vía `id_alumno` + tutor, estudiante vía `id_usuario`).
 Tests ejecutados:
 - `manage.py test escuela.tests.test_notificaciones_eventos_parte4`: 12 OK.
 - `manage.py test escuela.tests.test_notificaciones escuela.tests.test_notificaciones_eventos escuela.tests.test_notificaciones_eventos_parte4 escuela.tests.test_academico`: 51 OK (Partes 1, 3, 4 + académico, sin regresiones).
@@ -1063,7 +1063,7 @@ Decisiones tomadas:
 - E1/E6: sin campo "publicada", se notifica al guardar; dedup por contenido evita re-notificar la misma nota.
 - E13: se notifica por materia (`aprobada`/`adeudada`) durante la consolidación del ciclo; la promoción global (PROMOVIDO/REPITENTE) es manual vía `PromocionAlumno` y queda [REQUIERE DECISIÓN].
 - E5: no se implementa proxy; se deja [REQUIERE DECISIÓN] pendiente hasta que el modelo tenga un evento de cierre/visado real.
-- `notificar_alumno` centraliza la resolución alumno+tutor + dedup para todos los eventos académicos.
+- `notificar_alumno` centraliza la resolución estudiante+tutor + dedup para todos los eventos académicos.
 Pendientes:
 - Anti-spam/deduplicación general y límites por destinatario (Parte 7).
 - Navegación contextual y deep-links (Parte 8).
@@ -1089,7 +1089,7 @@ Cambios realizados:
 - E8 — Planificación para revisión: cuando un docente (rol 'docente') crea o actualiza una planificación, notifica a usuarios con roles 'admin'/'director'. La revisión formal queda pendiente (Parte 7); aquí solo aviso de contenido nuevo.
 - E9 — DDJJ presentada: al presentar DDJJ vía `mi_ddjj` POST, notifica a directivos (admin/director).
 - `_usuarios_directivos()` centraliza la resolución de usuarios con roles admin/director para E8 y E9.
-- Todas las notificaciones usan `notifications.notificar()` (puerta única), con `id_alumno=NULL` (eventos sin alumno asociado).
+- Todas las notificaciones usan `notifications.notificar()` (puerta única), con `id_alumno=NULL` (eventos sin estudiante asociado).
 Tests ejecutados:
 - `manage.py test escuela.tests.test_notificaciones_eventos_parte5`: 9 OK.
 - `manage.py test escuela.tests.test_notificaciones escuela.tests.test_notificaciones_eventos escuela.tests.test_notificaciones_eventos_parte4 escuela.tests.test_notificaciones_eventos_parte5 escuela.tests.test_academico`: 60 OK (Partes 1, 3, 4, 5 + académico, sin regresiones).
@@ -1103,7 +1103,7 @@ Decisiones tomadas:
 - E8: notifica solo en create/update por docente (no admin/director); estado 'Borrador' usado como disparador; revisión formal [REQUIERE DECISIÓN] (Parte 7).
 - E9: notifica en POST a `mi_ddjj` (creación); update/delete no permitidos (405).
 - E15/E17: notificación al docente vía `Docente.id_usuario`; si no tiene usuario, no notifica (silencioso).
-- Notificaciones de docentes usan `id_alumno=NULL` (no hay alumno asociado).
+- Notificaciones de docentes usan `id_alumno=NULL` (no hay estudiante asociado).
 Pendientes:
 - Anti-spam/deduplicación general y límites por destinatario (Parte 7).
 - Navegación contextual y deep-links (Parte 8).
@@ -1120,13 +1120,13 @@ Archivos modificados:
   - Helpers de notificación: `_es_tipo_acta_conducta()`, `_notificar_acta_conducta()`, `_notificar_usuario_estado()`, `_notificar_evento_institucional()`, `_notificar_bloqueo_horario()`.
   - `ActaAlumnoViewSet.perform_create`: hook E4 (notifica al asociar acta de tipo conducta/apercibimiento).
   - `UsuarioViewSet.perform_update`: hook E14 (notifica al usuario cuando cambia su estado habilitado/deshabilitado).
-  - `EventoInstitucionalViewSet.perform_create`/`perform_update`: hook E16 (notifica a alumnos/familias según alcance del evento).
+  - `EventoInstitucionalViewSet.perform_create`/`perform_update`: hook E16 (notifica a estudiantes/familias según alcance del evento).
   - `BloqueoHorarioAlumnoViewSet.perform_create`/`perform_update`: hook E19 (notifica al crear bloqueo activo o desactivarlo).
 - `backend/proyecto/escuela/tests/test_notificaciones_eventos_parte6.py` (nuevo): 12 tests (E4, E14, E16, E19).
 Cambios realizados:
-- E4 — Conducta/apercibimientos: al crear `ActaAlumno` para un acta cuyo `id_tipo_acta.nombre_tipo` está en `TIPOS_ACTA_CONDUCTA` (`Apercibimiento`, `Conducta`, `Amonestación`, `Sanción`), notifica al alumno y a su familia. Otros tipos (ej. `Comunicación`) no disparan notificación.
+- E4 — Conducta/apercibimientos: al crear `ActaAlumno` para un acta cuyo `id_tipo_acta.nombre_tipo` está en `TIPOS_ACTA_CONDUCTA` (`Apercibimiento`, `Conducta`, `Amonestación`, `Sanción`), notifica al estudiante y a su familia. Otros tipos (ej. `Comunicación`) no disparan notificación.
 - E14 — Usuario habilitado/deshabilitado: en `UsuarioViewSet.perform_update`, detecta cambio en campo `estado` y notifica al usuario afectado ("Cuenta habilitada" / "Cuenta deshabilitada"). Silencioso si no hay cambio o no hay `pk`.
-- E16 — Evento institucional: al crear/actualizar `EventoInstitucional`, notifica a alumnos y familias según alcance (`todo_dia`, `mañana`, `tarde`, `franja`, `permanente`), reutilizando la lógica de `_alumnos_para_comunicado`. Dedup por (destinatario, alumno, título, mensaje) evita duplicados al re-exponer.
+- E16 — Evento institucional: al crear/actualizar `EventoInstitucional`, notifica a estudiantes y familias según alcance (`todo_dia`, `mañana`, `tarde`, `franja`, `permanente`), reutilizando la lógica de `_alumnos_para_comunicado`. Dedup por (destinatario, estudiante, título, mensaje) evita duplicados al re-exponer.
 - E19 — Bloqueo/modificación de horario: al crear `BloqueoHorarioAlumno` con `estado=True` notifica "Bloqueo de horario por superposición"; al pasar `estado` a `False` notifica "Bloqueo de horario levantado". No notifica si se crea inactivo (`estado=False`).
 - E20 — Datos de contacto: **DIFERIDO** — baja prioridad, se decidirá en Parte 7/8 si aporta valor.
 - Toda creación pasa por `notifications.notificar()` / `notificar_alumno()` (puerta única). E4/E16/E19 usan `id_alumno` para filtro "Del Estudiante"; E14 usa `id_alumno=NULL`.
@@ -1169,7 +1169,7 @@ Archivos modificados:
 Cambios realizados:
 - Deduplicación centralizada: todo pasa por `notifications.notificar()` / `notificar_alumno()`.
 - 3 estrategias de deduplicación según necesidad:
-  - CONTENT: default, por contenido idéntico (usuario, alumno, título, mensaje).
+  - CONTENT: default, por contenido idéntico (usuario, estudiante, título, mensaje).
   - DAILY: asistencias — agrupa por día, acumula materias en el mensaje.
   - REFERENCE: calificaciones/rendiciones/actas — por clave externa (PK), actualiza mensaje si cambia.
 - Límites de volumen: diario (50) y horario (10) por usuario; `check_limits=False` para eventos críticos.
@@ -1207,17 +1207,17 @@ Archivos modificados:
 - `backend/proyecto/escuela/notifications.py`: añadido parámetro `nav` a `notificar()` y `notificar_alumno()` para metadatos de navegación (destino, params).
 - `backend/proyecto/escuela/serializers.py`: `NotificacionSerializer` ahora expone `nav_destino` y `nav_params` extrayéndolos del mensaje (formato `[nav:{...}]`).
 - `backend/proyecto/escuela/views.py`: actualizados todos los emisores de eventos (E1/E6, E3, E4, E7, E8, E9, E10, E11, E12, E13, E14, E15, E16, E17, E18, E19) para incluir metadatos `nav` con destino y parámetros relevantes.
-- `backend/proyecto/escuela/academico.py`: `_notificar_consolidacion` incluye nav hacia boletín.
+- `backend/proyecto/escuela/academico.py`: `_notificar_consolidacion` incluye nav hacia RITE.
 - `frontend/src/context/DataContext.jsx`: añadido `navegarDesdeNotificacion` y `navIntent` al contexto para manejar navegación desde notificaciones.
 - `frontend/src/components/Notificaciones.jsx`: reescrito para consumir notificaciones reales, manejar click/keyboard en items con `nav_destino`, y llamar a `navegarDesdeNotificacion`.
 - `frontend/src/components/Familia/FamiliaDashboard.jsx`: consume `navIntent` y actualiza `view` automáticamente.
-- `frontend/src/components/Alumno/AlumnoDashboard.jsx`: consume `navIntent` y actualiza `view`.
+- `frontend/src/components/Estudiante/EstudianteDashboard.jsx`: consume `navIntent` y actualiza `view`.
 - `frontend/src/components/Profesores/PanelProfesores.jsx`: consume `navIntent` y actualiza `seccionActiva`.
 Cambios realizados:
 - Backend: todos los emisores de notificaciones (E1/E6, E3, E4, E7, E8, E9, E10, E11, E12, E13, E14, E15, E16, E17, E18, E19) ahora incluyen metadatos `nav` con `destino` (vista destino) y `params` (parámetros como IDs).
 - Serializador expone `nav_destino` y `nav_params` parseando marcador `[nav:{...}]` en el mensaje.
 - Frontend: `Notificaciones.jsx` ahora es un componente funcional completo que consume notificaciones reales, muestra indicador de navegación (chevron) en items navegables, y al click/Enter/Space llama a `navegarDesdeNotificacion`.
-- DataContext expone `navegarDesdeNotificacion(destino, params)` que setea `navIntent`; los dashboards (Familia, Alumno, Profesor) usan `useEffect` para escuchar `navIntent` y actualizan su `view`/`seccionActiva`.
+- DataContext expone `navegarDesdeNotificacion(destino, params)` que setea `navIntent`; los dashboards (Familia, Estudiante, Profesor) usan `useEffect` para escuchar `navIntent` y actualizan su `view`/`seccionActiva`.
 - La navegación respeta el sistema de `view`/`seccion` existente (sin React Router).
 - La referencia de navegación solo orienta la interfaz; los permisos se validan en backend al acceder a la vista.
 Tests ejecutados:
@@ -1245,9 +1245,9 @@ Fecha: 2026-09-02
 Archivos modificados:
 - Ningún archivo nuevo modificado (esta parte solo ejecuta la suite completa de pruebas).
 Cambios realizados:
-- Ejecución completa de la suite de pruebas backend: 174 tests (notificaciones, eventos Partes 1-8, permisos, boletín E2E, actas, borrado lógico, autenticación, académico) — todos OK.
+- Ejecución completa de la suite de pruebas backend: 174 tests (notificaciones, eventos Partes 1-8, permisos, RITE E2E, actas, borrado lógico, autenticación, académico) — todos OK.
 - Ejecución completa de la suite de pruebas frontend: 124 tests (13 archivos) — todos OK.
-- Verificación de regresión: boletín, actas, permisos, borrado lógico, autenticación, funcionalidades académicas — sin regresiones.
+- Verificación de regresión: RITE, actas, permisos, borrado lógico, autenticación, funcionalidades académicas — sin regresiones.
 - Verificación de build frontend: OK (187 módulos).
 - Verificación de `manage.py check`: OK (solo warning preexistente `UsuarioRol.id_usuario` W342).
 Tests ejecutados:
@@ -1257,7 +1257,7 @@ Tests ejecutados:
 Resultado:
 - Suite completa de notificaciones (Partes 1-8 + anti-spam + navegación): 174 tests backend OK.
 - Frontend: 124/124 tests OK, build OK.
-- Regresión completa: 174 tests backend OK (incluyendo boletín, actas, permisos, borrado lógico, autenticación, académico).
+- Regresión completa: 174 tests backend OK (incluyendo RITE, actas, permisos, borrado lógico, autenticación, académico).
 - Se mantienen solo los 3 fallos preexistentes de `test_asistencias` (documentados en Parte 1, ajenos al sistema de notificaciones).
 Decisiones tomadas:
 - El plan completo de 9 partes se considera cerrado; las 3 fallas preexistentes de `test_asistencias` (endpoint `AsistenciaViewSet.create` retorna 201 en vez de 400 en validaciones de docente) son ajenas al sistema de notificaciones y quedan documentadas como deuda técnica externa.
@@ -1273,7 +1273,7 @@ Archivos modificados:
 - `frontend/src/utils/navDestinos.js` (NUEVO): mapeo destino semántico → vista real por rol (`viewDesdeDestino`).
 - `frontend/src/utils/navDestinos.test.js` (NUEVO): 12 tests de mapeo por rol.
 - `frontend/src/components/Notificaciones.jsx`: propaga `nav_destino`/`nav_params` semánticos (sin pre-mapear con `DESTINO_A_VISTA`, eliminado).
-- `frontend/src/components/Alumno/AlumnoDashboard.jsx`: mapa destino→vista (alumno) en el handler de `navIntent`.
+- `frontend/src/components/Estudiante/EstudianteDashboard.jsx`: mapa destino→vista (estudiante) en el handler de `navIntent`.
 - `frontend/src/components/Familia/FamiliaDashboard.jsx`: mapa destino→vista (familia) + preselección del hijo por `params.alumnoId`.
 - `frontend/src/components/Profesores/PanelProfesores.jsx`: mapa destino→vista (docente) en `navIntent`.
 - `frontend/src/components/Preceptores/PreceptorDashboard.jsx`: NUEVO handler de `navIntent` (antes no navegaba).
@@ -1307,13 +1307,13 @@ Alcance (Problema 1 — preceptores y sus notificaciones):
 - Se auditó el alcance real de cada evento para decidir si debe notificar al Preceptor.
   - **E7** y **E16** ya notificaban al preceptor (cubierto por tests) — sin cambio.
   - **E4 (Conducta/apercibimientos)**: SE AÑADE la notificación al preceptor del curso
-    del alumno (relación real `Alumno.id_curso → Curso.id_preceptor`).
+    del estudiante (relación real `Alumno.id_curso → Curso.id_preceptor`).
   - **E3** queda diferido [REQUIERE DECISIÓN resumen diario], **E10** issue aparte y
     **E19** fuera de alcance (no se tocan, como se acordó).
-  - **E5, E11, E12, E13, E18**: sin preceptor (plan §5.2: alumno+familia/docentes).
+  - **E5, E11, E12, E13, E18**: sin preceptor (plan §5.2: estudiante+familia/docentes).
 - Archivos modificados:
   - `backend/proyecto/escuela/views.py`: nuevo helper `_preceptores_para_cursos(curso_ids)`;
-    `_notificar_acta_conducta` ahora notifica también al preceptor del curso del alumno
+    `_notificar_acta_conducta` ahora notifica también al preceptor del curso del estudiante
     (vía la puerta única `notificar()`, conservando anti-spam/dedup); `_preceptores_para_comunicado`
     refactorizado para reutilizar el helper (mismo resultado).
   - `backend/proyecto/escuela/tests/test_notificaciones_eventos_parte6.py`: nuevo test
@@ -1333,7 +1333,7 @@ Tests ejecutados:
 - Frontend: `npm test` **137 OK**; `npm run build` OK.
 
 Decisiones:
-- El preceptor de un curso es destinatario real de las actas de conducta de sus alumnos
+- El preceptor de un curso es destinatario real de las actas de conducta de sus estudiantes
   (gestión de actas en su módulo). No se inventaron relaciones; se reutiliza la real
   `Curso.id_preceptor`.
 - Se mantiene el criterio §17 (puerta única, anti-spam, dedup, navegación solo a vistas reales).
@@ -1345,7 +1345,7 @@ Estado: COMPLETADA — no reabre las Partes 1–9. Sin cambios de DB ni migracio
 
 Diagnóstico:
 - El flujo destino→`navIntent`→`viewDesdeDestino(rol)` ya existía y estaba cableado en
-  Alumno/Familia/Docente/Preceptor/Admin. El déficit real era (1) falta de **affordance
+  Estudiante/Familia/Docente/Preceptor/Admin. El déficit real era (1) falta de **affordance
   visual** (el CSS no estilaba `.notificacion-item--navegable` ni el indicador) y
   (2) el rol **Jefe de Preceptores** no consumía `navIntent`.
 
@@ -1423,14 +1423,14 @@ Cambios:
 - `frontend/src/components/Notificaciones.jsx`: "Ver →"/`role="button"`/`aria-label`/
   `tabIndex` solo si `nav_destino` **y** `tieneVistaParaDestino(nav_destino, userRole)`;
   `handleNotificacionClick`/`handleNotificacionKeyDown` no navegan sin vista real.
-- Se pasa `userRole` a `<Notificaciones />` desde `AlumnoDashboard`, `PreceptorDashboard`,
+- Se pasa `userRole` a `<Notificaciones />` desde `EstudianteDashboard`, `PreceptorDashboard`,
   `AdminDashboard` (`user.role`), `JefePreceptorDashboard` (`"jefe_preceptores"`) y
   `PanelProfesores` (`"docente"`); antes solo `Familia` lo pasaba.
 
 Verificación:
 - Frontend `npm test` → **148 OK** (14 archivos), incluidos los nuevos tests de
   `navDestinos.test.js` (docente sin adelantos; admin adelantos-horas/suplencias/
-  actas/asistencias; preceptor notas/asistencias/horarios; alumno rendiciones→previas,
+  actas/asistencias; preceptor notas/asistencias/horarios; estudiante rendiciones→previas,
   sin suplencias/adelantos) y de `Notificaciones.test.jsx` (rol sin vista → no "Ver"/
   no navega; `jefe_preceptores` → "Ver" + navega a `actas`). `npm run build` → OK.
 - Backend `test_notificaciones` → **19 OK** (sin cambios de backend en esta ronda).
@@ -1457,7 +1457,7 @@ Cambio: `frontend/src/context/DataContext.jsx` — en ambas ramas de `useData()`
 agregan `navegarDesdeNotificacion` y `navIntent`. La navegación del menú no se tocó.
 
 Verificación:
-- Nuevo `frontend/src/components/NavIsolation.test.jsx`: Alumno, Preceptor,
+- Nuevo `frontend/src/components/NavIsolation.test.jsx`: Estudiante, Preceptor,
   JefePreceptor→preceptor, Docente, Admin, Director→admin navegan al clic; Familia
   navega y fija el Estudiante por `params.alumnoId`; caso negativo (docente+adelantos)
   no navega.

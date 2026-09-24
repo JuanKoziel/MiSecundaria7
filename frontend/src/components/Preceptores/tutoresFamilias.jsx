@@ -1,13 +1,13 @@
 import { useState, useEffect, Fragment, useMemo } from 'react';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
-import { createPadreTutor, updatePadreTutor, deletePadreTutor, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getAlumnos } from '../../services/api';
+import { createPadreTutor, updatePadreTutor, deletePadreTutor, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getEstudiantes } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
-import TutoresAlumnosEditor from '../../components/Shared/TutoresAlumnosEditor';
+import TutoresEstudiantesEditor from '../../components/Shared/TutoresEstudiantesEditor';
 import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
-import { cursosPorAnio, alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
+import { cursosPorAnio, estudiantesPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
@@ -82,8 +82,8 @@ function nombreTutor(t) {
   return `${t.apellido}, ${t.nombre}`;
 }
 
-function Tutores({ readOnly = false }) {
-  const { aniosLectivos, inscripciones, cursos, cursosObj, alumnos, padresTutores: lista, refreshData } = useData();
+function TutoresFamilias({ readOnly = false }) {
+  const { aniosLectivos, inscripciones, cursos, cursosObj, estudiantes, padresTutores: lista, refreshData } = useData();
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [form, setForm] = useState(formVacio);
@@ -92,8 +92,8 @@ function Tutores({ readOnly = false }) {
   const [mensaje, setMensaje] = useState('');
   const [programando, setProgramando] = useState(null);
   const [progForm, setProgForm] = useState({ fecha_deshabilitacion_programada: '', fecha_habilitacion_programada: '' });
-  const [anioAlumno, setAnioAlumno] = useState('');
-  const [cursoAlumno, setCursoAlumno] = useState('');
+  const [anioEstudiante, setAnioEstudiante] = useState('');
+  const [cursoEstudiante, setCursoEstudiante] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [mostrarAgregarRol, setMostrarAgregarRol] = useState(false);
   const [guardandoAgregarRol, setGuardandoAgregarRol] = useState(false);
@@ -135,7 +135,7 @@ function Tutores({ readOnly = false }) {
       ) {
         return true;
       }
-      return (t.alumnos || []).some(
+      return (t.estudiantes || []).some(
         (al) =>
           normalize(al.nombre).includes(q) ||
           normalize(al.apellido).includes(q) ||
@@ -148,16 +148,16 @@ function Tutores({ readOnly = false }) {
     setModo(readOnly ? 'vista' : '');
     setSeleccionado('');
     setForm(formVacio);
-    setAnioAlumno('');
-    setCursoAlumno('');
+    setAnioEstudiante('');
+    setCursoEstudiante('');
   };
 
   const abrirCrear = () => {
     setModo('crear');
     setSeleccionado('');
     setForm(formVacio);
-    setAnioAlumno('');
-    setCursoAlumno('');
+    setAnioEstudiante('');
+    setCursoEstudiante('');
   };
 
   const abrirEditar = (t) => {
@@ -176,7 +176,7 @@ function Tutores({ readOnly = false }) {
       tipo: t.tipo || '',
       telefono: t.telefono || '',
       direccion: t.direccion || '',
-      alumnos_ids: (t.alumnos || []).map((a) => a.id_alumno),
+      alumnos_ids: (t.estudiantes || []).map((a) => a.id_alumno),
     });
     setMensaje('');
   };
@@ -289,12 +289,12 @@ function Tutores({ readOnly = false }) {
     }
   };
 
-  const fetchAlumnosParaTutor = async () => {
+  const fetchEstudiantesParaTutor = async () => {
     try {
-      const data = await getAlumnos({ estado: '1' });
+      const data = await getEstudiantes({ estado: '1' });
       return Array.isArray(data) ? data : [];
     } catch (err) {
-      console.error('Error al cargar alumnos:', err);
+      console.error('Error al cargar estudiantes:', err);
       return [];
     }
   };
@@ -430,7 +430,7 @@ function Tutores({ readOnly = false }) {
           ) : (
             listaFiltrada.map((t) => {
               const puedeCambiarEstado = t.usuario_estado !== null && t.usuario_estado !== undefined;
-              const alumnosAsignados = t.alumnos || [];
+              const estudiantesAsignados = t.estudiantes || [];
               return [
                 <tr key={t.id_tutor}>
                   <td className="table-cell-strong">{nombreTutor(t)}</td>
@@ -439,11 +439,11 @@ function Tutores({ readOnly = false }) {
                   <td>{t.correo || '---'}</td>
                   <td>{t.tipo || '---'}</td>
                   <td>
-                    {alumnosAsignados.length === 0 ? (
+                    {estudiantesAsignados.length === 0 ? (
                       <span style={{ color: '#888' }}>Sin estudiantes</span>
                     ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {alumnosAsignados.map((al) => (
+                        {estudiantesAsignados.map((al) => (
                           <span key={al.id_alumno} className="badge badge-neutral">
                             {al.apellido}, {al.nombre}
                           </span>
@@ -666,13 +666,13 @@ function Tutores({ readOnly = false }) {
         />
       </div>
       <div className="preceptor-form-full">
-        <TutoresAlumnosEditor
-          anioAlumno={anioAlumno}
-          setAnioAlumno={setAnioAlumno}
-          cursoAlumno={cursoAlumno}
-          setCursoAlumno={setCursoAlumno}
+        <TutoresEstudiantesEditor
+          anioEstudiante={anioEstudiante}
+          setAnioEstudiante={setAnioEstudiante}
+          cursoEstudiante={cursoEstudiante}
+          setCursoEstudiante={setCursoEstudiante}
           alumnos_ids={form.alumnos_ids}
-          setAlumnosIds={(ids) => setForm((p) => ({ ...p, alumnos_ids: ids }))}
+          setEstudiantesIds={(ids) => setForm((p) => ({ ...p, alumnos_ids: ids }))}
           idPrefix="tut"
         />
       </div>
@@ -682,7 +682,7 @@ function Tutores({ readOnly = false }) {
   return (
     <div className="card">
       <div className="card-header-flex">
-        <h3><i className="fas fa-user-shield" aria-hidden="true" /> Tutores</h3>
+        <h3><i className="fas fa-user-shield" aria-hidden="true" /> Tutores/familias</h3>
         {!readOnly && (
           <div className="header-actions">
             <button
@@ -756,7 +756,7 @@ function Tutores({ readOnly = false }) {
           onAgregar={handleAgregarRol}
           guardando={guardandoAgregarRol}
           rol="familia"
-          fetchAssignmentsFn={fetchAlumnosParaTutor}
+          fetchAssignmentsFn={fetchEstudiantesParaTutor}
         />
       )}
 
@@ -774,4 +774,4 @@ function Tutores({ readOnly = false }) {
   );
 }
 
-export default Tutores;
+export default TutoresFamilias;

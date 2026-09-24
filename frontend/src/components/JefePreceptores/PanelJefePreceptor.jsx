@@ -23,26 +23,26 @@ function formatDateTime(value) {
 }
 
 function PanelJefePreceptor({ miPreceptor }) {
-  const { preceptores, alumnos, tutores, cursosObj, actas, comunicados } = useData();
+  const { preceptores, estudiantes, tutores, cursosObj, actas, comunicados } = useData();
 
   const stats = useMemo(() => {
     if (!miPreceptor) return null;
     const safePreceptores = preceptores ?? [];
-    const safeAlumnos = alumnos ?? [];
-    const safeTutores = tutores ?? [];
+    const safeEstudiantes = estudiantes ?? [];
+    const safeTutoresFamilias = tutores ?? [];
     const safeActas = actas ?? [];
     const safeComunicados = comunicados ?? [];
     return {
       totalPreceptores: safePreceptores.length,
       cursosSupervisados: (cursosObj || []).length,
-      alumnosSupervisados: safeAlumnos.length,
-      tutoresSupervisados: safeTutores.length,
+      estudiantesSupervisados: safeEstudiantes.length,
+      tutoresSupervisados: safeTutoresFamilias.length,
       actasCreadas: safeActas.length,
       comunicadosEnviados: safeComunicados.length,
       ultimoAcceso: miPreceptor.usuario_fecha_ultimo_acceso || null,
       estado: miPreceptor.estado === false ? 'Inactivo' : 'Activo',
     };
-  }, [miPreceptor, preceptores, alumnos, tutores, cursosObj, actas, comunicados]);
+  }, [miPreceptor, preceptores, estudiantes, tutores, cursosObj, actas, comunicados]);
 
   if (!miPreceptor) {
     return (
@@ -97,8 +97,8 @@ function PanelJefePreceptor({ miPreceptor }) {
       <div className="stats-grid">
         <StatCard icon="fa-user-tie" value={stats.totalPreceptores} label="Preceptores admin" />
         <StatCard icon="fa-school" value={stats.cursosSupervisados} label="Cursos supervisados" />
-        <StatCard icon="fa-users" value={stats.alumnosSupervisados} label="Estudiantes supervisados" />
-        <StatCard icon="fa-user-shield" value={stats.tutoresSupervisados} label="Tutores supervisados" />
+        <StatCard icon="fa-users" value={stats.estudiantesSupervisados} label="Estudiantes supervisados" />
+        <StatCard icon="fa-user-shield" value={stats.tutoresSupervisados} label="Tutores/familias supervisados" />
         <StatCard icon="fa-file-alt" value={stats.actasCreadas} label="Actas creadas" />
         <StatCard icon="fa-bullhorn" value={stats.comunicadosEnviados} label="Comunicados enviados" />
       </div>

@@ -24,7 +24,7 @@ export const menuItems = [
 
   {
     id: 'seguimiento',
-    label: 'Seguimiento de Alumnos',
+    label: 'Seguimiento de Estudiantes',
     icon: 'fa-users',
     children: [
       { id: 'info', label: 'Diagnósticos grupales', icon: 'fa-info-circle' },

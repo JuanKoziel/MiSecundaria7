@@ -6,22 +6,22 @@ import DiagnosticosView from '../Shared/DiagnosticosView';
 import AsistenciasUnificada from '../Shared/AsistenciasUnificada';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { viewDesdeDestino } from '../../utils/navDestinos';
-import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
-import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
-import BoletinExtras from '../BoletinExtras';
-import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
+import { riteHTML, exportarRitePDF } from '../../utils/rite';
+import { useRiteAcademico } from '../../hooks/useRiteAcademico';
+import RiteExtras from '../RiteExtras';
+import RiteTablaPrincipal from '../RiteTablaPrincipal';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
-import PanelAlumno from './PanelAlumno';
-import PanelMateriasAdeudadasAlumno from './PanelMateriasAdeudadasAlumno';
+import PanelEstudiante from './PanelEstudiante';
+import PanelMateriasAdeudadasEstudiante from './PanelMateriasAdeudadasEstudiante';
 import ActividadesView from '../Shared/ActividadesView';
 import Sidebar from './Sidebar';
 import SidebarToggle from '../Shared/SidebarToggle';
 import Logo from '../Shared/Logo';
 
-function AlumnoDashboard({ user, onLogout }) {
+function EstudianteDashboard({ user, onLogout }) {
   const {
-    alumnos,
+    estudiantes,
     calificacionesCompletas,
     asistenciasAdmin,
     periodos,
@@ -39,16 +39,16 @@ function AlumnoDashboard({ user, onLogout }) {
   }, [view]);
 
   // Parte 8: manejar navegación desde notificaciones.
-  // Traduce el destino semántico a una vista válida del dashboard de Alumno.
+  // Traduce el destino semántico a una vista válida del dashboard de Estudiante.
   useEffect(() => {
     if (navIntent && navIntent.destino) {
       const vista = viewDesdeDestino(navIntent.destino, 'alumno');
       if (vista) setView(vista);
     }
   }, [navIntent]);
-  const miAlumno = useMemo(
-    () => alumnos.find((a) => a.id_usuario === user?.id) || null,
-    [alumnos, user],
+  const miEstudiante = useMemo(
+    () => estudiantes.find((a) => a.id_usuario === user?.id) || null,
+    [estudiantes, user],
   );
   const {
     intensificaciones_1c,
@@ -57,18 +57,18 @@ function AlumnoDashboard({ user, onLogout }) {
     recursadas,
     previas,
     loading,
-  } = useBoletinAcademico(miAlumno?.id);
+  } = useRiteAcademico(miEstudiante?.id);
 
   const misCalificaciones = useMemo(() => {
-    if (!miAlumno) return [];
-    return calificacionesCompletas.filter((c) => c.id_alumno === miAlumno.id);
-  }, [calificacionesCompletas, miAlumno]);
+    if (!miEstudiante) return [];
+    return calificacionesCompletas.filter((c) => c.id_alumno === miEstudiante.id);
+  }, [calificacionesCompletas, miEstudiante]);
 
   const calsPorMateria = useMemo(() => {
-    if (!miAlumno) return [];
+    if (!miEstudiante) return [];
     
-    // Obtener todas las materias del curso del alumno
-    const cursoNombre = miAlumno.curso;
+    // Obtener todas las materias del curso del estudiante
+    const cursoNombre = miEstudiante.curso;
     const materiasDelCurso = materiasPorCurso[cursoNombre] || [];
     
     // Construir un mapa de calificaciones existentes por ID de curso_materia
@@ -119,19 +119,19 @@ function AlumnoDashboard({ user, onLogout }) {
     });
     
     return result;
-  }, [misCalificaciones, periodos, miAlumno, materiasPorCurso, cursoMateria]);
+  }, [misCalificaciones, periodos, miEstudiante, materiasPorCurso, cursoMateria]);
 
   const misAsistencias = useMemo(() => {
-    if (!miAlumno) return [];
+    if (!miEstudiante) return [];
     return asistenciasAdmin
-      .filter((a) => a.alumnoId === miAlumno.id)
+      .filter((a) => a.alumnoId === miEstudiante.id)
       .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-  }, [asistenciasAdmin, miAlumno]);
+  }, [asistenciasAdmin, miEstudiante]);
 
   const inasistenciasPorMateria = useMemo(() => {
     const porMateria = {};
     asistenciasAdmin
-      .filter((a) => miAlumno && a.alumnoId === miAlumno.id && (a.estado === 'Ausente' || a.estado === 'Tarde'))
+      .filter((a) => miEstudiante && a.alumnoId === miEstudiante.id && (a.estado === 'Ausente' || a.estado === 'Tarde'))
       .forEach((a) => {
         const mat = a.materia || 'General';
         if (!porMateria[mat]) porMateria[mat] = { ausencias: 0, tardanzas: 0 };
@@ -139,14 +139,14 @@ function AlumnoDashboard({ user, onLogout }) {
         else porMateria[mat].tardanzas += 1;
       });
     return porMateria;
-  }, [asistenciasAdmin, miAlumno]);
+  }, [asistenciasAdmin, miEstudiante]);
 
-  const handleDescargarBoletin = () => {
-    if (!miAlumno) return;
-    const html = boletinHTML({
-      alumnoNombre: `${miAlumno.apellido}, ${miAlumno.nombre}`,
-      dni: miAlumno.dni,
-      cursoNombre: miAlumno.curso,
+  const handleDescargarRite = () => {
+    if (!miEstudiante) return;
+    const html = riteHTML({
+      estudianteNombre: `${miEstudiante.apellido}, ${miEstudiante.nombre}`,
+      dni: miEstudiante.dni,
+      cursoNombre: miEstudiante.curso,
       anioLectivo: new Date().getFullYear(),
       materias: calsPorMateria,
       inasistenciasPorMateria,
@@ -156,7 +156,7 @@ function AlumnoDashboard({ user, onLogout }) {
       recursadas,
       previas,
     });
-    exportarBoletinPDF(html, `Boletín — ${miAlumno.apellido}, ${miAlumno.nombre}`);
+    exportarRitePDF(html, `RITE — ${miEstudiante.apellido}, ${miEstudiante.nombre}`);
   };
 
   const resumenAsistencia = useMemo(() => {
@@ -168,10 +168,10 @@ function AlumnoDashboard({ user, onLogout }) {
   }, [misAsistencias]);
 
   const iniciales = useMemo(() => {
-    const n = (miAlumno?.nombre || '').trim().charAt(0) || '';
-    const a = (miAlumno?.apellido || '').trim().charAt(0) || '';
+    const n = (miEstudiante?.nombre || '').trim().charAt(0) || '';
+    const a = (miEstudiante?.apellido || '').trim().charAt(0) || '';
     return (n + a).toUpperCase() || 'E';
-  }, [miAlumno]);
+  }, [miEstudiante]);
 
   return (
     <div className="dashboard-layout">
@@ -186,12 +186,12 @@ function AlumnoDashboard({ user, onLogout }) {
               <h2>
                 <span className="greeting-saludo">Bienvenido:</span>{' '}
                 <span className="greeting-nombre">
-                  {miAlumno ? `${miAlumno.nombre} ${miAlumno.apellido}` : 'Estudiante'}
+                  {miEstudiante ? `${miEstudiante.nombre} ${miEstudiante.apellido}` : 'Estudiante'}
                 </span>
               </h2>
               <p className="main-header-subtitle">
                 <i className="fas fa-school font-accent" aria-hidden="true" />
-                {miAlumno ? `Curso: ${cursoConOrientacion(miAlumno.curso)}` : 'Portal del Estudiante'}
+                {miEstudiante ? `Curso: ${cursoConOrientacion(miEstudiante.curso)}` : 'Portal del Estudiante'}
               </p>
             </div>
           </div>
@@ -209,7 +209,7 @@ function AlumnoDashboard({ user, onLogout }) {
 
         {view === 'perfil' ? (
           <div className="view-section active">
-            <PanelAlumno miAlumno={miAlumno} user={user} recursadas={recursadas} />
+            <PanelEstudiante miEstudiante={miEstudiante} user={user} recursadas={recursadas} />
           </div>
         ) : view === 'notificaciones' ? (
           <div className="view-section active">
@@ -218,7 +218,7 @@ function AlumnoDashboard({ user, onLogout }) {
         ) : view === 'horarios' ? (
           <div className="view-section active">
             <div className="card mt-16">
-              <VistaHorarios cursosOptions={cursosObj} cursoForzado={miAlumno?.id_curso} mostrarTitulo />
+              <VistaHorarios cursosOptions={cursosObj} cursoForzado={miEstudiante?.id_curso} mostrarTitulo />
             </div>
           </div>
         ) : view === 'comunicados' ? (
@@ -233,7 +233,7 @@ function AlumnoDashboard({ user, onLogout }) {
           <div className="view-section active">
             <CalendarioInstitucional readOnly />
           </div>
-        ) : !miAlumno ? (
+        ) : !miEstudiante ? (
           <div className="card">
             <p className="empty-state-message">
               No se encontró un estudiante vinculado a este usuario.
@@ -248,17 +248,17 @@ function AlumnoDashboard({ user, onLogout }) {
                   <button
                     type="button"
                     className="btn btn-sm btn-secondary"
-                    onClick={handleDescargarBoletin}
+                    onClick={handleDescargarRite}
                     disabled={calsPorMateria.length === 0}
                   >
-                    <i className="fas fa-file-pdf" aria-hidden="true" /> Descargar boletín PDF
+                    <i className="fas fa-file-pdf" aria-hidden="true" /> Descargar RITE PDF
                   </button>
                 </div>
 
                 {calsPorMateria.length === 0 ? (
                   <p className="empty-state-message">No tenés calificaciones cargadas todavía.</p>
                 ) : (
-                  <BoletinTablaPrincipal
+                  <RiteTablaPrincipal
                     materias={calsPorMateria}
                     intensificaciones_1c={intensificaciones_1c}
                     bloqueos_por_materia={bloqueos_por_materia}
@@ -281,11 +281,11 @@ function AlumnoDashboard({ user, onLogout }) {
                   </div>
                 </div>
 
-                <div className="boletin-firma-sello">
+                <div className="rite-firma-sello">
                   <span>Firma y sello</span>
                 </div>
 
-                <BoletinExtras
+                <RiteExtras
                   recursadas={recursadas}
                   previas={previas}
                   intensificaciones_posteriores={intensificaciones_posteriores}
@@ -297,9 +297,9 @@ function AlumnoDashboard({ user, onLogout }) {
             {view === 'asistencias' && (
               <div className="card">
                 <AsistenciasUnificada
-                  alumnoId={miAlumno.id}
+                  alumnoId={miEstudiante.id}
                   cursoMateria={cursoMateria}
-                  idCurso={miAlumno.id_curso}
+                  idCurso={miEstudiante.id_curso}
                   userRole="alumno"
                 />
               </div>
@@ -312,7 +312,7 @@ function AlumnoDashboard({ user, onLogout }) {
             )}
 
             {view === 'materias-adeudadas' && (
-              <PanelMateriasAdeudadasAlumno miAlumno={miAlumno} />
+              <PanelMateriasAdeudadasEstudiante miEstudiante={miEstudiante} />
             )}
           </div>
         )}
@@ -321,4 +321,4 @@ function AlumnoDashboard({ user, onLogout }) {
   );
 }
 
-export default AlumnoDashboard;
+export default EstudianteDashboard;

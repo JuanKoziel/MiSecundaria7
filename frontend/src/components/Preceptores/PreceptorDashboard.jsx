@@ -3,8 +3,8 @@ import { useState, useMemo, useEffect } from 'react';
 import Sidebar from './sidebar';
 import Header from './header';
 
-import Alumnos from './alumnos';
-import Tutores from './tutores';
+import Estudiantes from './estudiantes';
+import TutoresFamilias from './tutoresFamilias';
 import Asistencias from './asistencias';
 import Notas from './notas';
 import Actas from './actas';
@@ -80,7 +80,7 @@ function PreceptorDashboard({ user, onLogout }) {
       case 'alumnos':
         return (
           <div className="view-section active">
-            <Alumnos
+            <Estudiantes
               preceptorCursos={miPreceptor?.cursos || []}
               anioLectivo={anioLectivo}
               curso={curso}
@@ -93,7 +93,7 @@ function PreceptorDashboard({ user, onLogout }) {
       case 'tutores':
         return (
           <div className="view-section active">
-            <Tutores />
+            <TutoresFamilias />
           </div>
         );
 
@@ -191,7 +191,7 @@ function PreceptorDashboard({ user, onLogout }) {
       default:
         return (
           <div className="view-section active">
-            <Alumnos
+            <Estudiantes
               anioLectivo={anioLectivo}
               curso={curso}
               onAnioChange={handleAnioChange}

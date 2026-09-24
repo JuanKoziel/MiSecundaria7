@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { getBoletinAcademico } from '../services/api';
+import { getRiteAcademico } from '../services/api';
 
-// Obtiene las secciones adicionales del boletin desde
+// Obtiene las secciones adicionales del rite desde
 // /api/boletin-academico/<alumnoId>/.
 // Claves devueltas por el endpoint:
 //   - intensificaciones_1c: { [materia_nombre]: nota }  (intensificacion 1er cuatrimestre)
@@ -10,7 +10,7 @@ import { getBoletinAcademico } from '../services/api';
 //   - recursadas: [{ materia, anio, estado, prenota1, nota1, prenota2, nota2,
 //                    intensificacion_1c, diciembre, febrero, observaciones }]
 //   - previas: [{ materia, anio, rendiciones: { [PERIODO]: nota }, calificacion_final }]
-export function useBoletinAcademico(alumnoId) {
+export function useRiteAcademico(alumnoId) {
   const [intensificaciones_1c, setIntensificaciones1c] = useState({});
   const [bloqueos_por_materia, setBloqueos] = useState({});
   const [intensificaciones_posteriores, setPosteriores] = useState([]);
@@ -29,7 +29,7 @@ export function useBoletinAcademico(alumnoId) {
     }
     let cancel = false;
     setLoading(true);
-    getBoletinAcademico(alumnoId)
+    getRiteAcademico(alumnoId)
       .then((res) => {
         if (cancel) return;
         const d = res || {};

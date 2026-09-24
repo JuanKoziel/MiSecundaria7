@@ -1855,24 +1855,24 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
     def _require_preceptor_course_access(self, curso_id):
         cursos_ids = _preceptor_cursos_ids(self.request)
         if not cursos_ids:
-            raise PermissionDenied('No tienes cursos asignados para gestionar alumnos.')
+            raise PermissionDenied('No tienes cursos asignados para gestionar estudiantes.')
         resolved_curso_id = _resolve_course_id(curso_id)
         if resolved_curso_id is None:
             raise PermissionDenied('Debes asignar un curso dentro de tus cursos habilitados.')
         if int(resolved_curso_id) not in {int(c) for c in cursos_ids}:
-            raise PermissionDenied('No tienes permiso para gestionar alumnos de ese curso.')
+            raise PermissionDenied('No tienes permiso para gestionar estudiantes de ese curso.')
 
     def perform_create(self, serializer):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
         if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
-            raise PermissionDenied('No tenés permiso para crear alumnos.')
+            raise PermissionDenied('No tenés permiso para crear estudiantes.')
         if _es_preceptor_operativo(self.request, roles):
             self._require_preceptor_course_access(serializer.validated_data.get('id_curso'))
         super().perform_create(serializer)
         alumno = serializer.instance
         _notificar_carga_usuario(
-            etiqueta='Alumno',
+            etiqueta='Estudiante',
             nombre_completo=f'{alumno.apellido}, {alumno.nombre}',
             curso_ids=[alumno.id_curso_id] if alumno.id_curso_id else None,
             actor=_usuario_request(self.request),
@@ -1882,7 +1882,7 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
         if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
-            raise PermissionDenied('No tenés permiso para modificar alumnos.')
+            raise PermissionDenied('No tenés permiso para modificar estudiantes.')
         if _es_preceptor_operativo(self.request, roles):
             instance = serializer.instance
             self._require_preceptor_course_access(
@@ -1894,7 +1894,7 @@ class AlumnoViewSet(HistorialMixin, viewsets.ModelViewSet):
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
         if 'jefe_preceptores' in roles and 'admin' not in roles and 'director' not in roles:
-            raise PermissionDenied('No tenés permiso para eliminar alumnos.')
+            raise PermissionDenied('No tenés permiso para eliminar estudiantes.')
         if _es_preceptor_operativo(self.request, roles):
             self._require_preceptor_course_access(instance.id_curso_id)
         super().perform_destroy(instance)
@@ -2474,7 +2474,7 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
             .values_list('id_alumno__id_curso_id', flat=True)
         )
         _notificar_carga_usuario(
-            etiqueta='Tutor',
+            etiqueta='Tutor/familia',
             nombre_completo=f'{padre.apellido}, {padre.nombre}',
             curso_ids=curso_ids or None,
             actor=_usuario_request(self.request),
@@ -3387,7 +3387,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             try:
                 alumno = Alumno.objects.get(id_usuario=usuario)
             except Alumno.DoesNotExist:
-                return Response({'error': 'Alumno no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': 'Estudiante no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         elif 'familia' in roles:
             alumno_id = request.query_params.get('id_alumno')
             if not alumno_id:
@@ -3401,7 +3401,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
                 if alumno is None:
                     raise Alumno.DoesNotExist
             except (PadreTutor.DoesNotExist, Alumno.DoesNotExist):
-                return Response({'error': 'Alumno no encontrado o no autorizado.'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': 'Estudiante no encontrado o no autorizado.'}, status=status.HTTP_404_NOT_FOUND)
         else:
             return Response({'error': 'Acceso no autorizado.'}, status=status.HTTP_403_FORBIDDEN)
         qs = Asistencia.objects.filter(id_alumno=alumno).select_related(
@@ -5999,7 +5999,7 @@ def _intensif_habilitada(instancia):
     - Diciembre habilitado -> desaprobó el Segundo Cuatrimestre
                              O ALGUNA Intensificación 1°C está DESAPROBADA.
     - Febrero habilitado -> existe una nota cargada de DICIEMBRE (rendición
-                            previa registrada). El último período del boletín
+                            previa registrada). El último período del RITE
                             NO se habilita si Diciembre está vacío.
     Todo comienza bloqueado: sin condición cumplida, NO se habilita.
     """
@@ -6770,7 +6770,7 @@ def _notificar_prenota(calificacion):
     """Pre-nota (TED/TEP/TEA) cargada o actualizada.
 
     Avisa solo al alumno y a su familia (es informativa, no afecta al
-    boletín definitivo).
+    RITE definitivo).
     """
     if not calificacion.pre_nota:
         return
@@ -7603,11 +7603,11 @@ def cierre_ciclo_api_view(request):
 def boletin_academico_api_view(request, alumno_id):
     alumno = Alumno.objects.filter(pk=alumno_id).select_related('id_curso').first()
     if not alumno:
-        return Response({'error': 'Alumno no encontrado.'}, status=404)
+        return Response({'error': 'Estudiante no encontrado.'}, status=404)
 
     permitidos = alumnos_permitidos(request)
     if permitidos is not None and not permitidos.filter(pk=alumno_id).exists():
-        return Response({'error': 'No tiene permiso para consultar este boletín.'}, status=403)
+        return Response({'error': 'No tiene permiso para consultar este RITE.'}, status=403)
 
     from django.db.models import Q
 

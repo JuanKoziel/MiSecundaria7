@@ -1,6 +1,6 @@
 # Estándar Visual — Todos los Roles
 
-Directrices visuales unificadas aplicadas primero en **Docente** y **Alumno** y replicadas en el resto de los roles (Preceptor, Jefe de Preceptores, Administración, Familia). **No modifican funcionalidad**: solo maquetado, íconos y clases.
+Directrices visuales unificadas aplicadas primero en **Docente** y **Estudiante** y replicadas en el resto de los roles (Preceptor, Jefe de Preceptores, Administración, Familia). **No modifican funcionalidad**: solo maquetado, íconos y clases.
 
 > Regla de oro: **nada de lo visual debe romper ni agregar funciones.** Los identificadores de vista (`id`) y los destinos de navegación (`navDestinos.js`) no cambian.
 
@@ -72,7 +72,7 @@ export const bottomItems = [
 ];
 ```
 
-**`Sidebar.jsx`** — comportamiento idéntico al de Docente/Alumno:
+**`Sidebar.jsx`** — comportamiento idéntico al de Docente/Estudiante:
 
 - `useState('seccion-inicial')` con la sección abierta por defecto.
 - `toggleSection(id)` con `setTimeout(280ms)` + `scrollIntoView` (para mostrar contenido y siguiente desplegable).

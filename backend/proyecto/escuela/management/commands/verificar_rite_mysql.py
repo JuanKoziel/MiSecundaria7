@@ -1,7 +1,7 @@
 """Verificación de persistencia/rollback/limpieza contra la base MySQL real.
 
 Escenario 14 del plan: verificar con datos FICTICIOS (marcadores únicos)
-que el flujo académico del boletín persiste correctamente en la base real
+que el flujo académico del RITE persiste correctamente en la base real
 y que, al hacer ROLLBACK, no queda NINGÚN registro ficticio.
 
 SEGURIDAD:
@@ -11,7 +11,7 @@ SEGURIDAD:
   ficticios ya no existen en ninguna tabla involucrada.
 
 USO:
-    python manage.py verificar_boletin_mysql
+    python manage.py verificar_rite_mysql
 """
 
 from datetime import time
@@ -185,15 +185,15 @@ class Command(BaseCommand):
                 client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}', HTTP_HOST='localhost')
                 resp = client.get(f'/api/boletin-academico/{alumno_id}/')
                 if resp.status_code != 200:
-                    raise RuntimeError(f'boletin endpoint devolvio {resp.status_code}: {resp.content[:200]}')
+                    raise RuntimeError(f'RITE endpoint devolvio {resp.status_code}: {resp.content[:200]}')
                 data = resp.json()
                 if len(data['previas']) != 2:
-                    raise RuntimeError(f'Boletin: se esperaban 2 previas, llego {len(data["previas"])}')
+                    raise RuntimeError(f'RITE: se esperaban 2 previas, llego {len(data["previas"])}')
                 if len(data['recursadas']) != 0 or len(data['intensificaciones_1c']) != 0:
-                    raise RuntimeError('Boletin: no deberia haber recursadas ni intensificaciones 1C.')
-                out('    Boletín OK: 2 previas, 0 recursadas, 0 intensificaciones 1C.')
+                    raise RuntimeError('RITE: no deberia haber recursadas ni intensificaciones 1C.')
+                out('    RITE OK: 2 previas, 0 recursadas, 0 intensificaciones 1C.')
 
-                out('    Previas del boletín:')
+                out('    Previas del RITE:')
                 for p in data['previas']:
                     out(f"      - {p['materia']} | {p['anio']} | {p['rendiciones']!r} | {p['calificacion_final']!r}")
 
@@ -255,9 +255,9 @@ class Command(BaseCommand):
 
                 resp = client.get(f'/api/boletin-academico/{alumno_id}/')
                 bloq = resp.json()['bloqueos_por_materia']
-                out(f"    Bloqueo visible en boletín: {list(bloq)}")
+                out(f"    Bloqueo visible en RITE: {list(bloq)}")
                 if not any(v.get('bloqueada') for v in bloq.values()):
-                    raise RuntimeError('El boletín no refleja la materia bloqueada.')
+                    raise RuntimeError('El RITE no refleja la materia bloqueada.')
 
                 out('\n[5/5] ROLLBACK...')
                 transaction.set_rollback(True)
@@ -318,4 +318,4 @@ class Command(BaseCommand):
         estado = 'OK' if total == esperado else 'DIFERENTE'
         if total != esperado:
             raise RuntimeError(f'previas devuelve {total}, esperado {esperado}')
-        out(f'    {estado}: boletín previas = {total} (esperado {esperado})')
+        out(f'    {estado}: RITE previas = {total} (esperado {esperado})')

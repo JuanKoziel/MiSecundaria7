@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
-import { getAsistenciasAlumnoDetalle } from '../../services/api';
+import { getAsistenciasEstudianteDetalle } from '../../services/api';
 import LoadingSpinner from './LoadingSpinner';
 
 const ESTADO_LABELS = {
@@ -83,7 +83,7 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
   const cargarResumen = useCallback(async () => {
     if (!alumnoId) return;
     try {
-      const data = await getAsistenciasAlumnoDetalle('', alumnoId);
+      const data = await getAsistenciasEstudianteDetalle('', alumnoId);
       const todas = Array.isArray(data) ? data : data.results || [];
 
       const hoy = new Date().toISOString().split('T')[0];
@@ -157,7 +157,7 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
     if (!cmId) { setAsistencias([]); return; }
     setCargando(true);
     try {
-      const data = await getAsistenciasAlumnoDetalle(cmId, alumnoId);
+      const data = await getAsistenciasEstudianteDetalle(cmId, alumnoId);
       setAsistencias(data);
     } catch {
       setAsistencias([]);

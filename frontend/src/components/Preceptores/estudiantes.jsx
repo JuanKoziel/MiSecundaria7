@@ -1,12 +1,12 @@
 import { useState, Fragment, useMemo } from 'react';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
-import { createAlumno, updateAlumno, deleteAlumno } from '../../services/api';
+import { createEstudiante, updateEstudiante, deleteEstudiante } from '../../services/api';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import FormModal from '../../components/Shared/FormModal';
 import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
-import { alumnosPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
+import { estudiantesPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
@@ -73,8 +73,8 @@ function mensajeError(err) {
   return mensajeErrorAmigable(err);
 }
 
-function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlobal, curso: cursoGlobal, onAnioChange, onCursoChange }) {
-  const { aniosLectivos, inscripciones, cursos, alumnos, nombreCompleto, cursosObj, refreshData } = useData();
+function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlobal, curso: cursoGlobal, onAnioChange, onCursoChange }) {
+  const { aniosLectivos, inscripciones, cursos, estudiantes, nombreCompleto, cursosObj, refreshData } = useData();
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [anioLectivoLocal, setAnioLectivoLocal] = useState('');
@@ -99,8 +99,8 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
   const esPreceptor = preceptorCursos && preceptorCursos.length > 0;
   const cursosPermitidos = esPreceptor ? preceptorCursos : [];
 
-  const lista = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosPermitidos);
-  const alumnoSel = lista.find((a) => String(a.id) === seleccionado);
+  const lista = estudiantesPorAnioYCurso(anioLectivo, curso, inscripciones, estudiantes, cursosPermitidos);
+  const estudianteSel = lista.find((a) => String(a.id) === seleccionado);
   const filtrosOk = filtrosCompletos(anioLectivo, curso);
   const cursosCrear = cursosPorAnio(form.anioLectivo, inscripciones, cursos, cursosObj, cursosPermitidos);
 
@@ -131,21 +131,21 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
     setMensaje('');
   };
 
-  const abrirEditar = (alumno) => {
+  const abrirEditar = (estudiante) => {
     setModo('modificar');
-    setSeleccionado(String(alumno.id));
+    setSeleccionado(String(estudiante.id));
     setForm({
-      usuario_nombre: alumno.usuario || '',
+      usuario_nombre: estudiante.usuario || '',
       contrasena: '',
-      estado: alumno.usuario_estado !== false,
-      fecha_deshabilitacion_programada: toInputDateTime(alumno.usuario_fecha_deshabilitacion_programada),
-      fecha_habilitacion_programada: toInputDateTime(alumno.usuario_fecha_habilitacion_programada),
-      dni: alumno.dni,
-      nombre: alumno.nombre,
-      apellido: alumno.apellido,
-      direccion: alumno.direccion || '',
-      telefono: alumno.telefono || '',
-      fechaNacimiento: alumno.fecha_nacimiento || '',
+      estado: estudiante.usuario_estado !== false,
+      fecha_deshabilitacion_programada: toInputDateTime(estudiante.usuario_fecha_deshabilitacion_programada),
+      fecha_habilitacion_programada: toInputDateTime(estudiante.usuario_fecha_habilitacion_programada),
+      dni: estudiante.dni,
+      nombre: estudiante.nombre,
+      apellido: estudiante.apellido,
+      direccion: estudiante.direccion || '',
+      telefono: estudiante.telefono || '',
+      fechaNacimiento: estudiante.fecha_nacimiento || '',
     });
     setMensaje('');
   };
@@ -172,7 +172,7 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
           return;
         }
         const cursoObj = cursosObj.find((c) => c.nombre_curso === form.curso);
-        const alumnoPayload = {
+        const estudiantePayload = {
           estado: form.estado,
           dni: form.dni,
           nombre: form.nombre,
@@ -186,7 +186,7 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
           fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
           fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
         };
-        await createAlumno(alumnoPayload);
+        await createEstudiante(estudiantePayload);
         toast.success('Estudiante creado correctamente.');
         cerrarFormulario();
       } else if (modo === 'modificar') {
@@ -195,7 +195,7 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
           setGuardando(false);
           return;
         }
-        await updateAlumno(seleccionado, {
+        await updateEstudiante(seleccionado, {
           usuario_nombre: form.usuario_nombre || undefined,
           contrasena: form.contrasena || undefined,
           estado: form.estado,
@@ -219,14 +219,14 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
     }
   };
 
-  const eliminarAlumno = async (alumno) => {
+  const eliminarEstudiante = async (estudiante) => {
     await confirmarEliminacion('¿Estás seguro de que querés eliminar este estudiante?\n\nEsta acción no se puede deshacer.', {
       onConfirm: async () => {
         setGuardando(true);
         setMensaje('');
         try {
-          await deleteAlumno(alumno.id);
-          toast.success('Alumno eliminado correctamente.');
+          await deleteEstudiante(estudiante.id);
+          toast.success('Estudiante eliminado correctamente.');
           await refreshData();
         } catch (err) {
           toast.error(mensajeError(err));
@@ -237,14 +237,14 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
     });
   };
 
-  const toggleEstado = async (alumno) => {
+  const toggleEstado = async (estudiante) => {
     setGuardando(true);
     setMensaje('');
     try {
-      await updateAlumno(alumno.id, {
-        estado: !(alumno.usuario_estado !== false),
+      await updateEstudiante(estudiante.id, {
+        estado: !(estudiante.usuario_estado !== false),
       });
-      toast.success(alumno.usuario_estado !== false ? 'Estudiante deshabilitado correctamente.' : 'Estudiante habilitado correctamente.');
+      toast.success(estudiante.usuario_estado !== false ? 'Estudiante deshabilitado correctamente.' : 'Estudiante habilitado correctamente.');
       await refreshData();
     } catch (err) {
       toast.error(mensajeError(err));
@@ -253,11 +253,11 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
     }
   };
 
-  const abrirProgramar = (alumno) => {
-    setProgramando(alumno.id);
+  const abrirProgramar = (estudiante) => {
+    setProgramando(estudiante.id);
     setProgForm({
-      fecha_deshabilitacion_programada: toInputDateTime(alumno.usuario_fecha_deshabilitacion_programada),
-      fecha_habilitacion_programada: toInputDateTime(alumno.usuario_fecha_habilitacion_programada),
+      fecha_deshabilitacion_programada: toInputDateTime(estudiante.usuario_fecha_deshabilitacion_programada),
+      fecha_habilitacion_programada: toInputDateTime(estudiante.usuario_fecha_habilitacion_programada),
     });
   };
 
@@ -277,7 +277,7 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
     setGuardando(true);
     setMensaje('');
     try {
-      await updateAlumno(programando, {
+      await updateEstudiante(programando, {
         fecha_deshabilitacion_programada: deshab || null,
         fecha_habilitacion_programada: hab || null,
       });
@@ -298,7 +298,7 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         setGuardando(true);
         setMensaje('');
         try {
-          await updateAlumno(programando, {
+          await updateEstudiante(programando, {
             fecha_deshabilitacion_programada: null,
             fecha_habilitacion_programada: null,
           });
@@ -317,9 +317,9 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
   const renderFormCrear = () => (
     <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
       <div className="form-group-filter preceptor-form-full">
-        <label htmlFor="alumno-usuario">Usuario</label>
+        <label htmlFor="estudiante-usuario">Usuario</label>
         <input
-          id="alumno-usuario"
+          id="estudiante-usuario"
           type="text"
           value={form.usuario_nombre}
           onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
@@ -327,9 +327,9 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         />
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-contrasena">Contraseña</label>
+        <label htmlFor="estudiante-contrasena">Contraseña</label>
         <input
-          id="alumno-contrasena"
+          id="estudiante-contrasena"
           type="password"
           value={form.contrasena}
           onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
@@ -338,9 +338,9 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
       </div>
       <div className="form-group-filter">
         <label>Estado</label>
-        <label htmlFor="alumno-estado" className="preceptor-status-toggle">
+        <label htmlFor="estudiante-estado" className="preceptor-status-toggle">
           <input
-            id="alumno-estado"
+            id="estudiante-estado"
             type="checkbox"
             checked={form.estado}
             onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
@@ -349,18 +349,18 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         </label>
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-fecha-deshabilitacion">Fecha deshabilitación programada</label>
+        <label htmlFor="estudiante-fecha-deshabilitacion">Fecha deshabilitación programada</label>
         <input
-          id="alumno-fecha-deshabilitacion"
+          id="estudiante-fecha-deshabilitacion"
           type="datetime-local"
           value={form.fecha_deshabilitacion_programada}
           onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
         />
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-fecha-habilitacion">Fecha habilitación programada</label>
+        <label htmlFor="estudiante-fecha-habilitacion">Fecha habilitación programada</label>
         <input
-          id="alumno-fecha-habilitacion"
+          id="estudiante-fecha-habilitacion"
           type="datetime-local"
           value={form.fecha_habilitacion_programada}
           onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
@@ -372,27 +372,27 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         </p>
       </div>
       <div className="form-group-filter preceptor-form-full">
-        <label htmlFor="alumno-dni">DNI</label>
+        <label htmlFor="estudiante-dni">DNI</label>
         <input
-          id="alumno-dni"
+          id="estudiante-dni"
           type="text"
           value={form.dni}
           onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
         />
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-nombre">Nombre</label>
+        <label htmlFor="estudiante-nombre">Nombre</label>
         <input
-          id="alumno-nombre"
+          id="estudiante-nombre"
           type="text"
           value={form.nombre}
           onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
         />
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-apellido">Apellido</label>
+        <label htmlFor="estudiante-apellido">Apellido</label>
         <input
-          id="alumno-apellido"
+          id="estudiante-apellido"
           type="text"
           value={form.apellido}
           onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
@@ -404,9 +404,9 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         </p>
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-anio-crear">Año lectivo</label>
+        <label htmlFor="estudiante-anio-crear">Año lectivo</label>
         <select
-          id="alumno-anio-crear"
+          id="estudiante-anio-crear"
           value={form.anioLectivo}
           onChange={(e) =>
             setForm((p) => ({ ...p, anioLectivo: e.target.value, curso: '' }))
@@ -421,9 +421,9 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         </select>
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-curso-crear">Curso</label>
+        <label htmlFor="estudiante-curso-crear">Curso</label>
         <select
-          id="alumno-curso-crear"
+          id="estudiante-curso-crear"
           value={form.curso}
           onChange={(e) => setForm((p) => ({ ...p, curso: e.target.value }))}
           disabled={!form.anioLectivo}
@@ -442,9 +442,9 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
   const renderFormModificar = () => (
     <div className="preceptor-form-grid" style={{ maxWidth: 720 }}>
       <div className="form-group-filter preceptor-form-full">
-        <label htmlFor="alumno-usuario-mod">Usuario</label>
+        <label htmlFor="estudiante-usuario-mod">Usuario</label>
         <input
-          id="alumno-usuario-mod"
+          id="estudiante-usuario-mod"
           type="text"
           value={form.usuario_nombre}
           onChange={(e) => setForm((p) => ({ ...p, usuario_nombre: e.target.value }))}
@@ -452,9 +452,9 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         />
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-contrasena-mod">Contraseña {alumnoSel?.usuario ? '(dejar en blanco para mantener)' : ''}</label>
+        <label htmlFor="estudiante-contrasena-mod">Contraseña {estudianteSel?.usuario ? '(dejar en blanco para mantener)' : ''}</label>
         <input
-          id="alumno-contrasena-mod"
+          id="estudiante-contrasena-mod"
           type="password"
           value={form.contrasena}
           onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
@@ -462,9 +462,9 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
       </div>
       <div className="form-group-filter">
         <label>Estado</label>
-        <label htmlFor="alumno-estado-mod" className="preceptor-status-toggle">
+        <label htmlFor="estudiante-estado-mod" className="preceptor-status-toggle">
           <input
-            id="alumno-estado-mod"
+            id="estudiante-estado-mod"
             type="checkbox"
             checked={form.estado}
             onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
@@ -473,45 +473,45 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         </label>
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-fecha-deshabilitacion-mod">Fecha deshabilitación programada</label>
+        <label htmlFor="estudiante-fecha-deshabilitacion-mod">Fecha deshabilitación programada</label>
         <input
-          id="alumno-fecha-deshabilitacion-mod"
+          id="estudiante-fecha-deshabilitacion-mod"
           type="datetime-local"
           value={form.fecha_deshabilitacion_programada}
           onChange={(e) => setForm((p) => ({ ...p, fecha_deshabilitacion_programada: e.target.value }))}
         />
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-fecha-habilitacion-mod">Fecha habilitación programada</label>
+        <label htmlFor="estudiante-fecha-habilitacion-mod">Fecha habilitación programada</label>
         <input
-          id="alumno-fecha-habilitacion-mod"
+          id="estudiante-fecha-habilitacion-mod"
           type="datetime-local"
           value={form.fecha_habilitacion_programada}
           onChange={(e) => setForm((p) => ({ ...p, fecha_habilitacion_programada: e.target.value }))}
         />
       </div>
       <div className="form-group-filter preceptor-form-full">
-        <label htmlFor="alumno-dni-mod">DNI</label>
+        <label htmlFor="estudiante-dni-mod">DNI</label>
         <input
-          id="alumno-dni-mod"
+          id="estudiante-dni-mod"
           type="text"
           value={form.dni}
           onChange={(e) => setForm((p) => ({ ...p, dni: formatDNI(e.target.value) }))}
         />
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-nombre-mod">Nombre</label>
+        <label htmlFor="estudiante-nombre-mod">Nombre</label>
         <input
-          id="alumno-nombre-mod"
+          id="estudiante-nombre-mod"
           type="text"
           value={form.nombre}
           onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
         />
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-apellido-mod">Apellido</label>
+        <label htmlFor="estudiante-apellido-mod">Apellido</label>
         <input
-          id="alumno-apellido-mod"
+          id="estudiante-apellido-mod"
           type="text"
           value={form.apellido}
           onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
@@ -523,18 +523,18 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         </p>
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-telefono-mod">Teléfono</label>
+        <label htmlFor="estudiante-telefono-mod">Teléfono</label>
         <input
-          id="alumno-telefono-mod"
+          id="estudiante-telefono-mod"
           type="text"
           value={form.telefono}
           onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
         />
       </div>
       <div className="form-group-filter">
-        <label htmlFor="alumno-fecha-nac-mod">Fecha de Nacimiento</label>
+        <label htmlFor="estudiante-fecha-nac-mod">Fecha de Nacimiento</label>
         <input
-          id="alumno-fecha-nac-mod"
+          id="estudiante-fecha-nac-mod"
           type="date"
           value={form.fechaNacimiento}
           onChange={(e) => setForm((p) => ({ ...p, fechaNacimiento: e.target.value }))}
@@ -564,7 +564,7 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
               <td colSpan={readOnly ? 4 : 6} className="empty-state-message">
                 {searchTerm
                   ? 'No se encontraron estudiantes con ese criterio.'
-                  : 'No hay alumnos inscriptos en este curso.'}
+                  : 'No hay estudiantes inscriptos en este curso.'}
               </td>
             </tr>
           ) : (
@@ -613,7 +613,7 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
                       <button
                         type="button"
                         className="btn btn-sm btn-danger"
-                        onClick={() => eliminarAlumno(a)}
+                        onClick={() => eliminarEstudiante(a)}
                         title="Eliminar"
                       >
                         <i className="fas fa-trash" aria-hidden="true" />
@@ -737,4 +737,4 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
   );
 }
 
-export default Alumnos;
+export default Estudiantes;

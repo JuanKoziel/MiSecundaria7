@@ -7,7 +7,7 @@ export const menuItems = [
     icon: 'fa-users',
     children: [
       { id: 'alumnos', label: 'Estudiantes', icon: 'fa-user-graduate' },
-      { id: 'tutores', label: 'Tutores', icon: 'fa-user-shield' },
+      { id: 'tutores', label: 'Tutores/familias', icon: 'fa-user-shield' },
       { id: 'docentes', label: 'Docentes', icon: 'fa-chalkboard-teacher' },
     ],
   },

@@ -10,7 +10,7 @@ function normalize(str) {
 const ROLE_CONFIG = {
   familia: {
     label: 'Tutor/Familia',
-    stepLabel: 'Asignar alumno(s)',
+    stepLabel: 'Asignar estudiante(s)',
     needAssignment: true,
     assignmentType: 'alumnos',
     assignmentKey: 'alumnos_ids',
@@ -495,7 +495,7 @@ function AgregarRolModal({
             type="text"
             value={busquedaAsignacion}
             onChange={(e) => setBusquedaAsignacion(e.target.value)}
-            placeholder={`Buscar ${roleConfig.assignmentType === 'alumnos' ? 'alumno' : 'curso'}...`}
+            placeholder={`Buscar ${roleConfig.assignmentType === 'alumnos' ? 'Estudiante' : 'curso'}...`}
           />
         </div>
         <div
@@ -508,7 +508,7 @@ function AgregarRolModal({
         >
           {filtradasAsignaciones.length === 0 ? (
             <p className="empty-state-message m-0" style={{ padding: '16px', margin: 0 }}>
-              No se encontraron {roleConfig.assignmentType === 'alumnos' ? 'alumnos' : 'cursos'} con ese criterio.
+              No se encontraron {roleConfig.assignmentType === 'alumnos' ? 'estudiantes' : 'cursos'} con ese criterio.
             </p>
           ) : (
             filtradasAsignaciones.map((a) => {
@@ -573,7 +573,7 @@ function AgregarRolModal({
             ? renderSeleccionAsignaciones()
             : (asignacionesDisponibles.length === 0 ? (
                 <p className="empty-state-message m-0" style={{ padding: '16px', margin: 0 }}>
-                  No hay {roleConfig.assignmentType === 'alumnos' ? 'alumnos' : 'cursos'} disponibles para asignar.
+                  No hay {roleConfig.assignmentType === 'alumnos' ? 'estudiantes' : 'cursos'} disponibles para asignar.
                 </p>
               ) : renderSeleccionAsignaciones())}
         </>

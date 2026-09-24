@@ -20,7 +20,7 @@ export const menuItems = [
     children: [
       { id: 'alumnos', label: 'Estudiantes', icon: 'fa-user-graduate' },
       { id: 'asistencias', label: 'Asistencias', icon: 'fa-user-check' },
-      { id: 'notas', label: 'Boletines', icon: 'fa-file-alt' },
+      { id: 'notas', label: 'RITE', icon: 'fa-file-alt' },
       { id: 'actas', label: 'Actas', icon: 'fa-file-signature' },
       { id: 'adelantos-horas', label: 'Adelantos de Horas', icon: 'fa-forward' },
     ],
@@ -32,7 +32,7 @@ export const menuItems = [
     icon: 'fa-users',
     children: [
       { id: 'docentes', label: 'Docentes', icon: 'fa-chalkboard-teacher' },
-      { id: 'tutores', label: 'Tutores', icon: 'fa-user-shield' },
+      { id: 'tutores', label: 'Tutores/familias', icon: 'fa-user-shield' },
     ],
   },
 

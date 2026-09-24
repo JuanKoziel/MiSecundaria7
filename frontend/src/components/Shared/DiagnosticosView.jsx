@@ -9,7 +9,7 @@ import FormModal from './FormModal';
 function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEditables }) {
   const {
     diagnosticos,
-    alumnos,
+    estudiantes,
     cursosObj,
     cursoMateria,
     docentes,
@@ -34,9 +34,9 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
 
     switch (userRole) {
       case 'alumno': {
-        const miAlumno = alumnos.find((a) => a.id_usuario === userId);
-        if (!miAlumno) return [];
-        const miCursoId = miAlumno.id_curso;
+        const miEstudiante = estudiantes.find((a) => a.id_usuario === userId);
+        if (!miEstudiante) return [];
+        const miCursoId = miEstudiante.id_curso;
 
         const filtered = diagnosticos.filter((d) => d.id_curso === miCursoId);
         return filtered;
@@ -45,9 +45,9 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
       case 'familia': {
         // Si un hijo específico está seleccionado, filtrar solo para ese hijo
         if (selectedChild && selectedChild.alumnoId) {
-          const alumno = alumnos.find((a) => a.id === selectedChild.alumnoId);
-          if (alumno) {
-            const cursoId = alumno.id_curso;
+          const estudiante = estudiantes.find((a) => a.id === selectedChild.alumnoId);
+          if (estudiante) {
+            const cursoId = estudiante.id_curso;
             const filtered = diagnosticos.filter((d) => d.id_curso === cursoId);
             return filtered;
           }
@@ -57,7 +57,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
         // Fallback: mostrar todos los diagnósticos de los hijos
         const miTutor = padresTutores.find((pt) => pt.id_usuario === userId);
         if (!miTutor) return [];
-        const misHijos = alumnos;
+        const misHijos = estudiantes;
         const cursosHijos = new Set(misHijos.map((h) => h.id_curso).filter(Boolean));
 
         const filtered = diagnosticos.filter((d) => cursosHijos.has(d.id_curso));
@@ -88,7 +88,7 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
       default:
         return [];
     }
-  }, [diagnosticos, user, userRole, alumnos, cursoMateria, docentes, padresTutores, selectedChild, cursoSeleccionado]);
+  }, [diagnosticos, user, userRole, estudiantes, cursoMateria, docentes, padresTutores, selectedChild, cursoSeleccionado]);
 
   const diagnosticosOrdenados = useMemo(() => {
     return [...diagnosticosFiltrados].sort((a, b) => {

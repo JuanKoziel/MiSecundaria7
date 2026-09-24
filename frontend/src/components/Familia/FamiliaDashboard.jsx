@@ -19,7 +19,7 @@ import { useData } from '../../context/DataContext';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function FamiliaDashboard({ user, onLogout }) {
-  const { getAlumnoById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj, navIntent, navegarDesdeNotificacion, notificaciones = [] } = useData();
+  const { getEstudianteById, getHijoLabel, hijosFamilia, padresTutores, nombreCompleto, cursosObj, navIntent, navegarDesdeNotificacion, notificaciones = [] } = useData();
   const [view, setView] = useState('perfil');
 
   const miTutor = useMemo(
@@ -30,26 +30,26 @@ function FamiliaDashboard({ user, onLogout }) {
 
   const hijos = useMemo(() => {
     // `hijosFamilia` ya contiene solo los hijos vinculados a los usuarios de
-    // la familia (backend filtra por la relación N:M tutor-alumno).
+    // la familia (backend filtra por la relación N:M tutor-estudiante).
     return hijosFamilia.map((hijo) => {
-      const alumno = getAlumnoById(hijo.alumnoId);
+      const estudiante = getEstudianteById(hijo.alumnoId);
       return {
         ...hijo,
-        nombre: alumno ? nombreCompleto(alumno) : 'Estudiante',
-        dni: alumno?.dni ?? '—',
+        nombre: estudiante ? nombreCompleto(estudiante) : 'Estudiante',
+        dni: estudiante?.dni ?? '—',
         // Contador de notificaciones sin leer por hijo (académicas).
         sinLeer: notificaciones.filter(
           (n) => !n.leida && Number(n.id_alumno) === Number(hijo.alumnoId),
         ).length,
       };
     });
-  }, [hijosFamilia, getAlumnoById, nombreCompleto, notificaciones]);
+  }, [hijosFamilia, getEstudianteById, nombreCompleto, notificaciones]);
 
   const [hijoId, setHijoId] = useState(() => hijos.length > 0 ? String(hijos[0].id) : '');
 
   // Parte 8: manejar navegación desde notificaciones.
   // Traduce el destino semántico a una vista válida del dashboard de familia y,
-  // si la notificación refiere a un alumno concreto, selecciona el hijo
+  // si la notificación refiere a un estudiante concreto, selecciona el hijo
   // correspondiente para que la vista muestre la información correcta.
   // Se declara tras `hijos` porque depende de esa constante.
   useEffect(() => {
@@ -107,7 +107,7 @@ function FamiliaDashboard({ user, onLogout }) {
             <div className="card mt-16">
               <VistaHorarios
                 cursosOptions={cursosObj}
-                cursoForzado={getAlumnoById(hijoSeleccionado.alumnoId)?.id_curso}
+                cursoForzado={getEstudianteById(hijoSeleccionado.alumnoId)?.id_curso}
                 mostrarTitulo
               />
             </div>

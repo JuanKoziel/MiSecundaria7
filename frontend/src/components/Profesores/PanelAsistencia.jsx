@@ -22,7 +22,7 @@ function formatearTiempoRestante(fechaVencimiento, refMs) {
 }
 
 function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = true }) {
-  const { alumnos, estadosAsistencia, refreshData } = useData();
+  const { estudiantes, estadosAsistencia, refreshData } = useData();
   const { user } = useAuth();
   const toast = useToast();
   const [serverInfo, setServerInfo] = useState(null);
@@ -34,9 +34,9 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
   const [cargaUnica, setCargaUnica] = useState(null);
   const [, setSegundoTick] = useState(0);
 
-  const alumnosCurso = useMemo(
-    () => alumnos.filter((a) => a.id_curso === cursoId),
-    [alumnos, cursoId],
+  const estudiantesCurso = useMemo(
+    () => estudiantes.filter((a) => a.id_curso === cursoId),
+    [estudiantes, cursoId],
   );
 
   const cargarServerTime = useCallback(async () => {
@@ -86,7 +86,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
   }, [serverInfo?.fecha, fechaSeleccionada]);
 
   useEffect(() => {
-    if (alumnosCurso.length === 0 || !cursoMateriaId || !fechaSeleccionada) {
+    if (estudiantesCurso.length === 0 || !cursoMateriaId || !fechaSeleccionada) {
       setFilas([]);
       return;
     }
@@ -94,7 +94,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
     let cancelado = false;
 
     const cargarAsistencias = async () => {
-      const filasBase = alumnosCurso.map((a) => ({
+      const filasBase = estudiantesCurso.map((a) => ({
         id: a.id,
         nombre: `${a.apellido}, ${a.nombre}`,
         estado: '',
@@ -139,7 +139,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
     return () => {
       cancelado = true;
     };
-  }, [alumnosCurso, cursoMateriaId, fechaSeleccionada]);
+  }, [estudiantesCurso, cursoMateriaId, fechaSeleccionada]);
 
   // Carga única de 20 minutos otorgada por el preceptor: la ventana activa
   // autoriza cargar aunque no se esté en horario; al cargar (o vencer) el
@@ -170,8 +170,8 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
       toast.warning('Solo puede guardar asistencias para la fecha de hoy.');
       return;
     }
-    const alumnosConEstado = filas.filter((a) => a.estado);
-    if (alumnosConEstado.length === 0) {
+    const estudiantesConEstado = filas.filter((a) => a.estado);
+    if (estudiantesConEstado.length === 0) {
       toast.warning('Seleccioná un estado de asistencia para al menos un estudiante.');
       return;
     }
@@ -182,7 +182,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
       estadosAsistencia.forEach((e) => {
         estadoMap[e.nombre_estado] = e.id_estado_asistencia;
       });
-      const promises = alumnosConEstado.map((a) => {
+      const promises = estudiantesConEstado.map((a) => {
         const idEstado = estadoMap[a.estado];
         return createAsistencia({
           id_alumno: a.id,
@@ -241,7 +241,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
             para este bloque horario.
           </p>
           <p style={{ color: '#555', lineHeight: '1.6', marginTop: '8px', marginBottom: 0 }}>
-            Por ese motivo no puede registrar la asistencia de los alumnos durante esta clase.
+            Por ese motivo no puede registrar la asistencia de los estudiantes durante esta clase.
           </p>
         </div>
       </div>
@@ -437,7 +437,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
                 <td colSpan={2} className="empty-state-message">
                   {fechaSeleccionada !== serverInfo?.fecha
                     ? 'No hay asistencias registradas para esta fecha.'
-                    : 'No hay alumnos en este curso.'}
+                    : 'No hay estudiantes en este curso.'}
                 </td>
               </tr>
             ) : (

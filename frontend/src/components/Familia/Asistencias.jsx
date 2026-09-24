@@ -3,20 +3,20 @@ import { useData } from '../../context/DataContext';
 import AsistenciasUnificada from '../Shared/AsistenciasUnificada';
 
 function Asistencias({ hijo }) {
-  const { alumnos, cursoMateria } = useData();
+  const { estudiantes, cursoMateria } = useData();
 
-  const alumno = useMemo(
-    () => alumnos.find((a) => a.id === hijo.alumnoId) || null,
-    [alumnos, hijo.alumnoId],
+  const estudiante = useMemo(
+    () => estudiantes.find((a) => a.id === hijo.alumnoId) || null,
+    [estudiantes, hijo.alumnoId],
   );
 
   return (
     <div className="card">
-      {alumno ? (
+      {estudiante ? (
         <AsistenciasUnificada
-          alumnoId={alumno.id}
+          alumnoId={estudiante.id}
           cursoMateria={cursoMateria}
-          idCurso={alumno.id_curso}
+          idCurso={estudiante.id_curso}
           userRole="familia"
         />
       ) : (

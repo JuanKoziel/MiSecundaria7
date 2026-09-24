@@ -45,7 +45,7 @@
 - Declaraciones Juradas digitales para docentes.
 - Visualización de horarios, actividades y diagnóstico grupal.
 - Notificaciones internas por usuario.
-- Roles y permisos diferenciados (Admin, Director, Docente, Preceptor, Alumno, Familia).
+- Roles y permisos diferenciados (Admin, Director, Docente, Preceptor, Estudiante, Familia).
 
 ### 1.3 Tecnologías utilizadas
 
@@ -126,7 +126,7 @@ No hay Server-Side Rendering. No hay BFF (Backend For Frontend). El frontend se 
 │       ├── utils/
 │       │   ├── dni.js             # Formateo de DNI
 │       │   ├── orientacion.js     # Orientación de cursos (Sociales/Gestión)
-│       │   ├── boletin.js         # Generación de boletín PDF
+│       │   ├── rite.js         # Generación de RITE PDF
 │       │   └── modulos.js         # (no utilizado actualmente)
 │       ├── data/
 │       │   └── mockData.js        # (no utilizado, legacy)
@@ -206,9 +206,9 @@ REST_FRAMEWORK = {
 | `PadreTutor` | `padres_tutores` | nombre, apellido, dni, telefono, direccion |
 
 **Regla importante:** No todos los perfiles tienen los mismos campos:
-- `correo` existe solo en Docente y Preceptor (NO en Alumno, PadreTutor, Directivo).
-- `fecha_nacimiento` existe solo en Alumno.
-- `direccion` existe solo en Alumno y PadreTutor.
+- `correo` existe solo en Docente y Preceptor (NO en Estudiante, PadreTutor, Directivo).
+- `fecha_nacimiento` existe solo en Estudiante.
+- `direccion` existe solo en Estudiante y PadreTutor.
 
 #### Estructura académica
 
@@ -226,9 +226,9 @@ REST_FRAMEWORK = {
 
 | Modelo | Tabla | Propósito |
 |--------|-------|-----------|
-| `Calificacion` | `calificaciones` | Nota de un alumno en una materia para un período. Tiene pre_nota (cualitativa: "Logrado"/"En proceso") y nota_numerica. |
+| `Calificacion` | `calificaciones` | Nota de un estudiante en una materia para un período. Tiene pre_nota (cualitativa: "Logrado"/"En proceso") y nota_numerica. |
 | `EstadoAsistencia` | `estados_asistencia` | Posibles estados: Presente, Ausente, Tarde, etc. |
-| `Asistencia` | `asistencias` | Registro de asistencia de un alumno en una materia para una fecha/hora |
+| `Asistencia` | `asistencias` | Registro de asistencia de un estudiante en una materia para una fecha/hora |
 
 #### Contenido pedagógico
 
@@ -254,7 +254,7 @@ REST_FRAMEWORK = {
 |--------|-------|-----------|
 | `TipoActa` | `tipos_acta` | Tipos de acta (ej: "Acta de Examen") |
 | `Acta` | `actas` | Acta con título, descripción, archivo adjunto |
-| `ActaAlumno` | `acta_alumno` | Relación acta-alumno |
+| `ActaAlumno` | `acta_alumno` | Relación acta-estudiante |
 | `ActaCurso` | `acta_curso` | Relación acta-curso |
 | `ActaDocente` | `acta_docente` | Relación acta-docente |
 
@@ -311,7 +311,7 @@ El archivo tiene 1881 líneas. Contiene:
 | ViewSet | Endpoint | Propósito |
 |---------|----------|-----------|
 | `UsuarioViewSet` | `/api/usuarios/` | CRUD de usuarios + roles |
-| `AlumnoViewSet` | `/api/alumnos/` | CRUD de alumnos |
+| `AlumnoViewSet` | `/api/alumnos/` | CRUD de estudiantes |
 | `DocenteViewSet` | `/api/docentes/` | CRUD de docentes |
 | `PreceptorViewSet` | `/api/preceptores/` | CRUD de preceptores |
 | `DirectivoViewSet` | `/api/directivos/` | CRUD de directivos |
@@ -392,7 +392,7 @@ urlpatterns = [
 
 La generación de PDF se realiza exclusivamente en `PlanificacionViewSet._generar_pdf()` usando **ReportLab**. Ver [sección 15](#15-módulo-proyectos-ex-planificaciones) para detalles completos.
 
-También existe generación de PDF del lado del frontend en `frontend/src/utils/boletin.js` para el boletín de calificaciones (usando `window.print()` y generación HTML a PDF).
+También existe generación de PDF del lado del frontend en `frontend/src/utils/rite.js` para el RITE de calificaciones (usando `window.print()` y generación HTML a PDF).
 
 ### 3.10 Manejo de archivos
 
@@ -425,7 +425,7 @@ frontend/src/
 ├── utils/
 │   ├── dni.js                     # cleanDNI, formatDNI, normalizeDNI
 │   ├── orientacion.js             # parseCurso, orientacionDeCurso, cursoConOrientacion
-│   └── boletin.js                 # boletinHTML, exportarBoletinPDF
+│   └── rite.js                 # riteHTML, exportarRitePDF
 └── components/
     ├── Login/                     # Pantalla de login
     ├── Administracion/            # Panel de Admin/Director
@@ -447,7 +447,7 @@ function Dashboard({ user, logout }) {
     case 'director':   return <AdminDashboard user={user} onLogout={logout} />;
     case 'docente':    return <PanelProfesores user={user} onLogout={logout} />;
     case 'familia':    return <FamiliaDashboard user={user} onLogout={logout} />;
-    case 'alumno':     return <AlumnoDashboard user={user} onLogout={logout} />;
+    case 'alumno':     return <EstudianteDashboard user={user} onLogout={logout} />;
     default:           return <div>Usuario sin panel asignado</div>;
   }
 }
@@ -499,7 +499,7 @@ Recientemente se agregó la sección "Mi Perfil" a todos los roles. El patrón e
 
 | Componente | Ubicación | Propósito |
 |-----------|-----------|-----------|
-| `ActividadesView` | `Shared/ActividadesView.jsx` | Vista de actividades para alumno/familia |
+| `ActividadesView` | `Shared/ActividadesView.jsx` | Vista de actividades para estudiante/familia |
 | `AsistenciaMateriaDetalle` | `Shared/AsistenciaMateriaDetalle.jsx` | Detalle de asistencia por materia |
 | `ComunicadosView` | `Shared/ComunicadosView.jsx` | Vista de comunicados (multi-rol) |
 | `DiagnosticosView` | `Shared/DiagnosticosView.jsx` | Vista de diagnósticos grupales (multi-rol) |
@@ -520,7 +520,7 @@ Toda la comunicación usa Axios (configurado en `api.js`):
 ### 5.1 Administrador (rol: `admin`) y Director (`director`)
 
 **Qué puede hacer:**
-- CRUD completo de alumnos, docentes, preceptores, administradores.
+- CRUD completo de estudiantes, docentes, preceptores, administradores.
 - Gestión de cursos, materias, asignación curso-materia-docente.
 - Gestión de horarios, calificaciones, asistencias.
 - Creación de comunicados, actas, notificaciones.
@@ -529,7 +529,7 @@ Toda la comunicación usa Axios (configurado en `api.js`):
 **Panel:** `AdminDashboard.jsx`
 **Sidebar:** `sidebarMenu.js` (12 items, filtrados por `directorOnly`)
 **Componentes específicos:**
-- `alumnos.jsx` — CRUD de alumnos
+- `estudiantes.jsx` — CRUD de estudiantes
 - `docentes.jsx` — CRUD de docentes
 - `preceptores.jsx` — CRUD de preceptores
 - `administradores.jsx` — CRUD de admins (solo director)
@@ -549,7 +549,7 @@ Toda la comunicación usa Axios (configurado en `api.js`):
 **Qué puede hacer:**
 - Ver su perfil con datos personales y DDJJ.
 - Subir/ver Declaración Jurada (DDJJ).
-- Ver alumnos de sus cursos/materias.
+- Ver estudiantes de sus cursos/materias.
 - Cargar calificaciones (pre-nota cualitativa + nota numérica).
 - Registrar asistencias.
 - Crear/editar/eliminar proyectos pedagógicos (con generación automática de PDF).
@@ -558,10 +558,10 @@ Toda la comunicación usa Axios (configurado en `api.js`):
 - Ver diagnosticos grupales.
 
 **Panel:** `PanelProfesores.jsx`
-**Sidebar:** `Sidebar.jsx` con `sidebarMenu.js` (items: docente, alumnos, info, planif, actividades, asistencia, comunicados, notificaciones)
+**Sidebar:** `Sidebar.jsx` con `sidebarMenu.js` (items: docente, estudiantes, info, planif, actividades, asistencia, comunicados, notificaciones)
 **Componentes específicos:**
 - `PanelDocente.jsx` — Perfil + DDJJ + asignaciones
-- `PanelAlumnos.jsx` — Lista de alumnos con calificaciones
+- `PanelEstudiantes.jsx` — Lista de estudiantes con calificaciones
 - `PanelInfo.jsx` — Diagnóstico grupal
 - `PanelPlanif.jsx` — Proyectos (CRUD + PDF)
 - `PanelActividades.jsx` — Actividades con archivos
@@ -573,23 +573,23 @@ Toda la comunicación usa Axios (configurado en `api.js`):
 
 **Qué puede hacer:**
 - Ver su perfil con datos personales y cursos asignados.
-- Gestionar alumnos.
+- Gestionar estudiantes.
 - Registrar asistencias (por día o por materia).
 - Cargar/editar calificaciones.
 - Gestionar actas.
 - Ver docentes, horarios, comunicados, notificaciones.
 
 **Panel:** `PreceptorDashboard.jsx`
-**Sidebar:** `sidebar.jsx` con `sidebarMenu.js` (items: perfil, alumnos, docentes, horarios, asistencias, notas, actas, comunicados, notificaciones)
+**Sidebar:** `sidebar.jsx` con `sidebarMenu.js` (items: perfil, estudiantes, docentes, horarios, asistencias, notas, actas, comunicados, notificaciones)
 **Componentes específicos:**
 - `PanelPreceptor.jsx` — Perfil del preceptor
-- `alumnos.jsx` — Gestión de alumnos
+- `estudiantes.jsx` — Gestión de estudiantes
 - `asistencias.jsx` — Registro de asistencias
 - `notas.jsx` — Carga de calificaciones
 - `actas.jsx` — Gestión de actas
 - `docentes.jsx` — Lista de docentes
 
-### 5.4 Alumno (rol: `alumno`)
+### 5.4 Estudiante (rol: `alumno`)
 
 **Qué puede hacer:**
 - Ver su perfil con datos personales y curso.
@@ -598,13 +598,13 @@ Toda la comunicación usa Axios (configurado en `api.js`):
 - Ver actividades publicadas por docentes.
 - Ver horarios de su curso.
 - Ver comunicados y notificaciones.
-- Descargar boletín PDF.
+- Descargar RITE PDF.
 
-**Panel:** `AlumnoDashboard.jsx`
+**Panel:** `EstudianteDashboard.jsx`
 **Sidebar:** Inline en el JSX (7 items: perfil, calificaciones, asistencias, actividades, horarios, comunicados, notificaciones)
 **Componentes específicos:**
-- `PanelAlumno.jsx` — Perfil del alumno (nombre, DNI, teléfono, dirección, fecha nacimiento, usuario, curso)
-- Las calificaciones, asistencias y horarios se renderizan directamente en `AlumnoDashboard.jsx`
+- `PanelEstudiante.jsx` — Perfil del estudiante (nombre, DNI, teléfono, dirección, fecha nacimiento, usuario, curso)
+- Las calificaciones, asistencias y horarios se renderizan directamente en `EstudianteDashboard.jsx`
 
 ### 5.5 Familia / Tutor (rol: `familia`)
 
@@ -674,7 +674,7 @@ El `user` se almacena en `AuthContext` y se pasa como prop a cada dashboard. El 
 ```
 fetchData()
   ├── Promise.all([...])  ← 26 llamadas paralelas a la API
-  │   ├── getAlumnos()
+  │   ├── getEstudiantes()
   │   ├── getDocentes()
   │   ├── getPreceptores()
   │   ├── getCursos()
@@ -683,7 +683,7 @@ fetchData()
   │   ├── getCalificaciones()
   │   ├── getAsistencias()
   │   ├── getActas()
-  │   ├── getActaAlumno()
+  │   ├── getActaEstudiante()
   │   ├── getActaCurso()
   │   ├── getActaDocente()
   │   ├── getHorarios()
@@ -767,7 +767,7 @@ ciclos_lectivos
                 └─── docentes (FK a docente)
 ```
 
-**Alumnos:**
+**Estudiantes:**
 ```
 alumnos ──── cursos (FK a curso)
   └─── padres_tutores (FK a padre/tutor)
@@ -817,7 +817,7 @@ horarios
 | `directivos` | Datos personales de administradores/directores |
 | `docentes` | Datos personales de docentes (tiene `correo`) |
 | `preceptores` | Datos personales de preceptores (tiene `correo`) |
-| `alumnos` | Datos personales de alumnos (tiene `fecha_nacimiento`, `direccion`, `procedencia`) |
+| `alumnos` | Datos personales de estudiantes (tiene `fecha_nacimiento`, `direccion`, `procedencia`) |
 | `padres_tutores` | Datos personales de padres/tutores (tiene `direccion`) |
 | `ciclos_lectivos` | Años lectivos del sistema |
 | `cursos` | Cursos/divisiones (ej: "4°1") con orientación opcional |
@@ -826,12 +826,12 @@ horarios
 | `modulos` | Bloques horarios (módulos de clase) |
 | `horarios` | Horarios semanales por curso_materia |
 | `periodos_evaluacion` | Períodos de evaluación (1° cuatrimestre, 2° cuatrimestre) |
-| `calificaciones` | Notas de alumnos (pre-nota cualitativa + nota numérica + diagnóstico) |
+| `calificaciones` | Notas de estudiantes (pre-nota cualitativa + nota numérica + diagnóstico) |
 | `estados_asistencia` | Catálogo de estados de asistencia |
-| `asistencias` | Registro diario de asistencias por alumno y materia |
+| `asistencias` | Registro diario de asistencias por estudiante y materia |
 | `tipos_acta` | Tipos de acta |
 | `actas` | Actas con título, descripción y archivo |
-| `acta_alumno` | Relación N:M entre actas y alumnos |
+| `acta_alumno` | Relación N:M entre actas y estudiantes |
 | `acta_curso` | Relación N:M entre actas y cursos |
 | `acta_docente` | Relación N:M entre actas y docentes |
 | `comunicados` | Comunicados con título y cuerpo |
@@ -843,7 +843,7 @@ horarios
 | `actividades_docentes` | Actividades/ejercicios creados por docentes |
 | `notificaciones` | Notificaciones internas del sistema |
 | `historial_cambios` | Auditoría de cambios (no implementado en frontend) |
-| `inscripciones_materias` | Inscripciones de alumnos a materias |
+| `inscripciones_materias` | Inscripciones de estudiantes a materias |
 
 ---
 
@@ -870,7 +870,7 @@ Este proyecto tiene **ninguna librería de routing** (`react-router` no está en
 | Preceptor | `PreceptorDashboard.jsx:30` | `view` | 12 cases |
 | Docente | `PanelProfesores.jsx:25` | `seccionActiva` | 8+ cases |
 | Familia | `FamiliaDashboard.jsx:22` | `view` | 8 cases |
-| Alumno | `AlumnoDashboard.jsx:30` | `view` | 8 cases |
+| Estudiante | `EstudianteDashboard.jsx:30` | `view` | 8 cases |
 | Jefe Preceptores | `JefePreceptorDashboard.jsx:27` | `view` | 12 cases |
 
 ### 9.2 PanelPlanif.jsx (Proyectos)
@@ -887,7 +887,7 @@ Componente que muestra el perfil del docente autenticado. Características:
 - Usa `formatDNI` de `utils/dni.js`.
 - Usa `cursoMateria` y `cursosObj` de `useData()` para la tabla de asignaciones.
 
-**Este componente sirvió como plantilla para todos los perfiles (Preceptor, Alumno, Familia, Admin).**
+**Este componente sirvió como plantilla para todos los perfiles (Preceptor, Estudiante, Familia, Admin).**
 
 ### 9.4 Administradores (`administradores.jsx`)
 
@@ -951,11 +951,11 @@ function useData() {
 **refreshData:** La función `fetchData` se asigna a `data.refreshData` después de setear los datos, permitiendo que cualquier componente la llame para recargar.
 
 **Helper functions expuestas:**
-- `getAlumnoById(id)` — Busca alumno por ID
-- `getAlumnosByCurso(curso)` — Filtra alumnos por curso
+- `getEstudianteById(id)` — Busca estudiante por ID
+- `getEstudiantesByCurso(curso)` — Filtra estudiantes por curso
 - `getMateriasByCurso(curso)` — Materias de un curso
 - `getHorarioClase(materia)` — Horario de una materia
-- `getActasByAlumnoId(id)` — Actas de un alumno
+- `getActasByEstudianteId(id)` — Actas de un estudiante
 - `getHijoLabel(hijo)` — Label para selector de hijos (familia)
 - `nombreCompleto(alumno)` — Apellido, Nombre
 - `nombreCorto(alumno)` — Nombre Apellido
@@ -988,7 +988,7 @@ export async function createRecurso(payload) {
 `login`, `logout`, `getMe`
 
 **CRUD de personas:**
-`getAlumnos`, `createAlumno`, `updateAlumno`, `deleteAlumno`
+`getEstudiantes`, `createEstudiante`, `updateEstudiante`, `deleteEstudiante`
 `getDocentes`, `createDocente`, `updateDocente`, `deleteDocente`
 `getPreceptores`, `createPreceptor`, `updatePreceptor`, `deletePreceptor`
 `getDirectivos`
@@ -1019,7 +1019,7 @@ export async function createRecurso(payload) {
 
 **Actas:**
 `getActas`, `createActa`, `updateActa`, `deleteActa`
-`getActaAlumno`, `createActaAlumno`, `updateActaAlumno`, `deleteActaAlumno`
+`getActaEstudiante`, `createActaEstudiante`, `updateActaEstudiante`, `deleteActaEstudiante`
 `getActaCurso`, `createActaCurso`, `deleteActaCurso`
 `getActaDocente`, `createActaDocente`, `updateActaDocente`, `deleteActaDocente`
 `getTiposActa`
@@ -1071,9 +1071,9 @@ export async function createRecurso(payload) {
 
 - **Un solo CSS global** (`index.css`). No hay CSS modules ni styled-components.
 - **Sin librerías UI:** Todo el diseño es manual con variables CSS.
-- **Naming de componentes:** PascalCase (`PanelDocente`, `AlumnoDashboard`).
+- **Naming de componentes:** PascalCase (`PanelDocente`, `EstudianteDashboard`).
 - **Naming de archivos:** camelCase para JSX (`panelDocente.jsx`), pero inconsistente (algunos en PascalCase).
-- **Sidebar menus:** Preferir `sidebarMenu.js` con array exportado (Docente, Preceptor, Admin). Alumno y Familia tienen menú inline.
+- **Sidebar menus:** Preferir `sidebarMenu.js` con array exportado (Docente, Preceptor, Admin). Estudiante y Familia tienen menú inline.
 - **DataContext:** Para datos globales que se usan en múltiples componentes.
 - **API calls:** Solo en `api.js`. Nunca hacer fetch directo en componentes.
 - **Formateo:** `utils/dni.js` para DNI, `utils/orientacion.js` para orientación de cursos.
@@ -1108,17 +1108,17 @@ export async function createRecurso(payload) {
 ### 13.3 Calificaciones
 
 **Backend:** `CalificacionViewSet` → `GET/POST/PATCH /api/calificaciones/`
-**Frontend:** `Profesores/PanelAlumnos.jsx` (Docente), `Preceptores/notas.jsx` (Preceptor), `Alumno/AlumnoDashboard.jsx` (Alumno - solo lectura), `Familia/Calificaciones.jsx` (Familia - solo lectura)
+**Frontend:** `Profesores/PanelEstudiantes.jsx` (Docente), `Preceptores/notas.jsx` (Preceptor), `Alumno/EstudianteDashboard.jsx` (Estudiante - solo lectura), `Familia/Calificaciones.jsx` (Familia - solo lectura)
 **Tablas:** `calificaciones`, `alumnos`, `curso_materia`, `docentes`, `periodos_evaluacion`
-**Propósito:** Registro de notas numéricas y cualitativas por alumno, materia y período.
-**Particularidad:** Cada alumno tiene dos períodos de evaluación. Cada período tiene pre-nota (cualitativa: "Logrado"/"En proceso"/"No logrado") y nota numérica.
+**Propósito:** Registro de notas numéricas y cualitativas por estudiante, materia y período.
+**Particularidad:** Cada estudiante tiene dos períodos de evaluación. Cada período tiene pre-nota (cualitativa: "Logrado"/"En proceso"/"No logrado") y nota numérica.
 
 ### 13.4 Asistencias
 
 **Backend:** `AsistenciaViewSet` → `GET/POST/PATCH /api/asistencias/`
-**Frontend:** `Profesores/PanelAsistencia.jsx` (Docente), `Preceptores/asistencias.jsx` (Preceptor), `Alumno/AlumnoDashboard.jsx` (Alumno - solo lectura), `Familia/Asistencias.jsx` (Familia - solo lectura), `Administracion/asistencias.jsx` (Admin)
+**Frontend:** `Profesores/PanelAsistencia.jsx` (Docente), `Preceptores/asistencias.jsx` (Preceptor), `Alumno/EstudianteDashboard.jsx` (Estudiante - solo lectura), `Familia/Asistencias.jsx` (Familia - solo lectura), `Administracion/asistencias.jsx` (Admin)
 **Tablas:** `asistencias`, `alumnos`, `curso_materia`, `usuarios`, `estados_asistencia`
-**Propósito:** Registro diario de asistencia (Presente/Ausente/Tarde) por alumno.
+**Propósito:** Registro diario de asistencia (Presente/Ausente/Tarde) por estudiante.
 
 ### 13.5 Horarios
 
@@ -1139,7 +1139,7 @@ export async function createRecurso(payload) {
 **Backend:** `ActaViewSet`, `ActaAlumnoViewSet`, `ActaCursoViewSet`, `ActaDocenteViewSet`
 **Frontend:** `Preceptores/actas.jsx`, `Familia/Actas.jsx`
 **Tablas:** `actas`, `acta_alumno`, `acta_curso`, `acta_docente`, `tipos_acta`
-**Propósito:** Gestión de actas (exámenes, reuniones) vinculadas a alumnos, cursos y/o docentes. Soporta archivo adjunto.
+**Propósito:** Gestión de actas (exámenes, reuniones) vinculadas a estudiantes, cursos y/o docentes. Soporta archivo adjunto.
 
 ### 13.8 Diagnóstico grupal
 
@@ -1151,9 +1151,9 @@ export async function createRecurso(payload) {
 ### 13.9 Actividades docentes
 
 **Backend:** `ActividadDocenteViewSet` → `GET/POST/PATCH/DELETE /api/actividades-docente/`
-**Frontend:** `Profesores/PanelActividades.jsx` (Docente), `Shared/ActividadesView.jsx` (Alumno/Familia)
+**Frontend:** `Profesores/PanelActividades.jsx` (Docente), `Shared/ActividadesView.jsx` (Estudiante/Familia)
 **Tablas:** `actividades_docentes`, `actividad_docente_archivos`, `curso_materia`
-**Propósito:** Actividades/ejercicios creados por docentes con múltiples archivos adjuntos. Los alumnos pueden verlos.
+**Propósito:** Actividades/ejercicios creados por docentes con múltiples archivos adjuntos. Los estudiantes pueden verlos.
 
 ### 13.10 DDJJ (Declaración Jurada)
 
@@ -1177,7 +1177,7 @@ Implementado para todos los roles. Cada perfil usa el mismo patrón visual (grid
 |-----|-----------|----------------|-----------------|
 | Docente | `PanelDocente.jsx` | `useData().docentes` | Materias y Cursos Asignados |
 | Preceptor | `PanelPreceptor.jsx` | `useData().preceptores` | Cursos Asignados |
-| Alumno | `PanelAlumno.jsx` | `useData().alumnos` | Cursando |
+| Estudiante | `PanelEstudiante.jsx` | `useData().alumnos` | Cursando |
 | Familia | `PanelFamilia.jsx` | `useData().padresTutores` | Hijos Vinculados |
 | Admin | `PanelAdmin.jsx` | `getDirectivos()` | — (sin tabla extra) |
 
@@ -1318,7 +1318,7 @@ Los modales presentan varios problemas para este tipo de sistema escolar:
 ### 14.6 PDFs generados desde Django, no desde React
 
 **Contexto:**
-El sistema requiere generar documentos PDF: proyectos pedagógicos, boletines de calificaciones. La generación de PDFs desde el frontend (React) es posible usando librerías como jsPDF, html2pdf, o `window.print()`, pero presentan limitaciones significativas.
+El sistema requiere generar documentos PDF: proyectos pedagógicos, RITE de calificaciones. La generación de PDFs desde el frontend (React) es posible usando librerías como jsPDF, html2pdf, o `window.print()`, pero presentan limitaciones significativas.
 
 **Motivo:**
 - **ReportLab** (la librería de PDF de Django) produce PDFs profesionales con tipografía, márgenes, encabezados, pies de página y formato consistente. Desde React, el resultado depende del navegador, la impresora configurada, y los estilos CSS.
@@ -1344,7 +1344,7 @@ El sistema requiere generar documentos PDF: proyectos pedagógicos, boletines de
 ### 14.7 Todo el proyecto utiliza español
 
 **Contexto:**
-El sistema es utilizado por una escuela secundaria argentina. Todos los usuarios (administrativos, docentes, preceptores, alumnos, familias) hablan español. La base de datos preexistente ya tenía nombres de tablas y columnas en español.
+El sistema es utilizado por una escuela secundaria argentina. Todos los usuarios (administrativos, docentes, preceptores, estudiantes, familias) hablan español. La base de datos preexistente ya tenía nombres de tablas y columnas en español.
 
 **Motivo:**
 Mezclar inglés y español en un proyecto crea confusión innecesaria. Si los nombres de las tablas están en español (`alumnos`, `materias`, `curso_materia`), los modelos Django deberían reflejar esos mismos nombres. Si los usuarios ven la interfaz en español, los componentes, variables y funciones deberían estar en el mismo idioma para mantener coherencia.
@@ -1366,7 +1366,7 @@ Mezclar inglés y español en un proyecto crea confusión innecesaria. Si los no
 ### 14.8 Todos los módulos comparten el mismo diseño visual
 
 **Contexto:**
-El sistema tiene 5 roles (Admin, Preceptor, Docente, Alumno, Familia), cada uno con su propio dashboard y conjunto de vistas. Inicialmente, cada rol tenía ligeras variaciones de diseño que hacían que el sistema se sintiera como 5 aplicaciones diferentes en lugar de una sola.
+El sistema tiene 5 roles (Admin, Preceptor, Docente, Estudiante, Familia), cada uno con su propio dashboard y conjunto de vistas. Inicialmente, cada rol tenía ligeras variaciones de diseño que hacían que el sistema se sintiera como 5 aplicaciones diferentes en lugar de una sola.
 
 **Motivo:**
 La consistencia visual es fundamental para la experiencia de usuario en un sistema escolar donde:
@@ -1391,10 +1391,10 @@ La consistencia visual es fundamental para la experiencia de usuario en un siste
 ### 14.9 Reutilización de componentes antes de crear nuevos
 
 **Contexto:**
-En las primeras etapas del proyecto, cada desarrollador creaba componentes desde cero para cada nueva funcionalidad, incluso cuando existían componentes similares en otros módulos. Esto resultó en múltiples implementaciones del mismo patrón (tablas de alumnos, tarjetas de perfil, formularios de búsqueda) con ligeras variaciones, lo que duplicaba el código y el esfuerzo de mantenimiento.
+En las primeras etapas del proyecto, cada desarrollador creaba componentes desde cero para cada nueva funcionalidad, incluso cuando existían componentes similares en otros módulos. Esto resultó en múltiples implementaciones del mismo patrón (tablas de estudiantes, tarjetas de perfil, formularios de búsqueda) con ligeras variaciones, lo que duplicaba el código y el esfuerzo de mantenimiento.
 
 **Motivo:**
-La reutilización es un principio fundamental de React. Cuando el mismo patrón aparece en múltiples módulos (ej: vista de comunicados en Admin, Docente, Alumno y Familia), debe existir un solo componente compartido en `Shared/` que todos los módulos importen. Esto reduce el código duplicado, centraliza las correcciones de bugs, y garantiza consistencia visual.
+La reutilización es un principio fundamental de React. Cuando el mismo patrón aparece en múltiples módulos (ej: vista de comunicados en Admin, Docente, Estudiante y Familia), debe existir un solo componente compartido en `Shared/` que todos los módulos importen. Esto reduce el código duplicado, centraliza las correcciones de bugs, y garantiza consistencia visual.
 
 **Beneficios:**
 - Menos código que mantener y testear.
@@ -1603,7 +1603,7 @@ Estilo: fondo `var(--sidebar-hover)` (azul oscuro), labels blancos, en grid de 2
 ### 15.5 Reglas de generación de PDF
 
 - **Los PDFs se generan desde el backend** usando ReportLab (Django). No desde React.
-- La única excepción es el boletín de calificaciones (`frontend/src/utils/boletin.js`) que usa `window.print()`.
+- La única excepción es el RITE de calificaciones (`frontend/src/utils/rite.js`) que usa `window.print()`.
 - Al actualizar un proyecto, **se elimina automáticamente el PDF anterior** del disco antes de regenerar.
 - **En la BD solo se guarda la ruta** (CharField), no el contenido del archivo.
 - **Nombres consistentes:** `Proyecto_{Materia}_{Curso}_{Año}.pdf` (sanitizado).
@@ -1741,7 +1741,7 @@ En **update**, además elimina el PDF anterior del disco antes de regenerar.
 
 ### 17.7 Campos que no existen en ciertos modelos
 
-**Problema:** Intentar mostrar `correo` en el perfil de un alumno o admin, cuando esos modelos no tienen ese campo.
+**Problema:** Intentar mostrar `correo` en el perfil de un estudiante o admin, cuando esos modelos no tienen ese campo.
 
 **Solución:** Recordar qué campos tiene cada modelo (ver sección 5). Mostrar condicionalmente con `{campo && <div>...</div>}`.
 
@@ -2028,16 +2028,16 @@ Cada `Panel{Rol}.jsx` tiene una sección de tarjetas de estadísticas debajo de 
 ### 21.1 Docente (`PanelDocente.jsx`)
 
 - **Fuente de datos:** `miDocente` (de `data.docentes.find` por `user.id`).
-- **Estadísticas:** materias asignadas, cursos a cargo, alumnos a cargo, proyectos creados, actas realizados, último ingreso (`—`), estado de cuenta.
+- **Estadísticas:** materias asignadas, cursos a cargo, estudiantes a cargo, proyectos creados, actas realizados, último ingreso (`—`), estado de cuenta.
 - **Cálculos:** `asignaciones` filtradas por `id_docente`, `planificaciones` filtradas por `id_docente`, `actasDocente` filtradas por `docenteId`.
 
 ### 21.2 Preceptor (`PanelPreceptor.jsx`)
 
 - **Fuente de datos:** `miPreceptor` (de `data.preceptores.find` por `user.id`).
-- **Estadísticas:** cursos asignados, alumnos bajo seguimiento, comunicados, diagnósticos grupales, estado de cuenta.
+- **Estadísticas:** cursos asignados, estudiantes bajo seguimiento, comunicados, diagnósticos grupales, estado de cuenta.
 - **Cálculos:** `cursosPreceptor` filtrados por `id_preceptor`; `alumnos`, `comunicados`, `diagnosticos` filtrados por `id_curso`.
 
-### 21.3 Alumno (`PanelAlumno.jsx`)
+### 21.3 Estudiante (`PanelEstudiante.jsx`)
 
 - **Fuente de datos:** `miAlumno` (de `data.alumnos.find` por `user.id`).
 - **Estadísticas:** curso actual, división, ciclo lectivo, materias, promedio general, inasistencias, estado académico.
@@ -2047,12 +2047,12 @@ Cada `Panel{Rol}.jsx` tiene una sección de tarjetas de estadísticas debajo de 
 ### 21.4 Familia (`PanelFamilia.jsx`)
 
 - **Fuente de datos:** `miFamilia` (de `data.padres_tutores.find` por `user.id`).
-- **Estadísticas:** hijos vinculados, lista de alumnos asociados con nombre y curso, estado de cuenta (hardcoded "Activo" — no hay campo `usuario_estado` en PadreTutor).
+- **Estadísticas:** hijos vinculados, lista de estudiantes asociados con nombre y curso, estado de cuenta (hardcoded "Activo" — no hay campo `usuario_estado` en PadreTutor).
 
 ### 21.5 Admin (`PanelAdmin.jsx`)
 
 - **Fuente de datos:** `miAdmin` (de `data.directivos.find` por `user.id`).
-- **Estadísticas:** 9 contadores del sistema (alumnos, docentes, preceptores, familias, cursos, materias, proyectos, comunicados, actas) + banner verde "Estado del sistema: todos los módulos funcionando con normalidad".
+- **Estadísticas:** 9 contadores del sistema (estudiantes, docentes, preceptores, familias, cursos, materias, proyectos, comunicados, actas) + banner verde "Estado del sistema: todos los módulos funcionando con normalidad".
 - **Cálculos:** Todos de las listas completas de DataContext (`.length`).
 
 ### 21.6 Reglas de implementación

@@ -96,7 +96,7 @@ export async function seleccionarRol(rol) {
   return data;
 }
 
-export async function getAlumnos(params) {
+export async function getEstudiantes(params) {
   const { data } = await api.get('/alumnos/', { params });
   return data;
 }
@@ -248,11 +248,11 @@ export async function getServerTime(cursoMateriaId) {
   return data;
 }
 
-export async function getAsistenciasAlumnoDetalle(cursoMateriaId, alumnoId) {
+export async function getAsistenciasEstudianteDetalle(cursoMateriaId, alumnoId) {
   const params = {};
   if (cursoMateriaId) params.curso_materia = cursoMateriaId;
   if (alumnoId) params.id_alumno = alumnoId;
-  const { data } = await api.get('/asistencias/alumno-detalle/', { params });
+  const { data } = await api.get('/asistencias/estudiante-detalle/', { params });
   return data;
 }
 
@@ -345,8 +345,8 @@ export async function createActa(payload) {
   return data;
 }
 
-export async function getActaAlumno(params) {
-  const { data } = await api.get('/acta-alumno/', { params });
+export async function getActaEstudiante(params) {
+  const { data } = await api.get('/acta-estudiante/', { params });
   return data;
 }
 
@@ -369,12 +369,12 @@ export async function deleteActa(id) {
   await api.delete(`/actas/${id}/`);
 }
 
-export async function deleteActaAlumno(id) {
-  await api.delete(`/acta-alumno/${id}/`);
+export async function deleteActaEstudiante(id) {
+  await api.delete(`/acta-estudiante/${id}/`);
 }
 
-export async function updateActaAlumno(id, payload) {
-  const { data } = await api.patch(`/acta-alumno/${id}/`, payload);
+export async function updateActaEstudiante(id, payload) {
+  const { data } = await api.patch(`/acta-estudiante/${id}/`, payload);
   return data;
 }
 
@@ -564,17 +564,17 @@ export async function getUsuariosSinRol(nombreRol) {
   return data;
 }
 
-export async function createAlumno(payload) {
+export async function createEstudiante(payload) {
   const { data } = await api.post('/alumnos/', payload);
   return data;
 }
 
-export async function updateAlumno(id, payload) {
+export async function updateEstudiante(id, payload) {
   const { data } = await api.patch(`/alumnos/${id}/`, payload);
   return data;
 }
 
-export async function deleteAlumno(id) {
+export async function deleteEstudiante(id) {
   await api.delete(`/alumnos/${id}/`);
 }
 
@@ -611,8 +611,8 @@ export async function createActaCurso(payload) {
   return data;
 }
 
-export async function createActaAlumno(payload) {
-  const { data } = await api.post('/acta-alumno/', payload);
+export async function createActaEstudiante(payload) {
+  const { data } = await api.post('/acta-estudiante/', payload);
   return data;
 }
 
@@ -826,7 +826,7 @@ export async function getRegistroRendicionesPrevias(params) {
   return data;
 }
 
-export async function getBoletinAcademico(alumnoId) {
+export async function getRiteAcademico(alumnoId) {
   const { data } = await api.get(`/boletin-academico/${alumnoId}/`);
   return data;
 }

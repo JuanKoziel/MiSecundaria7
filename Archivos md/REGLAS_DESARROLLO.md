@@ -91,8 +91,8 @@ rg -n "${TARGET_MODEL}" \
 rg -o "router\.register\([^)]*\)" backend/proyecto/escuela/urls.py
 
 # 3b. Verificar que cada función de api.js tiene su consumidor en componentes.
-# Para una función específica (ej: getAlumnos):
-rg -n "getAlumnos" frontend/src/ --include='*.jsx' --include='*.js'
+# Para una función específica (ej: getEstudiantes):
+rg -n "getEstudiantes" frontend/src/ --include='*.jsx' --include='*.js'
 
 # 3c. Verificar coherencia de nombres de campos entre serializer y frontend.
 # Si el serializer expone "nombre_completo", verificar que el frontend usa ese key.
@@ -169,7 +169,7 @@ Cada paso debe completarse antes de pasar al siguiente. No saltar pasos.
 
 **Paso 2 — Comprender la arquitectura existente**
 - Identificar qué capas participan: backend (modelo → serializer → view → url) y frontend (api.js → DataContext → componente).
-- Identificar el módulo afectado entre los 5 posibles: Administración, Preceptores, Profesores, Alumno, Familia.
+- Identificar el módulo afectado entre los 5 posibles: Administración, Preceptores, Profesores, Estudiante, Familia.
 - Determinar si el cambio afecta a un solo rol o a múltiples roles.
 
 **Paso 3 — Leer el archivo completo que se va a modificar**
@@ -222,7 +222,7 @@ Cada fila representa una categoría de símbolo con su ubicación de origen y to
 | Serializer (ej: `AlumnoListSerializer`) | `serializers.py` | `views.py` (`get_serializer_class`), `tests/` (factories) |
 | ViewSet (ej: `AlumnoViewSet`) | `views.py` | `urls.py` (router.register), `permissions.py`, `tests/` |
 | Ruta URL (ej: `alumnos`) | `urls.py` | `api.js` (funciones HTTP), `DataContext.jsx` (fetch), componentes JSX |
-| Función API frontend (ej: `getAlumnos`) | `api.js` | `DataContext.jsx`, componentes JSX directamente |
+| Función API frontend (ej: `getEstudiantes`) | `api.js` | `DataContext.jsx`, componentes JSX directamente |
 | Constante (ej: `ACCION_CREAR`) | `utils.py` | `views.py` (todas las llamadas a `registrar_historial`) |
 | Clase de permiso (ej: `PuedeVerHistorial`) | `permissions.py` | `views.py` (`permission_classes`) |
 | Variable CSS (ej: `--primary-color`) | `index.css` (`:root`) | `index.css` (referencias) |
@@ -453,7 +453,7 @@ Si durante una modificación se detecta que una palabra en inglés es **técnica
 
   5. **Componentes React:** Buscar con grep todos los componentes que referencian el campo. Actualizar cada uno.
 
-  6. **PDFs:** Si el campo se muestra en PDF (boletín, planificación), actualizar la generación.
+  6. **PDFs:** Si el campo se muestra en PDF (RITE, planificación), actualizar la generación.
 
   7. **Consultas ORM:** Buscar todas las referencias al campo en `views.py` y `utils.py`.
 
@@ -497,14 +497,14 @@ Si durante una modificación se detecta que una palabra en inglés es **técnica
   - **Admin/Director:** Ve todo (sin filtro adicional).
   - **Preceptor:** Filtra por cursos asignados (`id_preceptor` en el modelo Curso) o por ids específicos según el modelo.
   - **Docente:** Filtra por `id_docente` usando `CursoMateria` como puente.
-  - **Alumno:** Filtra por `id_alumno`.
-  - **Familia:** Filtra por alumnos asociados al tutor (vía el alumno).
+  - **Estudiante:** Filtra por `id_alumno`.
+  - **Familia:** Filtra por estudiantes asociados al tutor (vía el estudiante).
 
 10.4.8. Para obtener el usuario/rol actual se usa `request.user` y el helper `get_role_or_none(request)`.
 
 10.4.9. Roles: `admin` = 1, `director` = 1, `preceptor` = 2, `docente` = 3, `alumno` = 4, `familia` = 5.
 
-10.4.10. Los viewsets de administración suelen tener permisos `IsAdminOrDirector`. Los de preceptores `IsPreceptorOrAdmin`. Los de docentes `IsDocenteOrAdmin`. Los de alumnos/familia suelen tener permisos más restrictivos.
+10.4.10. Los viewsets de administración suelen tener permisos `IsAdminOrDirector`. Los de preceptores `IsPreceptorOrAdmin`. Los de docentes `IsDocenteOrAdmin`. Los de estudiantes/familia suelen tener permisos más restrictivos.
 
 10.4.11. **No cambiar la firma de endpoints existentes sin actualizar todos los llamados en el frontend.**
 
@@ -547,12 +547,12 @@ Si durante una modificación se detecta que una palabra en inglés es **técnica
   - `components/Administracion/` — Módulo de administración (~15 componentes)
   - `components/Preceptores/` — Módulo de preceptores (~8 componentes)
   - `components/Profesores/` — Módulo de docentes (~10 componentes)
-  - `components/Alumno/` — Módulo de alumnos (dashboard inline)
+  - `components/Estudiante/` — Módulo de estudiantes (dashboard inline)
   - `components/Familia/` — Módulo de familia/tutores (~6 componentes)
   - `components/Shared/` — Componentes reutilizables entre roles
   - `context/` — Contextos de React (AuthContext, DataContext)
   - `services/` — Servicios de API (api.js)
-  - `utils/` — Utilidades (dni.js, orientacion.js, boletin.js)
+  - `utils/` — Utilidades (dni.js, orientacion.js, rite.js)
 
 11.1.2. **No hay estilos por componente.** Todo el CSS está en `frontend/src/index.css`. No crear archivos `.css` adicionales. La única excepción es `login.css` (legacy).
 
@@ -584,7 +584,7 @@ Si durante una modificación se detecta que una palabra en inglés es **técnica
   - `comunicados`, `diagnosticos`, `planificaciones`
   - `calificacionesCompletas`, `padresTutores`
   - Helpers: `nombreCompleto(alumno)`, `nombreCorto(alumno)`
-  - Helpers de búsqueda: `getAlumnoById(id)`, `getHijoLabel(hijo)`, `getAlumnosByCurso(curso)`, `getMateriasByCurso(curso)`, `getHorarioClase(materia)`, `getActasByAlumnoId(alumnoId)`
+  - Helpers de búsqueda: `getEstudianteById(id)`, `getHijoLabel(hijo)`, `getEstudiantesByCurso(curso)`, `getMateriasByCurso(curso)`, `getHorarioClase(materia)`, `getActasByEstudianteId(alumnoId)`
   - `refreshData`, `loading`, `error`
 
 11.2.6. Admin adicional: `adminCursos`, `adminMaterias`, `adminCursoMateria` y sus respectivos `refreshAdminCursos`, `refreshAdminMaterias`, `refreshAdminCursoMateria`.
@@ -600,8 +600,8 @@ Si durante una modificación se detecta que una palabra en inglés es **técnica
 11.3.2. La instancia de axios se configura con `baseURL` desde variable de entorno y el token JWT se añade automáticamente desde `localStorage` via interceptor.
 
 11.3.3. Convención de nombres de funciones:
-  - Lectura: `get<Recurso>(params?)` — ej: `getCursos()`, `getAlumnos(params)`
-  - Creación: `create<Recurso>(payload)` — ej: `createAlumno(payload)`
+  - Lectura: `get<Recurso>(params?)` — ej: `getCursos()`, `getEstudiantes(params)`
+  - Creación: `create<Recurso>(payload)` — ej: `createEstudiante(payload)`
   - Actualización: `update<Recurso>(id, payload)` — ej: `updateActa(id, payload)`
   - Eliminación: `delete<Recurso>(id)` — ej: `deleteComunicado(id)`
   - Acción especial: nombre descriptivo, ej: `uploadFile(file, carpeta)`
@@ -611,7 +611,7 @@ Si durante una modificación se detecta que una palabra en inglés es **técnica
 11.3.5. **🔥 REGLA CRÍTICA — No duplicar funciones:** Buscar siempre en `api.js` si la función que necesitas ya existe, antes de crear una nueva. Hay 519 líneas con funciones para cada endpoint. Las funciones duplicadas causan confusión y bugs.
 
 11.3.6. Funciones que existen actualmente:
-  - CRUD completo para: Alumnos, Docentes, Preceptores, Cursos, Materias, CursoMateria, Calificaciones, Asistencias, Actas, ActaAlumno, ActaCurso, ActaDocente, Horarios, Notificaciones, Comunicados, Inscripciones, PadresTutores, DiagnósticosGrupales, Planificaciones, Usuarios
+  - CRUD completo para: Estudiantes, Docentes, Preceptores, Cursos, Materias, CursoMateria, Calificaciones, Asistencias, Actas, ActaAlumno, ActaCurso, ActaDocente, Horarios, Notificaciones, Comunicados, Inscripciones, PadresTutores, DiagnósticosGrupales, Planificaciones, Usuarios
   - Upload de archivos: `uploadFile(file, carpeta)`
   - Autenticación: `login`, `logout`, `getMe`
   - Otras: `getRoles`, `getServerTime`, `getMiDdjjDocente`, etc.
@@ -863,7 +863,7 @@ sidebarMenu.js:
 
 ### 17.1. Reglas absolutas
 
-17.1.1. **🔥 REGLA ABSOLUTA — Los PDFs SIEMPRE se generan desde el backend (Django + ReportLab).** Nunca generar PDFs desde React. La única excepción existente es el boletín de calificaciones (`frontend/src/utils/boletin.js`) que usa `window.print()` — no replicar este patrón.
+17.1.1. **🔥 REGLA ABSOLUTA — Los PDFs SIEMPRE se generan desde el backend (Django + ReportLab).** Nunca generar PDFs desde React. La única excepción existente es el RITE de calificaciones (`frontend/src/utils/rite.js`) que usa `window.print()` — no replicar este patrón.
 
 17.1.2. **Al generar un PDF, reemplazar automáticamente la versión anterior** (si existe). En update, eliminar el PDF anterior del disco antes de regenerar.
 
@@ -876,7 +876,7 @@ sidebarMenu.js:
 ### 17.2. Ubicación de la lógica
 
 - **Planificaciones:** `PlanificacionViewSet._generar_pdf()` en `views.py`
-- **Boletín (excepción):** `exportarBoletinPDF()` en `frontend/src/utils/boletin.js` (usa `window.print()`)
+- **RITE (excepción):** `exportarRitePDF()` en `frontend/src/utils/rite.js` (usa `window.print()`)
 
 ---
 
@@ -893,9 +893,9 @@ Esto incluye:
 | Componentes React | PascalCase en español | `NuevoAlumno`, `PanelDocente` | `NewStudent`, `TeacherPanel` |
 | Archivos JSX | PascalCase en español | `NuevoAlumno.jsx` | `NewStudent.jsx` |
 | Variables JS | camelCase en español | `alumnosData`, `esLoading` | `studentsData`, `isLoading` |
-| Funciones JS | camelCase en español | `getAlumnos`, `createCurso` | `getStudents`, `createCourse` |
+| Funciones JS | camelCase en español | `getEstudiantes`, `createCurso` | `getStudents`, `createCourse` |
 | Endpoints API | kebab-case plural en español | `/api/alumnos/`, `/api/curso-materia/` | `/api/students/`, `/api/course-subject/` |
-| Textos visibles | Español | "Guardar", "Eliminar", "Crear alumno" | "Save", "Delete", "Create student" |
+| Textos visibles | Español | "Guardar", "Eliminar", "Crear estudiante" | "Save", "Delete", "Create student" |
 | Nombres de tablas BD | snake_case plural en español | `alumnos`, `materias`, `curso_materia` | `students`, `subjects` |
 | Nombres de modelos | PascalCase singular en español | `Alumno`, `CursoMateria` | `Student`, `CourseSubject` |
 | Nombres de campos BD | snake_case en español | `nombre`, `apellido`, `fecha_nacimiento` | `name`, `last_name`, `birth_date` |
@@ -927,9 +927,9 @@ Esto incluye:
 | Rol | Sidebar items | Acciones de escritura |
 |-----|--------------|----------------------|
 | Admin/Director | Todos | CRUD completo en todo |
-| Preceptor | Perfil, Alumnos, Docentes, Horarios, Asistencias, Notas, Actas, Comunicados | Gestión de cursos asignados |
-| Docente | Perfil, Alumnos, Info, Proyectos, Actividades, Asistencia, Comunicados | Solo de sus materias |
-| Alumno | Perfil, Calificaciones, Asistencias, Actividades, Horarios, Comunicados | Solo lectura |
+| Preceptor | Perfil, Estudiantes, Docentes, Horarios, Asistencias, Notas, Actas, Comunicados | Gestión de cursos asignados |
+| Docente | Perfil, Estudiantes, Info, Proyectos, Actividades, Asistencia, Comunicados | Solo de sus materias |
+| Estudiante | Perfil, Calificaciones, Asistencias, Actividades, Horarios, Comunicados | Solo lectura |
 | Familia | Perfil, Resumen, Calificaciones, Asistencias, Actas, Horarios, Actividades, Comunicados | Solo lectura de datos de sus hijos |
 
 ---
@@ -1069,7 +1069,7 @@ fix(login): corregir mensaje de error cuando usuario está inhabilitado
 | 12 | Hacer fetch en un componente en lugar de DataContext | Desconocimiento | DataContext carga todo al inicio |
 | 13 | **Duplicar funciones en api.js** | No buscar antes de crear | Buscar función existente antes de agregar |
 | 14 | **Modificar modelos sin verificar MySQL** | Confiar en SQL de referencia | Verificar estructura real con `DESCRIBE tabla;` |
-| 15 | **Asumir columnas que no existen en ciertos modelos** | Confundir campos entre modelos | Verificar el modelo exacto (`correo` no existe en Alumno) |
+| 15 | **Asumir columnas que no existen en ciertos modelos** | Confundir campos entre modelos | Verificar el modelo exacto (`correo` no existe en Estudiante) |
 | 16 | **Romper DataContext al cambiar estructura de respuesta** | No actualizar la transformación | Si cambia el backend, actualizar `fetchData()` |
 | 17 | **Cambiar endpoints innecesariamente** | "Mejorar" sin razón | No cambiar lo que funciona |
 | 18 | **Crear componentes que ya existen** | No buscar en Shared/ | Siempre buscar antes de crear |
@@ -1097,7 +1097,7 @@ fix(login): corregir mensaje de error cuando usuario está inhabilitado
 - [ ] **No estoy creando** un nuevo archivo Python donde no debe ir.
 - [ ] **No estoy agregando** un nuevo modelo sin `managed=False`.
 - [ ] **Verifiqué la estructura real de MySQL** antes de modificar un modelo (no confiar en SQL de referencia).
-- [ ] **Verifiqué campos de cada modelo** (`correo` no existe en Alumno, `fecha_nacimiento` solo en Alumno, etc.).
+- [ ] **Verifiqué campos de cada modelo** (`correo` no existe en Estudiante, `fecha_nacimiento` solo en Estudiante, etc.).
 - [ ] **Actualicé serializer, viewset, y urls** si modifiqué el modelo.
 
 ### Frontend
@@ -1175,8 +1175,8 @@ fix(login): corregir mensaje de error cuando usuario está inhabilitado
 | Admin / Director | 1 | Total | Acceso total a todo. CRUD completo en todas las entidades. |
 | Preceptor | 2 | Medio-Alto | Gestión de cursos asignados, asistencias, actas, comunicados, calificaciones. |
 | Docente | 3 | Medio | Gestión de calificaciones, asistencias, planificaciones, diagnósticos — solo de sus materias asignadas. |
-| Alumno | 4 | Bajo (solo lectura) | Vista de sus propias calificaciones, asistencias, horarios, comunicados, actividades. |
-| Familia | 5 | Bajo (solo lectura) | Vista de datos de sus hijos (alumnos asociados al tutor). Misma información que Alumno pero agrupada por hijo. |
+| Estudiante | 4 | Bajo (solo lectura) | Vista de sus propias calificaciones, asistencias, horarios, comunicados, actividades. |
+| Familia | 5 | Bajo (solo lectura) | Vista de datos de sus hijos (estudiantes asociados al tutor). Misma información que Estudiante pero agrupada por hijo. |
 
 ---
 

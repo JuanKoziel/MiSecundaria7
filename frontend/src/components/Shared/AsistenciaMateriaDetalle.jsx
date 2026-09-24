@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { getAsistenciasAlumnoDetalle } from '../../services/api';
+import { getAsistenciasEstudianteDetalle } from '../../services/api';
 import LoadingSpinner from './LoadingSpinner';
 
 export default function AsistenciaMateriaDetalle({ alumnoId, cursoMateria, idCurso }) {
@@ -28,7 +28,7 @@ export default function AsistenciaMateriaDetalle({ alumnoId, cursoMateria, idCur
     if (!cmId) { setAsistencias([]); return; }
     setCargando(true);
     try {
-      const data = await getAsistenciasAlumnoDetalle(cmId, alumnoId);
+      const data = await getAsistenciasEstudianteDetalle(cmId, alumnoId);
       setAsistencias(data);
     } catch {
       setAsistencias([]);

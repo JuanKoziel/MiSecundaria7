@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import PanelDocente from './PanelDocente';
 import TopHeader from './TopHeader';
-import PanelAlumnos from './PanelAlumnos';
+import PanelEstudiantes from './PanelEstudiantes';
 import PanelInfo from './PanelInfo';
 import PanelPlanif from './PanelPlanif';
 import PanelLibroTemas from './PanelLibroTemas';
@@ -217,7 +217,7 @@ function PanelProfesores({ user, onLogout }) {
           <div>
             <div className={`view-section ${seccionActiva === 'alumnos' ? 'active' : ''}`}>
               {seccionActiva === 'alumnos' && (
-                <PanelAlumnos
+                <PanelEstudiantes
                   cursoMateriaId={cursoMateriaActivo.id}
                   cursoId={Number(cursoId)}
                   cursoNombre={cursoNombre}

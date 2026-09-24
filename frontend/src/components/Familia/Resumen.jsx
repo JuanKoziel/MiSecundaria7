@@ -27,9 +27,9 @@ function EstadoTile({ label, estado, color }) {
 }
 
 function Resumen({ hijo }) {
-  const { asistenciasFamilia, calificacionesFamilia, cursosObj, getAlumnoById, materiasPorCurso } = useData();
-  const alumno = getAlumnoById(hijo.alumnoId);
-  const cursoObj = cursosObj.find((c) => c.id_curso === alumno?.id_curso);
+  const { asistenciasFamilia, calificacionesFamilia, cursosObj, getEstudianteById, materiasPorCurso } = useData();
+  const estudiante = getEstudianteById(hijo.alumnoId);
+  const cursoObj = cursosObj.find((c) => c.id_curso === estudiante?.id_curso);
   const turno = cursoObj?.turno_calculado || '—';
   const preceptor = cursoObj?.preceptor_nombre_completo || '—';
   const asistencias = asistenciasFamilia.filter((a) => a.hijoId === hijo.id);
@@ -126,7 +126,7 @@ function Resumen({ hijo }) {
           </div>
           <div className="familia-chip">
             <span className="familia-chip-label">Fecha de nacimiento</span>
-            <span className="familia-chip-value">{alumno?.fecha_nacimiento || '—'}</span>
+            <span className="familia-chip-value">{estudiante?.fecha_nacimiento || '—'}</span>
           </div>
           <div className="familia-chip">
             <span className="familia-chip-label">Curso</span>

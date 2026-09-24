@@ -4,13 +4,13 @@ import { useAuth } from '../../context/AuthContext';
 import {
   createActa,
   createActaCurso,
-  createActaAlumno,
+  createActaEstudiante,
   createActaDocente,
   updateActa,
-  updateActaAlumno,
+  updateActaEstudiante,
   updateActaDocente,
   deleteActa,
-  deleteActaAlumno,
+  deleteActaEstudiante,
   deleteActaCurso,
   deleteActaDocente,
   uploadFile,
@@ -20,7 +20,7 @@ import {
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
 import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
-import { alumnosPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
+import { estudiantesPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import FormModal from '../../components/Shared/FormModal';
 import FilePicker from '../../components/Shared/FilePicker';
 import { useToast } from '../../context/ToastContext';
@@ -44,7 +44,7 @@ async function resolverTipoActa() {
 
 const formVacio = { tipo: '', titulo: '', fecha: '', descripcion: '', alumnoId: '', docenteId: '' };
 
-function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCancel, listaAlumnos, docentesDelCurso, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje, onlyCursos = false }) {
+function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCancel, listaEstudiantes, docentesDelCurso, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje, onlyCursos = false }) {
   return (
     <FormModal title={editing ? 'Editar acta' : 'Nueva acta'} onClose={onCancel} error={mensaje && mensaje.startsWith('Error') ? mensaje : null} onClearError={() => setMensaje('')}>
       <form onSubmit={onSubmit}>
@@ -94,7 +94,7 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
                   <label>Estudiante</label>
                   <select value={formData.alumnoId} onChange={(e) => setFormData((p) => ({ ...p, alumnoId: e.target.value }))}>
                     <option value="">Seleccionar estudiante</option>
-                    {listaAlumnos.map((a) => (
+                    {listaEstudiantes.map((a) => (
                       <option key={a.id} value={a.id}>{nombreCorto(a)}</option>
                     ))}
                   </select>
@@ -164,12 +164,12 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
 function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = false, onlyCursos = false }) {
   const {
     actas: actasCurso,
-    actasAlumno,
+    actasEstudiante,
     actasDocente,
     docentes,
     nombreCorto,
     inscripciones,
-    alumnos,
+    estudiantes,
     cursosObj,
     refreshData,
   } = useData();
@@ -205,23 +205,23 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
   const [removeArchivo, setRemoveArchivo] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
-  const [showAlumnos, setShowAlumnos] = useState(true);
+  const [showEstudiantes, setShowEstudiantes] = useState(true);
   const [showDocentes, setShowDocentes] = useState(true);
   const [showCurso, setShowCurso] = useState(true);
 
-  const listaAlumnos = alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos);
+  const listaEstudiantes = estudiantesPorAnioYCurso(anioLectivo, curso, inscripciones, estudiantes);
   const cursoObj = cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === Number(anioLectivo));
 
   const docentesDelCurso = docentes.filter((d) =>
     d.asignaciones?.some((a) => a.curso === curso),
   );
 
-  const alumnoActas = {};
-  actasAlumno.forEach((a) => {
-    const alumno = listaAlumnos.find((al) => al.id === a.alumnoId);
-    if (alumno) {
-      if (!alumnoActas[a.alumnoId]) alumnoActas[a.alumnoId] = [];
-      alumnoActas[a.alumnoId].push(a);
+  const estudianteActas = {};
+  actasEstudiante.forEach((a) => {
+    const estudiante = listaEstudiantes.find((al) => al.id === a.alumnoId);
+    if (estudiante) {
+      if (!estudianteActas[a.alumnoId]) estudianteActas[a.alumnoId] = [];
+      estudianteActas[a.alumnoId].push(a);
     }
   });
 
@@ -235,7 +235,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
   });
 
   const actasDelCurso = actasCurso.filter(
-    (a) => a.curso === curso && !actasAlumno.some((aa) => aa.actaId === a.actaId),
+    (a) => a.curso === curso && !actasEstudiante.some((aa) => aa.actaId === a.actaId),
   );
 
   const limpiar = () => {
@@ -280,7 +280,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
     const acta = await createActa(actaPayload);
     if (acta?.id_acta && cObj) {
       if (payload.tipo === 'alumno') {
-        await createActaAlumno({ id_acta: acta.id_acta, id_alumno: Number(payload.alumnoId) });
+        await createActaEstudiante({ id_acta: acta.id_acta, id_alumno: Number(payload.alumnoId) });
         await createActaCurso({ id_acta: acta.id_acta, id_curso: cObj.id_curso });
       } else if (payload.tipo === 'docente') {
         await createActaDocente({ id_acta: acta.id_acta, id_docente: Number(payload.docenteId) });
@@ -358,7 +358,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
       };
       await updateActa(editando.actaId, payload);
       if (editando.tipo === 'alumno' && formData.alumnoId && String(formData.alumnoId) !== String(editando.alumnoId)) {
-        await updateActaAlumno(editando.id, { id_alumno: Number(formData.alumnoId) });
+        await updateActaEstudiante(editando.id, { id_alumno: Number(formData.alumnoId) });
       }
       if (editando.tipo === 'docente' && formData.docenteId && String(formData.docenteId) !== String(editando.docenteId)) {
         await updateActaDocente(editando.id, { id_docente: Number(formData.docenteId) });
@@ -378,7 +378,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
       onConfirm: async () => {
         setMensaje('');
         try {
-          if (tipo === 'alumno') await deleteActaAlumno(item.id);
+          if (tipo === 'alumno') await deleteActaEstudiante(item.id);
           else if (tipo === 'docente') await deleteActaDocente(item.id);
           else if (tipo === 'curso') await deleteActaCurso(item.id);
           if (item.actaId) await deleteActa(item.actaId);
@@ -448,7 +448,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
           guardando={guardando}
           onSubmit={handleCreate}
           onCancel={limpiar}
-          listaAlumnos={listaAlumnos}
+          listaEstudiantes={listaEstudiantes}
           docentesDelCurso={docentesDelCurso}
           curso={curso}
           nombreCorto={nombreCorto}
@@ -467,11 +467,11 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
       {/* Actas de Estudiantes */}
       <div className="card-header-flex mt-20">
         <h4 className="preceptor-section-title">Actas de Estudiantes</h4>
-        <button type="button" className="btn btn-secondary" onClick={() => setShowAlumnos((v) => !v)}>
-          <i className={`fas fa-eye${showAlumnos ? '-slash' : ''}`} aria-hidden="true" /> {showAlumnos ? 'Ocultar' : 'Mostrar'}
+        <button type="button" className="btn btn-secondary" onClick={() => setShowEstudiantes((v) => !v)}>
+          <i className={`fas fa-eye${showEstudiantes ? '-slash' : ''}`} aria-hidden="true" /> {showEstudiantes ? 'Ocultar' : 'Mostrar'}
         </button>
       </div>
-      {showAlumnos && (
+      {showEstudiantes && (
         <div className="table-responsive">
           <table>
             <thead>
@@ -485,17 +485,17 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
               </tr>
             </thead>
             <tbody>
-              {Object.keys(alumnoActas).length === 0 ? (
-                <tr><td colSpan={6} className="empty-state-message">No hay actas de alumnos para este curso.</td></tr>
+              {Object.keys(estudianteActas).length === 0 ? (
+                <tr><td colSpan={6} className="empty-state-message">No hay actas de estudiantes para este curso.</td></tr>
               ) : (
-                Object.entries(alumnoActas).map(([alumnoId, actas]) => {
-                  const alumno = listaAlumnos.find((a) => String(a.id) === alumnoId);
+                Object.entries(estudianteActas).map(([alumnoId, actas]) => {
+                  const estudiante = listaEstudiantes.find((a) => String(a.id) === alumnoId);
                   return actas.map((acta, idx) => {
                     const esEditando = editando && editando.id === acta.id && editando.tipo === 'alumno';
                     return (
                       <Fragment key={acta.id}>
                         <tr>
-                          <td className="table-cell-strong">{idx === 0 && alumno ? nombreCorto(alumno) : ''}</td>
+                          <td className="table-cell-strong">{idx === 0 && estudiante ? nombreCorto(estudiante) : ''}</td>
                           <td>{acta.titulo}</td>
                           <td>{(acta.fecha || '').slice(0, 10)}</td>
                           <td>{acta.descripcion}</td>
@@ -667,7 +667,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
           guardando={guardando}
           onSubmit={handleUpdate}
           onCancel={cancelEdit}
-          listaAlumnos={listaAlumnos}
+          listaEstudiantes={listaEstudiantes}
           docentesDelCurso={docentesDelCurso}
           curso={curso}
           nombreCorto={nombreCorto}

@@ -1457,7 +1457,7 @@ class AlumnoSerializer(serializers.ModelSerializer):
         if getattr(self.instance, 'id_alumno', None) is not None:
             qs = qs.exclude(id_alumno=self.instance.id_alumno)
         if qs.exists():
-            raise serializers.ValidationError('Ya existe un alumno con ese DNI.')
+            raise serializers.ValidationError('Ya existe un estudiante con ese DNI.')
         return value
 
     def get_tutor_nombre(self, obj):
@@ -2294,8 +2294,8 @@ class NotificacionSerializer(serializers.ModelSerializer):
 # ---------- Historial ----------
 
 TABLAS_MODIFICADAS_LABEL = {
-    'alumnos': 'Alumnos',
-    'tutores': 'Tutores',
+    'alumnos': 'Estudiantes',
+    'tutores': 'Tutores/familias',
     'docentes': 'Docentes',
     'preceptores': 'Preceptores',
     'jefes_preceptores': 'Jefes de Preceptores',

@@ -1280,13 +1280,13 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 .asist-info-banner { background: #eff6ff; color: #1e40af; padding: 8px 12px; border-radius: 8px; margin: 8px 0; font-size: 0.9rem; }
 .asist-bloqueado { background: #fef2f2; color: #b91c1c; }
 
-/* Boletín académico: materia bloqueada por superposición horaria */
-.boletin-fila-bloqueada { background-color: #fde2e2; }
-.boletin-fila-bloqueada td { color: #991b1b; }
-.boletin-badge-bloqueo { margin-left: 8px; }
+/* RITE académico: materia bloqueada por superposición horaria */
+.rite-fila-bloqueada { background-color: #fde2e2; }
+.rite-fila-bloqueada td { color: #991b1b; }
+.rite-badge-bloqueo { margin-left: 8px; }
 
-/* Boletín académico: título integrado a la tabla (estilo institucional) */
-.boletin-seccion-titulo {
+/* RITE académico: título integrado a la tabla (estilo institucional) */
+.rite-seccion-titulo {
   background-color: var(--table-header-bg, #17324d);
   color: var(--table-header-text, #ffffff);
   font-weight: 700;
@@ -1298,18 +1298,18 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
   border-bottom: none;
 }
 
-/* Boletín académico: tabla principal y tablas extra (estilo oficial, idéntico al PDF) */
-.boletin-table,
-.boletin-tabla-extra {
+/* RITE académico: tabla principal y tablas extra (estilo oficial, idéntico al PDF) */
+.rite-table,
+.rite-tabla-extra {
   width: 100%;
   max-width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
 }
-.boletin-table th,
-.boletin-table td,
-.boletin-tabla-extra th,
-.boletin-tabla-extra td {
+.rite-table th,
+.rite-table td,
+.rite-tabla-extra th,
+.rite-tabla-extra td {
   border: 1px solid #cbd5e1;
   padding: 5px 6px;
   font-size: 0.8rem;
@@ -1319,8 +1319,8 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
   white-space: normal;
   vertical-align: top;
 }
-.boletin-table thead th,
-.boletin-tabla-extra thead th {
+.rite-table thead th,
+.rite-tabla-extra thead th {
   background-color: var(--table-header-bg, #17324d);
   color: #fff;
   font-size: 0.7rem;
@@ -1329,50 +1329,50 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
   letter-spacing: 0.05em;
   padding: 8px 6px;
 }
-.boletin-table td.table-cell-strong,
-.boletin-tabla-extra td.table-cell-strong,
-.boletin-table tbody td:first-child,
-.boletin-tabla-extra tbody td:first-child {
+.rite-table td.table-cell-strong,
+.rite-tabla-extra td.table-cell-strong,
+.rite-table tbody td:first-child,
+.rite-tabla-extra tbody td:first-child {
   text-align: left;
 }
-.boletin-table td.cell-obs,
-.boletin-tabla-extra td.cell-obs {
+.rite-table td.cell-obs,
+.rite-tabla-extra td.cell-obs {
   text-align: left;
 }
 
-/* Boletín académico: nota aclaratoria de las prenotas */
-.boletin-nota {
+/* RITE académico: nota aclaratoria de las prenotas */
+.rite-nota {
   font-size: 0.78rem;
   font-style: italic;
   color: #6b7280;
   margin: 8px 2px 0;
 }
 
-/* Boletín académico: separación entre secciones extra */
-.boletin-seccion-extra {
+/* RITE académico: separación entre secciones extra */
+.rite-seccion-extra {
   margin-top: 26px;
 }
 
-/* Boletín académico: espacio para firma y sello (centrado en la hoja) */
-.boletin-firma-sello {
+/* RITE académico: espacio para firma y sello (centrado en la hoja) */
+.rite-firma-sello {
   margin: 52px auto 0;
   text-align: center;
 }
-.boletin-firma-sello::before {
+.rite-firma-sello::before {
   content: "";
   display: block;
   width: 280px;
   margin: 0 auto 10px;
   border-top: 1.5px solid #1f2937;
 }
-.boletin-firma-sello span {
+.rite-firma-sello span {
   display: inline-block;
   color: var(--text-light);
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.preceptor-boletin-actions { display: flex; align-items: center; gap: 12px; }
+.preceptor-rite-actions { display: flex; align-items: center; gap: 12px; }
 .filtro-orientacion { justify-content: flex-end; }
 .filtro-orientacion .orientacion-badge { display: inline-block; width: fit-content; }
 .badge-success,
@@ -1419,8 +1419,8 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 .previa-input-group .previa-anio { width: 84px; }
 .previa-bloqueado { display: inline-block; font-size: 0.78rem; color: #6b7280; white-space: nowrap; }
 
-/* Boletín académico: celda de nota aprobatoria en MATERIAS PREVIAS / ADEUDADAS */
-.boletin-celda-aprobada {
+/* RITE académico: celda de nota aprobatoria en MATERIAS PREVIAS / ADEUDADAS */
+.rite-celda-aprobada {
   background-color: #dff6e6;
   color: #166534;
   font-weight: 700;
@@ -2957,14 +2957,14 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     font-size: 0.85rem;
 }
 
-.preceptor-boletin-card {
+.preceptor-rite-card {
     border: 1px solid #eee;
     border-radius: 8px;
     margin-bottom: 16px;
     overflow: hidden;
 }
 
-.preceptor-boletin-header {
+.preceptor-rite-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -2978,15 +2978,15 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     font-weight: 600;
 }
 
-.preceptor-boletin-header:hover {
+.preceptor-rite-header:hover {
     background: #f0f1f2;
 }
 
-.preceptor-boletin-body {
+.preceptor-rite-body {
     padding: 0 18px 18px;
 }
 
-.preceptor-boletin-meta {
+.preceptor-rite-meta {
     font-size: 0.85rem;
     color: var(--text-light);
     font-weight: normal;
@@ -3695,14 +3695,14 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     border-bottom-right-radius: 9px;
 }
 
-/* Calificaciones (boletín): tabla completamente sin redondeos, ni en el
+/* Calificaciones (RITE): tabla completamente sin redondeos, ni en el
    contenedor ni en las celdas. */
-.boletin-table-responsive {
+.rite-table-responsive {
     border-radius: 0 !important;
 }
 
-.boletin-table-responsive th,
-.boletin-table-responsive td {
+.rite-table-responsive th,
+.rite-table-responsive td {
     border-radius: 0 !important;
 }
 

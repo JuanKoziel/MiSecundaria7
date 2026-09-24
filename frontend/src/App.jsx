@@ -4,7 +4,7 @@ import PreceptorDashboard from './components/Preceptores/PreceptorDashboard';
 import JefePreceptorDashboard from './components/JefePreceptores/JefePreceptorDashboard';
 import FamiliaDashboard from './components/Familia/FamiliaDashboard';
 import AdminDashboard from './components/Administracion/AdminDashboard';
-import AlumnoDashboard from './components/Alumno/AlumnoDashboard';
+import EstudianteDashboard from './components/Estudiante/EstudianteDashboard';
 import LoadingScreen from './components/Shared/LoadingScreen';
 import SeleccionRol from './components/Shared/SeleccionRol';
 import { useAuth } from './context/AuthContext';
@@ -25,7 +25,7 @@ function Dashboard({ user, rolActivo, logout }) {
     case 'familia':
       return <FamiliaDashboard user={user} onLogout={logout} />;
     case 'alumno':
-      return <AlumnoDashboard user={user} onLogout={logout} />;
+      return <EstudianteDashboard user={user} onLogout={logout} />;
     default:
       return null;
   }

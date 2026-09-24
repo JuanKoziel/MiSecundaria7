@@ -1,15 +1,15 @@
 import { useData } from '../../context/DataContext';
-import { boletinHTML, exportarBoletinPDF } from '../../utils/boletin';
+import { riteHTML, exportarRitePDF } from '../../utils/rite';
 import { useMemo } from 'react';
-import { useBoletinAcademico } from '../../hooks/useBoletinAcademico';
-import BoletinExtras from '../BoletinExtras';
-import BoletinTablaPrincipal from '../BoletinTablaPrincipal';
+import { useRiteAcademico } from '../../hooks/useRiteAcademico';
+import RiteExtras from '../RiteExtras';
+import RiteTablaPrincipal from '../RiteTablaPrincipal';
 
 function Calificaciones({ hijo }) {
-  const { calificacionesFamilia, materiasPorCurso, cursoMateria, periodos, asistenciasAdmin, alumnos } = useData();
+  const { calificacionesFamilia, materiasPorCurso, cursoMateria, periodos, asistenciasAdmin, estudiantes } = useData();
 
-  // Obtener el objeto real del alumno
-  const alumno = alumnos.find((a) => a.id === hijo.alumnoId);
+  // Obtener el objeto real del estudiante
+  const estudiante = estudiantes.find((a) => a.id === hijo.alumnoId);
   const {
     intensificaciones_1c,
     bloqueos_por_materia,
@@ -17,7 +17,7 @@ function Calificaciones({ hijo }) {
     recursadas,
     previas,
     loading,
-  } = useBoletinAcademico(hijo.alumnoId);
+  } = useRiteAcademico(hijo.alumnoId);
 
   // Obtener todas las materias del curso del hijo
   const cursoNombre = hijo.curso;
@@ -71,8 +71,8 @@ function Calificaciones({ hijo }) {
 
   // Calcular inasistencias por materia para el hijo seleccionado
   const inasistenciasPorMateria = useMemo(() => {
-    if (!alumno) return {};
-    const misAsistencias = asistenciasAdmin.filter((a) => a.alumnoId === alumno.id);
+    if (!estudiante) return {};
+    const misAsistencias = asistenciasAdmin.filter((a) => a.alumnoId === estudiante.id);
     const porMateria = {};
     misAsistencias.forEach((a) => {
       const cm = cursoMateria.find((c) => c.id === a.id_curso_materia);
@@ -83,14 +83,14 @@ function Calificaciones({ hijo }) {
       else if (a.estado === 'Tarde') porMateria[mat].tardanzas += 1;
     });
     return porMateria;
-  }, [asistenciasAdmin, alumno, cursoMateria]);
+  }, [asistenciasAdmin, estudiante, cursoMateria]);
 
-  const handleDescargarBoletin = () => {
-    if (!alumno) return;
-    const html = boletinHTML({
-      alumnoNombre: `${alumno.apellido}, ${alumno.nombre}`,
-      dni: alumno.dni,
-      cursoNombre: alumno.curso_nombre_api || cursoNombre,
+  const handleDescargarRite = () => {
+    if (!estudiante) return;
+    const html = riteHTML({
+      estudianteNombre: `${estudiante.apellido}, ${estudiante.nombre}`,
+      dni: estudiante.dni,
+      cursoNombre: estudiante.curso_nombre_api || cursoNombre,
       anioLectivo: new Date().getFullYear(),
       materias: calificacionesDisplay,
       inasistenciasPorMateria,
@@ -100,7 +100,7 @@ function Calificaciones({ hijo }) {
       recursadas,
       previas,
     });
-    exportarBoletinPDF(html, `Boletín — ${alumno.apellido}, ${alumno.nombre}`);
+    exportarRitePDF(html, `RITE — ${estudiante.apellido}, ${estudiante.nombre}`);
   };
 
   return (
@@ -110,25 +110,25 @@ function Calificaciones({ hijo }) {
         <button
           type="button"
           className="btn btn-sm btn-secondary"
-          onClick={handleDescargarBoletin}
+          onClick={handleDescargarRite}
           disabled={calificacionesDisplay.length === 0}
         >
-          <i className="fas fa-file-pdf" aria-hidden="true" /> Descargar boletín PDF
+          <i className="fas fa-file-pdf" aria-hidden="true" /> Descargar RITE PDF
         </button>
       </div>
 
-      <BoletinTablaPrincipal
+      <RiteTablaPrincipal
         materias={calificacionesDisplay}
         intensificaciones_1c={intensificaciones_1c}
         bloqueos_por_materia={bloqueos_por_materia}
         intensificaciones_posteriores={intensificaciones_posteriores}
       />
 
-      <div className="boletin-firma-sello">
+      <div className="rite-firma-sello">
         <span>Firma y sello</span>
       </div>
 
-      <BoletinExtras
+      <RiteExtras
         recursadas={recursadas}
         previas={previas}
         intensificaciones_posteriores={intensificaciones_posteriores}

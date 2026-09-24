@@ -22,7 +22,7 @@ Al crear un usuario/perfil debe poder elegirse claramente:
 - Persona existente
 - Nueva persona
 
-Debe aplicarse a los perfiles correspondientes: Alumno, Docente, Preceptor, Tutor/Familia, Jefe de Preceptores, Director, Vicedirector, Secretario, Administrador, etc.
+Debe aplicarse a los perfiles correspondientes: Estudiante, Docente, Preceptor, Tutor/Familia, Jefe de Preceptores, Director, Vicedirector, Secretario, Administrador, etc.
 
 ### Persona existente
 - Reutilizar el `id_usuario` existente.
@@ -88,9 +88,9 @@ Mejorar visualmente la elección de persona existente/nueva. Debe ser clara, con
 
 # PARTE 2 — CALIFICACIONES, BOLETÍN Y PREVIAS
 
-## 2.1 Boletín
+## 2.1 RITE
 
-Actualmente el Boletín sigue mostrando solamente calificaciones normales.
+Actualmente el RITE sigue mostrando solamente calificaciones normales.
 
 Debe mostrar, cuando corresponda:
 - Calificación normal.
@@ -98,9 +98,9 @@ Debe mostrar, cuando corresponda:
 - Intensificación de Diciembre.
 - Intensificación de Febrero.
 
-Revisar el flujo completo para Alumno, Familia, Docente, Preceptor, Jefe de Preceptores y Administrador.
+Revisar el flujo completo para Estudiante, Familia, Docente, Preceptor, Jefe de Preceptores y Administrador.
 
-Reutilizar `BoletinTablaPrincipal`, `BoletinExtras` y componentes existentes. No crear otro sistema paralelo.
+Reutilizar `RiteTablaPrincipal`, `RiteExtras` y componentes existentes. No crear otro sistema paralelo.
 
 ## 2.2 Error al guardar Febrero
 
@@ -123,7 +123,7 @@ Regla:
 
 Frontend y backend deben usar la misma regla. No eliminar la validación del backend.
 
-Verificar alumno, curso/materia, año de rendición, instancia de Diciembre, estado y posibles duplicados.
+Verificar estudiante, curso/materia, año de rendición, instancia de Diciembre, estado y posibles duplicados.
 
 ## 2.3 Previas
 
@@ -267,11 +267,11 @@ Reutilizar `ActividadesView.jsx` y los componentes y utilidades existentes cuand
 Antes de realizar cambios, inspeccionar cómo se relacionan actualmente las actividades con las materias, Docentes, cursos y Estudiantes para garantizar que el filtrado por **Materia + Docente** sea correcto y no se produzcan mezclas de actividades entre Docentes.
 
 
-## 4.2 Familia — Restaurar selectores de Alumno
+## 4.2 Familia — Restaurar selectores de Estudiante
 
-Restaurar los selectores de Alumno donde la información dependa del hijo.
+Restaurar los selectores de Estudiante donde la información dependa del hijo.
 
-Debe poder seleccionarse el Alumno para consultar:
+Debe poder seleccionarse el Estudiante para consultar:
 - Calificaciones.
 - Intensificaciones.
 - Asistencias.
@@ -280,7 +280,7 @@ Debe poder seleccionarse el Alumno para consultar:
 - Otras vistas dependientes del estudiante.
 
 ### Excepción
-Calendario Institucional debe seguir sin requerir selector de Alumno.
+Calendario Institucional debe seguir sin requerir selector de Estudiante.
 
 No hacer rollback global de los cambios anteriores.
 
@@ -356,7 +356,7 @@ No cambiar la lógica de detección salvo que se encuentre un error real.
 - No elimina asignaciones de los Preceptores.
 
 ## Familia
-- Selector de Alumno donde corresponde.
+- Selector de Estudiante donde corresponde.
 - Calificaciones.
 - Intensificaciones.
 - Asistencias.
@@ -364,7 +364,7 @@ No cambiar la lógica de detección salvo que se encuentre un error real.
 - Comunicados.
 - Calendario Institucional sin selector.
 
-## Alumno
+## Estudiante
 - Calificaciones.
 - Intensificaciones.
 - Asistencias.
@@ -396,19 +396,19 @@ Auditoría sobre el código actual (working tree, incluye cambios sin commitear)
 
 ## ✅ PARTE 1 — Usuarios, personas, roles y asignaciones → HECHO
 
-- **1.1 Persona existente o nueva**: aplicado a Alumno, Docente, Preceptor, Tutor/Familia, Jefe de Preceptores y Directivos/Administrador.
+- **1.1 Persona existente o nueva**: aplicado a Estudiante, Docente, Preceptor, Tutor/Familia, Jefe de Preceptores y Directivos/Administrador.
   - Backend: campo `id_usuario_existente` (write-only) en `UsuarioSerializer`, `PadreTutorSerializer`, `PreceptorSerializer`, `DocenteSerializer`, `AlumnoSerializer`. Reutiliza el `Usuario` existente (valida que exista), no duplica, no toca contraseña/estado/fechas y permite múltiples roles vía `_assign_role`.
-  - Guardas anti-duplicado de persona: Preceptor reutiliza su propia fila (evita el conflicto OneToOne); Docente/Alumno/PadreTutor devuelven error si ya tienen perfil; Directivo se actualiza sin duplicarse.
-  - Frontend: `administradores.jsx`, `preceptores.jsx`, `AdminPreceptores.jsx`, `alumnos.jsx`, `docentes.jsx`, `tutores.jsx` envían `id_usuario_existente`, no piden contraseña en modo existente y autocompletan los datos.
+  - Guardas anti-duplicado de persona: Preceptor reutiliza su propia fila (evita el conflicto OneToOne); Docente/Estudiante/PadreTutor devuelven error si ya tienen perfil; Directivo se actualiza sin duplicarse.
+  - Frontend: `administradores.jsx`, `preceptores.jsx`, `AdminPreceptores.jsx`, `estudiantes.jsx`, `docentes.jsx`, `tutoresFamilias.jsx` envían `id_usuario_existente`, no piden contraseña en modo existente y autocompletan los datos.
 - **1.2 Jefe de Preceptores**: hecho. Al crear/editar un jefe `PreceptorSerializer.create/update` NO escribe `Curso.id_preceptor` → los Preceptores conservan sus cursos. El alcance del jefe es dinámico (todos los cursos) vía `_comunicado_visible_para_ctx` (`views.py:630` → `True`).
 - **1.3 Diseño visual**: hecho. Componente compartido `ModoCreacionPersona` + `PersonaSelector` en todos los flujos con elección clara "Persona existente / Nueva persona".
 - Verificación: `python manage.py check` OK (solo warning preexistente W342) y `npm run build` OK.
 
-## ⚠️ PARTE 2 — Calificaciones, Boletín y Previas → PARCIAL
+## ⚠️ PARTE 2 — Calificaciones, RITE y Previas → PARCIAL
 
-- **2.1 Boletín**: parcial. Boletín compartido (Alumno/Familia/Preceptor) muestra nota normal + Intensificación 1.º C en la tabla principal; Diciembre y Febrero quedan **vacíos en la tabla principal** (`BoletinTablaPrincipal.jsx:90-91`) y solo aparecen en las secciones extra y en el PDF (`BoletinExtras.jsx:189-205`, `utils/boletin.js`). El boletín de Administración es una tabla paralela con `BoletinExtras` vacío (`Administracion/notas.jsx:128-196`). El Jefe de Preceptores no tiene vista de boletín. El Docente no tiene vista de boletín.
+- **2.1 RITE**: parcial. RITE compartido (Estudiante/Familia/Preceptor) muestra nota normal + Intensificación 1.º C en la tabla principal; Diciembre y Febrero quedan **vacíos en la tabla principal** (`RiteTablaPrincipal.jsx:90-91`) y solo aparecen en las secciones extra y en el PDF (`RiteExtras.jsx:189-205`, `utils/rite.js`). El RITE de Administración es una tabla paralela con `RiteExtras` vacío (`Administracion/notas.jsx:128-196`). El Jefe de Preceptores no tiene vista de RITE. El Docente no tiene vista de RITE.
 - **2.2 Error al guardar Febrero**: parcial. Backend valida "Febrero requiere Diciembre DESAPROBADA" por **mismo historial** (`views.py:4490-4491`); frontend desbloquea Febrero por **materia sin filtrar año/historial** (`frontend/src/utils/intensificaciones.js:51`) → si la Diciembre desaprobada es de otro historial, la UI habilita pero el backend rechaza, reproduciendo el error reportado.
-- **2.3 Previas**: parcial. Única carga funcional en Calificaciones (`Profesores/PanelAlumnos.jsx` → `rendirMateriaAdeudada`). La vía duplicada de `Profesores/PanelMateriasAdeudadasDocente.jsx` quedó desactivada (se removieron handlers) PERO dejó un formulario JSX residual roto con referencias a `deudas`/`selectedDeuda`/`handleRendirPrevia` inexistentes (líneas 83-177) → **limpiar ese bloque**.
+- **2.3 Previas**: parcial. Única carga funcional en Calificaciones (`Profesores/PanelEstudiantes.jsx` → `rendirMateriaAdeudada`). La vía duplicada de `Profesores/PanelMateriasAdeudadasDocente.jsx` quedó desactivada (se removieron handlers) PERO dejó un formulario JSX residual roto con referencias a `deudas`/`selectedDeuda`/`handleRendirPrevia` inexistentes (líneas 83-177) → **limpiar ese bloque**.
 
 ## ⚠️ PARTE 3 — Asistencias → PARCIAL
 
@@ -417,7 +417,7 @@ Auditoría sobre el código actual (working tree, incluye cambios sin commitear)
 ## ⚠️ PARTE 4 — Actividades y Familia → PARCIAL
 
 - **4.1 Actividades estilo Classroom**: Nivel 1 HECHO — tarjetas Materia+Docente clickeables, sin fotos ni botones inferiores, filtradas por la combinación exacta (`ActividadesView.jsx:66-85,318-330`). Nivel 2 PARCIAL — lista filtrada por materia+docente y recuadros horizontales OK (`ActividadesView.jsx:234,266-291`), pero **faltan**: icono que distinga Material/Actividad (icono fijo `fa-clipboard-list`, `:273-275`), etiqueta de tipo, indicador "Editado" y menú de tres puntos. El backend no expone tipo ni fecha de edición en `ActividadDocente`.
-- **4.2 Familia — selectores de Alumno**: HECHO. Selector de hijo restaurado en el header (`FamiliaDashboard.jsx:149-157`, `Familia/header/header.jsx:1,23-38`); todas las vistas dependientes usan `hijoSeleccionado` (Calificaciones, Intensificaciones, Asistencias, Actividades, Horarios, Comunicados, Información académica, Actas, Resumen). Calendario Institucional correctamente sin selector (`header.jsx:5`).
+- **4.2 Familia — selectores de Estudiante**: HECHO. Selector de hijo restaurado en el header (`FamiliaDashboard.jsx:149-157`, `Familia/header/header.jsx:1,23-38`); todas las vistas dependientes usan `hijoSeleccionado` (Calificaciones, Intensificaciones, Asistencias, Actividades, Horarios, Comunicados, Información académica, Actas, Resumen). Calendario Institucional correctamente sin selector (`header.jsx:5`).
 
 ## ⚠️ PARTE 5 — Adelantos de horas y revisión visual → PARCIAL
 
@@ -433,7 +433,7 @@ Auditoría sobre el código actual (working tree, incluye cambios sin commitear)
 # ESTADO
 
 - ✅ Parte 1 — Usuarios, personas, roles y asignaciones (HECHO)
-- ⚠️ Parte 2 — Calificaciones, Boletín y Previas (parcial: 2.1, 2.2, 2.3)
+- ⚠️ Parte 2 — Calificaciones, RITE y Previas (parcial: 2.1, 2.2, 2.3)
 - ⚠️ Parte 3 — Asistencias (parcial: 3.1)
 - ⚠️ Parte 4 — Actividades y Familia (4.1 parcial, 4.2 HECHO)
 - ⚠️ Parte 5 — Adelantos de horas y revisión visual (5.1 parcial, 5.2 HECHO)
@@ -442,7 +442,7 @@ Auditoría sobre el código actual (working tree, incluye cambios sin commitear)
 ## Próximos pasos (lo que falta por hacer)
 
 1. **PARTE 2**:
-   - 2.1 Completar el boletín: mostrar Diciembre y Febrero en la tabla principal de `BoletinTablaPrincipal`; unificar el boletín de Administración con los componentes compartidos; agregar vistas de boletín para Jefe de Preceptores (y evaluar Docente).
+   - 2.1 Completar el RITE: mostrar Diciembre y Febrero en la tabla principal de `RiteTablaPrincipal`; unificar el RITE de Administración con los componentes compartidos; agregar vistas de RITE para Jefe de Preceptores (y evaluar Docente).
    - 2.2 Alinear frontend y backend con la misma regla de Febrero basada en el **historial** (no solo por materia/año).
    - 2.3 Eliminar el formulario residual roto de `PanelMateriasAdeudadasDocente.jsx` (deudas/selectores/handler).
 2. **PARTE 3**: corregir la combinación diaria por **orden** (tuplas ordenadas por `hora`, no `set`) en `views.py:2852-2872` y `AsistenciasUnificada.jsx:42-56`; agregar `ORDER BY hora`; definir "Retiro/Retirado" como estado real o eliminarlo de las opciones de guardado; corregir el guardado de "Retiro" en `PanelAsistencia.jsx` y la opción de `Preceptores/asistencias.jsx:603`.

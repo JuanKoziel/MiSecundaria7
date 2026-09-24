@@ -44,7 +44,7 @@ function badgeEstado(estado) {
   return <span className={`badge ${clases[estado] || 'badge-neutral'}`}>{etiquetas[estado] || estado}</span>;
 }
 
-function PanelMateriasAdeudadasAlumno({ miAlumno }) {
+function PanelMateriasAdeudadasEstudiante({ miEstudiante }) {
   const [deudas, setDeudas] = useState([]);
   const [rendiciones, setRendiciones] = useState([]);
   const [actividades, setActividades] = useState([]);
@@ -52,7 +52,7 @@ function PanelMateriasAdeudadasAlumno({ miAlumno }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!miAlumno) {
+    if (!miEstudiante) {
       setLoading(false);
       return;
     }
@@ -75,7 +75,7 @@ function PanelMateriasAdeudadasAlumno({ miAlumno }) {
         setIntensificaciones([]);
       })
       .finally(() => setLoading(false));
-  }, [miAlumno]);
+  }, [miEstudiante]);
 
   const rendicionesPorDeuda = useMemo(() => {
     const mapa = {};
@@ -299,4 +299,4 @@ function PanelMateriasAdeudadasAlumno({ miAlumno }) {
   );
 }
 
-export default PanelMateriasAdeudadasAlumno;
+export default PanelMateriasAdeudadasEstudiante;

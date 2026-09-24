@@ -4,9 +4,9 @@ import Sidebar from './sidebar';
 import Header from './header';
 
 import PanelJefePreceptor from './PanelJefePreceptor';
-import Alumnos from '../Preceptores/alumnos';
+import Estudiantes from '../Preceptores/estudiantes';
 import Docentes from '../Preceptores/docentes';
-import Tutores from '../Preceptores/tutores';
+import TutoresFamilias from '../Preceptores/tutoresFamilias';
 import Asistencias from '../Preceptores/asistencias';
 import Actas from '../Preceptores/actas';
 import Notas from '../Preceptores/notas';
@@ -97,7 +97,7 @@ function JefePreceptorDashboard({ user, onLogout }) {
       case 'alumnos':
         return (
           <div className="view-section active">
-            <Alumnos {...filtrosProps} readOnly />
+            <Estudiantes {...filtrosProps} readOnly />
           </div>
         );
 
@@ -111,7 +111,7 @@ function JefePreceptorDashboard({ user, onLogout }) {
       case 'tutores':
         return (
           <div className="view-section active">
-            <Tutores readOnly />
+            <TutoresFamilias readOnly />
           </div>
         );
 

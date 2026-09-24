@@ -25,7 +25,7 @@ function obtenerMensajeApi(err) {
 }
 
 function PanelDocente({ miDocente, mapSuplencias }) {
-  const { cursoMateria, cursosObj, alumnos, planificaciones, actasDocente, refreshData } = useData();
+  const { cursoMateria, cursosObj, estudiantes, planificaciones, actasDocente, refreshData } = useData();
   const toast = useToast();
   const fileInputRef = useRef(null);
   const [mensaje, setMensaje] = useState('');
@@ -35,7 +35,7 @@ function PanelDocente({ miDocente, mapSuplencias }) {
   const stats = useMemo(() => {
     if (!miDocente) return null;
     const safeCursoMateria = cursoMateria ?? [];
-    const safeAlumnos = alumnos ?? [];
+    const safeEstudiantes = estudiantes ?? [];
     const safePlanificaciones = planificaciones ?? [];
     const safeActasDocente = actasDocente ?? [];
     const misAsigs = safeCursoMateria.filter((cm) => {
@@ -47,12 +47,12 @@ function PanelDocente({ miDocente, mapSuplencias }) {
     return {
       materias: [...new Set(misAsigs.map((cm) => cm.materia_nombre).filter(Boolean))].length,
       cursos: [...new Set(misAsigs.map((cm) => cm.curso_nombre).filter(Boolean))].length,
-      alumnos: safeAlumnos.filter((a) => cursoIds.includes(a.id_curso)).length,
+      estudiantes: safeEstudiantes.filter((a) => cursoIds.includes(a.id_curso)).length,
       proyectos: safePlanificaciones.filter((p) => p.id_docente === miDocente.id).length,
       actas: safeActasDocente.filter((ad) => ad.docenteId === miDocente.id).length,
       estado: miDocente.usuario_estado === false ? 'Inactivo' : 'Activo',
     };
-  }, [miDocente, cursoMateria, alumnos, planificaciones, actasDocente, mapSuplencias]);
+  }, [miDocente, cursoMateria, estudiantes, planificaciones, actasDocente, mapSuplencias]);
 
   if (!miDocente) {
     return (
@@ -156,7 +156,7 @@ function PanelDocente({ miDocente, mapSuplencias }) {
       <div className="stats-grid">
         <StatCard icon="fa-book" value={stats.materias} label="Materias asignadas" />
         <StatCard icon="fa-school" value={stats.cursos} label="Cursos a cargo" />
-        <StatCard icon="fa-users" value={stats.alumnos} label="Estudiantes a cargo" />
+        <StatCard icon="fa-users" value={stats.estudiantes} label="Estudiantes a cargo" />
         <StatCard icon="fa-folder-open" value={stats.proyectos} label="Proyectos creados" />
         <StatCard icon="fa-file-signature" value={stats.actas} label="Actas realizadas" />
       </div>

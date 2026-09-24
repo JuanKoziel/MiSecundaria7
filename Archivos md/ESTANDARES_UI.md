@@ -469,7 +469,7 @@
   - `Administracion/sidebarMenu.js` — 15 items.
   - `Profesores/sidebarMenu.js` — 9 items.
   - `Preceptores/sidebarMenu.js` — 10 items.
-  - Alumno y Familia: menú hardcodeado en el dashboard JSX.
+  - Estudiante y Familia: menú hardcodeado en el dashboard JSX.
 
   Cada item: `{ id, label, icon, directorOnly? }`.
 
@@ -575,10 +575,10 @@
   ```
 
   ### Contenido específico por rol
-  - **Admin/Director**: datos personales + estadísticas del sistema (alumnos, docentes, cursos, etc.) + banner informativo.
+  - **Admin/Director**: datos personales + estadísticas del sistema (estudiantes, docentes, cursos, etc.) + banner informativo.
   - **Docente**: datos personales + DDJJ (subir/ver archivo) + materias y cursos asignados.
   - **Preceptor**: datos personales + cursos asignados.
-  - **Alumno**: datos personales + curso actual + promedio + inasistencias + materias.
+  - **Estudiante**: datos personales + curso actual + promedio + inasistencias + materias.
   - **Familia/Tutor**: datos personales + cantidad de hijos vinculados.
 
   ---
@@ -784,7 +784,7 @@
 
   | Componente | Propósito | Usado por |
   |------------|-----------|-----------|
-  | `ActividadesView.jsx` | Lista de actividades del alumno | Multi-rol |
+  | `ActividadesView.jsx` | Lista de actividades del estudiante | Multi-rol |
   | `AdelantosHoras.jsx` | Formulario de adelanto de horas | Docentes |
   | `AsistenciaMateriaDetalle.jsx` | Detalle de asistencia por materia | Multi-rol |
   | `CambiarRolButton.jsx` | Botón de cambio de rol | Multi-rol |
@@ -928,14 +928,14 @@
   | 458–479 | Secciones de vista + cards |
   | 490–590 | Clases utilitarias (flex, margin, texto, contenedores de formulario, búsqueda, badges) |
   | 592–650 | Estilos base de tablas + badges de asistencia |
-  | 650–745 | Estilos de boletín (reporte académico) |
+  | 650–745 | Estilos de RITE (reporte académico) |
   | 750–810 | Badges, fila de filtros, historial |
   | 810–960 | Grupos de formularios, filtros, cajas de carga |
   | 968–1050 | Formulario de comunicados (oscuro) |
   | 1052–1130 | Carga de archivos, grid de materias, contenedor de checkboxes |
   | 1123–1180 | Componentes de familia |
   | 1183–1219 | Responsive 992px + 768px (colapso del sidebar) |
-  | 1221–1680 | Estilos específicos de preceptores (tabs, formularios, modales, actas, boletín) |
+  | 1221–1680 | Estilos específicos de preceptores (tabs, formularios, modales, actas, RITE) |
   | 1682–1831 | Responsive 768px (ajustes móviles) |
   | 1838–1863 | Responsive 480px |
   | 1864–1880 | Responsive 768px (overflow de tablas) |

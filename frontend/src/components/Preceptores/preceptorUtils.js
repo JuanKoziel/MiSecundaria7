@@ -16,7 +16,7 @@ function normalizeCursoPermitido(c) {
   return '';
 }
 
-export function alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos, cursosPermitidos = []) {
+export function estudiantesPorAnioYCurso(anioLectivo, curso, inscripciones, estudiantes, cursosPermitidos = []) {
   if (!anioLectivo || !curso) return [];
   const nombresPermitidos = cursosPermitidos.map(normalizeCursoPermitido).filter(Boolean);
   if (nombresPermitidos.length > 0 && !nombresPermitidos.includes(curso)) return [];
@@ -24,7 +24,7 @@ export function alumnosPorAnioYCurso(anioLectivo, curso, inscripciones, alumnos,
   const idsInscripcion = inscripciones
     .filter((i) => i.anioLectivo === anio && i.curso === curso)
     .map((i) => i.alumnoId);
-  return alumnos.filter(
+  return estudiantes.filter(
     (a) => idsInscripcion.includes(a.id) || (a.curso === curso && Number(a.ciclo_anio) === anio),
   );
 }
@@ -74,7 +74,7 @@ export function filtrosCompletos(anioLectivo, curso) {
   return Boolean(anioLectivo && curso && /\d+\s*[°º]\s*\d+/.test(String(curso)));
 }
 
-export function boletinPorAlumno(alumnoId, curso, hijosFamilia, calificacionesFamilia) {
+export function ritePorEstudiante(alumnoId, curso, hijosFamilia, calificacionesFamilia) {
   const hijo = hijosFamilia.find(
     (h) => h.alumnoId === alumnoId && (!curso || h.curso === curso),
   );

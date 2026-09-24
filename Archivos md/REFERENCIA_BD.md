@@ -21,7 +21,7 @@ Este archivo es la **referencia general y estructurada de la base de datos** del
 | 2 | docente |
 | 3 | preceptor |
 | 4 | familia |
-| 5 | alumno |
+| 5 | estudiante |
 | 6 | director |
 | 7 | jefe_preceptores |
 
@@ -88,7 +88,7 @@ Roles definidos:
 | 1 | admin / director |
 | 2 | preceptor |
 | 3 | docente |
-| 4 | alumno |
+| 4 | estudiante |
 | 5 | familia |
 
 Personas vinculadas 1:1 a usuario:
@@ -100,9 +100,9 @@ Personas vinculadas 1:1 a usuario:
 - `padres_tutores`: nombre, apellido, DNI, teléfono, dirección.
 
 Regla importante:
-- `correo` existe en docente y preceptor, no en alumno/padre/directivo.
-- `fecha_nacimiento` existe en alumno.
-- `direccion` existe en alumno y padre/tutor.
+- `correo` existe en docente y preceptor, no en estudiante/padre/directivo.
+- `fecha_nacimiento` existe en estudiante.
+- `direccion` existe en estudiante y padre/tutor.
 
 ---
 
@@ -117,7 +117,7 @@ ciclos_lectivos
            └── docentes
 ```
 
-Alumnos:
+Estudiantes:
 
 ```text
 alumnos
@@ -314,7 +314,7 @@ periodos_evaluacion
 
 Las calificaciones apuntan a `id_periodo`.
 
-Cada alumno debe tener dos períodos de evaluación.
+Cada estudiante debe tener dos períodos de evaluación.
 
 ---
 
@@ -525,7 +525,7 @@ id_periodo -> periodos_evaluacion
 
 Regla:
 
-- Cada alumno trabaja con 2 períodos.
+- Cada estudiante trabaja con 2 períodos.
 - La pre-nota es cualitativa.
 - La nota numérica es decimal.
 - No crear una calificación apuntando a un período inexistente.
@@ -890,7 +890,7 @@ Cuando no exista información explícita en la conversación/archivos:
 
 - no inventar docentes;
 - no inventar preceptores;
-- no inventar alumnos;
+- no inventar estudiantes;
 - no inventar padres/tutores;
 - no inventar DNI;
 - no inventar aulas;

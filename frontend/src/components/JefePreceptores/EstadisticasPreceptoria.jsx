@@ -107,7 +107,7 @@ function EstadisticasPreceptoria() {
         </div>
         <div className="stats-panel-cells">
           <StatCell icon="fa-user-tie" value={stats.total_preceptores} label="Preceptores" />
-          <StatCell icon="fa-user-graduate" value={stats.total_alumnos} label="Total alumnos" />
+          <StatCell icon="fa-user-graduate" value={stats.total_alumnos} label="Total estudiantes" />
           <StatCell icon="fa-users" value={stats.total_tutores} label="Total tutores" />
           <StatCell icon="fa-school" value={cursosTotal} label="Cursos activos" color="#2563eb" />
         </div>
