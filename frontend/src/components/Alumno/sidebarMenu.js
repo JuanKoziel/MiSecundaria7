@@ -17,6 +17,7 @@ export const menuItems = [
     icon: 'fa-folder-open',
     children: [
       { id: 'materias-adeudadas', label: 'Materias Adeudadas', icon: 'fa-book-medical' },
+      { id: 'actividades', label: 'Actividades', icon: 'fa-tasks' },
     ],
   },
 

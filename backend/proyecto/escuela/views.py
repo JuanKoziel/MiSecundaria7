@@ -1,4 +1,4 @@
-﻿import os
+import os
 from datetime import datetime, time, timedelta
 from django.contrib.auth import authenticate
 from django.db import models
@@ -5388,7 +5388,10 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         # Se abre (o renueva) la ventana de carga única de 20 minutos.
-        # ── B12 ── Bifurcación según el estado del horario del docente ─────────
+        # ── B12 ── El botón SIEMPRE notifica SOLO al docente seleccionado y
+        # abre/renueva la ventana de 20 minutos. NUNCA se notifica a otros
+        # preceptores (antes, cuando el docente terminaba su horario sin
+        # cargar, se avisaba a los preceptores del curso; eso se eliminó).
         ahora = timezone.localtime()
         dia_hoy = _dia_semana_es(ahora)
         bloques_hoy = _obtener_bloques_horario(cm.id_curso_materia, dia_hoy)
@@ -5403,11 +5406,6 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
                 _hhmm(ini) <= hora_actual < _hhmm(fin)
                 for ini, fin in bloques_hoy
             )
-
-        def _termino_sin_cargar():
-            if not bloques_hoy:
-                return False
-            return hora_actual >= _hhmm(bloques_hoy[-1][1])
 
         textos_visibles = [CLAVE_TEXTO[p] for p in faltantes]
         pendientes_visibles = (
@@ -5441,9 +5439,17 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if _en_horario():
-            # Rama 1 — el docente sigue en horario de su clase: SOLO recordatorio,
-            # sin abrir la ventana de 20 minutos ni activar temporizador.
+        fecha_hoy = timezone.localtime().date()
+        ventana_existente = CargaUnica.objects.filter(
+            id_curso_materia_id=cm.id_curso_materia, fecha=fecha_hoy
+        ).exists()
+
+        if _en_horario() and not ventana_existente:
+            # Rama 1 — el docente sigue en horario de su clase y todavía no se
+            # le abrió una ventana HOY: SOLO recordatorio, sin abrir la ventana
+            # de 20 minutos ni activar temporizador (la carga normal sigue
+            # disponible durante la clase). Si ya se le envió una ventana hoy,
+            # no cae acá: abajo se le re-notifica y se le renueva la ventana.
             fin_clase = _hhmm(bloques_hoy[-1][1]) if bloques_hoy else 'fin del horario'
             notificar(
                 id_usuario=resultado.docente.id_usuario,
@@ -5462,59 +5468,31 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
                 'detail': 'Recordatorio enviado (el docente sigue en horario). No se abrió temporizador.',
             })
 
-        if _termino_sin_cargar():
-            # Rama 2 — el docente terminó su horario sin cargar: notificar a los
-            # preceptores del curso+materia con "Ver" → panel diario.
-            preceptores_curso = _preceptores_para_cursos([cm.id_curso_id])
-            enviados = 0
-            for pre in preceptores_curso:
-                if not pre.id_usuario_id:
-                    continue
-                n_notif = notificar(
-                    id_usuario=pre.id_usuario,
-                    titulo='No se cargaron en el horario',
-                    mensaje=(
-                        f'El docente no cargó {pendientes_visibles} de {contexto_b} '
-                        'en el horario de hoy. Revisá el panel diario.'
-                    ),
-                    rol=SEGMENTO_PRECEPTOR,
-                    nav={
-                        'destino': 'gestion_diaria',
-                        'params': {
-                            'curso': curso_nombre_b,
-                            'anio': ciclo_b,
-                        },
-                    },
-                )
-                if n_notif is not None:
-                    enviados += 1
-            return Response({
-                'enviado': True,
-                'destinatarios': 'preceptores_curso',
-                'cantidad_preceptores': enviados,
-                'ventana': False,
-                'detail': 'Notificación enviada a los preceptores del curso (no se cargó en el horario).',
-            })
-
-        # Fallback: sin horario hoy o aún esperando → flujo original (ventana 20 min).
-        fecha_hoy = timezone.localtime().date()
+        # Rama 2 — se notifica al docente seleccionado y se abre (o renueva)
+        # la ventana de 20 minutos. Cubre tres casos:
+        #  (a) el docente terminó su horario sin cargar;
+        #  (b) ya se envió una carga única HOY y el preceptor aprieta de nuevo:
+        #      se le re-notifica al docente y se le da OTRA ventana de 20';
+        #  (c) sin bloque horario hoy (clase especial, adelanto, etc.).
+        # Antes esto notificaba a los preceptores del curso; ya no se les avisa.
         carga = crear_o_renovar_carga(cm, fecha_hoy, faltantes, resultado.docente)
 
         textos = [CLAVE_TEXTO[p] for p in faltantes]
         pendiente_texto = ' y '.join(textos) if len(textos) == 1 else ', '.join(textos[:-1]) + ' y ' + textos[-1]
 
-        materia = cm.id_materia.nombre_materia if cm.id_materia_id else '—'
-        curso_nombre = cm.id_curso.nombre_curso if cm.id_curso_id else '—'
-        ciclo = cm.id_curso.id_ciclo.anio if (cm.id_curso_id and cm.id_curso.id_ciclo_id) else ''
-        contexto = f'{materia} · {curso_nombre}'
-        if ciclo:
-            contexto = f'{contexto} ({ciclo})'
-
-        titulo = 'Carga pendiente — 20 minutos'
-        mensaje = (
-            f'El preceptor te notifica que disponés de 20 minutos para cargar '
-            f'{pendiente_texto} de {contexto}.'
-        )
+        if ventana_existente:
+            titulo = 'Carga pendiente — renovaste la ventana'
+            mensaje = (
+                f'No se detectó la carga de {pendiente_texto} de {contexto_b}. '
+                f'El preceptor renovó tu ventana: disponés de OTROS 20 minutos '
+                f'para cargarlos.'
+            )
+        else:
+            titulo = 'Carga pendiente — 20 minutos'
+            mensaje = (
+                f'El preceptor te notifica que disponés de 20 minutos para cargar '
+                f'{pendiente_texto} de {contexto_b}.'
+            )
 
         notif = notificar(
             id_usuario=resultado.docente.id_usuario,
@@ -5537,6 +5515,59 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
             'id_notificacion': notif.id_notificacion,
             'id_carga_unica': carga.id_carga_unica if carga else None,
             'mensaje': mensaje,
+        })
+
+    @action(detail=False, methods=['post'], url_path='enviar-recordatorio-ddjj')
+    def enviar_recordatorio_ddjj(self, request):
+        """El env�a un recordatorio de DDJJ a un docente puntual desde
+        Administraci�n (bot�n rojo "Ver DDJJ" cuando el docente todav�a no
+        carg� su declaraci�n jurada).
+        """
+        if not es_rol_amplio(request):
+            raise PermissionDenied('No ten�s permisos para enviar recordatorios.')
+
+        id_docente = request.data.get('id_docente')
+        if id_docente is None:
+            return Response(
+                {'enviado': False, 'detail': 'Falta id_docente.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            id_docente = int(id_docente)
+        except (TypeError, ValueError):
+            return Response(
+                {'enviado': False, 'detail': 'El id_docente debe ser un n�mero.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        docente = Docente.objects.select_related('id_usuario').filter(pk=id_docente).first()
+        if docente is None or not docente.id_usuario_id:
+            return Response(
+                {'enviado': False, 'detail': 'El docente no tiene usuario para recibir recordatorios.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            notificacion = notificar(
+                id_usuario=docente.id_usuario,
+                titulo='Recordatorio de DDJJ',
+                mensaje=(
+                    'Administración notó que todavía no cargaste tu Declaración '
+                    'Jurada. Recordá subirla desde tu panel.'
+                ),
+                rol=SEGMENTO_DOCENTE,
+                nav={'destino': 'mi_ddjj'},
+            )
+        except Exception as exc:  # noqa: BLE001 - no romper ante fallo de notificaci�n
+            return Response(
+                {'enviado': False, 'detail': 'No se pudo enviar el recordatorio: %s' % exc},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({
+            'enviado': True,
+            'id_usuario_destino': docente.id_usuario_id,
+            'id_notificacion': getattr(notificacion, 'pk', None),
+            'detail': 'Recordatorio de DDJJ enviado al docente.',
         })
 
 
@@ -6265,6 +6296,15 @@ class MateriaAdeudadaViewSet(viewsets.ModelViewSet):
         )
 
         if resultado == 'APROBADA':
+            # Unica por (alumno, materia): al aprobar se eliminan las DE
+            # otros registros de la misma materia adeudada del alumno para
+            # evitar duplicados (se queda solo esta aprobada).
+            MateriaAdeudada.objects.filter(
+                id_alumno_id=ma.id_alumno_id,
+                id_materia_id=ma.id_materia_id,
+                id_curso_origen_id=ma.id_curso_origen_id,
+                estado='ADEUDADA',
+            ).exclude(pk=ma.pk).delete()
             ma.estado = 'APROBADA'
             ma.fecha_aprobacion = timezone.now()
             ma.save(update_fields=['estado', 'fecha_aprobacion'])

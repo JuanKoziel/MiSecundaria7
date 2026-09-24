@@ -1,4 +1,5 @@
 import SidebarToggle from '../../Shared/SidebarToggle';
+import Logo from '../../Shared/Logo';
 
 function inicialesDesdeNombre(nombreCompleto, user) {
   if (nombreCompleto) {
@@ -19,6 +20,7 @@ function Header({ user, nombreCompleto }) {
       <div className="main-header-left">
         <SidebarToggle />
         <div className="main-header-greeting">
+          <Logo className="header-logo" />
           <h2>
             <span className="greeting-saludo">Bienvenido:</span>{' '}
             <span className="greeting-nombre">{nombreMostrar}</span>

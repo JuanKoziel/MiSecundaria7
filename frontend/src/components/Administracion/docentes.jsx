@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { cursoConOrientacion } from '../../utils/orientacion';
-import { deleteMiDdjjDocente, verificarPlanificacion, verificarDdjj, createDocente, updateDocente, deleteDocente, BASE_URL } from '../../services/api';
+import { deleteMiDdjjDocente, verificarPlanificacion, verificarDdjj, enviarRecordatorioDdjj, createDocente, updateDocente, deleteDocente, BASE_URL } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FormModal from '../../components/Shared/FormModal';
@@ -130,6 +130,50 @@ function DdjjPreviewModal({ docente, onClose, onDelete }) {
   );
 }
 
+function DdjjRecordatorioModal({ docente, onConfirm, onCancel }) {
+  if (!docente) return null;
+
+  return createPortal(
+    <div className="ddjj-modal-overlay" role="presentation" onClick={onCancel}>
+      <div
+        className="ddjj-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Recordatorio de DDJJ"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="ddjj-modal-header">
+          <div>
+            <h4 className="m-0">DDJJ pendiente</h4>
+            <p style={{ margin: '4px 0 0', color: 'var(--text-light)', fontSize: '0.9rem' }}>
+              {docente.apellido}, {docente.nombre}
+            </p>
+          </div>
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            <i className="fas fa-times" aria-hidden="true" /> Cerrar
+          </button>
+        </div>
+
+        <div className="ddjj-modal-body">
+          <p style={{ margin: '0 0 10px', fontWeight: 600 }}>
+            El docente aún no cargó su DDJJ. ¿Quiere enviar un recordatorio?
+          </p>
+        </div>
+
+        <div className="ddjj-modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            Cancelar
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => onConfirm(docente)}>
+            <i className="fas fa-bell" aria-hidden="true" /> Confirmar
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function ActasDocenteDesplegable({ actas }) {
   if (actas.length === 0) {
     return <p className="empty-state-message">No hay actas cargadas.</p>;
@@ -238,7 +282,7 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
                 </td>
                 <td>
                   {planificacion?.ruta_archivo ? (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                    <div className="docente-materia-line">
                       <a
                         href={`${API_BASE}${planificacion.ruta_archivo}`}
                         target="_blank"
@@ -247,7 +291,11 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
                       >
                         <i className="fas fa-folder-open" aria-hidden="true" /> Ver proyecto
                       </a>
-                      {!esVerificado ? (
+                      {esVerificado ? (
+                        <span className="badge badge-success badge-verificado">
+                          <i className="fas fa-check-circle" aria-hidden="true" /> Verificado
+                        </span>
+                      ) : (
                         <button
                           type="button"
                           className="btn btn-secondary table-download-btn"
@@ -257,8 +305,6 @@ function CursosMateriasDesplegable({ docenteId, cursoMateria, planificaciones })
                           <i className="fas fa-check" aria-hidden="true" />{' '}
                           {verificandoId === planificacion.id_planificacion ? 'Verificando...' : 'Marcar como verificado'}
                         </button>
-                      ) : (
-                        <span className="badge badge-success">Verificado</span>
                       )}
                     </div>
                   ) : (
@@ -313,16 +359,19 @@ function Docentes() {
   const [actasAbierto, setActasAbierto] = useState(null);
   const [cursosAbierto, setCursosAbierto] = useState(null);
   const [previewDocente, setPreviewDocente] = useState(null);
+  const [recordatorioDocente, setRecordatorioDocente] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingDocente, setEditingDocente] = useState(null);
   const [formData, setFormData] = useState(formVacio);
   const [guardandoDocente, setGuardandoDocente] = useState(false);
   const [mensajeForm, setMensajeForm] = useState('');
+  const [errorForm, setErrorForm] = useState('');
 
   const abrirCrearDocente = () => {
     setEditingDocente(null);
     setFormData(formVacio);
     setMensajeForm('');
+    setErrorForm('');
     setShowForm(true);
   };
 
@@ -349,12 +398,14 @@ function Docentes() {
     setEditingDocente(null);
     setFormData(formVacio);
     setMensajeForm('');
+    setErrorForm('');
   };
 
   const handleGuardarDocente = async (e) => {
     e.preventDefault();
     if (guardandoDocente) return;
     setMensajeForm('');
+    setErrorForm('');
     if (!editingDocente && (!formData.usuario_nombre || !formData.contrasena)) {
       toast.warning('Completá usuario y contraseña.');
       return;
@@ -397,6 +448,7 @@ function Docentes() {
       cerrarFormDocente();
       await refreshData();
     } catch (err) {
+      setErrorForm(formateaMensajeError(err));
       toast.error(formateaMensajeError(err));
     } finally {
       setGuardandoDocente(false);
@@ -461,6 +513,22 @@ function Docentes() {
         }
       },
     });
+  };
+
+  const handleEnviarRecordatorio = async (docente) => {
+    setRecordatorioDocente(null);
+    setGuardandoDocente(true);
+    try {
+      const res = await enviarRecordatorioDdjj(docente.id_docente || docente.id);
+      toast.success(
+        res?.detail || `Recordatorio enviado al docente ${docente.apellido}, ${docente.nombre}.`
+      );
+      await refreshData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || error.response?.data?.error || 'No se pudo enviar el recordatorio.');
+    } finally {
+      setGuardandoDocente(false);
+    }
   };
 
   const handleVerificarDdjj = async (docente) => {
@@ -569,7 +637,7 @@ function Docentes() {
                             </button>
                           </div>
 
-                          {tieneDdjj && (
+                          {tieneDdjj ? (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
                               <button
                                 type="button"
@@ -598,6 +666,15 @@ function Docentes() {
                                 </button>
                               )}
                             </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-danger"
+                              onClick={() => setRecordatorioDocente(d)}
+                              title="El docente aún no cargó su DDJJ"
+                            >
+                              <i className="fas fa-file-alt" aria-hidden="true" /> Ver DDJJ
+                            </button>
                           )}
 
                           <div style={{ display: 'grid', gridTemplateColumns: d.usuario_estado !== null && d.usuario_estado !== undefined ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
@@ -668,12 +745,22 @@ function Docentes() {
         />
       )}
 
+      {recordatorioDocente && (
+        <DdjjRecordatorioModal
+          docente={recordatorioDocente}
+          onConfirm={handleEnviarRecordatorio}
+          onCancel={() => setRecordatorioDocente(null)}
+        />
+      )}
+
       {showForm && (
         <FormModal
           title={editingDocente ? 'Editar docente' : 'Nuevo docente'}
           onClose={cerrarFormDocente}
+          error={errorForm}
+          onClearError={() => setErrorForm('')}
         >
-          <form onSubmit={handleGuardarDocente}>
+          <form onSubmit={handleGuardarDocente} style={{ position: 'relative' }}>
             <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
               {mensajeForm && (
                 <div className={`alert ${mensajeForm.startsWith('Error') ? 'alert-danger' : 'alert-success'}`}>

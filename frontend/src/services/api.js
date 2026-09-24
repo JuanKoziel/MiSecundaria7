@@ -148,6 +148,13 @@ export async function verificarDdjj(id) {
   return data;
 }
 
+export async function enviarRecordatorioDdjj(idDocente) {
+  const { data } = await api.post('/notificaciones/enviar-recordatorio-ddjj/', {
+    id_docente: idDocente,
+  });
+  return data;
+}
+
 export async function getPreceptores(rol) {
   const { data } = await api.get('/preceptores/', {
     params: rol ? { rol } : {},

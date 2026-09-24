@@ -14,10 +14,10 @@ function mensajeError(err) {
   return mensajeErrorAmigable(err);
 }
 
-function FormProyecto({ formData, setFormData, editing, guardando, onSubmit, onCancel }) {
+function FormProyecto({ formData, setFormData, editing, guardando, onSubmit, onCancel, error, onClearError }) {
   return (
-    <FormModal title={editing ? 'Editar proyecto' : 'Nuevo proyecto'} onClose={onCancel}>
-      <form onSubmit={onSubmit}>
+    <FormModal title={editing ? 'Editar proyecto' : 'Nuevo proyecto'} onClose={onCancel} error={error} onClearError={onClearError}>
+      <form onSubmit={onSubmit} style={{ position: 'relative' }}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <div className="preceptor-form-row preceptor-form-row--two">
             <div className="form-group-filter">
@@ -163,6 +163,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
       await cargar();
       await refreshData();
     } catch (err) {
+      setError(mensajeError(err));
       toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
@@ -228,6 +229,8 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
           guardando={guardando}
           onSubmit={(e) => handleSubmit(e, false)}
           onCancel={limpiar}
+          error={error}
+          onClearError={() => setError('')}
         />
       )}
 
@@ -238,13 +241,14 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
               <th>Archivo PDF</th>
               <th>Fecha de carga</th>
               <th>Docente</th>
+              <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {proyectos.length === 0 ? (
               <tr>
-                <td colSpan={4} className="empty-state-message">No hay proyectos registrados.</td>
+                <td colSpan={5} className="empty-state-message">No hay proyectos registrados.</td>
               </tr>
             ) : (
               proyectos.map((p) => (
@@ -264,6 +268,17 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
                     </td>
                     <td>{p.fecha_subida ? new Date(p.fecha_subida).toLocaleDateString() : '—'}</td>
                     <td>{p.docente_nombre || docenteDisplay || '—'}</td>
+                    <td>
+                      {String(p.estado).toLowerCase() === 'verificado' ? (
+                        <span className="badge badge-success" title="Proyecto verificado">
+                          <i className="fas fa-check-circle" aria-hidden="true" /> Proyecto Verificado
+                        </span>
+                      ) : (
+                        <span className="badge badge-warning" title="Proyecto pendiente de verificación">
+                          <i className="fas fa-clock" aria-hidden="true" /> Pendiente de verificación
+                        </span>
+                      )}
+                    </td>
                     <td className="acciones-cell flex-row--center">
                       {p.ruta_archivo && (
                         <a
@@ -304,6 +319,8 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
           guardando={guardando}
           onSubmit={(e) => handleSubmit(e, true)}
           onCancel={limpiar}
+          error={error}
+          onClearError={() => setError('')}
         />
       )}
     </div>

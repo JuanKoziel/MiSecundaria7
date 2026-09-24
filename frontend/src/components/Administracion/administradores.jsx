@@ -366,7 +366,7 @@ const handleSubmit = async (e) => {
   }
 
   const renderFormulario = () => (
-    <FormModal title={editingUsuario ? 'Editar Administrador' : 'Nuevo Administrador'} onClose={cerrarModal}>
+    <FormModal title={editingUsuario ? 'Editar Administrador' : 'Nuevo Administrador'} onClose={cerrarModal} error={error} onClearError={() => setError('')}>
       <form onSubmit={handleSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <section className="preceptor-form-section">
@@ -550,7 +550,6 @@ const handleSubmit = async (e) => {
 
       <AccionesLeyenda acciones={['editar', 'habilitar', 'deshabilitar', 'eliminar']} />
 
-      {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
       <div className="table-responsive">

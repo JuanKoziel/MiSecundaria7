@@ -399,7 +399,7 @@ function AdminPreceptores() {
   }
 
   const renderFormulario = () => (
-    <FormModal title={editingPreceptor ? 'Editar Preceptor' : 'Nuevo Preceptor'} onClose={cerrarFormulario}>
+    <FormModal title={editingPreceptor ? 'Editar Preceptor' : 'Nuevo Preceptor'} onClose={cerrarFormulario} error={error} onClearError={() => setError('')}>
       <form onSubmit={handleSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <section className="preceptor-form-section">
@@ -617,7 +617,6 @@ function AdminPreceptores() {
         <span><i className="fas fa-trash" aria-hidden="true" /> Eliminar</span>
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
       <div className="mb-12">

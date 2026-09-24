@@ -169,10 +169,6 @@ function PanelDocente({ miDocente, mapSuplencias }) {
             </div>
             <span>Declaración Jurada (D.D.J.J.)</span>
           </h4>
-          <span className={`badge ddjj-badge ${ddjjVerificada ? 'badge-success' : ddjjPresentada ? 'badge-warning' : 'badge-danger'}`}>
-            <i className={`fas ${ddjjVerificada ? 'fa-check-double' : ddjjPresentada ? 'fa-check-circle' : 'fa-clock'}`} aria-hidden="true" />
-            {ddjjVerificada ? 'Verificada' : ddjjPresentada ? 'Presentada' : 'Pendiente'}
-          </span>
         </div>
 
         <div className="ddjj-content">
@@ -209,7 +205,7 @@ function PanelDocente({ miDocente, mapSuplencias }) {
             <div className="ddjj-presentada-section">
               <div className="ddjj-presentada-header">
                 <div className="ddjj-presentada-icon">
-                  <i className={`fas ${ddjjVerificada ? 'fa-check-double' : 'fa-check-circle'}`} aria-hidden="true" />
+                  <i className={`fas ${ddjjVerificada ? 'fa-circle-check' : 'fa-check-circle'}`} aria-hidden="true" />
                 </div>
                 <div>
                   <h5 className="ddjj-presentada-title">
@@ -239,7 +235,7 @@ function PanelDocente({ miDocente, mapSuplencias }) {
             <div className={`ddjj-info-item ${ddjjVerificada ? 'success' : ddjjPresentada ? 'warning' : 'warning'}`}>
               <span className="ddjj-info-label">Estado</span>
               <span className="ddjj-info-value">
-                <i className={`fas ${ddjjVerificada ? 'fa-check-double' : ddjjPresentada ? 'fa-check-circle' : 'fa-clock'}`} aria-hidden="true" />
+                <i className={`fas ${ddjjVerificada ? 'fa-circle-check' : ddjjPresentada ? 'fa-check-circle' : 'fa-clock'}`} aria-hidden="true" />
                 {ddjjVerificada ? 'Verificada' : ddjjPresentada ? 'Presentada (pendiente de verificación)' : 'Pendiente de presentación'}
               </span>
             </div>

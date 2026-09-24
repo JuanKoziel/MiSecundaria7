@@ -18,10 +18,10 @@ function mensajeError(err) {
   return mensajeErrorAmigable(err);
 }
 
-function FormCurso({ formData, setFormData, editing, guardando, onSubmit, onCancel, ciclosLectivos, preceptores }) {
+function FormCurso({ formData, setFormData, editing, guardando, onSubmit, onCancel, ciclosLectivos, preceptores, error, onClearError }) {
   return (
-    <FormModal title={editing ? 'Editar curso' : 'Nuevo curso'} onClose={onCancel}>
-      <form onSubmit={onSubmit}>
+    <FormModal title={editing ? 'Editar curso' : 'Nuevo curso'} onClose={onCancel} error={error} onClearError={onClearError}>
+      <form onSubmit={onSubmit} style={{ position: 'relative' }}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <div className="preceptor-form-row preceptor-form-row--two">
             <div className="form-group-filter">
@@ -142,6 +142,7 @@ function Cursos() {
       limpiar();
       await refreshAdminCursos(mostrarInactivos);
     } catch (err) {
+      setError(mensajeError(err));
       toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
@@ -217,6 +218,8 @@ function Cursos() {
             onCancel={limpiar}
             ciclosLectivos={ciclosLectivos}
             preceptores={preceptores}
+            error={error}
+            onClearError={() => setError('')}
           />
         )}
 
@@ -284,6 +287,8 @@ function Cursos() {
             onCancel={limpiar}
             ciclosLectivos={ciclosLectivos}
             preceptores={preceptores}
+            error={error}
+            onClearError={() => setError('')}
           />
         )}
       </div>

@@ -732,12 +732,7 @@ function Tutores({ readOnly = false }) {
       {renderTablaVista()}
 
       {(modo === 'crear' || (modo === 'modificar' && seleccionado)) && (
-        <FormModal title={tituloModal} onClose={cerrarFormulario}>
-          {mensaje && (
-            <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '0 0 8px' }}>
-              {mensaje}
-            </p>
-          )}
+        <FormModal title={tituloModal} onClose={cerrarFormulario} error={mensaje && mensaje.startsWith('Error') ? mensaje : null} onClearError={() => setMensaje('')}>
           <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
             {renderFormTutor()}
           </div>

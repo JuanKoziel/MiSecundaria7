@@ -717,12 +717,9 @@ function Alumnos({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlob
         <FormModal
           title={`${tituloModal}${modo === 'modificar' ? ` — ${curso} (${anioLectivo})` : ''}`}
           onClose={cerrarFormulario}
+          error={mensaje && mensaje.startsWith('Error') ? mensaje : null}
+          onClearError={() => setMensaje('')}
         >
-          {mensaje && (
-            <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '0 0 8px' }}>
-              {mensaje}
-            </p>
-          )}
           <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
             {modo === 'crear' ? renderFormCrear() : renderFormModificar()}
           </div>

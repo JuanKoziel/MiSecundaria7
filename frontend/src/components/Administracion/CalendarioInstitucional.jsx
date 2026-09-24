@@ -412,7 +412,7 @@ function CalendarioInstitucional({ readOnly = false }) {
       )}
 
       {modalAbierto && (
-        <FormModal title={eventoEditar ? 'Editar Evento Institucional' : 'Nuevo Evento Institucional'} onClose={() => setModalAbierto(false)}>
+        <FormModal title={eventoEditar ? 'Editar Evento Institucional' : 'Nuevo Evento Institucional'} onClose={() => setModalAbierto(false)} error={mensaje && mensaje.startsWith('Error') ? mensaje : null} onClearError={() => setMensaje('')}>
           <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
             <div className="form-row">
               <div className="form-group">

@@ -6,12 +6,16 @@ import { ConfirmProvider } from './context/ConfirmContext'
 import App from './App'
 import './index.css'
 
+import { ErrorOverlayProvider } from './context/ErrorOverlayContext'
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AuthProvider>
       <ToastProvider>
         <ConfirmProvider>
-          <App />
+          <ErrorOverlayProvider>
+            <App />
+          </ErrorOverlayProvider>
         </ConfirmProvider>
       </ToastProvider>
     </AuthProvider>

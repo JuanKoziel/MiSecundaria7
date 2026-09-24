@@ -88,7 +88,9 @@ function AsignacionMaterias() {
       cerrarFormulario();
       cargarAsignaciones();
     } catch (err) {
-      toast.error(`Error al guardar: ${mensajeError(err)}`);
+      const textoError = `Error al guardar: ${mensajeError(err)}`;
+      setError(textoError);
+      toast.error(textoError);
     } finally {
       setGuardando(false);
     }
@@ -158,8 +160,10 @@ function AsignacionMaterias() {
               <FormModal
                 title={editando ? 'Editar Docente' : ('Agregar Materia' + (cursoObj ? ` — ${cursoObj.nombre_curso}` : ''))}
                 onClose={cerrarFormulario}
+                error={error}
+                onClearError={() => setError('')}
               >
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} style={{ position: 'relative' }}>
                   <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
                     <div className="preceptor-form-row preceptor-form-row--two">
                       {!editando && (
@@ -192,7 +196,7 @@ function AsignacionMaterias() {
                       {guardando ? 'Guardando...' : (editando ? 'Actualizar' : 'Asignar')}
                     </button>
                   </div>
-                </form>
+                  </form>
               </FormModal>
             )}
 

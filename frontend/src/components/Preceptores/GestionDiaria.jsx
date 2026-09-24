@@ -76,7 +76,6 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
   const [cargandoLibro, setCargandoLibro] = useState(false);
   const [modoCargaUnica, setModoCargaUnica] = useState(null); // { id_curso_materia, temporizador }
   const [guardandoCargaUnica, setGuardandoCargaUnica] = useState(false);
-  const [notificacionesEnviadas, setNotificacionesEnviadas] = useState(new Set());
 
   const filtrosOk = filtrosCompletos(anioLectivo, curso);
 
@@ -168,13 +167,10 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
   const calificacionesDe = (cmId) => (calificacionesCompletas || []).filter((c) => c.id_curso_materia === cmId);
 
   const toggleCargaUnica = async (cmId) => {
-    if (modoCargaUnica && modoCargaUnica.id_curso_materia === cmId) {
-      // Ya está activo, cerrarlo
-      setModoCargaUnica(null);
-      return;
-    }
-    // Solo las cargas diarias obligatorias disparan la notificación:
-    // asistencias y libro de temas. Las calificaciones no son diarias.
+    // El botón SIEMPRE notifica SOLO al docente de esa materia y abre/renueva
+    // la ventana de 20 minutos. Nunca notifica a otros preceptores. Si ya se le
+    // envió una carga única y el docente no cargó, volviendo a apretar el botón
+    // se le re-notifica y se le da OTRA ventana de 20 minutos.
     const asigs = asistenciasDe(cmId);
     const hayAsistencias = asigs.length > 0;
     const libros = (libroTemas || []).filter((lt) => lt.id_curso_materia === cmId);
@@ -196,17 +192,13 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
         return;
       }
       if (resultado && resultado.recordatorio) {
-        // Rama 1 (B12): el docente sigue en horario de clase; solo se envía un
-        // recordatorio, sin ventana de 20 minutos ni temporizador.
+        // El docente sigue en horario de clase y es el primer aviso del día:
+        // solo recordatorio, sin ventana de 20 minutos ni temporizador.
         setModoCargaUnica(null);
         toast.success(resultado.detail || 'Recordatorio enviado: el docente sigue en horario. No se abrió un plazo de 20 minutos.');
-      } else if (resultado && resultado.destinatarios === 'preceptores_curso') {
-        // Rama 2 (B12): terminó el horario sin cargar; se notificó a los
-        // preceptores del curso para que revisen el panel diario.
-        setModoCargaUnica(null);
-        toast.success(resultado.detail || 'El docente no cargó en su horario: se notificó a los preceptores del curso.');
       } else {
-        // Flujo original: ventana de carga única de 20 minutos para el docente.
+        // Notificación al docente + ventana de 20 minutos (una nueva si ya se
+        // había enviado antes y el docente no cargó).
         setModoCargaUnica({ id_curso_materia: cmId, inicio: new Date() });
         toast.success('Notificación enviada: el docente tiene 20 minutos para cargar.');
       }
@@ -215,12 +207,6 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
     } finally {
       setGuardandoCargaUnica(false);
     }
-  };
-
-  const puedeEnviarCargaUnica = (cmId) => {
-    if (!modoCargaUnica || modoCargaUnica.id_curso_materia !== cmId) return false;
-    const diffMin = Math.round((new Date().getTime() - modoCargaUnica.inicio.getTime()) / 60000);
-    return diffMin <= 20;
   };
 
   const obtenerTiempoRestante = (cmId) => {
@@ -240,7 +226,8 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
 
       <p className="upload-hint m-0 mb-12">
         Verificación por materia: el preceptor verifica si el docente cargó las asistencias y subió el libro de temas.
-        Con <strong>"Recordar carga"</strong> se envía una notificación al docente para que complete lo pendiente en un plazo de 20 minutos.
+        Con <strong>"Recordar carga"</strong> se envía una notificación SOLO al docente de esa materia para que complete lo pendiente en un plazo de 20 minutos.
+        Si el docente no cargó, volvé a apretar el botón para re-notificarlo y darle otra ventana de 20 minutos.
         La sección de calificaciones es solo informativa (no son cargas diarias).
         {hayClasesHoy && (
           <> Mostrando únicamente las materias con clases el <strong>{diaHoy}</strong>.</>
@@ -287,7 +274,7 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
                 // tenga clase.
                 const { texto: txtLibro, hayCarga: haLibro } = (() => {
                   const librosMateria = (libroTemas || []).filter((lt) => lt.id_curso_materia === cm.id);
-                  const libroHoy = librosMateria.filter((lt) => String(lt.fecha || '').slice(0, 10) === diaHoyLocal());
+                  const libroHoy = librosMateria.filter((lt) => String(lt.fecha || '').slice(0, 10) === fechaHoyLocal());
                   if (libroHoy.length > 0) {
                     return {
                       texto: `Libro de temas cargado hoy (${formatFecha(libroHoy[0].fecha)})`,
@@ -368,39 +355,51 @@ function GestionDiaria({ anioLectivo, curso, onNavigate }) {
                       </div>
                     </td>
                     <td>
-                      {modoCargaUnica && modoCargaUnica.id_curso_materia === cm.id ? (
-                        <div style={{
-                          margin: '8px 0',
-                          padding: '8px',
-                          background: '#fff3cd',
-                          border: '1px solid #ffeeba',
-                          borderRadius: '4px',
-                        }}>
-                          <span>Notificación enviada — el docente cargará en {obtenerTiempoRestante(cm.id)} min</span>
-                          <br />
-                          <small>Plazo máximo: 20 minutos para cargar asistencias y libro de temas</small>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => toggleCargaUnica(cm.id)}
-                          title={
-                            claseNoComenzo
-                              ? `La clase de HOY todavía no comenzó (empieza a las ${primerInicioHoy}). Esperá a que el docente esté en horario para abrir el plazo de 20 minutos.`
-                              : sinPendientes
-                              ? 'No hay cargas pendientes para recordar'
-                              : 'Recordar al docente cargar asistencias y libro de temas (plazo de 20 minutos)'
-                          }
-                          disabled={guardandoCargaUnica || sinPendientes || claseNoComenzo}
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => toggleCargaUnica(cm.id)}
+                        title={
+                          claseNoComenzo
+                            ? `La clase de HOY todavía no comenzó (empieza a las ${primerInicioHoy}). Esperá a que el docente esté en horario para abrir el plazo de 20 minutos.`
+                            : sinPendientes
+                            ? 'No hay cargas pendientes para recordar'
+                            : 'Notificar al docente para que cargue asistencias y libro de temas (plazo de 20 minutos). Si ya se envió y no cargó, apretá de nuevo para re-notificar y dar otra ventana de 20 minutos.'
+                        }
+                        disabled={guardandoCargaUnica || sinPendientes || claseNoComenzo}
+                      >
+                        {guardandoCargaUnica ? (
+                          <LoadingSpinner text="" size="sm" inline />
+                        ) : (
+                          <i className="fas fa-bell" aria-hidden="true" />
+                        )}{' '}
+                        Recordar carga
+                      </button>
+                      {modoCargaUnica && modoCargaUnica.id_curso_materia === cm.id && (
+                        <div
+                          className="carga-unica-aviso"
+                          style={{
+                            margin: '8px 0',
+                            padding: '8px',
+                            background: '#fff3cd',
+                            border: '1px solid #ffeeba',
+                            borderRadius: '4px',
+                          }}
                         >
-                          {guardandoCargaUnica ? (
-                            <LoadingSpinner text="" size="sm" inline />
+                          {obtenerTiempoRestante(cm.id) > 0 ? (
+                            <>
+                              <span>Notificación enviada — el docente cargará en {obtenerTiempoRestante(cm.id)} min</span>
+                              <br />
+                              <small>Plazo máximo: 20 minutos para cargar asistencias y libro de temas. Si no cargó, apretá de nuevo "Recordar carga" para re-notificar y dar otra ventana de 20 minutos.</small>
+                            </>
                           ) : (
-                            <i className="fas fa-bell" aria-hidden="true" />
-                          )}{' '}
-                          Recordar carga
-                        </button>
+                            <>
+                              <span>El plazo de 20 minutos venció y el docente no cargó.</span>
+                              <br />
+                              <small>Apretá de nuevo "Recordar carga" para re-notificarlo y darle otra ventana de 20 minutos.</small>
+                            </>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>

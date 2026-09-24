@@ -403,6 +403,7 @@ function PanelAlumnos({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, doc
       toast.success('Calificaciones guardadas exitosamente.');
       await refreshData();
     } catch (err) {
+      setMensaje(`Error: ${mensajeErrorAmigable(err)}`);
       toast.error(mensajeErrorAmigable(err));
     } finally {
       setGuardando(false);
@@ -437,10 +438,18 @@ return (
         </p>
       )}
 
-      {mensaje && (
-        <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
-          {mensaje}
-        </p>
+      {mensaje && mensaje.startsWith('Error') && (
+        <div
+          className="alert alert-danger alert-overlay"
+          role="alert"
+          style={{ position: 'absolute', inset: '0', zIndex: 9999, margin: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', borderRadius: '0', background: 'rgba(254, 226, 226, 0.96)' }}
+        >
+          <i className="fas fa-exclamation-triangle" aria-hidden="true"></i>
+          <span style={{ textAlign: 'center', fontWeight: 600 }}>{mensaje}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setMensaje('')}>
+            Cerrar
+          </button>
+        </div>
       )}
 
       <div className="table-responsive">

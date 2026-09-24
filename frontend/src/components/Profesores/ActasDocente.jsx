@@ -40,14 +40,9 @@ const formVacio = { tipo: '', titulo: '', fecha: '', descripcion: '', alumnoId: 
 
 function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaAlumnos, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje }) {
   return (
-    <FormModal title={editando ? 'Editar acta' : 'Nueva acta'} onClose={onCancel}>
+    <FormModal title={editando ? 'Editar acta' : 'Nueva acta'} onClose={onCancel} error={mensaje && mensaje.startsWith('Error') ? mensaje : null} onClearError={() => setMensaje('')}>
       <form onSubmit={onSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
-          {mensaje && (
-            <div className={`alert ${mensaje.startsWith('Error') ? 'alert-danger' : 'alert-success'} mb-12`}>
-              {mensaje}
-            </div>
-          )}
 
           <div className="preceptor-form-row preceptor-form-row--two">
             <div className="form-group-filter">

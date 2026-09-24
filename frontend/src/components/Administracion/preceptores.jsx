@@ -445,7 +445,7 @@ function Preceptores({ rol = 'preceptor' }) {
   }
 
   const renderFormulario = () => (
-    <FormModal title={editingPreceptor ? `Editar ${etiquetaSingular}` : `Nuevo ${etiquetaSingular}`} onClose={cerrarFormulario}>
+    <FormModal title={editingPreceptor ? `Editar ${etiquetaSingular}` : `Nuevo ${etiquetaSingular}`} onClose={cerrarFormulario} error={error} onClearError={() => setError('')}>
       <form onSubmit={handleSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <section className="preceptor-form-section">
@@ -659,7 +659,6 @@ function Preceptores({ rol = 'preceptor' }) {
         </div>
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
       <div className="mb-12">

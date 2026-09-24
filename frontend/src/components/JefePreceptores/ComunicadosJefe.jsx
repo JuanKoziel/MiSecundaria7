@@ -193,12 +193,9 @@ function ComunicadosJefe() {
               setArchivos([]);
               setMostrarFormulario(false);
             }}
+            error={mensaje && mensaje.startsWith('Error') ? mensaje : null}
+            onClearError={() => setMensaje('')}
           >
-            {mensaje && (
-              <p style={{ color: mensaje.startsWith('Error') ? 'red' : 'green', margin: '8px 0' }}>
-                {mensaje}
-              </p>
-            )}
             <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
               <div className="preceptor-form-grid">
                 <div className="form-group-filter preceptor-form-full">

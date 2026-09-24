@@ -13,10 +13,10 @@ function mensajeError(err) {
   return mensajeErrorAmigable(err);
 }
 
-function FormMateria({ formData, setFormData, editing, guardando, onSubmit, onCancel }) {
+function FormMateria({ formData, setFormData, editing, guardando, onSubmit, onCancel, error, onClearError }) {
   return (
-    <FormModal title={editing ? 'Editar materia' : 'Nueva materia'} onClose={onCancel}>
-      <form onSubmit={onSubmit}>
+    <FormModal title={editing ? 'Editar materia' : 'Nueva materia'} onClose={onCancel} error={error} onClearError={onClearError}>
+      <form onSubmit={onSubmit} style={{ position: 'relative' }}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <div className="form-group-filter">
             <label htmlFor="mat-nombre">Nombre de la materia</label>
@@ -29,7 +29,7 @@ function FormMateria({ formData, setFormData, editing, guardando, onSubmit, onCa
             {guardando ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
           </button>
         </div>
-      </form>
+        </form>
     </FormModal>
   );
 }
@@ -85,6 +85,7 @@ function GestionMaterias() {
       limpiar();
       await refreshAdminMaterias(mostrarInactivos);
     } catch (err) {
+      setError(mensajeError(err));
       toast.error(mensajeError(err));
     } finally {
       setGuardando(false);
@@ -140,6 +141,8 @@ function GestionMaterias() {
           guardando={guardando}
           onSubmit={(e) => handleSubmit(e, false)}
           onCancel={limpiar}
+          error={error}
+          onClearError={() => setError('')}
         />
       )}
 
@@ -188,6 +191,8 @@ function GestionMaterias() {
           guardando={guardando}
           onSubmit={(e) => handleSubmit(e, true)}
           onCancel={limpiar}
+          error={error}
+          onClearError={() => setError('')}
         />
       )}
     </div>

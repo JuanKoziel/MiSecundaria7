@@ -14,8 +14,10 @@ import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import PanelAlumno from './PanelAlumno';
 import PanelMateriasAdeudadasAlumno from './PanelMateriasAdeudadasAlumno';
+import ActividadesView from '../Shared/ActividadesView';
 import Sidebar from './Sidebar';
 import SidebarToggle from '../Shared/SidebarToggle';
+import Logo from '../Shared/Logo';
 
 function AlumnoDashboard({ user, onLogout }) {
   const {
@@ -180,6 +182,7 @@ function AlumnoDashboard({ user, onLogout }) {
           <div className="main-header-left">
             <SidebarToggle />
             <div className="main-header-greeting">
+              <Logo className="header-logo" />
               <h2>
                 <span className="greeting-saludo">Bienvenido:</span>{' '}
                 <span className="greeting-nombre">
@@ -299,6 +302,12 @@ function AlumnoDashboard({ user, onLogout }) {
                   idCurso={miAlumno.id_curso}
                   userRole="alumno"
                 />
+              </div>
+            )}
+
+            {view === 'actividades' && (
+              <div className="view-section active">
+                <ActividadesView userRole="alumno" />
               </div>
             )}
 
