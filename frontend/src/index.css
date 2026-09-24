@@ -406,6 +406,7 @@ body {
     border-radius: 10px;
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
 }
 
 .sidebar-menu-btn::before {
@@ -460,6 +461,10 @@ body {
 
 .sidebar-section-header span {
     flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .sidebar-section-header::before {
@@ -520,6 +525,7 @@ body {
     background: rgba(0,0,0,0.1);
     border-radius: 0 0 10px 10px;
     border-left: 3px solid transparent;
+    will-change: transform, opacity;
 }
 
 @keyframes slideDown {

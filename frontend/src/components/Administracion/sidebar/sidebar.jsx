@@ -39,19 +39,20 @@ function Sidebar({ setView, onLogout, view }) {
     setExpandedSection(willExpand ? sectionId : null);
 
     if (willExpand && menuWrapperRef.current) {
-      setTimeout(() => {
-        const wrapper = menuWrapperRef.current;
-        if (!wrapper) return;
-        const sectionHeader = wrapper.querySelector(`[data-section-id="${sectionId}"]`);
-        if (!sectionHeader) return;
+      const wrapper = menuWrapperRef.current;
+      const sectionHeader = wrapper.querySelector(`[data-section-id="${sectionId}"]`);
+      if (!sectionHeader) return;
 
-        const nextSection = sectionHeader.nextElementSibling;
-        if (nextSection) {
-          nextSection.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        } else {
-          sectionHeader.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }, 280);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const nextSection = sectionHeader.nextElementSibling;
+          if (nextSection) {
+            nextSection.scrollIntoView({ behavior: 'auto', block: 'end' });
+          } else {
+            sectionHeader.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+          }
+        });
+      });
     }
   };
 
