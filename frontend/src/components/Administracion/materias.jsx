@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { createMateria, updateMateria } from '../../services/api';
 import AsignacionMaterias from './asignacionMaterias';
 import FormModal from '../../components/Shared/FormModal';
+import AccionesCelda, { nombreAccion } from '../../components/Shared/AccionesCelda';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { mensajeErrorAmigable } from '../../utils/errores';
 
@@ -101,14 +102,36 @@ function GestionMaterias() {
       '• calificaciones\n• planificaciones\n\n' +
       '¿Desea continuar?',
       {
-        confirmText: 'Desactivar',
-        loadingText: 'Desactivando...',
+        confirmText: 'Deshabilitar',
+        loadingText: 'Deshabilitando...',
         onConfirm: async () => {
           setError('');
           setSuccess('');
           try {
             await updateMateria(materia.id_materia, { activo: false });
-            toast.success('Materia desactivada correctamente.');
+            toast.success('Materia deshabilitada correctamente.');
+            await refreshAdminMaterias(mostrarInactivos);
+          } catch (err) {
+            toast.error(mensajeError(err));
+          }
+        },
+      },
+    );
+  };
+
+  const handleReactivar = async (materia) => {
+    await confirmarEliminacion(
+      'La materia "' + materia.nombre_materia + '" volverá a estar disponible.\n\n' +
+      '¿Desea continuar?',
+      {
+        confirmText: 'Habilitar',
+        loadingText: 'Habilitando...',
+        onConfirm: async () => {
+          setError('');
+          setSuccess('');
+          try {
+            await updateMateria(materia.id_materia, { activo: true });
+            toast.success('Materia habilitada correctamente.');
             await refreshAdminMaterias(mostrarInactivos);
           } catch (err) {
             toast.error(mensajeError(err));
@@ -166,16 +189,16 @@ function GestionMaterias() {
                     <td>
                       <span className={`badge ${m.activo ? 'badge-success' : 'badge-danger'}`}>{m.activo ? 'Activo' : 'Inactivo'}</span>
                     </td>
-                    <td className="acciones-cell flex-row--center">
-                      {m.activo && (
-                        <div>
-                          <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(m)} aria-label="Editar materia" title="Editar"><i className="fas fa-edit" aria-hidden="true" /></button>
-                          <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDesactivar(m)} aria-label="Desactivar materia" title="Desactivar"><i className="fas fa-ban" aria-hidden="true" /></button>
-                        </div>
-                      )}
-                    </td>
+                    <AccionesCelda
+                      acciones={m.activo ? [
+                        { accion: 'editar', onClick: () => abrirEditar(m) },
+                        { accion: 'deshabilitar', onClick: () => handleDesactivar(m) },
+                      ] : [
+                        { accion: 'habilitar', onClick: () => handleReactivar(m) },
+                      ]}
+                      entidad="materia"
+                    />
                   </tr>
-
                 </Fragment>
               ))
             )}

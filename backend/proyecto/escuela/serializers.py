@@ -644,12 +644,13 @@ class PadreTutorSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'alumnos_ids': 'Debe asignar al menos un alumno al agregar el rol de tutor/familia.'
                 })
-        else:
-            if PadreTutor.objects.filter(id_usuario_id=id_usuario_existente).exists():
-                raise serializers.ValidationError({
-                    'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de tutor/familia.'
-                })
-        
+        # Sin `id_usuario_existente` se crea una cuenta nueva: aquí
+        # `id_usuario_existente` es None y filtrar por él se traduce a
+        # `id_usuario_id IS NULL`, una comprobación sin sentido que hacía
+        # saltar "El usuario seleccionado ya tiene perfil de tutor/familia"
+        # al crear un tutor nuevo. El duplicado de usuario_nombre ya lo
+        # valida `_build_usuario_account`.
+
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or PadreTutor(),
             validated_data=validated_data,
@@ -1334,12 +1335,11 @@ class DocenteSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'curso_materia_ids': 'Debe asignar al menos una relación curso-materia al agregar el rol de docente.'
                 })
-        else:
-            if Docente.objects.filter(id_usuario_id=id_usuario_existente).exists():
-                raise serializers.ValidationError({
-                    'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de docente.'
-                })
-        
+        # Sin `id_usuario_existente` se crea una cuenta nueva: filtrar por None
+        # se traduce a `id_usuario_id IS NULL` y producía el error falso
+        # "El usuario seleccionado ya tiene perfil de docente". El duplicado de
+        # usuario_nombre lo valida `_build_usuario_account`.
+
         usuario, validated_data = _build_usuario_account(
             instance=self.instance or Docente(),
             validated_data=validated_data,
@@ -1607,6 +1607,11 @@ class CursoMateriaSerializer(serializers.ModelSerializer):
     )
     materia_nombre = serializers.CharField(
         source='id_materia.nombre_materia', read_only=True, default=None,
+    )
+    # Punto 5.2: la orientación se lee del curso (Curso.orientacion), nunca se
+    # infiere a partir del año o la división.
+    curso_orientacion = serializers.CharField(
+        source='id_curso.orientacion', read_only=True, default=None,
     )
     id_docente = serializers.PrimaryKeyRelatedField(
         queryset=Docente.objects.all(), required=False, allow_null=True,

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createDiagnosticoGrupal } from '../../services/api';
+import { hoy } from '../../utils/fechas';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
@@ -23,7 +24,7 @@ function PanelInfo({ cursoId, docenteId, cursoNombre, puedeEditar = true }) {
         id_curso: cursoId,
         id_docente: docenteId,
         descripcion: diagnostico,
-        fecha: new Date().toISOString().slice(0, 10),
+        fecha: hoy(),
       });
       toast.success('Diagnóstico guardado exitosamente.');
       setDiagnostico('');

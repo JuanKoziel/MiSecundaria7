@@ -58,7 +58,12 @@ function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCurs
   };
 
   const cursoCompleto = anioActual && divActual ? `${anioActual}°${divActual}` : '';
-  const orientacion = cursoCompleto ? orientacionDeCurso(cursoCompleto) : '';
+  // Punto 5.2: se muestra la orientación GUARDADA en el curso, nunca inferida por
+  // la división. Si el curso no tiene orientación, se muestra "—".
+  const cursoObjSeleccionado = (cursosObj || []).find(
+    (c) => String(c.nombre_curso || '').trim() === String(cursoCompleto || '').trim(),
+  );
+  const orientacion = orientacionDeCurso(cursoObjSeleccionado);
   const tieneFiltros = !!(anioLectivo || curso);
 
   return (
@@ -143,9 +148,16 @@ function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCurs
             </select>
           </div>
 
-          {orientacion && (
-            <span className="badge orientacion-badge" title="Orientación del curso">
-              {orientacion}
+          {cursoCompleto && (
+            <span
+              className="badge orientacion-badge"
+              title={
+                orientacion
+                  ? `Orientación del curso: ${orientacion}`
+                  : 'Este curso no tiene orientación cargada'
+              }
+            >
+              {orientacion || '—'}
             </span>
           )}
 

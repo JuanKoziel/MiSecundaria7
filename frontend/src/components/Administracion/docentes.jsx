@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+﻿import { Fragment, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
@@ -358,6 +358,7 @@ function Docentes() {
   const [searchTerm, setSearchTerm] = useState('');
   const [actasAbierto, setActasAbierto] = useState(null);
   const [cursosAbierto, setCursosAbierto] = useState(null);
+  const [verDdjj, setVerDdjj] = useState(null);
   const [previewDocente, setPreviewDocente] = useState(null);
   const [recordatorioDocente, setRecordatorioDocente] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -590,6 +591,7 @@ function Docentes() {
               filteredDocentes.map((d) => {
                 const verActas = actasAbierto === d.id;
                 const verCursos = cursosAbierto === d.id;
+                const verDdjjOpen = verDdjj === d.id;
                 const actas = actasDocente.filter((a) => a.docenteId === d.id);
                 const tieneDdjj = Boolean(d.ddjj_presentada || d.ddjj_id);
                 const archivoUrl = d.ddjj_url || d.ruta_ddjj || null;
@@ -638,34 +640,14 @@ function Docentes() {
                           </div>
 
                           {tieneDdjj ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
-                              <button
-                                type="button"
-                                className={`btn btn-sm ${d.ddjj_verificada ? 'btn-success' : 'btn-warning'}`}
-                                onClick={() => setPreviewDocente(d)}
-                                title={`Ver ${archivoNombre}`}
-                              >
-                                <i className="fas fa-file-alt" aria-hidden="true" /> Ver DDJJ
-                              </button>
-                              {d.ddjj_verificada ? (
-                                <span
-                                  className="badge badge-success"
-                                  title="DDJJ verificada"
-                                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', boxSizing: 'border-box', minHeight: '31px' }}
-                                >
-                                  <i className="fas fa-check-circle" aria-hidden="true" /> Verificada
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-secondary"
-                                  onClick={() => handleVerificarDdjj(d)}
-                                  title="Marcar la DDJJ como verificada"
-                                >
-                                  <i className="fas fa-check" aria-hidden="true" /> Marcar verificado
-                                </button>
-                              )}
-                            </div>
+                            <button
+                              type="button"
+                              className={`btn btn-primary table-download-btn ${d.ddjj_verificada ? 'btn-success' : ''}`}
+                              onClick={() => { setVerDdjj(verDdjjOpen ? null : d.id); setActasAbierto(null); setCursosAbierto(null); }}
+                            >
+                              <i className={`fas fa-chevron-${verDdjjOpen ? 'up' : 'down'}`} aria-hidden="true" />{' '}
+                              {d.ddjj_verificada ? 'DDJJ ✓' : 'DDJJ'}
+                            </button>
                           ) : (
                             <button
                               type="button"
@@ -726,6 +708,72 @@ function Docentes() {
                             cursoMateria={cursoMateria}
                             planificaciones={planificaciones}
                           />
+                        </td>
+                      </tr>
+                    )}
+                    {tieneDdjj && verDdjjOpen && (
+                      <tr className="acta-desplegable-row">
+                        <td colSpan={6}>
+                          <div style={{ padding: '16px', background: '#f8fafc', borderTop: '1px solid var(--border-color)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <i className="fas fa-file-alt" style={{ color: 'var(--primary-color)', fontSize: '1.2rem' }} aria-hidden="true" />
+                                <strong>DDJJ</strong>
+                                {d.ddjj_verificada && <span className="badge badge-success" style={{ marginLeft: '8px' }}>Verificada</span>}
+                              </div>
+                              {d.ddjj_fecha_subida && (
+                                <span style={{ color: '#666', fontSize: '0.9rem' }}>
+                                  <i className="fas fa-calendar-alt" aria-hidden="true" /> Subida: {new Date(d.ddjj_fecha_subida).toLocaleDateString('es-AR')}
+                                </span>
+                              )}
+                              {d.ddjj_nombre_archivo && (
+                                <span style={{ color: '#666', fontSize: '0.9rem', marginLeft: 'auto' }}>
+                                  <i className="fas fa-file" aria-hidden="true" /> {d.ddjj_nombre_archivo}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              {tieneDdjj && archivoUrl && (
+                                <a
+                                  href={buildDownloadUrl(archivoUrl)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-sm btn-secondary"
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                  <i className="fas fa-download" aria-hidden="true" /> Descargar
+                                </a>
+                              )}
+                              {!d.ddjj_verificada && (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={() => handleVerificarDdjj(d)}
+                                  disabled={guardandoDocente}
+                                >
+                                  <i className="fas fa-check" aria-hidden="true" /> Verificar
+                                </button>
+                              )}
+                              {d.ddjj_verificada && (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-danger"
+                                  onClick={() => handleEliminarDdjj(d)}
+                                  disabled={guardandoDocente}
+                                >
+                                  <i className="fas fa-trash" aria-hidden="true" /> Eliminar DDJJ
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-secondary"
+                                onClick={() => setRecordatorioDocente(d)}
+                                disabled={tieneDdjj || guardandoDocente}
+                              >
+                                <i className="fas fa-bell" aria-hidden="true" /> Recordar
+                              </button>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -863,3 +911,4 @@ function Docentes() {
 }
 
 export default Docentes;
+

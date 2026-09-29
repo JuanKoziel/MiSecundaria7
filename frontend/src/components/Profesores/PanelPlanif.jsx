@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useCallback } from 'react';
+import { buildMediaUrl } from '../../utils/medios';
 import { getPlanificaciones, createPlanificacion, updatePlanificacion, deletePlanificacion, BASE_URL } from '../../services/api';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
@@ -257,7 +258,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
                     <td>
                       {p.ruta_archivo ? (
                         <a
-                          href={`${API_BASE}${p.ruta_archivo}`}
+                          href={`${buildMediaUrl(p.ruta_archivo)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn btn-success table-download-btn"
@@ -282,7 +283,7 @@ function PanelPlanif({ cursoMateriaId, docenteId, materiaNombre, cursoNombre, mi
                     <td className="acciones-cell flex-row--center">
                       {p.ruta_archivo && (
                         <a
-                          href={`${API_BASE}${p.ruta_archivo}`}
+                          href={`${buildMediaUrl(p.ruta_archivo)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn btn-sm btn-success"

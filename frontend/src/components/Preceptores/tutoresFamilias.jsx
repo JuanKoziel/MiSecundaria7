@@ -7,6 +7,7 @@ import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
 import TutoresEstudiantesEditor from '../../components/Shared/TutoresEstudiantesEditor';
 import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
+import FilaEstadoCuenta from '../../components/Shared/FilaEstadoCuenta';
 import { cursosPorAnio, estudiantesPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
@@ -135,7 +136,7 @@ function TutoresFamilias({ readOnly = false }) {
       ) {
         return true;
       }
-      return (t.estudiantes || []).some(
+      return (t.alumnos || t.estudiantes || []).some(
         (al) =>
           normalize(al.nombre).includes(q) ||
           normalize(al.apellido).includes(q) ||
@@ -176,7 +177,7 @@ function TutoresFamilias({ readOnly = false }) {
       tipo: t.tipo || '',
       telefono: t.telefono || '',
       direccion: t.direccion || '',
-      alumnos_ids: (t.estudiantes || []).map((a) => a.id_alumno),
+      alumnos_ids: (t.alumnos || t.estudiantes || []).map((a) => a.id_alumno),
     });
     setMensaje('');
   };
@@ -196,6 +197,12 @@ function TutoresFamilias({ readOnly = false }) {
           setGuardando(false);
           return;
         }
+        if (!form.tipo) {
+          toast.warning('Seleccioná el tipo de tutor (Padre/Madre/Tutor).');
+          setGuardando(false);
+          return;
+        }
+        const alumnosIds = (form.alumnos_ids || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
         const tutorPayload = {
           estado: form.estado,
           dni: form.dni,
@@ -205,7 +212,7 @@ function TutoresFamilias({ readOnly = false }) {
           tipo: form.tipo || null,
           telefono: form.telefono || null,
           direccion: form.direccion || null,
-          alumnos_ids: form.alumnos_ids,
+          alumnos_ids: alumnosIds,
           usuario_nombre: form.usuario_nombre,
           contrasena: form.contrasena,
           fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
@@ -220,6 +227,7 @@ function TutoresFamilias({ readOnly = false }) {
           setGuardando(false);
           return;
         }
+        const alumnosIds = (form.alumnos_ids || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
         await updatePadreTutor(seleccionado, {
           usuario_nombre: form.usuario_nombre || undefined,
           contrasena: form.contrasena || undefined,
@@ -233,7 +241,7 @@ function TutoresFamilias({ readOnly = false }) {
           tipo: form.tipo || null,
           telefono: form.telefono || null,
           direccion: form.direccion || null,
-          alumnos_ids: form.alumnos_ids,
+          alumnos_ids: alumnosIds,
         });
         toast.success('Tutor actualizado correctamente.');
         cerrarFormulario();
@@ -267,6 +275,7 @@ function TutoresFamilias({ readOnly = false }) {
   const handleAgregarRol = async ({ persona, asignaciones }) => {
     setGuardandoAgregarRol(true);
     try {
+      const alumnosIds = (asignaciones.alumnos_ids || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
       await createPadreTutor({
         id_usuario_existente: Number(persona.id_usuario ?? persona.id),
         dni: persona.dni || '',
@@ -276,7 +285,7 @@ function TutoresFamilias({ readOnly = false }) {
         telefono: persona.telefono || null,
         tipo: 'Tutor',
         direccion: null,
-        alumnos_ids: asignaciones.alumnos_ids || [],
+        alumnos_ids: alumnosIds,
       });
       toast.success('Rol "Tutor" asignado correctamente.');
       setMostrarAgregarRol(false);
@@ -430,7 +439,7 @@ function TutoresFamilias({ readOnly = false }) {
           ) : (
             listaFiltrada.map((t) => {
               const puedeCambiarEstado = t.usuario_estado !== null && t.usuario_estado !== undefined;
-              const estudiantesAsignados = t.estudiantes || [];
+              const estudiantesAsignados = t.alumnos || t.estudiantes || [];
               return [
                 <tr key={t.id_tutor}>
                   <td className="table-cell-strong">{nombreTutor(t)}</td>
@@ -458,10 +467,10 @@ function TutoresFamilias({ readOnly = false }) {
                   </td>
                   {!readOnly && <td>{proximaAccion(t)}</td>}
                   {!readOnly && (
-                    <td className="acciones-cell" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', justifyItems: 'center' }}>
+                    <td className="acciones-cell acciones-cell--grid2">
                       <button
                         type="button"
-                        className="btn btn-sm btn-secondary"
+                        className="btn btn-sm btn-secondary btn-accion-icono"
                         onClick={() => abrirEditar(t)}
                         title="Editar"
                       >
@@ -470,7 +479,7 @@ function TutoresFamilias({ readOnly = false }) {
                       {puedeCambiarEstado && (
                         <button
                           type="button"
-                          className={`btn btn-sm ${t.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
+                          className={`btn btn-sm btn-accion-icono ${t.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
                           onClick={() => toggleEstado(t)}
                           title={t.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
                           disabled={guardando}
@@ -480,7 +489,7 @@ function TutoresFamilias({ readOnly = false }) {
                       )}
                       <button
                         type="button"
-                        className={`btn btn-sm btn-secondary${programando === t.id_tutor ? ' active' : ''}`}
+                        className={`btn btn-sm btn-secondary btn-accion-icono${programando === t.id_tutor ? ' active' : ''}`}
                         onClick={() => abrirProgramar(t)}
                         title="Programar"
                       >
@@ -488,7 +497,7 @@ function TutoresFamilias({ readOnly = false }) {
                       </button>
                       <button
                         type="button"
-                        className="btn btn-sm btn-danger"
+                        className="btn btn-sm btn-danger btn-accion-icono"
                         onClick={() => eliminarTutor(t)}
                         title="Eliminar"
                       >
@@ -566,18 +575,13 @@ function TutoresFamilias({ readOnly = false }) {
           onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
         />
       </div>
-      <div className="form-group-filter">
-        <label>Estado</label>
-        <label htmlFor="tut-estado" className="preceptor-status-toggle">
-          <input
-            id="tut-estado"
-            type="checkbox"
-            checked={form.estado}
-            onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
-          />
-          <span>{estadoLabel(form.estado)}</span>
-        </label>
-      </div>
+      <FilaEstadoCuenta
+        id="tut-estado"
+        etiqueta="Estado"
+        checked={form.estado}
+        disabled={guardando}
+        onChange={(checked) => setForm((p) => ({ ...p, estado: checked }))}
+      />
       <div className="form-group-filter">
         <label htmlFor="tut-fecha-deshabilitacion">Fecha deshabilitación programada</label>
         <input

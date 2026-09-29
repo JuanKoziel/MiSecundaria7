@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { getActividades, getActividadesMateriasAdeudadas, BASE_URL } from '../../services/api';
+import { buildMediaUrl } from '../../utils/medios';
 import LoadingSpinner from './LoadingSpinner';
 
 const API_BASE = BASE_URL;
@@ -18,8 +19,7 @@ function isPreviewable(nombre = '') {
 }
 
 function resolveUrl(url) {
-  if (!url) return null;
-  return url.startsWith('http') ? url : `${API_BASE}${url}`;
+  return buildMediaUrl(url) || null;
 }
 
 function formatFecha(value) {

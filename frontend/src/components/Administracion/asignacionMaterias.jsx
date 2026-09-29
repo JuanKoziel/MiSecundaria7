@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { getDocentes, createCursoMateria, updateCursoMateria } from '../../services/api';
@@ -44,6 +44,15 @@ function AsignacionMaterias() {
     : [];
 
   const materiasAsignadasIds = asignacionesCurso.filter((cm) => cm.activo).map((cm) => cm.id_materia);
+
+  // Materias disponibles para el curso seleccionado (sin filtrar por orientación)
+  const materiasDisponibles = useMemo(() => {
+    if (!cursoObj) {
+      return adminMaterias.filter((m) => m.activo);
+    }
+    // La materia solo depende del curso, no de la orientación
+    return adminMaterias.filter((m) => m.activo && m.id_curso === cursoObj.id_curso);
+  }, [adminMaterias, cursoObj]);
 
   const abrirAgregar = () => {
     setEditando(null);
@@ -171,12 +180,15 @@ function AsignacionMaterias() {
                           <label htmlFor="asig-materia">Materia</label>
                           <select id="asig-materia" value={formData.id_materia} onChange={(e) => setFormData((p) => ({ ...p, id_materia: e.target.value }))} required>
                             <option value="">Seleccionar...</option>
-                            {adminMaterias.filter((m) => m.activo).map((m) => (
+                            {materiasDisponibles.map((m) => (
                               <option key={m.id_materia} value={m.id_materia}>
                                 {m.nombre_materia} {materiasAsignadasIds.includes(m.id_materia) ? '(ya asignada)' : ''}
                               </option>
                             ))}
                           </select>
+                          {materiasDisponibles.length === 0 && cursoObj && (
+                            <small className="text-muted">No hay materias disponibles para el curso <strong>{cursoObj.nombre_curso}</strong>.</small>
+                          )}
                         </div>
                       )}
                       <div className="form-group-filter">

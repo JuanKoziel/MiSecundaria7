@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { buildMediaUrl } from '../../utils/medios';
 import {
   createActividad,
   deleteActividad,
@@ -28,8 +29,7 @@ function isPreviewable(nombre = '') {
 }
 
 function resolveUrl(url) {
-  if (!url) return null;
-  return url.startsWith('http') ? url : `${API_BASE}${url}`;
+  return buildMediaUrl(url) || null;
 }
 
 function formatDateTime(value) {

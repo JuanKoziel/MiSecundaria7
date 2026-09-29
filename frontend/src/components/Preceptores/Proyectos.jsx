@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import EmptyFiltros from './EmptyFiltros';
 import { filtrosCompletos } from './preceptorUtils';
+import { buildMediaUrl } from '../../utils/medios';
 import { BASE_URL } from '../../services/api';
 
 const API_BASE = BASE_URL;
@@ -14,8 +15,7 @@ function formatFecha(value) {
 }
 
 function resolveUrl(url) {
-  if (!url) return null;
-  return url.startsWith('http') ? url : `${API_BASE}${url}`;
+  return buildMediaUrl(url) || null;
 }
 
 function esPdf(nombre = '') {

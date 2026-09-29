@@ -1,4 +1,6 @@
 import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
+import { buildMediaUrl } from '../../utils/medios';
+import { hoy } from '../../utils/fechas';
 import {
   getServerTime,
   getLibroTemas,
@@ -136,7 +138,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
     return null;
   }, [serverInfo]);
 
-  const fechaActual = serverInfo?.fecha || new Date().toISOString().slice(0, 10);
+  const fechaActual = serverInfo?.fecha || hoy();
   const horarioDisplay = bloqueActual
     ? `${bloqueActual.hora_inicio} a ${bloqueActual.hora_fin}`
     : (serverInfo?.estado?.mensaje || '—');
@@ -424,7 +426,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
                       {reg.ruta_archivo ? (
                         <div className="flex-row">
                           <a
-                            href={`${API_BASE}${reg.ruta_archivo}`}
+                            href={`${buildMediaUrl(reg.ruta_archivo)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-success table-download-btn"
@@ -432,7 +434,7 @@ function PanelLibroTemas({ cursoMateriaId, materiaNombre, cursoNombre, miDocente
                             <i className="fas fa-eye" aria-hidden="true" /> Ver
                           </a>
                           <a
-                            href={`${API_BASE}${reg.ruta_archivo}`}
+                            href={`${buildMediaUrl(reg.ruta_archivo)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             download

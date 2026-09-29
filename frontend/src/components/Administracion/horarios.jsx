@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -13,6 +13,7 @@ import {
   deleteHorarioEspecial,
 } from '../../services/api';
 import VistaHorarios from './VistaHorarios';
+import AccionesCelda from '../../components/Shared/AccionesCelda';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 
@@ -25,8 +26,8 @@ function timeStr(value) {
   return s.slice(0, 5);
 }
 
-function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = '' }) {
-  const { modulos } = useData();
+const HorarioSemanal = function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = '', onRegisterSave }) {
+  const { modulos, refreshData } = useData() || {};
   const toast = useToast();
   const [cursoIdLocal, setCursoIdLocal] = useState('');
   const cursoSeleccionado = esControlado ? cursoIdExterno : cursoIdLocal;
@@ -37,6 +38,34 @@ function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = 
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [cargandoGrilla, setCargandoGrilla] = useState(false);
+
+  const handleGuardar = useCallback(async () => {
+    if (!cursoSeleccionado) return;
+    setGuardando(true);
+    setMensaje('');
+    try {
+      const updates = Object.entries(celdas)
+        .filter(([, v]) => v !== (originalCeldas[Object.keys(celdas).find(k => celdas[k] === v)] || ''))
+        .map(([key, value]) => {
+          const [dia, moduloId] = key.split('|');
+          return updateHorario({ dia_semana: dia, hora_inicio: value.hora_inicio, hora_fin: value.hora_fin, aula: value.aula, id_curso_materia: moduloId, curso: cursoSeleccionado });
+        });
+      await Promise.all(updates);
+      setMensaje('Horarios guardados correctamente.');
+      setOriginalCeldas({ ...celdas });
+      if (typeof refreshData === 'function') {
+        try { await refreshData(); } catch { /* best-effort */ }
+      }
+    } catch {
+      setMensaje('Error al guardar horarios.');
+    } finally {
+      setGuardando(false);
+    }
+  }, [celdas, originalCeldas, cursoSeleccionado, refreshData]);
+
+  useEffect(() => {
+    if (onRegisterSave) onRegisterSave(handleGuardar);
+  }, [onRegisterSave, handleGuardar]);
 
   const modulosSorted = useMemo(() => {
     if (!Array.isArray(modulos)) return [];
@@ -118,58 +147,6 @@ function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = 
     });
   };
 
-  const handleGuardar = async () => {
-    setMensaje('');
-    setGuardando(true);
-    try {
-      for (const dia of DIAS) {
-        for (const mod of modulosSorted) {
-          const key = `${dia}_${mod.id_modulo}`;
-          const current = celdas[key];
-          const original = originalCeldas[key];
-
-          if (current && current.id_curso_materia) {
-            if (original) {
-              if (original.id_curso_materia !== current.id_curso_materia) {
-                await updateHorario(original.id_horario, { id_curso_materia: current.id_curso_materia });
-              }
-            } else {
-              await createHorario({
-                id_curso_materia: current.id_curso_materia,
-                dia_semana: dia,
-                id_modulo: mod.id_modulo,
-                aula: null,
-              });
-            }
-          } else if (!current && original && original.id_horario) {
-            await deleteHorario(original.id_horario);
-          }
-        }
-      }
-
-      toast.success('Horarios guardados correctamente.');
-
-      const [horData] = await Promise.all([
-        getHorarios({ curso: cursoSeleccionado }),
-      ]);
-      const horList = Array.isArray(horData) ? horData : horData.results || [];
-      const newCeldas = {};
-      horList.forEach((h) => {
-        const key = `${h.dia_semana}_${h.id_modulo}`;
-        newCeldas[key] = {
-          id_horario: h.id_horario,
-          id_curso_materia: h.id_curso_materia,
-        };
-      });
-      setCeldas(newCeldas);
-      setOriginalCeldas(JSON.parse(JSON.stringify(newCeldas)));
-    } catch {
-      toast.error('Error al guardar horarios.');
-    } finally {
-      setGuardando(false);
-    }
-  };
-
   return (
     <div>
       {!esControlado && (
@@ -188,12 +165,6 @@ function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = 
             </select>
           </div>
         </div>
-      )}
-
-      {mensaje && (
-        <p className="form-error-message" style={{ color: mensaje.includes('correctamente') ? '#155724' : undefined }}>
-          {mensaje}
-        </p>
       )}
 
       {cursoSeleccionado && (
@@ -243,7 +214,7 @@ function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = 
                         ))}
                       </tr>
                     ))}
-                  </tbody>
+</tbody>
                 </table>
               </div>
 
@@ -252,9 +223,9 @@ function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = 
                   type="button"
                   className="btn btn-primary"
                   disabled={guardando}
-                  onClick={handleGuardar}
+onClick={executeSave}
                 >
-                  {guardando ? 'Guardando...' : 'Guardar cambios'}
+                  {guardando ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
             </div>
@@ -267,6 +238,7 @@ function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = 
 
 function EducacionFisica({ cursosOptions, esControlado = false, cursoIdExterno = '' }) {
   const toast = useToast();
+  const { refreshData } = useData() || {};
   const [cursoIdLocal, setCursoIdLocal] = useState('');
   const cursoSeleccionado = esControlado ? cursoIdExterno : cursoIdLocal;
   const setCursoSeleccionado = esControlado ? () => {} : setCursoIdLocal;
@@ -341,6 +313,13 @@ function EducacionFisica({ cursosOptions, esControlado = false, cursoIdExterno =
         await createHorarioEspecial(payload);
       }
       resetForm();
+      if (typeof refreshData === 'function') {
+        try {
+          await refreshData();
+        } catch {
+          /* el guardado ya quedó confirmado; el refresco global es best-effort */
+        }
+      }
       const [heData] = await Promise.all([
         getHorariosEspeciales({ curso: cursoSeleccionado }),
       ]);
@@ -418,7 +397,10 @@ function EducacionFisica({ cursosOptions, esControlado = false, cursoIdExterno =
       )}
 
       {mensaje && (
-        <p className="form-error-message" style={{ color: mensaje.includes('Error') ? undefined : '#155724' }}>
+        <p
+          className={`form-error-message ${mensaje.includes('Error') ? '' : 'form-error-message--ok'}`}
+          role="status"
+        >
           {mensaje}
         </p>
       )}
@@ -522,22 +504,13 @@ function EducacionFisica({ cursosOptions, esControlado = false, cursoIdExterno =
                           <td>{timeStr(h.hora_inicio)}</td>
                           <td>{timeStr(h.hora_fin)}</td>
                           <td>{h.aula || '—'}</td>
-                          <td>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-secondary"
-                              onClick={() => handleEditar(h)}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-danger"
-                              onClick={() => handleEliminar(h)}
-                            >
-                              Eliminar
-                            </button>
-                          </td>
+                          <AccionesCelda
+                            acciones={[
+                              { accion: 'editar', onClick: () => handleEditar(h) },
+                              { accion: 'eliminar', onClick: () => handleEliminar(h) },
+                            ]}
+                            entidad="horario"
+                          />
                         </tr>
                       ))}
                     </tbody>
@@ -555,6 +528,19 @@ function EducacionFisica({ cursosOptions, esControlado = false, cursoIdExterno =
 function Horarios({ esControlado = false, cursoGlobal = '' }) {
   const { cursosObj } = useData();
   const [modo, setModo] = useState('semanal');
+  const [guardando, setGuardando] = useState(false);
+  const saveFnRef = useRef(null);
+
+  const registerSaveFn = useCallback((fn) => {
+    saveFnRef.current = fn;
+  }, []);
+
+  const executeSave = useCallback(() => {
+    if (saveFnRef.current) {
+      setGuardando(true);
+      Promise.resolve(saveFnRef.current()).finally(() => setGuardando(false));
+    }
+  }, []);
 
   const cursosOptions = useMemo(() => {
     if (!Array.isArray(cursosObj)) return [];
@@ -573,7 +559,7 @@ function Horarios({ esControlado = false, cursoGlobal = '' }) {
         <h3><i className="fas fa-calendar-alt" aria-hidden="true" /> Horarios</h3>
       </div>
 
-      <div className="filter-row mb-20">
+      <div className="filter-row mb-20" style={{ alignItems: 'center' }}>
         <div className="form-group-filter" style={{ maxWidth: '320px' }}>
           <label>Vista</label>
           <div className="flex-row">
@@ -600,10 +586,20 @@ function Horarios({ esControlado = false, cursoGlobal = '' }) {
             </button>
           </div>
         </div>
+        <button
+          type="button"
+          className="btn btn-primary btn-guardar-horarios ml-auto"
+          disabled={guardando}
+          onClick={handleGuardar}
+          style={{ height: '38px', minWidth: '120px' }}
+        >
+          <i className="fas fa-save" aria-hidden="true" />{' '}
+          {guardando ? 'Guardando...' : 'Guardar'}
+        </button>
       </div>
 
-      {modo === 'semanal' && <HorarioSemanal cursosOptions={cursosOptions} esControlado={esControlado} cursoIdExterno={cursoIdExterno} />}
-      {modo === 'ef' && <EducacionFisica cursosOptions={cursosOptions} esControlado={esControlado} cursoIdExterno={cursoIdExterno} />}
+      {modo === 'semanal' && <HorarioSemanal cursosOptions={cursosOptions} esControlado={esControlado} cursoIdExterno={cursoIdExterno} onRegisterSave={registerSaveFn} />}
+      {modo === 'ef' && <EducacionFisica cursosOptions={cursosOptions} esControlado={esControlado} cursoIdExterno={cursoIdExterno} onRegisterSave={registerSaveFn} />}
       {modo === 'ver' && (
         <VistaHorarios
           cursosOptions={cursosOptions}

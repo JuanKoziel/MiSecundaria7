@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { reportarErrorGlobal } from '../context/ErrorOverlayContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -48,6 +49,29 @@ function refrescarAccessToken(refresh) {
   return refreshEnCurso;
 }
 
+/**
+ * Errores que no dependen del formulario: fallo de red o respuesta 5xx del
+ * servidor. Antes solo quedaban en la consola y el usuario no se enteraba.
+ * Se reportan en la capa global de error (visible y persistente) en lugar de
+ * un toast que se cierra solo. (punto 1.3)
+ */
+function mensajeErrorGlobal(error) {
+  if (!error?.response) {
+    if (error?.code === 'ERR_CANCELED') return null;
+    return 'No se pudo conectar con el servidor. Verifique su conexión e intente nuevamente.';
+  }
+  const { status, data } = error.response;
+  if (status < 500) return null;
+  const detalle =
+    (typeof data === 'string' && data.trim()) ||
+    data?.detail ||
+    data?.error ||
+    data?.message;
+  return detalle
+    ? `Error del servidor (${status}): ${detalle}`
+    : `Error del servidor (${status}). Intente nuevamente en unos instantes.`;
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -70,6 +94,8 @@ api.interceptors.response.use(
         }
       }
     }
+    const mensaje = mensajeErrorGlobal(error);
+    if (mensaje) reportarErrorGlobal(mensaje);
     return Promise.reject(error);
   },
 );
@@ -346,7 +372,7 @@ export async function createActa(payload) {
 }
 
 export async function getActaEstudiante(params) {
-  const { data } = await api.get('/acta-estudiante/', { params });
+  const { data } = await api.get('/acta-alumno/', { params });
   return data;
 }
 
@@ -370,11 +396,11 @@ export async function deleteActa(id) {
 }
 
 export async function deleteActaEstudiante(id) {
-  await api.delete(`/acta-estudiante/${id}/`);
+  await api.delete(`/acta-alumno/${id}/`);
 }
 
 export async function updateActaEstudiante(id, payload) {
-  const { data } = await api.patch(`/acta-estudiante/${id}/`, payload);
+  const { data } = await api.patch(`/acta-alumno/${id}/`, payload);
   return data;
 }
 
@@ -612,7 +638,7 @@ export async function createActaCurso(payload) {
 }
 
 export async function createActaEstudiante(payload) {
-  const { data } = await api.post('/acta-estudiante/', payload);
+  const { data } = await api.post('/acta-alumno/', payload);
   return data;
 }
 

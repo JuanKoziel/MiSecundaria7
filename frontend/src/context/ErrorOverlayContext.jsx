@@ -1,7 +1,36 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 const ErrorOverlayContext = createContext({ mostrarError: () => {} });
+
+/* ------------------------------------------------------------------
+   Store a nivel de módulo para que los errores produced fuera del árbol
+   de React (p. ej. el interceptor de axios en services/api.js) puedan
+   abrir la misma capa global de error.
+   ------------------------------------------------------------------ */
+const suscriptores = new Set();
+
+export function reportarErrorGlobal(mensaje) {
+  if (!mensaje) return;
+  suscriptores.forEach((fn) => {
+    try {
+      fn(mensaje);
+    } catch {
+      /* un suscriptor roto no debe romper el resto */
+    }
+  });
+}
+
+function extraerMensaje(error) {
+  if (!error) return 'Ocurrió un error inesperado.';
+  if (typeof error === 'string') return error;
+  return (
+    error.detail ||
+    (typeof error.error === 'string' ? error.error : null) ||
+    error.message ||
+    'Ocurrió un error inesperado.'
+  );
+}
 
 export function useErrorOverlay() {
   return useContext(ErrorOverlayContext).mostrarError;
@@ -12,8 +41,14 @@ export function ErrorOverlayProvider({ children }) {
 
   const mostrarError = useCallback((mensaje) => {
     if (!mensaje) return;
-    const texto = typeof mensaje === 'string' ? mensaje : (mensaje?.detail || mensaje?.error || mensaje?.message || 'Ocurrió un error inesperado.');
-    setErrorActual(texto);
+    setErrorActual(extraerMensaje(mensaje));
+  }, []);
+
+  useEffect(() => {
+    suscriptores.add(setErrorActual);
+    return () => {
+      suscriptores.delete(setErrorActual);
+    };
   }, []);
 
   return (
@@ -21,11 +56,20 @@ export function ErrorOverlayProvider({ children }) {
       {children}
       {errorActual &&
         createPortal(
-          <div className="form-error-overlay" role="alert">
+          <div className="form-error-overlay" role="alertdialog" aria-modal="true" aria-labelledby="error-overlay-text">
             <div className="form-error-overlay-card">
-              <i className="fas fa-exclamation-triangle" aria-hidden="true"></i>
-              <span className="form-error-overlay-text">{errorActual}</span>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setErrorActual(null)}>
+              <i className="fas fa-triangle-exclamation" aria-hidden="true"></i>
+              <span className="form-error-overlay-text" id="error-overlay-text" tabIndex={-1} ref={(nodo) => nodo?.focus()}>
+                {errorActual}
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setErrorActual(null)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setErrorActual(null);
+                }}
+              >
                 Cerrar
               </button>
             </div>

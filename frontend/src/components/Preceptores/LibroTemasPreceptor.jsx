@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { buildMediaUrl } from '../../utils/medios';
 import { getLibroTemas, BASE_URL } from '../../services/api';
 import { useData } from '../../context/DataContext';
 import EmptyFiltros from './EmptyFiltros';
@@ -140,7 +141,7 @@ function LibroTemasPreceptor({ anioLectivo, curso }) {
                       <td>
                         {reg.ruta_archivo ? (
                           <a
-                            href={`${API_BASE}${reg.ruta_archivo}`}
+                            href={`${buildMediaUrl(reg.ruta_archivo)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-success table-download-btn"

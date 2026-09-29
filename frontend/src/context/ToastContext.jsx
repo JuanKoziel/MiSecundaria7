@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const ToastContext = createContext(null);
 
@@ -84,11 +85,17 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div className="toast-container" aria-live="polite">
-        {toasts.map((t) => (
-          <ToastItem key={t.id} toast={t} onCerrar={cerrar} />
-        ))}
-      </div>
+      {/* Se monta en document.body para que ningún ancestro con overflow o
+          transform pueda recortarlo, y para que quede por encima de cualquier
+          modal abierto (punto 1.3). */}
+      {createPortal(
+        <div className="toast-container" aria-live="polite" aria-atomic="false">
+          {toasts.map((t) => (
+            <ToastItem key={t.id} toast={t} onCerrar={cerrar} />
+          ))}
+        </div>,
+        document.body,
+      )}
     </ToastContext.Provider>
   );
 }

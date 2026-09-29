@@ -162,6 +162,7 @@ export function riteHTML({
   estudianteNombre,
   dni,
   cursoNombre,
+  cursoOrientacion,
   anioLectivo,
   materias,
   inasistenciasPorMateria,
@@ -172,7 +173,11 @@ export function riteHTML({
   previas = [],
 }) {
   const fechaEmision = new Date().toLocaleDateString('es-AR');
-  const cursoLabel = cursoConOrientacion(cursoNombre);
+  // Punto 5.2: solo se usa la orientación GUARDADA; nunca se infiere por la división.
+  const orientacion = (cursoOrientacion || '').trim();
+  const cursoLabel = orientacion
+    ? `${cursoNombre} - ${orientacion}`
+    : cursoConOrientacion(cursoNombre);
   return `
     <div class="rite">
       <div class="rite-pagina rite-pagina-1">

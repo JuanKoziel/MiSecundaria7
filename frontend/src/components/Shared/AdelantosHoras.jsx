@@ -6,6 +6,7 @@ import FormModal from './FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingSpinner from './LoadingSpinner';
 import { suplenciasActivasEnFecha } from '../../utils/suplencias';
+import { hoy, proximaLaborable, esFinDeSemana } from '../../utils/fechas';
 import { mensajeErrorAmigable } from '../../utils/errores';
 
 const formVacio = {
@@ -17,6 +18,9 @@ const formVacio = {
   mantener: 0,
   motivo: '',
 };
+
+/* 13.x: fecha de evento (adelanto) por defecto en hoy. */
+const formVacioNuevo = () => ({ ...formVacio, fecha_adelanto: hoy() });
 
 function mensajeError(err) {
   return mensajeErrorAmigable(err);
@@ -53,6 +57,7 @@ function calcularFranja(modulos, ids) {
 
 function FormAdelanto({ formData, setFormData, editing, guardando, onSubmit, onCancel }) {
   const { cursoMateria, docentes, modulos } = useData();
+  const [avisoFecha, setAvisoFecha] = useState('');
 
   const asignacionesDelDocente = useMemo(() => {
     if (!formData.id_docente) return [];
@@ -172,7 +177,23 @@ function FormAdelanto({ formData, setFormData, editing, guardando, onSubmit, onC
 
           <div className="form-group-filter">
             <label htmlFor="adh-fecha">Fecha del adelanto</label>
-            <input id="adh-fecha" type="date" value={formData.fecha_adelanto || ''} onChange={(e) => setFormData((p) => ({ ...p, fecha_adelanto: e.target.value }))} required />
+            {/* UI-6: se avisa y se lleva al lunes siguiente. La fecha se normaliza
+                al salir del campo, nunca en onChange, para no pelear con la
+                escritura por segmentos del input de fecha. */}
+            <input
+              id="adh-fecha"
+              type="date"
+              value={formData.fecha_adelanto || ''}
+              onChange={(e) => setFormData((p) => ({ ...p, fecha_adelanto: e.target.value }))}
+              onBlur={(e) => {
+                if (esFinDeSemana(e.target.value)) {
+                  setFormData((p) => ({ ...p, fecha_adelanto: proximaLaborable(e.target.value) }));
+                  setAvisoFecha('No se pueden registrar los fines de semana. Se movió al lunes siguiente.');
+                }
+              }}
+              required
+            />
+            {avisoFecha && <div className="alert alert-warning" style={{ marginTop: 6 }}>{avisoFecha}</div>}
           </div>
 
           <div>
@@ -365,6 +386,8 @@ function GestionAdelantosHoras({ readOnly = false }) {
 
   const abrirNuevo = () => {
     limpiar();
+    /* UI-6: los fines de semana no se permiten. */
+    setFormData({ ...formVacioNuevo(), fecha_adelanto: proximaLaborable() });
     setShowForm(true);
   };
 

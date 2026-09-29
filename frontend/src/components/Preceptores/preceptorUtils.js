@@ -1,6 +1,6 @@
-export function fechaHoy() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { hoy as fechaHoy } from '../../utils/fechas';
+
+export { fechaHoy };
 
 export function clampNota(value) {
   if (value === '') return '';

@@ -1,9 +1,13 @@
 const ACCIONES = [
   { id: 'editar', emoji: '✏️', label: 'Editar' },
-  { id: 'programar', emoji: '🗓️', label: 'Programar' },
-  { id: 'habilitar', emoji: '✅', label: 'Habilitar' },
   { id: 'deshabilitar', emoji: '🚫', label: 'Deshabilitar' },
+  { id: 'programar', emoji: '🗓️', label: 'Programar' },
   { id: 'eliminar', emoji: '🗑️', label: 'Eliminar' },
+  { id: 'habilitar', emoji: '✅', label: 'Habilitar' },
+  { id: 'finalizar', emoji: '🏁', label: 'Finalizar' },
+  { id: 'ver', emoji: '👁️', label: 'Ver' },
+  { id: 'descargar', emoji: '⬇️', label: 'Descargar' },
+  { id: 'verificar', emoji: '🔎', label: 'Verificar' },
 ];
 
 function AccionesLeyenda({ acciones = [] }) {

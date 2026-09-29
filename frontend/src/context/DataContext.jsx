@@ -26,6 +26,7 @@ import {
   marcarLeida,
   marcarTodasLeidas,
   getSuplencias,
+  getEventosInstitucionales,
 } from '../services/api';
 import { suplenciasActivasEnFecha } from '../utils/suplencias';
 
@@ -116,6 +117,7 @@ export function DataProvider({ children }) {
   const [adminCursos, setAdminCursos] = useState([]);
   const [adminMaterias, setAdminMaterias] = useState([]);
   const [adminCursoMateria, setAdminCursoMateria] = useState([]);
+  const [eventosInstitucionales, setEventosInstitucionales] = useState([]);
   const [suplencias, setSuplencias] = useState([]);
   // Parte 8: navegación desde notificaciones
   const [navIntent, setNavIntent] = useState(null);
@@ -181,6 +183,7 @@ export function DataProvider({ children }) {
         planificacionesRaw,
         administradoresRaw,
         suplenciasRaw,
+        eventosInstitucionalesRaw,
       ] = await Promise.all([
         getEstudiantes().catch(() => []),
         getDocentes().catch(() => []),
@@ -216,6 +219,7 @@ export function DataProvider({ children }) {
         getPlanificaciones().catch(() => []),
         getDirectivos().catch(() => []),
         getSuplencias().catch(() => []),
+        getEventosInstitucionales().catch(() => []),
       ]);
 
       const estudiantesPreCurso = (Array.isArray(estudiantesRaw) ? estudiantesRaw : []).map((a) => ({
@@ -659,6 +663,17 @@ export function DataProvider({ children }) {
       }));
       const mapSuplencias = suplenciasActivasEnFecha(suplencias);
 
+      const eventosInstitucionales = (Array.isArray(eventosInstitucionalesRaw) ? eventosInstitucionalesRaw : []).map((ev) => ({
+        id: ev.id_evento,
+        tipo_evento: ev.tipo_evento,
+        descripcion: ev.descripcion,
+        fecha: ev.fecha,
+        permanente: ev.permanente,
+        alcance: ev.alcance || 'todo_dia',
+        hora_inicio: ev.hora_inicio || null,
+        hora_fin: ev.hora_fin || null,
+      }));
+
       const notificaciones = (Array.isArray(notificacionesRaw) ? notificacionesRaw : []).map(normalizarNotificacion);
 
 
@@ -704,6 +719,7 @@ export function DataProvider({ children }) {
         planificaciones,
         suplencias,
         mapSuplencias,
+        eventosInstitucionales,
         notificaciones,
         padresTutores,
         nombreCompleto,
@@ -735,7 +751,22 @@ export function DataProvider({ children }) {
   const refreshAdminCursos = useCallback(async (incluirInactivos = false) => {
     const params = incluirInactivos ? { incluir_inactivos: 1 } : {};
     const raw = await getCursos(params).catch(() => []);
-    setAdminCursos(Array.isArray(raw) ? raw : []);
+    const cursos = Array.isArray(raw) ? raw : [];
+    
+    // Ordenar cursos: 1°1, 1°2, 1°3, 2°1, 2°2, etc. (punto 4.2)
+    const ordenados = cursos.sort((a, b) => {
+      const parsear = (nombre) => {
+        if (!nombre || !nombre.includes('°')) return { anio: 999, division: 999 };
+        const parts = nombre.split('°');
+        return { anio: parseInt(parts[0], 10) || 999, division: parseInt(parts[1], 10) || 999 };
+      };
+      const pa = parsear(a.nombre_curso);
+      const pb = parsear(b.nombre_curso);
+      if (pa.anio !== pb.anio) return pa.anio - pb.anio;
+      return pa.division - pb.division;
+    });
+    
+    setAdminCursos(ordenados);
   }, []);
 
   const refreshAdminMaterias = useCallback(async (incluirInactivos = false) => {
@@ -850,6 +881,8 @@ export function DataProvider({ children }) {
       nuevasNotificaciones,
       descartarNueva,
       campanaPulse,
+      // Eventos institucionales (para suspensión de clases)
+      eventosInstitucionales,
       // Selector global curso/materia
       selectedCursoId,
       selectedMateria,
@@ -926,6 +959,8 @@ export function useData() {
       nuevasNotificaciones: [],
       descartarNueva: () => {},
       campanaPulse: 0,
+      // Eventos institucionales (para suspensión de clases)
+      eventosInstitucionales: [],
       // Selector global curso/materia
       selectedCursoId: '',
       selectedMateria: '',

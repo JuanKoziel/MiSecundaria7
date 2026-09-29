@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { buildMediaUrl } from '../../utils/medios';
 import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
 import FilePicker from '../Shared/FilePicker';
@@ -511,7 +512,7 @@ function Comunicados() {
                         {c.archivos.map((a) => (
                           <a
                             key={a.id}
-                            href={`${API_BASE}${a.ruta_archivo}`}
+                            href={`${buildMediaUrl(a.ruta_archivo)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="comunicado-descargar"

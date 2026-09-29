@@ -2,8 +2,12 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
+import FilaEstadoCuenta from '../../components/Shared/FilaEstadoCuenta';
+import ModalProgramarEstado from '../../components/Shared/ModalProgramarEstado';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
+import AccionesCelda from '../../components/Shared/AccionesCelda';
+import NumericInput from '../../components/Shared/NumericInput';
 import {
   createPreceptor,
   deletePreceptor,
@@ -15,6 +19,7 @@ import {
   getUsuariosConRol,
   getUsuariosSinRol,
   quitarRolUsuario,
+  updateCurso,
 } from '../../services/api';
 import { getCursos } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
@@ -122,11 +127,14 @@ function Preceptores({ rol = 'preceptor' }) {
   const [personasConRol, setPersonasConRol] = useState([]);
   const [mostrarProgramar, setMostrarProgramar] = useState(false);
   const [programandoPreceptor, setProgramandoPreceptor] = useState(null);
-  const [progForm, setProgForm] = useState({
-    fecha_deshabilitacion_programada: '',
-    fecha_habilitacion_programada: '',
-  });
   const [guardandoProgramar, setGuardandoProgramar] = useState(false);
+
+  // Punto 9.2: Asignación de Cursos (solo para Admin, no para Jefe de Preceptores)
+  const [activeTab, setActiveTab] = useState('admin'); // 'admin' | 'asignacion-cursos'
+  const [asignacionPreceptores, setAsignacionPreceptores] = useState([]);
+  const [selectedPreceptorId, setSelectedPreceptorId] = useState('');
+  const [searchAsignados, setSearchAsignados] = useState('');
+  const [searchDisponibles, setSearchDisponibles] = useState('');
 
   // Fetch personas disponibles para Jefe de Preceptores
   const cargarPersonasDisponibles = useMemo(() => {
@@ -226,6 +234,125 @@ function Preceptores({ rol = 'preceptor' }) {
   useEffect(() => {
     fetchPreceptores();
   }, [rol]);
+
+  // Punto 9.2: Funciones para Asignación de Cursos (Admin)
+  const fetchAsignacionPreceptores = async () => {
+    try {
+      const data = await getPreceptores('preceptor');
+      const arr = Array.isArray(data) ? data : [];
+      const mapeados = arr.map((p) => ({
+        id: p.id_preceptor,
+        id_usuario: p.id_usuario || null,
+        apellido: p.apellido || '',
+        nombre: p.nombre || '',
+        cursos: Array.isArray(p.cursos_asignados) ? p.cursos_asignados : [],
+      }));
+      setAsignacionPreceptores(mapeados);
+    } catch (err) {
+      toast.error('Error al cargar preceptores para asignación.');
+    }
+  };
+
+  useEffect(() => {
+    if (!esJefe) {
+      fetchAsignacionPreceptores();
+    }
+  }, [esJefe]);
+
+  const preceptoresOrdenadosAsignacion = useMemo(
+    () => [...(asignacionPreceptores || [])].sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '')),
+    [asignacionPreceptores],
+  );
+
+  const preceptorObjAsignacion = useMemo(
+    () => asignacionPreceptores.find((p) => String(p.id) === String(selectedPreceptorId)),
+    [asignacionPreceptores, selectedPreceptorId],
+  );
+
+  const cursosAsignadosIds = useMemo(() => {
+    if (!preceptorObjAsignacion) return new Set();
+    return new Set((preceptorObjAsignacion.cursos || []).map((c) => c.id_curso));
+  }, [preceptorObjAsignacion]);
+
+  const cursosAsignados = useMemo(() => {
+    const ids = cursosAsignadosIds;
+    let arr = (cursosObj || []).filter((c) => ids.has(c.id_curso));
+    if (searchAsignados) {
+      const q = normalize(searchAsignados);
+      arr = arr.filter(
+        (c) => normalize(c.nombre_curso).includes(q) || String(c.ciclo_anio || '').includes(q),
+      );
+    }
+    return arr.sort((a, b) => {
+      const cicloA = a.ciclo_anio || 0;
+      const cicloB = b.ciclo_anio || 0;
+      if (cicloA !== cicloB) return cicloB - cicloA;
+      return String(a.nombre_curso).localeCompare(String(b.nombre_curso));
+    });
+  }, [cursosObj, cursosAsignadosIds, searchAsignados]);
+
+  const cursosDisponibles = useMemo(() => {
+    let arr = (cursosObj || []).filter((c) => !cursosAsignadosIds.has(c.id_curso));
+    if (searchDisponibles) {
+      const q = normalize(searchDisponibles);
+      arr = arr.filter(
+        (c) => normalize(c.nombre_curso).includes(q) || String(c.ciclo_anio || '').includes(q),
+      );
+    }
+    return arr.sort((a, b) => {
+      const cicloA = a.ciclo_anio || 0;
+      const cicloB = b.ciclo_anio || 0;
+      if (cicloA !== cicloB) return cicloB - cicloA;
+      return String(a.nombre_curso).localeCompare(String(b.nombre_curso));
+    });
+  }, [cursosObj, cursosAsignadosIds, searchDisponibles]);
+
+  const preceptorDeCurso = (cursoId) => {
+    return asignacionPreceptores.find((p) =>
+      (p.cursos || []).some((c) => c.id_curso === cursoId),
+    );
+  };
+
+  const handleAsignar = async (cursoId) => {
+    setError('');
+    setSuccess('');
+    const yaTienePreceptor = preceptorDeCurso(cursoId);
+    if (yaTienePreceptor) {
+      setError('Este curso ya tiene un preceptor asignado. Desasígnelo primero.');
+      return;
+    }
+    setGuardando(true);
+    try {
+      await updateCurso(cursoId, { id_preceptor: selectedPreceptorId });
+      toast.success('Curso asignado correctamente.');
+      await refreshData();
+      await fetchAsignacionPreceptores();
+    } catch (err) {
+      toast.error(`Error al asignar curso: ${mensajeError(err)}`);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleQuitar = async (cursoId) => {
+    await confirmarEliminacion('¿Quitar este curso del preceptor?\n\nEsta acción no se puede deshacer.', {
+      onConfirm: async () => {
+        setError('');
+        setSuccess('');
+        setGuardando(true);
+        try {
+          await updateCurso(cursoId, { id_preceptor: null });
+          toast.success('Curso quitado correctamente.');
+          await refreshData();
+          await fetchAsignacionPreceptores();
+        } catch (err) {
+          toast.error(`Error al quitar curso: ${mensajeError(err)}`);
+        } finally {
+          setGuardando(false);
+        }
+      },
+    });
+  };
 
   const abrirCrear = () => {
     setEditingPreceptor(null);
@@ -407,17 +534,13 @@ function Preceptores({ rol = 'preceptor' }) {
 
   const abrirProgramar = (preceptor) => {
     setProgramandoPreceptor(preceptor);
-    setProgForm({
-      fecha_deshabilitacion_programada: toInputDateTime(preceptor.usuario_fecha_deshabilitacion_programada),
-      fecha_habilitacion_programada: toInputDateTime(preceptor.usuario_fecha_habilitacion_programada),
-    });
     setError('');
     setSuccess('');
     setMostrarProgramar(true);
   };
 
-  const handleGuardarProgramar = async () => {
-    if (!progForm.fecha_deshabilitacion_programada && !progForm.fecha_habilitacion_programada) {
+  const handleGuardarProgramar = async (fechas) => {
+    if (!fechas.fecha_deshabilitacion_programada && !fechas.fecha_habilitacion_programada) {
       toast.warning('Ingresá al menos una fecha programada (deshabilitación o habilitación).');
       return;
     }
@@ -426,8 +549,8 @@ function Preceptores({ rol = 'preceptor' }) {
     setSuccess('');
     try {
       await updatePreceptor(programandoPreceptor.id_preceptor, {
-        fecha_deshabilitacion_programada: progForm.fecha_deshabilitacion_programada || null,
-        fecha_habilitacion_programada: progForm.fecha_habilitacion_programada || null,
+        fecha_deshabilitacion_programada: fechas.fecha_deshabilitacion_programada || null,
+        fecha_habilitacion_programada: fechas.fecha_habilitacion_programada || null,
       }, rol);
       toast.success(`Fechas programadas actualizadas correctamente.`);
       setMostrarProgramar(false);
@@ -435,6 +558,20 @@ function Preceptores({ rol = 'preceptor' }) {
       await refreshData();
     } catch (err) {
       toast.error(`Error al programar fechas: ${mensajeError(err)}`);
+    } finally {
+      setGuardandoProgramar(false);
+    }
+  };
+
+  const handleCancelarProgramacion = async (campo) => {
+    setGuardandoProgramar(true);
+    try {
+      await updatePreceptor(programandoPreceptor.id_preceptor, { [campo]: null }, rol);
+      toast.success('Programación cancelada correctamente.');
+      await fetchPreceptores();
+      await refreshData();
+    } catch (err) {
+      toast.error(`Error al cancelar la programación: ${mensajeError(err)}`);
     } finally {
       setGuardandoProgramar(false);
     }
@@ -479,20 +616,16 @@ function Preceptores({ rol = 'preceptor' }) {
 
           <section className="preceptor-form-section">
             <h4>Estado de la cuenta</h4>
-            <div className="preceptor-form-row preceptor-form-row--status">
-              <div className="form-group-filter">
-                <label>Estado</label>
-                <label htmlFor="preceptor-estado" className="preceptor-status-toggle">
-                  <input
-                    id="preceptor-estado"
-                    type="checkbox"
-                    checked={formData.estado}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, estado: e.target.checked }))}
-                  />
-                  <span>{estadoLabel(formData.estado)}</span>
-                </label>
-              </div>
+            {/* Punto 6.3 / 6.4: mismo control de estado que Docentes. */}
+            <FilaEstadoCuenta
+              id="preceptor-estado"
+              etiqueta="Habilitado"
+              checked={formData.estado}
+              valorTexto={estadoLabel(formData.estado)}
+              onChange={(checked) => setFormData((prev) => ({ ...prev, estado: checked }))}
+            />
 
+            <div className="preceptor-form-row preceptor-form-row--two">
               <div className="form-group-filter">
                 <label htmlFor="preceptor-fecha-deshabilitacion">Fecha deshabilitacion programada</label>
                 <input
@@ -564,12 +697,12 @@ function Preceptores({ rol = 'preceptor' }) {
               </div>
 
               <div className="form-group-filter">
-                <label htmlFor="preceptor-telefono">Telefono</label>
-                <input
+                <NumericInput
                   id="preceptor-telefono"
-                  type="text"
+                  label="Telefono"
                   value={formData.telefono}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, telefono: e.target.value }))}
+                  onChange={(val) => setFormData((prev) => ({ ...prev, telefono: val }))}
+                  placeholder="Ej: 1123456789"
                 />
               </div>
             </div>
@@ -673,7 +806,48 @@ function Preceptores({ rol = 'preceptor' }) {
 
       <AccionesLeyenda acciones={['editar', 'programar', 'habilitar', 'deshabilitar', 'eliminar']} />
 
-      <div className="table-responsive">
+      {/* Punto 9.2: Tabs para Administrar Preceptores / Asignación de Cursos (solo Admin) */}
+      {!esJefe && (
+        <div className="asist-tipo-selector mb-16">
+          <button
+            type="button"
+            className={`btn btn-sm ${activeTab === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('admin')}
+          >
+            <i className="fas fa-user-tie" aria-hidden="true" /> Administrar Preceptores
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${activeTab === 'asignacion-cursos' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => { setActiveTab('asignacion-cursos'); fetchAsignacionPreceptores(); }}
+          >
+            <i className="fas fa-calendar-day" aria-hidden="true" /> Asignación de Cursos
+          </button>
+        </div>
+      )}
+
+      {activeTab === 'asignacion-cursos' ? (
+        <AsignacionCursosAdmin
+          preceptores={asignacionPreceptores}
+          preceptoresOrdenados={preceptoresOrdenadosAsignacion}
+          selectedPreceptorId={selectedPreceptorId}
+          setSelectedPreceptorId={setSelectedPreceptorId}
+          cursosObj={cursosObj}
+          cursosAsignados={cursosAsignados}
+          cursosDisponibles={cursosDisponibles}
+          searchAsignados={searchAsignados}
+          setSearchAsignados={setSearchAsignados}
+          searchDisponibles={searchDisponibles}
+          setSearchDisponibles={setSearchDisponibles}
+          handleAsignar={handleAsignar}
+          handleQuitar={handleQuitar}
+          guardando={guardando}
+          error={error}
+          success={success}
+          fetchAsignacionPreceptores={fetchAsignacionPreceptores}
+        />
+      ) : (
+        <div className="table-responsive">
         <table>
           <thead>
             <tr>
@@ -717,44 +891,16 @@ function Preceptores({ rol = 'preceptor' }) {
                         ? p.cursos_asignados.map((c) => c.nombre_curso).join(', ')
                         : '---'}
                     </td>
-                    <td className="acciones-cell acciones-cell--grid2">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary btn-accion-icono"
-                        onClick={() => abrirEditar(p)}
-                        aria-label={`Editar ${entidad}`}
-                        title="Editar"
-                      >
-                        <i className="fas fa-edit" aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary btn-accion-icono"
-                        onClick={() => abrirProgramar(p)}
-                        aria-label={`Programar fechas de habilitación/deshabilitación de ${entidad}`}
-                        title="Programar"
-                      >
-                        <i className="fas fa-calendar-plus" aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${p.usuario_estado === false ? 'btn-success' : 'btn-warning'} btn-accion-icono`}
-                        onClick={() => toggleEstado(p)}
-                        aria-label={p.usuario_estado === false ? `Habilitar ${entidad}` : `Deshabilitar ${entidad}`}
-                        title={p.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
-                        disabled={p.usuario_estado === null || p.usuario_estado === undefined}
-                      >
-                        <i className={`fas ${p.usuario_estado === false ? 'fa-check' : 'fa-ban'}`} aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger btn-accion-icono"
-                        onClick={() => handleDelete(p)}
-                        aria-label={`Eliminar ${entidad}`}
-                        title="Eliminar"
-                      >
-                        <i className="fas fa-trash" aria-hidden="true" />
-                      </button>
+                    <td>
+                      <AccionesCelda
+                        acciones={[
+                          { accion: 'editar', onClick: () => abrirEditar(p) },
+                          { accion: p.usuario_estado === false ? 'habilitar' : 'deshabilitar', onClick: () => toggleEstado(p), disabled: p.usuario_estado === null || p.usuario_estado === undefined },
+                          { accion: 'programar', onClick: () => abrirProgramar(p) },
+                          { accion: 'eliminar', onClick: () => handleDelete(p) },
+                        ]}
+                        entidad={entidad}
+                      />
                     </td>
                   </tr>
                 </Fragment>
@@ -763,6 +909,7 @@ function Preceptores({ rol = 'preceptor' }) {
           </tbody>
         </table>
       </div>
+      )}
 
       {showModal && renderFormulario()}
 
@@ -791,59 +938,252 @@ function Preceptores({ rol = 'preceptor' }) {
       )}
 
       {mostrarProgramar && programandoPreceptor && (
-        <FormModal
-          title={`Programar ${entidad}: ${programandoPreceptor.apellido}, ${programandoPreceptor.nombre}`}
-          onClose={() => setMostrarProgramar(false)}
-        >
-          <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
-            <p style={{ color: '#cbd5e1', lineHeight: '1.5', marginTop: 0 }}>
-              Definí fechas para que el usuario se deshabilite o habilite automáticamente.
-              Las fechas se aplican según el horario del servidor.
-            </p>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="prog-deshabilitacion">Deshabilitación programada</label>
+        <ModalProgramarEstado
+          abierto={mostrarProgramar}
+          persona={programandoPreceptor}
+          estadoActual={programandoPreceptor.usuario_estado !== false}
+          fechaDeshabilitacion={programandoPreceptor.usuario_fecha_deshabilitacion_programada}
+          fechaHabilitacion={programandoPreceptor.usuario_fecha_habilitacion_programada}
+          guardando={guardandoProgramar}
+          onCerrar={() => setMostrarProgramar(false)}
+          onGuardar={handleGuardarProgramar}
+          onCancelarProgramacion={handleCancelarProgramacion}
+        />
+      )}
+    </div>
+  );
+}
+
+function AsignacionCursosAdmin({
+  preceptores,
+  preceptoresOrdenados,
+  selectedPreceptorId,
+  setSelectedPreceptorId,
+  cursosObj,
+  cursosAsignados,
+  cursosDisponibles,
+  searchAsignados,
+  setSearchAsignados,
+  searchDisponibles,
+  setSearchDisponibles,
+  handleAsignar,
+  handleQuitar,
+  guardando,
+  error,
+  success,
+  fetchAsignacionPreceptores,
+}) {
+  const preceptorObj = preceptores.find((p) => String(p.id) === String(selectedPreceptorId));
+
+  return (
+    <div className="card">
+      <div className="card-header-flex">
+        <h3><i className="fas fa-calendar-day" aria-hidden="true" /> Asignación de Cursos a Preceptores</h3>
+      </div>
+
+      {error && <div className="alert alert-danger">{error}</div>}
+      {success && <div className="alert alert-success">{success}</div>}
+
+      {selectedPreceptorId && preceptorObj ? (
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 280px', minWidth: '260px' }}>
+            <div className="card" style={{ height: '100%' }}>
+              <div className="card-header-flex card-header-flex--compact">
+                <h4>
+                  <i className="fas fa-user-tie icon-muted" aria-hidden="true" />
+                  {' '}{preceptorObj.apellido}, {preceptorObj.nombre}
+                </h4>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setSelectedPreceptorId('')}
+                  title="Volver a la lista"
+                >
+                  <i className="fas fa-arrow-left" aria-hidden="true" /> Volver
+                </button>
+              </div>
+
+              <div className="mb-12">
+                <div className="empty-state-message flex-gap-16--wrap">
+                  <span>
+                    <strong>Cursos asignados:</strong> {cursosAsignados.length}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-12">
                 <input
-                  id="prog-deshabilitacion"
-                  type="datetime-local"
-                  className="form-control"
-                  value={progForm.fecha_deshabilitacion_programada}
-                  onChange={(e) =>
-                    setProgForm((prev) => ({ ...prev, fecha_deshabilitacion_programada: e.target.value }))
-                  }
+                  type="text"
+                  placeholder="Buscar cursos asignados..."
+                  value={searchAsignados}
+                  onChange={(e) => setSearchAsignados(e.target.value)}
+                  className="search-input"
                 />
               </div>
-              <div className="form-group">
-                <label htmlFor="prog-habilitacion">Habilitación programada</label>
-                <input
-                  id="prog-habilitacion"
-                  type="datetime-local"
-                  className="form-control"
-                  value={progForm.fecha_habilitacion_programada}
-                  onChange={(e) =>
-                    setProgForm((prev) => ({ ...prev, fecha_habilitacion_programada: e.target.value }))
-                  }
-                />
+
+              <div className="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Curso</th>
+                      <th>Año</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cursosAsignados.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="empty-state-message">
+                          {searchAsignados ? 'No se encontraron cursos.' : 'No tiene cursos asignados.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      cursosAsignados.map((curso) => (
+                        <tr key={curso.id_curso}>
+                          <td className="table-cell-strong">{curso.nombre_curso}</td>
+                          <td>{curso.ciclo_anio || '---'}</td>
+                          <td className="acciones-cell">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleQuitar(curso.id_curso)}
+                              disabled={guardando}
+                              title="Quitar curso"
+                            >
+                              <i className="fas fa-times" aria-hidden="true" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-            <p className="proxima-accion-hint">
-              Próxima acción: {proximaAccion(programandoPreceptor)}
-            </p>
           </div>
-          <div className="standard-modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={() => setMostrarProgramar(false)}>
-              Cancelar
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleGuardarProgramar}
-              disabled={guardandoProgramar}
-            >
-              {guardandoProgramar ? 'Guardando...' : 'Guardar fechas'}
-            </button>
+
+          <div style={{ flex: '1 1 280px', minWidth: '260px' }}>
+            <div className="card" style={{ height: '100%' }}>
+              <div className="card-header-flex card-header-flex--compact">
+                <h4>Cursos disponibles</h4>
+                <span className="badge badge-neutral">{cursosDisponibles.length}</span>
+              </div>
+
+              <div className="mb-12">
+                <input
+                  type="text"
+                  placeholder="Buscar cursos disponibles..."
+                  value={searchDisponibles}
+                  onChange={(e) => setSearchDisponibles(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+
+              <div className="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Curso</th>
+                      <th>Año</th>
+                      <th>Preceptor actual</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cursosDisponibles.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="empty-state-message">
+                          {searchDisponibles ? 'No se encontraron cursos.' : 'No hay cursos disponibles.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      cursosDisponibles.map((curso) => {
+                        const preceptorActual = preceptores.find((p) =>
+                          (p.cursos || []).some((c) => c.id_curso === curso.id_curso),
+                        );
+                        return (
+                          <tr key={curso.id_curso}>
+                            <td className="table-cell-strong">{curso.nombre_curso}</td>
+                            <td>{curso.ciclo_anio || '---'}</td>
+                            <td>
+                              {preceptorActual
+                                ? `${preceptorActual.apellido}, ${preceptorActual.nombre}`
+                                : <span style={{ color: '#999' }}>Sin asignar</span>}
+                            </td>
+                            <td className="acciones-cell">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-success"
+                                onClick={() => handleAsignar(curso.id_curso)}
+                                disabled={guardando}
+                                title="Asignar a este preceptor"
+                              >
+                                <i className="fas fa-plus" aria-hidden="true" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </FormModal>
+        </div>
+      ) : (
+        <div>
+          <div className="mb-12">
+            <div className="empty-state-message flex-gap-16--wrap mb-12">
+              <span><i className="fas fa-mouse-pointer" aria-hidden="true" /> Seleccioná un preceptor para ver y administrar sus cursos</span>
+            </div>
+          </div>
+
+          <div className="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Preceptor</th>
+                  <th>Cursos Asignados</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {preceptoresOrdenados.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="empty-state-message">
+                      No hay preceptores registrados.
+                    </td>
+                  </tr>
+                ) : (
+                  preceptoresOrdenados.map((p) => (
+                    <tr key={p.id_preceptor}>
+                      <td className="table-cell-strong">
+                        <i className="fas fa-user-tie icon-muted" aria-hidden="true" />
+                        {' '}{p.apellido}, {p.nombre}
+                      </td>
+                      <td>
+                        {(p.cursos || []).length > 0
+                          ? (p.cursos || []).map((c) => c.nombre_curso).join(', ')
+                          : <span style={{ color: '#999' }}>Sin cursos</span>}
+                      </td>
+                      <td className="acciones-cell">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          onClick={() => setSelectedPreceptorId(p.id)}
+                          title="Administrar cursos"
+                        >
+                          <i className="fas fa-edit" aria-hidden="true" /> Administrar
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

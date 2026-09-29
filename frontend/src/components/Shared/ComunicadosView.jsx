@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { buildMediaUrl } from '../../utils/medios';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { parseCurso } from '../../utils/orientacion';
@@ -191,7 +192,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSe
   }, [comunicadosFiltrados]);
 
   const handleFileDownload = (ruta) => {
-    window.open(`${API_BASE}${ruta}`, '_blank');
+    window.open(`${buildMediaUrl(ruta)}`, '_blank');
   };
 
   const getNombreCurso = (cursoId) => {
@@ -281,7 +282,7 @@ function ComunicadosView({ userRole, selectedChild, cursoSeleccionado, materiaSe
                         className="btn btn-sm btn-primary"
                         onClick={() => {
                           const link = document.createElement('a');
-                          link.href = `${API_BASE}${archivo.ruta_archivo}`;
+                          link.href = buildMediaUrl(archivo.ruta_archivo);
                           link.download = archivo.ruta_archivo.split('/').pop();
                           link.click();
                         }}

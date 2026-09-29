@@ -461,6 +461,26 @@ def evento_institucional_activo(fecha=None, hora=None):
     return False, None, None, None, None, None
 
 
+def _bloquear_si_evento_institucional(fecha, hora=None):
+    """Punto 2.2: rechazo de escritura en días con evento institucional.
+
+    Se aplica en las operaciones de modificación y borrado para que no se puedan
+    alterar datos ya cargados de un día suspendido saltándose la interfaz.
+    La lectura nunca se bloquea (punto 2.1).
+    """
+    if not fecha:
+        return
+    activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(
+        fecha, hora or timezone.localtime().time(),
+    )
+    if activo:
+        raise PermissionDenied(
+            f'Día suspendido: la información es de solo lectura. '
+            f'Evento institucional activo: "{tipo_ev}". {desc_ev or ""}'.strip()
+            + (f' Horario afectado: {horario_ev}.' if horario_ev else '')
+        )
+
+
 # ---------- Adelantos de horas ----------
 
 def _franjas_se_solapan(hora_inicio_a, hora_fin_a, hora_inicio_b, hora_fin_b):
@@ -3220,6 +3240,9 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         cm = serializer.instance.id_curso_materia
+        # Punto 2.2: en un día suspendido la información es de solo lectura.
+        # El bloqueo se valida acá también, no solo en la interfaz.
+        _bloquear_si_evento_institucional(serializer.instance.fecha, serializer.instance.hora)
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
             estado_carga = carga_de_item(cm.id_curso_materia, serializer.instance.fecha, 'asistencias')
@@ -3229,6 +3252,8 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         cm = instance.id_curso_materia
+        # Punto 2.2: no se puede borrar información de un día suspendido.
+        _bloquear_si_evento_institucional(instance.fecha, instance.hora)
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
             estado_carga = carga_de_item(cm.id_curso_materia, instance.fecha, 'asistencias')
@@ -3717,6 +3742,24 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         if not cm_id:
             return Response({'error': 'id_curso_materia es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        fecha_registro = request.data.get('fecha') or ahora.date()
+
+        # Punto 2.2: el bloqueo por evento institucional se valida SIEMPRE, incluso
+        # dentro de la ventana de carga que otorga el preceptor. Antes solo se
+        # comprobaba cuando no había ventana, y esa vía permitía escribir en un día
+        # suspendido.
+        activo_ev, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(
+            fecha_registro, ahora.time(),
+        )
+        if activo_ev:
+            return Response({
+                'error': (
+                    f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". '
+                    f'{desc_ev or ""} Horario afectado: {horario_ev}. La información del día es de solo lectura.'
+                ).strip(),
+                'evento_activo': True,
+            }, status=status.HTTP_403_FORBIDDEN)
+
         # Carga única de 20 minutos otorgada por el preceptor: dentro de la
         # ventana activa el docente puede cargar aunque no esté en horario;
         # una vez cargada (o vencida la ventana) no puede volver a cargarse.
@@ -3730,12 +3773,6 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             estado = self._estado_horario(horarios_hoy, ahora)
             if estado['codigo'] != 'en_horario':
                 return Response({'error': estado['mensaje']}, status=status.HTTP_403_FORBIDDEN)
-
-            activo, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(ahora.date(), ahora.time())
-            if activo:
-                return Response({
-                    'error': f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". {desc_ev}. Horario afectado: {horario_ev}.',
-                }, status=status.HTTP_403_FORBIDDEN)
 
         roles = roles_efectivos(request)
         if 'docente' in roles:
@@ -4221,12 +4258,20 @@ class AsistenciaDocenteViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if es_hoy:
-            activo_ev, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(fecha_hoy, hora_actual)
-            if activo_ev:
-                return Response({
-                    'error': f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". {desc_ev}. Horario afectado: {horario_ev}.',
-                }, status=status.HTTP_403_FORBIDDEN)
+        # Punto 2.2: se valida sobre la fecha objetivo (no solo "hoy"), para que
+        # tampoco se pueda cargar por adelantado en un día que ya está
+        # declarado como suspendido.
+        activo_ev, tipo_ev, desc_ev, horario_ev, _, _ = evento_institucional_activo(
+            fecha_objetivo, hora_actual,
+        )
+        if activo_ev:
+            return Response({
+                'error': (
+                    f'No es posible registrar asistencias. Existe un evento institucional activo: "{tipo_ev}". '
+                    f'{desc_ev or ""} Horario afectado: {horario_ev}. La información del día es de solo lectura.'
+                ).strip(),
+                'evento_activo': True,
+            }, status=status.HTTP_403_FORBIDDEN)
 
         inicio, fin = bloque_encontrado
         duplicada = AsistenciaDocente.objects.filter(

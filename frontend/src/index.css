@@ -22,6 +22,49 @@
     --table-text: #27313f;
     --card-bg: #ffffff;
     --border-color: #dee2e6;
+    /* Form theme variables (UI-2).
+       These map to the palette the app already had. They must NOT introduce
+       new colors: the modals sit on the dark blue gradient, so a white form
+       turned every input into a white box on a dark background. */
+    --form-bg: var(--sidebar-hover);
+    --form-border: var(--table-border);
+    --form-text: inherit;
+    --form-label: var(--text-light);
+    --form-input-bg: var(--table-row-bg);
+    --form-input-border: #ddd;
+    --form-input-text: var(--text-dark);
+    --form-input-placeholder: #6b7785;
+    --form-error-bg: #fef2f2;
+    --form-error-border: #fecaca;
+    --form-error-text: #991b1b;
+    --form-sticky-bg: #eef2f7;
+    --toggle-bg: #f8fafc;
+    --toggle-track-bg: #d7dee8;
+    --toggle-track-border: #cbd5e1;
+    --toggle-thumb-bg: #fff;
+    --toggle-switch-bg: #f8fafc;
+}
+
+/* Dark theme overrides (aplicar con clase .dark-theme en html o body) */
+.dark-theme,
+html.dark {
+    --form-bg: #1e293b;
+    --form-border: #334155;
+    --form-text: #f1f5f9;
+    --form-label: #94a3b8;
+    --form-input-bg: #0f172a;
+    --form-input-border: #334155;
+    --form-input-text: #f1f5f9;
+    --form-input-placeholder: #64748b;
+    --form-error-bg: #450a0a;
+    --form-error-border: #7f1d1d;
+    --form-error-text: #fca5a5;
+    --form-sticky-bg: #0d233a;
+    --toggle-bg: #1e293b;
+    --toggle-track-bg: #475569;
+    --toggle-track-border: #64748b;
+    --toggle-thumb-bg: #f1f5f9;
+    --toggle-switch-bg: #1e293b;
 }
 
 * {
@@ -1273,12 +1316,127 @@ body {
 .orientacion-badge { background: #ede9fe; color: #5b21b6; }
 .horario-form { margin-bottom: 8px; }
 .form-actions { display: flex; gap: 10px; margin-top: 12px; }
-.form-error-message { color: #b91c1c; font-size: 0.9rem; margin: 8px 0 0; }
+/* Barra de acciones fija dentro de la tarjeta: mantiene "Guardar" visible sin
+   necesidad de hacer scroll y sin quedar tapada por otros elementos (punto 8). */
+.form-actions--sticky {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin: 16px -12px -12px;
+    padding: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    background: var(--form-sticky-bg);
+    border-top: 1px solid var(--table-border);
+    box-shadow: 0 -6px 16px rgba(13, 35, 58, 0.08);
+}
+.form-actions--sticky .form-actions-mensaje {
+    flex: 1 1 100%;
+    margin: 0;
+    text-align: right;
+}
+.form-actions--sticky .btn { min-height: 44px; }
+/* Botón Guardar de Horarios (punto 8.1): área clicable cómoda, foco visible
+   y contraste suficiente. */
+.btn-guardar-horarios {
+    min-width: 160px;
+    font-weight: 700;
+}
+.btn-guardar-horarios:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--primary-color);
+}
+/* Mensaje de error/sugerencia dentro de un formulario.
+   Se pinta por encima de inputs, celdas y footer del propio modal para que
+   nunca quede oculto (punto 1.3). */
+.form-error-message {
+    position: relative;
+    z-index: 30;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 8px 0 0;
+    padding: 10px 12px;
+    border: 1px solid #fecaca;
+    border-left: 4px solid #dc2626;
+    border-radius: 8px;
+    background: #fef2f2;
+    color: #991b1b;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+.form-error-message:empty { display: none; }
+.form-error-message--ok {
+    border-color: #bbf7d0;
+    border-left-color: #16a34a;
+    background: #f0fdf4;
+    color: #166534;
+}
+/* Ícono opcional que antecede al texto del mensaje. */
+.form-error-message i { margin-top: 2px; flex-shrink: 0; }
+.form-error-message:focus-visible,
+.form-error-message--destacado:focus {
+    outline: 3px solid rgba(220, 38, 38, 0.35);
+    outline-offset: 2px;
+}
+
+.form-error-text {
+    display: block;
+    margin-top: 4px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    color: #dc2626;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+    line-height: 1.3;
+}
+
 .data-table th, .data-table td { padding: 8px 10px; }
 td .btn-sm + .btn-sm { margin-left: 6px; }
 .asist-tipo-selector { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
 .asist-info-banner { background: #eff6ff; color: #1e40af; padding: 8px 12px; border-radius: 8px; margin: 8px 0; font-size: 0.9rem; }
 .asist-bloqueado { background: #fef2f2; color: #b91c1c; }
+/* Aviso informativo de día suspendido: la información diaria se puede VER,
+   pero no modificar. Nunca reemplaza la pantalla, solo la acompaña. (punto 2) */
+.aviso-suspension {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border: 1px solid #fcd34d;
+    border-left: 4px solid #f59e0b;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #78350f;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+.aviso-suspension i { margin-top: 2px; }
+.aviso-suspension strong { display: block; margin-bottom: 2px; }
+.aviso-suspension--info {
+    border-color: #bfdbfe;
+    border-left-color: #3b82f6;
+    background: #eff6ff;
+    color: #1e3a8a;
+}
+/* Capa de error/mensaje dentro de tablas editables. */
+.alert-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border-radius: 0;
+    background: rgba(254, 226, 226, 0.97);
+}
 
 /* RITE académico: materia bloqueada por superposición horaria */
 .rite-fila-bloqueada { background-color: #fde2e2; }
@@ -1698,15 +1856,15 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     display: block;
     margin-bottom: 6px;
     font-size: 0.85rem;
-    color: var(--text-light);
+    color: var(--form-label);
 }
 .form-group-filter select, .form-group-filter input {
     width: 100%;
     padding: 12px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--form-input-border);
     border-radius: 10px;
-    background: var(--table-row-bg);
-    color: var(--text-dark);
+    background: var(--form-input-bg);
+    color: var(--form-input-text);
     transition: var(--transition);
 }
 
@@ -1715,8 +1873,8 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     padding: 12px 14px;
     border: 1px solid var(--table-border);
     border-radius: 10px;
-    background: var(--table-row-bg);
-    color: var(--text-dark);
+    background: var(--form-input-bg);
+    color: var(--form-input-text);
     resize: vertical;
     min-height: 170px;
     outline: none;
@@ -1733,7 +1891,7 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 
 .form-group-filter input::placeholder,
 .form-group-filter textarea::placeholder {
-    color: #6b7785;
+    color: var(--form-input-placeholder);
 }
 
 /* Actividades - diseño estilo Classroom */
@@ -2517,29 +2675,229 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     padding: 6px 10px;
 }
 
-.acciones-cell {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+/* Columna "Acciones" de las tablas.
+   Disposición canónica (Punto 3 del plan de arreglos):
+     Fila 1:  Editar            | Deshabilitar
+     Fila 2:  Calendario/Programar | Eliminar
+   Si una acción no aplica, la grilla se reacomoda sola sin dejar huecos.
+   Caso 3 botones: fila 1 = 2 botones, fila 2 = 1 botón centrado. */
+/* ==========================================================================
+   Columna "Acciones" (punto 3.2 / 3.3 del plan)
+   Disposición canónica, dos filas y dos columnas dentro de la celda:
+     Fila 1:  Editar                    |  Habilitar / Deshabilitar
+     Fila 2:  Programar / Calendario    |  Eliminar
+   Reglas: mismo ancho, gap uniforme, alineación vertical y horizontal, y sin
+   saltos al cambiar la cantidad de acciones (nada de "centrar el 3ro").
+   ========================================================================== */
+
+:root {
+    --accion-btn-size: 40px;
+    --accion-gap: 6px;
 }
 
-.acciones-cell--grid2 {
+.acciones-cell {
+    vertical-align: middle;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Grilla de acciones: 2 columnas de igual ancho. Con una sola acción cae en
+   una columna y el botón queda centrado, como pide el punto 5.1. */
+.acciones-grilla {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--accion-gap);
+    align-items: stretch;
+    justify-items: stretch;
+}
+
+.acciones-grilla--1 {
+    grid-template-columns: minmax(0, 1fr);
     justify-items: center;
+}
+
+/* Las acciones que no son parte del par canónico (Ver, Ver Actas, Ver Cursos,
+   DDJJ, Finalizar) se agrupan aparte, arriba, con un separador, para no romper
+   la grilla 2x2. */
+.acciones-grilla-secundarias {
+    margin-bottom: var(--accion-gap);
+    padding-bottom: var(--accion-gap);
+    border-bottom: 1px solid var(--border-color);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Todos los botones de acciones: mismo alto y sin desbordes de texto. */
+.acciones-grilla > .btn,
+.acciones-grilla > a.btn,
+.acciones-grilla > button.btn {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: var(--accion-btn-size);
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    min-width: 96px;
+    gap: 6px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.acciones-grilla--1 > .btn,
+.acciones-grilla--1 > a.btn,
+.acciones-grilla--1 > button.btn {
+    width: auto;
+    min-width: 72px;
+}
+
+/* Botón de solo ícono: cuadrado, como el resto de la aplicación. */
+.acciones-grilla > .btn-accion-icono,
+.acciones-grilla > a.btn-accion-icono {
+    width: 100%;
+    max-width: var(--accion-btn-size);
+    padding: 0;
+}
+
+.acciones-grilla--1 > .btn-accion-icono {
+    width: var(--accion-btn-size);
+    max-width: none;
+}
+
+.btn-accion-con-texto {
+    gap: 6px;
+}
+
+.btn-accion-texto {
+    font-size: 0.8rem;
+    font-weight: 600;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .btn-accion-icono {
-    width: 40px;
-    height: 40px;
+    width: var(--accion-btn-size);
+    height: var(--accion-btn-size);
+    min-width: var(--accion-btn-size);
     padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     line-height: 1;
+}
+
+/* ==========================================================================
+   Layout Docentes Admin (punto 5.8)
+   Fila principal: 4 botones iguales (Editar | Estado | Programar | Eliminar)
+   Fila "ver": expandible con Ver Actas | Ver Cursos | Ver DDJJ
+   Ver DDJJ anida: Descargar | Verificar | Eliminar | Recordar
+   ========================================================================== */
+
+.acciones-cell--docentes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+}
+
+.acciones-fila-principal {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--accion-gap);
+    align-items: stretch;
+}
+
+.acciones-fila-ver {
+    margin-top: 4px;
+}
+
+.acciones-ver-details {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--form-bg, #f8fafc);
+    overflow: hidden;
+}
+
+.acciones-ver-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-dark);
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    border-bottom: 1px solid var(--border-color);
+    list-style: none;
+}
+.acciones-ver-summary::-webkit-details-marker { display: none; }
+.acciones-ver-summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+
+.acciones-ver-content {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--accion-gap);
+    padding: 8px;
+}
+
+.acciones-ddjj-details {
+    border-top: 1px solid var(--border-color);
+    background: #fff;
+}
+.acciones-ddjj-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--primary-color);
+    background: #f0f7ff;
+    list-style: none;
+}
+.acciones-ddjj-summary::-webkit-details-marker { display: none; }
+.acciones-ddjj-summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+
+.acciones-ddjj-content {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--accion-gap);
+    padding: 8px;
+}
+
+.acciones-fila-otras {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    gap: var(--accion-gap);
+    margin-top: 4px;
+}
+
+/* Botones dentro del layout docentes: mismo alto, texto envuelto */
+.acciones-cell--docentes .btn,
+.acciones-cell--docentes a.btn,
+.acciones-cell--docentes button.btn {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: var(--accion-btn-size);
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.acciones-cell--docentes .btn-accion-con-texto {
+    gap: 6px;
 }
 
 .acciones-leyenda {
@@ -2701,6 +3059,13 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Campos que ocupan la fila completa (p. ej. "Archivo"). Evita que un campo
+   con contenido variable desplace o empuje a los selectores de arriba. */
+.preceptor-form-group--full {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+
 .preceptor-form-row--status {
     grid-template-columns: minmax(170px, 0.8fr) repeat(2, minmax(0, 1fr));
 }
@@ -2743,6 +3108,212 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
     width: auto !important;
     padding: 0 !important;
     accent-color: var(--primary-color);
+}
+
+/* Fila de estado de la cuenta: etiqueta a la izquierda, control (checkbox)
+   alineado a la derecha. Referencia visual del punto 6.3 del plan de arreglos. */
+.estado-cuenta-fila {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #d7dee8;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.estado-cuenta-etiqueta {
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.estado-cuenta-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    cursor: pointer;
+}
+
+.estado-cuenta-control input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--primary-color);
+    cursor: pointer;
+}
+
+.estado-cuenta-control input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.estado-cuenta-valor {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-light);
+}
+
+.estado-cuenta-valor--off {
+    color: #b91c1c;
+}
+
+/* Listado de programaciones de estado (punto 6.2). */
+.programacion-lista {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.programacion-lista li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border: 1px solid #d7dee8;
+    border-radius: 8px;
+    background: #f8fafc;
+    font-size: 0.88rem;
+}
+
+.estado-cuenta-fila--deshabilitado {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.estado-cuenta-fila--deshabilitado .estado-cuenta-valor {
+    color: #b91c1c;
+}
+
+/* Toggle Switch accesible (UI-1) — reemplaza checkboxes de "Habilitado" */
+.toggle-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color, #d7dee8);
+    border-radius: 8px;
+    background: var(--toggle-bg, #f8fafc);
+}
+
+.toggle-switch-label {
+    font-weight: 700;
+    color: var(--text-dark);
+    flex: 1;
+    min-width: 120px;
+}
+
+.toggle-switch-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toggle-switch-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.toggle-switch-track {
+    position: relative;
+    display: block;
+    width: 52px;
+    height: 28px;
+    border-radius: 14px;
+    background: var(--toggle-track-bg, #d7dee8);
+    border: 2px solid var(--toggle-track-border, #cbd5e1);
+    transition: background 0.2s ease, border-color 0.2s ease;
+    cursor: pointer;
+}
+
+.toggle-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--toggle-thumb-bg, #fff);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease;
+}
+
+.toggle-switch-input:checked + .toggle-switch-status + .toggle-switch-track {
+    background: var(--primary-color, #2563eb);
+    border-color: var(--primary-color, #2563eb);
+}
+
+.toggle-switch-input:checked + .toggle-switch-status + .toggle-switch-track .toggle-switch-thumb {
+    transform: translateX(24px);
+}
+
+.toggle-switch-input:focus-visible + .toggle-switch-status + .toggle-switch-track {
+    outline: 3px solid var(--primary-color, #2563eb);
+    outline-offset: 2px;
+}
+
+.toggle-switch-status {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-light);
+    min-width: 80px;
+    text-align: right;
+}
+
+.toggle-switch-input:checked + .toggle-switch-status {
+    color: var(--primary-color, #2563eb);
+}
+
+/* Modo oscuro para toggle switch */
+@media (prefers-color-scheme: dark) {
+    .toggle-switch-row {
+        border-color: #334155;
+        background: #1e293b;
+    }
+    .toggle-switch-track {
+        background: #475569;
+        border-color: #64748b;
+    }
+    .toggle-switch-thumb {
+        background: #f1f5f9;
+    }
+    .toggle-switch-input:checked + .toggle-switch-status + .toggle-switch-track {
+        background: var(--primary-color, #3b82f6);
+        border-color: var(--primary-color, #3b82f6);
+    }
+}
+
+/* Tema oscuro explícito (clase .dark-theme en html/body) */
+.dark-theme .toggle-switch-row,
+html.dark .toggle-switch-row {
+    border-color: #334155;
+    background: #1e293b;
+}
+.dark-theme .toggle-switch-track,
+html.dark .toggle-switch-track {
+    background: #475569;
+    border-color: #64748b;
+}
+.dark-theme .toggle-switch-thumb,
+html.dark .toggle-switch-thumb {
+    background: #f1f5f9;
+}
+.dark-theme .toggle-switch-input:checked + .toggle-switch-status + .toggle-switch-track,
+html.dark .toggle-switch-input:checked + .toggle-switch-status + .toggle-switch-track {
+    background: var(--primary-color, #3b82f6);
+    border-color: var(--primary-color, #3b82f6);
 }
 
 .administradores-inline-form {
@@ -4256,17 +4827,15 @@ tbody tr:nth-child(even) td {
 }
 
 /* ==========================================================================
-   ESTÁNDAR OFICIAL DE FORMULARIOS — Modal centrado oscuro
+   ESTÁNDAR OFICIAL DE FORMULARIOS — Modal centrado (tema adaptable)
    ========================================================================== */
-/* El overlay universal es .ddjj-modal-overlay */
-
 .standard-modal {
     position: relative;
     width: min(1100px, 100%);
     max-height: min(92vh, 900px);
     background: var(--sidebar-hover);
     border-radius: 10px;
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.15);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -4282,7 +4851,6 @@ tbody tr:nth-child(even) td {
     background: rgba(15, 23, 42, 0.55);
     pointer-events: auto;
 }
-
 .form-error-overlay-card {
     display: flex;
     flex-direction: column;
@@ -4290,24 +4858,21 @@ tbody tr:nth-child(even) td {
     gap: 12px;
     max-width: 420px;
     padding: 28px 32px;
-    background: #fef2f2;
-    border: 2px solid #fecaca;
+    background: var(--form-error-bg);
+    border: 2px solid var(--form-error-border);
     border-radius: 12px;
     box-shadow: 0 18px 48px rgba(127, 29, 29, 0.35);
     text-align: center;
 }
-
 .form-error-overlay-card i {
     font-size: 28px;
-    color: #b91c1c;
+    color: var(--form-error-text);
 }
-
 .form-error-overlay-text {
     font-weight: 600;
-    color: #7f1d1d;
+    color: var(--form-error-text);
     line-height: 1.4;
 }
-
 .standard-modal-header {
     display: flex;
     align-items: center;
@@ -4601,7 +5166,9 @@ tbody tr:nth-child(even) td {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 9999;
+    /* Por encima de los modales (.ddjj-modal-overlay = 10000) para que un toast
+       emitido con un modal abierto nunca quede oculto. */
+    z-index: 10050;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -4884,6 +5451,11 @@ tbody tr:nth-child(even) td {
     justify-content: center;
     font-size: 1.45rem;
 }
+/* Confirmaciones que no son destructivas (ej. "Finalizar"). */
+.confirm-modal__icon--normal {
+    background: rgba(253, 126, 20, 0.16);
+    color: var(--primary-color);
+}
 .confirm-modal__title {
     margin: 0 0 10px;
     color: #ffffff;
@@ -5125,7 +5697,8 @@ tbody tr:nth-child(even) td {
     position: fixed;
     right: 20px;
     bottom: 20px;
-    z-index: 1100;
+    /* Por encima del sidebar móvil (1200) y su backdrop (1150). */
+    z-index: 1210;
     display: flex;
     flex-direction: column;
     gap: 12px;

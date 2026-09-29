@@ -1,8 +1,12 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../context/ToastContext';
+import { useData } from '../../context/DataContext';
 import FormModal from '../../components/Shared/FormModal';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
+import AccionesCelda from '../../components/Shared/AccionesCelda';
+import NumericInput from '../../components/Shared/NumericInput';
+import FilaEstadoCuenta from '../../components/Shared/FilaEstadoCuenta';
 import { createUsuario, deleteUsuario, getUsuarios, updateUsuario, getDocentes, getPreceptores, getDirectivos, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
@@ -168,6 +172,8 @@ function Administradores() {
     cargarPersonasSinRol();
   }, []);
 
+  const { refreshData } = useData() || {};
+
   const resetForm = () => ({
     usuario: '',
     contrasena: '',
@@ -194,6 +200,19 @@ function Administradores() {
       toast.error('Error al cargar administradores');
     } finally {
       setLoading(false);
+    }
+  };
+
+  /** Refresca la lista local y el estado global, para que el cambio se vea de
+   *  inmediato sin recargar la página (punto 1.2 del plan de arreglos). */
+  const refrescar = async () => {
+    await fetchUsuarios();
+    if (typeof refreshData === 'function') {
+      try {
+        await refreshData();
+      } catch {
+        /* el refresco global nunca debe romper la operación ya guardada */
+      }
     }
   };
 
@@ -237,20 +256,6 @@ function Administradores() {
     setShowModal(true);
   };
 
-  const handleDelete = async (usuario) => {
-    await confirmarEliminacion('¿Está seguro de que desea deshabilitar permanentemente este administrador?\n\nEsta acción es lógica (no borra datos) y solo deshabilita el acceso al sistema.', {
-      onConfirm: async () => {
-        try {
-          await updateUsuario(usuario.id_usuario, { estado: false });
-          toast.success('Administrador deshabilitado permanentemente.');
-          fetchUsuarios();
-        } catch (err) {
-          toast.error('Error al deshabilitar administrador');
-        }
-      },
-    });
-  };
-
   const handleToggleEstado = async (usuario) => {
     try {
       // Solo cambiamos el estado, no borramos el usuario
@@ -259,7 +264,7 @@ function Administradores() {
         // Mantener datos del perfil - no incluir campos que puedan provocar eliminación
       });
       toast.success(usuario.estado ? 'Administrador deshabilitado correctamente.' : 'Administrador habilitado correctamente.');
-      fetchUsuarios();
+      await refrescar();
     } catch (err) {
       toast.error('Error al actualizar el estado del administrador: ' + (err.response?.data?.detail || 'Error desconocido'));
     }
@@ -308,7 +313,7 @@ const handleSubmit = async (e) => {
       }
 
       cerrarModal();
-      fetchUsuarios();
+      await refrescar();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Error al guardar administrador');
     }
@@ -328,7 +333,7 @@ const handleSubmit = async (e) => {
       });
       toast.success('Rol "Administrador" asignado correctamente.');
       setMostrarAgregarRol(false);
-      fetchUsuarios();
+      await refrescar();
     } catch (err) {
       const data = err.response?.data;
       toast.error(data?.error || data?.detail || 'Error al asignar rol');
@@ -352,7 +357,7 @@ const handleSubmit = async (e) => {
       await quitarRolUsuario(Number(persona.id_usuario), 'admin');
       toast.success('Rol "Administrador" quitado correctamente.');
       setMostrarQuitarRol(false);
-      fetchUsuarios();
+      await refrescar();
     } catch (err) {
       const data = err.response?.data;
       toast.error(data?.error || data?.detail || 'Error al quitar rol');
@@ -402,21 +407,16 @@ const handleSubmit = async (e) => {
           <section className="preceptor-form-section">
             <h4>Estado de la cuenta</h4>
             <div className="preceptor-form-row preceptor-form-row--status">
-              <div className="form-group-filter">
-                <label>Estado</label>
-                <label htmlFor="estado" className="preceptor-status-toggle">
-                  <input
-                    type="checkbox"
-                    id="estado"
-                    checked={formData.estado}
-                    onChange={(e) => setFormData({ ...formData, estado: e.target.checked })}
-                  />
-                  <span>{estadoLabel(formData.estado)}</span>
-                </label>
-              </div>
+              <FilaEstadoCuenta
+                id="admin-estado"
+                etiqueta="Estado"
+                checked={formData.estado}
+                disabled={guardandoUsuario}
+                onChange={(checked) => setFormData({ ...formData, estado: checked })}
+              />
 
               <div className="form-group-filter">
-                <label htmlFor="fecha_deshabilitacion_programada">Fecha deshabilitacion programada</label>
+                <label htmlFor="fecha_deshabilitacion_programada">Fecha deshabilitación programada</label>
                 <input
                   type="datetime-local"
                   id="fecha_deshabilitacion_programada"
@@ -426,7 +426,7 @@ const handleSubmit = async (e) => {
               </div>
 
               <div className="form-group-filter">
-                <label htmlFor="fecha_habilitacion_programada">Fecha habilitacion programada</label>
+                <label htmlFor="fecha_habilitacion_programada">Fecha habilitación programada</label>
                 <input
                   type="datetime-local"
                   id="fecha_habilitacion_programada"
@@ -479,13 +479,12 @@ const handleSubmit = async (e) => {
               </div>
 
               <div className="form-group-filter">
-                <label htmlFor="telefono">Telefono</label>
-                <input
-                  type="text"
+                <NumericInput
                   id="telefono"
+                  label="Telefono"
                   value={formData.telefono}
-                  onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                  
+                  onChange={(val) => setFormData({ ...formData, telefono: val })}
+                  placeholder="Ej: 1123456789"
                 />
               </div>
             </div>
@@ -590,34 +589,14 @@ const handleSubmit = async (e) => {
                       </span>
                     </td>
                     <td>{getNextAction(u)}</td>
-                    <td className="acciones-cell flex-row--center">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => handleEdit(u)}
-                        aria-label="Editar administrador"
-                        title="Editar"
-                      >
-                        <i className="fas fa-edit" aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${u.estado ? 'btn-warning' : 'btn-success'}`}
-                        onClick={() => handleToggleEstado(u)}
-                        aria-label={u.estado ? 'Deshabilitar administrador' : 'Habilitar administrador'}
-                        title={u.estado ? 'Deshabilitar' : 'Habilitar'}
-                      >
-                        <i className={`fas ${u.estado ? 'fa-ban' : 'fa-check'}`} aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(u)}
-                        aria-label="Deshabilitar permanentemente administrador"
-                        title="Deshabilitar permanentemente"
-                      >
-                        <i className="fas fa-user-slash" aria-hidden="true" />
-                      </button>
+                    <td className="acciones-cell acciones-cell--grid2">
+                      <AccionesCelda
+                        acciones={[
+                          { accion: 'editar', onClick: () => handleEdit(u) },
+                          { accion: u.estado ? 'deshabilitar' : 'habilitar', onClick: () => handleToggleEstado(u) },
+                        ]}
+                        entidad="administrador"
+                      />
                     </td>
                   </tr>
                 </Fragment>

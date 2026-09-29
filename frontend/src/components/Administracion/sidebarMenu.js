@@ -7,6 +7,7 @@ export const menuItems = [
     icon: 'fa-school',
     children: [
       { id: 'alumnos', label: 'Estudiantes', icon: 'fa-user-graduate' },
+      { id: 'tutores', label: 'Tutores/familias', icon: 'fa-user-shield' },
       { id: 'docentes', label: 'Docentes', icon: 'fa-chalkboard-teacher' },
       { id: 'preceptores', label: 'Preceptores', icon: 'fa-user-tie' },
       { id: 'jefes-preceptores', label: 'Jefes de Preceptores', icon: 'fa-user-cog' },

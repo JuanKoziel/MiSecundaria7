@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { useData } from '../../../context/DataContext';
+import { parseCurso } from '../../../utils/orientacion';
 import SidebarToggle from '../../Shared/SidebarToggle';
 import Logo from '../../Shared/Logo';
 
@@ -10,10 +13,56 @@ function inicialesDesdeNombre(nombreCompleto, user) {
   return user.username ? user.username.charAt(0).toUpperCase() : 'U';
 }
 
-function Header({ user, nombreCompleto }) {
+function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCursoChange }) {
+  const { cursosObj, aniosLectivos } = useData();
+
   const iniciales = inicialesDesdeNombre(nombreCompleto, user);
   const nombreMostrar = nombreCompleto || user.username || 'Usuario';
   const rol = (user.role || 'ADMIN').toUpperCase();
+
+  const anioLectivoLocal = anioLectivo || '';
+  const cursoLocal = curso || '';
+
+  const cursosDelCiclo = (cursosObj || []).filter(
+    (c) => String(c.ciclo_anio) === String(anioLectivoLocal),
+  );
+
+  const aniosDisponibles = [
+    ...new Set(
+      cursosDelCiclo
+        .map((c) => parseCurso(c.nombre_curso).anio)
+        .filter((a) => a),
+    ),
+  ].sort((a, b) => a - b);
+
+  const { anio: anioActual, division: divActual } = parseCurso(cursoLocal);
+
+  const divisionesDisponibles = [
+    ...new Set(
+      cursosDelCiclo
+        .map((c) => parseCurso(c.nombre_curso))
+        .filter((p) => p.anio === anioActual)
+        .map((p) => p.division)
+        .filter((d) => d),
+    ),
+  ].sort((a, b) => a - b);
+
+  const handleAnioAcadChange = (e) => {
+    const nuevoAnio = e.target.value;
+    onCursoChange?.(nuevoAnio ? `${nuevoAnio}°` : '');
+  };
+
+  const handleDivisionChange = (e) => {
+    const nuevaDiv = e.target.value;
+    if (!anioActual || !nuevaDiv) {
+      onCursoChange?.(anioActual ? `${anioActual}°` : '');
+      return;
+    }
+    onCursoChange?.(`${anioActual}°${nuevaDiv}`);
+  };
+
+  const cursoCompleto = anioActual && divActual ? `${anioActual}°${divActual}` : '';
+  const tieneFiltros = !!(anioLectivoLocal || cursoLocal);
 
   return (
     <header className="main-header main-header--dark">
@@ -29,6 +78,87 @@ function Header({ user, nombreCompleto }) {
             <i className="fas fa-school font-accent" aria-hidden="true" />
             Panel de Administración Escolar
           </p>
+        </div>
+
+        <div className="main-header-selectors">
+          <div className="selector-group">
+            <label htmlFor="global-anio-lectivo" className="selector-label">
+              <i className="fas fa-calendar" aria-hidden="true" /> Año lectivo
+            </label>
+            <select
+              id="global-anio-lectivo"
+              className="global-select"
+              value={anioLectivoLocal}
+              onChange={(e) => onAnioChange?.(e.target.value)}
+            >
+              <option value="" disabled hidden>
+                Seleccioná año
+              </option>
+              {aniosLectivos.map((anio) => (
+                <option key={anio} value={anio}>
+                  {anio}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="selector-group">
+            <label htmlFor="global-anio-acad" className="selector-label">
+              <i className="fas fa-school" aria-hidden="true" /> Año
+            </label>
+            <select
+              id="global-anio-acad"
+              className="global-select"
+              value={anioActual || ''}
+              onChange={handleAnioAcadChange}
+              disabled={!anioLectivoLocal}
+            >
+              <option value="" disabled hidden>
+                Año...
+              </option>
+              {aniosDisponibles.map((a) => (
+                <option key={a} value={a}>
+                  {a}°
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="selector-group">
+            <label htmlFor="global-division" className="selector-label">
+              <i className="fas fa-users" aria-hidden="true" /> División
+            </label>
+            <select
+              id="global-division"
+              className="global-select"
+              value={divActual || ''}
+              onChange={handleDivisionChange}
+              disabled={!anioActual}
+            >
+              <option value="" disabled hidden>
+                División...
+              </option>
+              {divisionesDisponibles.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {tieneFiltros && (
+            <button
+              type="button"
+              className="btn-clear-selection"
+              onClick={() => {
+                onAnioChange?.('');
+                onCursoChange?.('');
+              }}
+              title="Limpiar selección"
+            >
+              <i className="fas fa-times" aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
 

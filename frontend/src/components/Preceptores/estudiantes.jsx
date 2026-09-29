@@ -2,7 +2,6 @@ import { useState, Fragment, useMemo } from 'react';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import { useData } from '../../context/DataContext';
 import { createEstudiante, updateEstudiante, deleteEstudiante } from '../../services/api';
-import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import EmptyFiltros from './EmptyFiltros';
 import FormModal from '../../components/Shared/FormModal';
 import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
@@ -582,10 +581,10 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
                   </td>
                   {!readOnly && <td>{proximaAccion(a)}</td>}
                   {!readOnly && (
-                    <td className="acciones-cell" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', justifyItems: 'center' }}>
+                    <td className="acciones-cell acciones-cell--grid2">
                       <button
                         type="button"
-                        className="btn btn-sm btn-secondary"
+                        className="btn btn-sm btn-secondary btn-accion-icono"
                         onClick={() => abrirEditar(a)}
                         title="Editar"
                       >
@@ -594,7 +593,7 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
                       {puedeCambiarEstado && (
                         <button
                           type="button"
-                          className={`btn btn-sm ${a.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
+                          className={`btn btn-sm btn-accion-icono ${a.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
                           onClick={() => toggleEstado(a)}
                           title={a.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
                           disabled={guardando}
@@ -604,7 +603,7 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
                       )}
                       <button
                         type="button"
-                        className={`btn btn-sm btn-secondary${programando === a.id ? ' active' : ''}`}
+                        className={`btn btn-sm btn-secondary btn-accion-icono${programando === a.id ? ' active' : ''}`}
                         onClick={() => abrirProgramar(a)}
                         title="Programar"
                       >
@@ -612,7 +611,7 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
                       </button>
                       <button
                         type="button"
-                        className="btn btn-sm btn-danger"
+                        className="btn btn-sm btn-danger btn-accion-icono"
                         onClick={() => eliminarEstudiante(a)}
                         title="Eliminar"
                       >
@@ -682,14 +681,7 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
         )}
       </div>
 
-      {!esControlado && (
-        <FiltrosAnioCurso
-          anioLectivo={anioLectivo}
-          curso={curso}
-          onAnioChange={handleAnioFiltro}
-          onCursoChange={setCurso}
-        />
-      )}
+      {/* Filtro global está en el header; no se duplica aquí. */}
 
       {filtrosOk ? (
         <>

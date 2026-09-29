@@ -84,9 +84,13 @@ function Notificaciones({ userRole, selectedChild }) {
       return notificaciones.filter((n) => n.id_alumno === null || n.id_alumno === undefined);
     }
     // Del Estudiante: solo las del hijo seleccionado.
-    const alumnoId = selectedChild?.alumnoId;
+    // Buscar el ID del alumno en varias propiedades posibles del selectedChild.
+    const alumnoId = selectedChild?.alumnoId ?? selectedChild?.id_alumno ?? selectedChild?.idAlumno;
     if (!alumnoId) return [];
-    return notificaciones.filter((n) => Number(n.id_alumno) === Number(alumnoId));
+    return notificaciones.filter((n) => {
+      const nId = n.id_alumno ?? n.idAlumno ?? n.id_alumno;
+      return nId != null && Number(nId) === Number(alumnoId);
+    });
   }, [esFamilia, activeTab, notificaciones, selectedChild]);
 
   const noLeidasCount = notificacionesActivas.filter((n) => !n.leida).length;

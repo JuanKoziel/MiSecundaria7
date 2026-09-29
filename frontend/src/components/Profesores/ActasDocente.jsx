@@ -1,4 +1,6 @@
 import { useState, Fragment, useMemo } from 'react';
+import { buildMediaUrl } from '../../utils/medios';
+import { hoy, esFinDeSemana, proximaLaborable } from '../../utils/fechas';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -37,8 +39,11 @@ async function resolverTipoActa() {
 }
 
 const formVacio = { tipo: '', titulo: '', fecha: '', descripcion: '', alumnoId: '', docenteId: '' };
+/* 13.x: al crear, la fecha arranca en hoy. Al editar se conserva la del acta. */
+const formVacioNuevo = () => ({ ...formVacio, fecha: hoy() });
 
-function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaEstudiantes, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje }) {
+function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaEstudiantes, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje, setMensaje }) {
+  const [avisoFecha, setAvisoFecha] = useState('');
   return (
     <FormModal title={editando ? 'Editar acta' : 'Nueva acta'} onClose={onCancel} error={mensaje && mensaje.startsWith('Error') ? mensaje : null} onClearError={() => setMensaje('')}>
       <form onSubmit={onSubmit}>
@@ -47,7 +52,21 @@ function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaE
           <div className="preceptor-form-row preceptor-form-row--two">
             <div className="form-group-filter">
               <label>Fecha</label>
-              <input type="date" value={formData.fecha} onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))} />
+              {/* UI-6: fines de semana bloqueados, se ajusta al lunes al salir
+                  del campo. La normalizacion va en onBlur, no en onChange, para
+                  no pelear con la escritura por segmentos del input date. */}
+              <input
+                type="date"
+                value={formData.fecha}
+                onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))}
+                onBlur={(e) => {
+                  if (esFinDeSemana(e.target.value)) {
+                    setFormData((p) => ({ ...p, fecha: proximaLaborable(e.target.value) }));
+                    setAvisoFecha('No se pueden registrar los fines de semana. Se movió al lunes siguiente.');
+                  }
+                }}
+              />
+              {avisoFecha && <div className="alert alert-warning" style={{ marginTop: 6 }}>{avisoFecha}</div>}
             </div>
             <div className="form-group-filter">
               <label>Título</label>
@@ -101,7 +120,7 @@ function FormActa({ formData, setFormData, guardando, onSubmit, onCancel, listaE
               <label>Archivo</label>
               {editando?.ruta_archivo && !removeArchivo && (
                 <div style={{ marginBottom: '4px' }}>
-                  <a href={`${API_BASE}${editando.ruta_archivo}`} target="_blank" rel="noopener noreferrer">Archivo actual</a>
+                  <a href={`${buildMediaUrl(editando.ruta_archivo)}`} target="_blank" rel="noopener noreferrer">Archivo actual</a>
                   <button type="button" className="btn-link-danger" style={{ marginLeft: '8px' }} onClick={() => setRemoveArchivo(true)}>
                     <i className="fas fa-times" aria-hidden="true" /> Quitar
                   </button>
@@ -158,7 +177,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
   };
 
   const [showNewForm, setShowNewForm] = useState(false);
-  const [formData, setFormData] = useState(formVacio);
+  const [formData, setFormData] = useState(formVacioNuevo);
   const [editando, setEditando] = useState(null);
   const [archivo, setArchivo] = useState(null);
   const [removeArchivo, setRemoveArchivo] = useState(false);
@@ -213,7 +232,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
 
   const limpiar = () => {
     setShowNewForm(false);
-    setFormData(formVacio);
+    setFormData(formVacioNuevo());
     setEditando(null);
     setArchivo(null);
     setRemoveArchivo(false);
@@ -224,7 +243,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
     if (showNewForm) {
       limpiar();
     } else {
-      setFormData(formVacio);
+      setFormData(formVacioNuevo());
       setEditando(null);
       setArchivo(null);
       setRemoveArchivo(false);
@@ -433,7 +452,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
                   <td>{acta.descripcion}</td>
                   <td>
                     {acta.ruta_archivo ? (
-                      <a href={`${API_BASE}${acta.ruta_archivo}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
+                      <a href={`${buildMediaUrl(acta.ruta_archivo)}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
                         <i className="fas fa-file-pdf" aria-hidden="true" /> Ver
                       </a>
                     ) : '—'}
@@ -491,7 +510,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
                           <td>{acta.descripcion}</td>
                           <td>
                             {acta.ruta_archivo ? (
-                              <a href={`${API_BASE}${acta.ruta_archivo}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
+                              <a href={`${buildMediaUrl(acta.ruta_archivo)}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
                                 <i className="fas fa-file-pdf" aria-hidden="true" /> Ver
                               </a>
                             ) : '—'}
@@ -552,7 +571,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
                         <td>{acta.descripcion}</td>
                         <td>
                           {acta.ruta_archivo ? (
-                            <a href={`${API_BASE}${acta.ruta_archivo}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
+                            <a href={`${buildMediaUrl(acta.ruta_archivo)}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
                               <i className="fas fa-file-pdf" aria-hidden="true" /> Ver
                             </a>
                           ) : '—'}
@@ -598,6 +617,7 @@ function ActasDocente({ docenteId, cursoId, materiaSeleccionada, misAsignaciones
           removeArchivo={removeArchivo}
           setRemoveArchivo={setRemoveArchivo}
           mensaje={mensaje}
+          setMensaje={setMensaje}
         />
       )}
     </div>

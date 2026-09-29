@@ -12,6 +12,7 @@ export function ConfirmProvider({ children }) {
     note: 'Esta acción ocultará el registro del sistema.',
     confirmText: 'Eliminar',
     loadingText: 'Eliminando...',
+    variant: 'danger',
   });
   const [eliminando, setEliminando] = useState(false);
   const resolverRef = useRef(null);
@@ -28,6 +29,7 @@ export function ConfirmProvider({ children }) {
       note: opciones.note || 'Esta acción ocultará el registro del sistema.',
       confirmText: opciones.confirmText || 'Eliminar',
       loadingText: opciones.loadingText || 'Eliminando...',
+      variant: opciones.variant || 'danger',
     });
   }), []);
 
@@ -73,6 +75,7 @@ export function ConfirmProvider({ children }) {
         note={state.note}
         confirmText={state.confirmText}
         loadingText={state.loadingText}
+        variant={state.variant}
         loading={eliminando}
         onConfirm={confirmarAccion}
         onCancel={cancelar}

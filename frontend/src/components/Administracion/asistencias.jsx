@@ -9,7 +9,8 @@ import {
   getAsistenciasDocentesHoy,
   getHistorialAsistenciasDocentes,
 } from '../../services/api';
-import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
+import { hayBloqueoEscritura, getSuspensionInfo } from '../../utils/suspension';
+import { hoy } from '../../utils/fechas';
 
 function badgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
@@ -24,9 +25,19 @@ function Asistencias() {
     cursosObj,
     cursoMateria,
     nombreCorto,
+    eventosInstitucionales,
+    selectedCursoId,
   } = useData();
 
-  const [curso, setCurso] = useState('');
+  // Punto 1.4: la vista consume la selección global del header de Administración.
+  // No se vuelve a mostrar el selector de Año/División dentro de la vista.
+  const cursoObjSel = useMemo(
+    () =>
+      (cursosObj || []).find((c) => String(c.id_curso) === String(selectedCursoId || '')) || null,
+    [cursosObj, selectedCursoId],
+  );
+  const curso = cursoObjSel?.nombre_curso || '';
+
   const [tab, setTab] = useState('dia');
   const [materiaCmId, setMateriaCmId] = useState('');
   const [fechaMateria, setFechaMateria] = useState('');
@@ -45,12 +56,16 @@ function Asistencias() {
   const [cargandoDocHoy, setCargandoDocHoy] = useState(false);
   const [docHistorial, setDocHistorial] = useState([]);
   const [cargandoDocHistorial, setCargandoDocHistorial] = useState(false);
-  const [fechaHistDoc, setFechaHistDoc] = useState(() => new Date().toISOString().slice(0, 10));
+  /* Usa fecha local: toISOString() devuelve el dia siguiente a partir de las 21:00 (UTC-3). */
+  const [fechaHistDoc, setFechaHistDoc] = useState(hoy);
 
-  const cursoObjSel = useMemo(
-    () => cursosObj.find((c) => c.nombre_curso === curso),
-    [cursosObj, curso],
-  );
+  // La materia y el estudiante elegidos dejan de ser válidos al cambiar de curso.
+  useEffect(() => {
+    setMateriaCmId('');
+    setFechaMateria('');
+    setEstudianteMateria('');
+  }, [selectedCursoId]);
+
   const cmCurso = useMemo(
     () => (cursoObjSel ? cursoMateria.filter((cm) => cm.id_curso === cursoObjSel.id_curso) : []),
     [cursoMateria, cursoObjSel],
@@ -61,17 +76,7 @@ function Asistencias() {
     [estudiantes, curso],
   );
 
-  const handleCursoChange = (nuevoCurso) => {
-    setCurso((prev) => {
-      if (prev === nuevoCurso) return prev;
-      setMateriaCmId('');
-      setFechaMateria('');
-      setEstudianteMateria('');
-      return nuevoCurso;
-    });
-  };
-
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hoy();
 
   const cargarDiaria = useCallback(() => {
     if (!curso) return;
@@ -134,38 +139,25 @@ function Asistencias() {
       .finally(() => setCargandoDocHistorial(false));
   }, [tab, tabDocentes, curso, fechaHistDoc]);
 
+  const fechaActual = tab === 'dia' ? hoy() : (tab === 'registro' ? regFecha : (tab === 'materia' ? fechaMateria : hoy()));
+  const suspensionInfo = fechaActual ? getSuspensionInfo(eventosInstitucionales, fechaActual) : null;
+  const bloqueaEscritura = suspensionInfo?.bloqueaEscritura;
+
   return (
     <div className="card">
-      {serverInfo?.evento_activo && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px', textAlign: 'center', padding: '24px' }}>
-          <div style={{ maxWidth: '480px' }}>
-            <div style={{ fontSize: '3em', marginBottom: '16px' }}>&#128683;</div>
-            <h3 style={{ marginBottom: '12px', color: '#dc3545' }}>No es posible registrar asistencias</h3>
-            <p style={{ color: '#555', lineHeight: '1.6', margin: 0 }}>
-              Actualmente existe un evento institucional activo.
-            </p>
-            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '8px', marginBottom: 0 }}>
-              Evento: <strong style={{ color: '#333' }}>{serverInfo.evento_tipo}</strong>
-            </p>
-            {serverInfo.evento_descripcion && (
-              <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
-                Descripción: <strong style={{ color: '#333' }}>{serverInfo.evento_descripcion}</strong>
-              </p>
-            )}
-            {serverInfo.evento_horario && (
-              <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
-                Horario afectado: <strong style={{ color: '#333' }}>{serverInfo.evento_horario}</strong>
-              </p>
-            )}
-            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '12px', marginBottom: 0, fontStyle: 'italic' }}>
-              Las asistencias volverán a habilitarse automáticamente al finalizar el evento.
-            </p>
+      {suspensionInfo && (
+        <div className="aviso-suspension" role="status">
+          <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+          <div>
+            <strong>Día suspendido: la información es de solo lectura</strong>
+            Ya podés consultar las asistencias registradas ({suspensionInfo.tipo}
+            {suspensionInfo.alcance !== 'todo_dia' ? `, ${suspensionInfo.alcance}` : ''}).
+            No se pueden registrar ni modificar asistencias hasta que termine el evento.
+            {suspensionInfo.descripcion ? ` ${suspensionInfo.descripcion}` : ''}
           </div>
         </div>
       )}
 
-      {!serverInfo?.evento_activo && (
-      <>
       <div className="card-header-flex">
         <h3><i className="fas fa-user-check" aria-hidden="true" /> Control de Asistencia</h3>
         <span className="badge role-badge-display">Solo lectura</span>
@@ -194,12 +186,6 @@ function Asistencias() {
           Asistencia de docentes
         </button>
       </div>
-
-      <FiltrosAnioCurso
-        cursosObj={cursosObj}
-        defaultToFirst
-        onCursoChange={handleCursoChange}
-      />
 
       {tab === 'dia' && (
         <div>
@@ -555,8 +541,6 @@ function Asistencias() {
             </div>
           )}
         </div>
-      )}
-      </>
       )}
     </div>
   );

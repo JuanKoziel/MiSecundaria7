@@ -1,48 +1,15 @@
 import { useState } from 'react';
 import AdminPreceptores from './AdminPreceptores';
-import SupervisionPreceptores from './SupervisionPreceptores';
-
-const TABS = [
-  { id: 'admin', label: 'Administrar Preceptores', icon: 'fa-user-tie' },
-  { id: 'supervision', label: 'Supervisión', icon: 'fa-eye' },
-];
 
 function AdministracionPreceptores() {
-  const [activeTab, setActiveTab] = useState('admin');
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'admin':
-        return <AdminPreceptores />;
-      case 'supervision':
-        return <SupervisionPreceptores />;
-      default:
-        return <AdminPreceptores />;
-    }
-  };
-
   return (
     <div>
       <div className="card">
         <div className="card-header-flex card-header-flex--compact">
           <h3><i className="fas fa-user-cog" aria-hidden="true" /> Administración de Preceptores</h3>
         </div>
-
-        <div className="asist-tipo-selector">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`btn btn-sm ${activeTab === tab.id ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <i className={`fas ${tab.icon}`} aria-hidden="true" /> {tab.label}
-            </button>
-          ))}
-        </div>
+        <AdminPreceptores />
       </div>
-
-      {renderContent()}
     </div>
   );
 }

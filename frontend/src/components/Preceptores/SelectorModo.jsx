@@ -1,8 +1,10 @@
+// Punto 1.5: nomenclatura unificada "Editar" / "Eliminar" (no "Modificar" / "Borrar").
+// Los `id` internos se mantienen para no romper el estado de los componentes.
 const MODOS = [
   { id: 'vista', label: 'Vista general', icon: 'fa-list', desc: 'Consultar listado actual' },
   { id: 'crear', label: 'Crear', icon: 'fa-plus', desc: 'Agregar un nuevo registro' },
-  { id: 'modificar', label: 'Modificar', icon: 'fa-edit', desc: 'Editar datos existentes' },
-  { id: 'borrar', label: 'Borrar', icon: 'fa-trash', desc: 'Eliminar un registro' },
+  { id: 'modificar', label: 'Editar', icon: 'fa-edit', desc: 'Editar datos existentes' },
+  { id: 'borrar', label: 'Eliminar', icon: 'fa-trash', desc: 'Eliminar un registro' },
 ];
 
 function SelectorModo({ modo, onModoChange, titulo, children }) {

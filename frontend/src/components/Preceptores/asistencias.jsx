@@ -20,6 +20,8 @@ import {
 } from './preceptorUtils';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import { getSuspensionInfo, hayBloqueoEscritura } from '../../utils/suspension';
+import { validarCambioFecha } from '../../utils/fechas';
 
 function getBadgeClass(estado) {
   if (estado === 'Presente') return 'badge-presente';
@@ -37,6 +39,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
     inscripciones, estudiantes, nombreCorto: nc,
     cursosObj, cursoMateria, estadosAsistencia,
     refreshData,
+    eventosInstitucionales,
   } = useData();
   const { user } = useAuth();
   const toast = useToast();
@@ -52,7 +55,9 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   const [cargandoMateria, setCargandoMateria] = useState(false);
   const [dataDiaria, setDataDiaria] = useState([]);
   const [cargandoDiaria, setCargandoDiaria] = useState(false);
-  const [regFecha, setRegFecha] = useState('');
+  /* 13.x: el registro arranca mirando la fecha de hoy. Al elegir un
+     estudiante la fecha se limpia (13.1), así que siempre hay un solo filtro. */
+  const [regFecha, setRegFecha] = useState(fechaHoy());
   const [regEstudiante, setRegEstudiante] = useState('');
   const [dataRegistro, setDataRegistro] = useState([]);
   const [cargandoRegistro, setCargandoRegistro] = useState(false);
@@ -146,6 +151,10 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   }, []);
 
   const handleRegistrarDocente = async (doc) => {
+    if (bloqueaEscritura) {
+      toast.error('No se pueden registrar asistencias en un día suspendido.');
+      return;
+    }
     const estadoSeleccionado = docentesEstados[doc.docente_id] || '';
     if (!estadoSeleccionado) {
       toast.warning('Seleccioná un estado antes de registrar.');
@@ -161,7 +170,9 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
         fecha: fechaDocentes || undefined,
       });
       toast.success('Asistencia docente registrada correctamente.');
-      cargarDocentes();
+      // Punto 13.2: refrescar datos inmediatamente
+      await refreshData();
+      await cargarDocentes();
     } catch (err) {
       toast.error(mensajeErrorAmigable(err));
     } finally {
@@ -170,6 +181,10 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
   };
 
   const handleGuardar = async () => {
+    if (bloqueaEscritura) {
+      toast.error('No se pueden registrar asistencias en un día suspendido.');
+      return;
+    }
     setGuardando(true);
     setMensaje('');
     try {
@@ -203,8 +218,9 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
       });
       await Promise.all(promises);
       toast.success('Asistencias guardadas correctamente.');
+      // Punto 13.2: refrescar datos inmediatamente para que la UI refleje lo guardado
       await refreshData();
-      cargarDiaria();
+      await cargarDiaria();
     } catch (err) {
       toast.error(mensajeErrorAmigable(err));
     } finally {
@@ -220,41 +236,32 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
     );
   }
 
+  const hoyStr = fechaHoy();
+  const suspensionInfo = getSuspensionInfo(eventosInstitucionales, hoyStr);
+  const bloqueaEscritura = suspensionInfo?.bloqueaEscritura;
+
+  // Punto 2.2: con evento institucional activo el módulo queda en solo lectura.
+  // La información ya registrada sigue visible (punto 2.1).
+  const soloLectura = readOnly || bloqueaEscritura;
+
   return (
     <div className="card">
-      {serverInfo?.evento_activo && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px', textAlign: 'center', padding: '24px' }}>
-          <div style={{ maxWidth: '480px' }}>
-            <div style={{ fontSize: '3em', marginBottom: '16px' }}>&#128683;</div>
-            <h3 style={{ marginBottom: '12px', color: '#dc3545' }}>No es posible registrar asistencias</h3>
-            <p style={{ color: '#555', lineHeight: '1.6', margin: 0 }}>
-              Actualmente existe un evento institucional activo.
-            </p>
-            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '8px', marginBottom: 0 }}>
-              Evento: <strong style={{ color: '#333' }}>{serverInfo.evento_tipo}</strong>
-            </p>
-            {serverInfo.evento_descripcion && (
-              <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
-                Descripción: <strong style={{ color: '#333' }}>{serverInfo.evento_descripcion}</strong>
-              </p>
-            )}
-            {serverInfo.evento_horario && (
-              <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
-                Horario afectado: <strong style={{ color: '#333' }}>{serverInfo.evento_horario}</strong>
-              </p>
-            )}
-            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '12px', marginBottom: 0, fontStyle: 'italic' }}>
-              Las asistencias volverán a habilitarse automáticamente al finalizar el evento.
-            </p>
+      {suspensionInfo && (
+        <div className="aviso-suspension" role="status">
+          <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+          <div>
+            <strong>Día suspendido: la información es de solo lectura</strong>
+            Podés consultar las asistencias ya registradas ({suspensionInfo.tipo}
+            {suspensionInfo.alcance !== 'todo_dia' ? `, ${suspensionInfo.alcance}` : ''}), pero no se pueden
+            registrar, modificar ni eliminar hasta que termine el evento.
+            {suspensionInfo.descripcion ? ` ${suspensionInfo.descripcion}` : ''}
           </div>
         </div>
       )}
 
-      {!serverInfo?.evento_activo && (
-      <>
       <div className="card-header-flex">
         <h3><i className="fas fa-user-check" aria-hidden="true" /> Control de asistencias</h3>
-        {readOnly && <span className="badge role-badge-display">Solo lectura</span>}
+        {soloLectura && <span className="badge role-badge-display">Solo lectura</span>}
       </div>
 
       <div className="asist-tipo-selector">
@@ -291,7 +298,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
         <div>
           <div className="card-header-flex">
             <h3>Asistencias del día</h3>
-            {!readOnly && (
+            {!soloLectura && (
               <button type="button" className="btn btn-primary" onClick={handleGuardar} disabled={guardando}>
                 <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar'}
               </button>
@@ -348,7 +355,14 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                   id="reg-fecha"
                   type="date"
                   value={regFecha}
-                  onChange={(e) => setRegFecha(e.target.value)}
+                  /* 13.1: fecha y estudiante son excluyentes. Al elegir una
+                     fecha se limpia el estudiante para no aplicar los dos
+                     filtros a la vez. */
+                   onChange={(e) => {
+                     setRegFecha(e.target.value);
+                     if (e.target.value) setRegEstudiante('');
+                   }}
+                   onBlur={(e) => setRegFecha(validarCambioFecha(e.target.value).valor)}
                 />
               </div>
               <div className="form-group-filter">
@@ -356,7 +370,12 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                 <select
                   id="reg-estudiante"
                   value={regEstudiante}
-                  onChange={(e) => setRegEstudiante(e.target.value)}
+                  /* 13.1: fecha y estudiante son excluyentes. Se limpia el
+                     campo contrario, nunca el propio, para no vaciar la pantalla. */
+                  onChange={(e) => {
+                    setRegEstudiante(e.target.value);
+                    if (e.target.value) setRegFecha('');
+                  }}
                 >
                   <option value="">Todos...</option>
                   {listaEstudiantes.map((a) => (
@@ -561,7 +580,9 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
         <div>
           <p className="asist-info-banner">
             <i className="fas fa-info-circle" aria-hidden="true" />{' '}
-            {readOnly ? (
+            {serverInfo?.evento_activo ? (
+              <>Día suspendido: podés <strong>visualizar</strong> la asistencia de docentes, pero no registrar faltas.</>
+            ) : readOnly ? (
               <>En esta vista solo podés <strong>visualizar</strong> la asistencia de docentes. Se muestra el día de hoy por defecto.</>
             ) : (
               <>Elegí una fecha para ver los docentes con clase ese día. Hoy figura primero. Las fechas futuras permiten registrar <strong>faltas anticipadas</strong>.</>
@@ -582,7 +603,7 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
 
           <div className="card-header-flex">
             <h3>Asistencia de docentes</h3>
-            {!readOnly && (
+            {!soloLectura && (
               <button type="button" className="btn btn-secondary btn-sm" onClick={cargarDocentes}>
                 <i className="fas fa-sync-alt" aria-hidden="true" /> Actualizar
               </button>
@@ -634,11 +655,16 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             {estadosPosibles.map((est) => {
                               const seleccionado = docentesEstados[doc.docente_id] === est;
-                              const deshabilitado = docentesEstados[doc.docente_id] && !seleccionado;
+                              // Punto 2.2: durante una suspensión los controles quedan
+                              // visibles pero deshabilitados, con el motivo explicado en el aviso.
+                              const bloqueado = soloLectura;
+                              const deshabilitado = bloqueado || (docentesEstados[doc.docente_id] && !seleccionado);
                               return (
                                 <button
                                   key={est}
                                   type="button"
+                                  aria-disabled={deshabilitado}
+                                  title={bloqueado ? 'Día suspendido: la información es de solo lectura' : undefined}
                                   onClick={() => {
                                     if (deshabilitado) return;
                                     setDocentesEstados((prev) => ({
@@ -686,7 +712,8 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
                             type="button"
                             className="btn btn-primary btn-sm"
                             onClick={() => handleRegistrarDocente(doc)}
-                            disabled={registrandoDocente === doc.docente_id || !docentesEstados[doc.docente_id]}
+                            disabled={soloLectura || registrandoDocente === doc.docente_id || !docentesEstados[doc.docente_id]}
+                            title={soloLectura ? 'Día suspendido: la información es de solo lectura' : undefined}
                           >
                             {registrandoDocente === doc.docente_id ? 'Registrando...' : esAnticipado ? 'Registrar falta' : 'Registrar'}
                           </button>
@@ -702,8 +729,6 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
             </div>
           )}
         </div>
-      )}
-      </>
       )}
     </div>
   );

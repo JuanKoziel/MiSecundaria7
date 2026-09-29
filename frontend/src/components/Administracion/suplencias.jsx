@@ -3,6 +3,7 @@ import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { getSuplencias, createSuplencia, updateSuplencia, deleteSuplencia, finalizarSuplencia } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
+import AccionesCelda from '../../components/Shared/AccionesCelda';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { mensajeErrorAmigable } from '../../utils/errores';
 import LoadingSpinner from '../Shared/LoadingSpinner';
@@ -56,7 +57,7 @@ function FormSuplencia({ formData, setFormData, editing, guardando, onSubmit, on
   };
 
   return (
-    <FormModal title={editing ? 'Modificar suplencia' : 'Nueva suplencia'} onClose={onCancel}>
+    <FormModal title={editing ? 'Editar suplencia' : 'Nueva suplencia'} onClose={onCancel}>
       <form onSubmit={onSubmit}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <div className="form-group-filter">
@@ -185,6 +186,8 @@ function FormSuplencia({ formData, setFormData, editing, guardando, onSubmit, on
   );
 }
 
+const filtrosHistorialVacio = { docente: '', curso: '', materia: '' };
+
 function GestionSuplencias() {
   const { cursoMateria, refreshData } = useData();
   const toast = useToast();
@@ -194,6 +197,8 @@ function GestionSuplencias() {
   const [editing, setEditing] = useState(null);
   const [formData, setFormData] = useState(formVacio);
   const [guardando, setGuardando] = useState(false);
+  // Historial
+  const [filtrosHistorial, setFiltrosHistorial] = useState(filtrosHistorialVacio);
 
   const cargar = async () => {
     setCargando(true);
@@ -211,6 +216,20 @@ function GestionSuplencias() {
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const esFinalizada = (s) => !s.estado || (!!s.fecha_fin && new Date(s.fecha_fin) < new Date());
+
+  const suplenciasActivas = useMemo(
+    () => suplencias.filter((s) => !esFinalizada(s)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [suplencias],
+  );
+
+  const suplenciasHistorial = useMemo(
+    () => suplencias.filter(esFinalizada),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [suplencias],
+  );
 
   const limpiar = () => {
     setShowForm(false);
@@ -291,8 +310,11 @@ function GestionSuplencias() {
       'La suplencia quedará registrada como finalizada.\n\n' +
       '¿Desea continuar?',
       {
+        title: 'Finalizar suplencia',
+        note: 'La suplencia deja de estar vigente y queda registrada como finalizada. No se elimina el historial.',
         confirmText: 'Finalizar',
         loadingText: 'Finalizando...',
+        variant: 'normal',
         onConfirm: async () => {
           try {
             await finalizarSuplencia(s.id_suplencia);
@@ -313,6 +335,11 @@ function GestionSuplencias() {
       'Se eliminará el registro de la lista.\n\n' +
       '¿Desea continuar?',
       {
+        title: 'Eliminar suplencia',
+        note: 'El registro se dará de baja y dejará de estar disponible.',
+        confirmText: 'Eliminar',
+        loadingText: 'Eliminando...',
+        variant: 'danger',
         onConfirm: async () => {
           try {
             await deleteSuplencia(s.id_suplencia);
@@ -326,6 +353,26 @@ function GestionSuplencias() {
       },
     );
   };
+
+  const handleVer = (s) => {
+    toast.info(`Suplencia: ${s.materia_nombre} - ${s.curso_nombre} (${s.suplente_nombre})`);
+  };
+
+  const historialFiltrado = useMemo(() => {
+    let result = [...suplenciasHistorial];
+    if (filtrosHistorial.docente) {
+      const q = filtrosHistorial.docente.toLowerCase();
+      const coincide = (n) => typeof n === 'string' && n.toLowerCase().includes(q);
+      result = result.filter(s => coincide(s.suplente_nombre) || coincide(s.titular_nombre));
+    }
+    if (filtrosHistorial.curso) {
+      result = result.filter(s => s.curso_nombre?.toLowerCase().includes(filtrosHistorial.curso.toLowerCase()));
+    }
+    if (filtrosHistorial.materia) {
+      result = result.filter(s => s.materia_nombre?.toLowerCase().includes(filtrosHistorial.materia.toLowerCase()));
+    }
+    return result;
+  }, [suplenciasHistorial, filtrosHistorial]);
 
   return (
     <div>
@@ -349,69 +396,136 @@ function GestionSuplencias() {
         />
       )}
 
-      <div className="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>Curso / División</th>
-              <th>Materia</th>
-              <th>Docente Titular</th>
-              <th>Docente Suplente</th>
-              <th>Nivel</th>
-              <th>Inicio</th>
-              <th>Fin</th>
-              <th>Docente Activo Hoy</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cargando ? (
-              <tr><td colSpan={10} className="empty-state-message"><LoadingSpinner text="Cargando suplencias..." size="sm" inline /></td></tr>
-            ) : suplencias.length === 0 ? (
-              <tr><td colSpan={10} className="empty-state-message">No hay suplencias registradas.</td></tr>
-            ) : (
-              suplencias.map((s) => (
-                <Fragment key={s.id_suplencia}>
+      {/* Tabla principal: Suplencias activas */}
+      <div className="card mb-24">
+        <div className="card-header">
+          <h3 className="m-0"><i className="fas fa-list" aria-hidden="true" /> Suplencias Activas</h3>
+        </div>
+        <div className="card-body">
+          <div className="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Curso / División</th>
+                  <th>Materia</th>
+                  <th>Docente Titular</th>
+                  <th>Docente Suplente</th>
+                  <th>Nivel</th>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th>Docente Activo Hoy</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cargando ? (
+                  <tr><td colSpan={10} className="empty-state-message"><LoadingSpinner text="Cargando suplencias..." size="sm" inline /></td></tr>
+                ) : suplenciasActivas.length === 0 ? (
+                  <tr><td colSpan={10} className="empty-state-message">No hay suplencias activas registradas.</td></tr>
+                ) : (
+                  suplenciasActivas.map((s) => (
+                    <Fragment key={s.id_suplencia}>
+                      <tr>
+                        <td>{s.curso_nombre || '—'}</td>
+                        <td>{s.materia_nombre || '—'}</td>
+                        <td>{s.titular_nombre || '—'}</td>
+                        <td>{s.suplente_nombre || '—'}</td>
+                        <td>Nivel {s.nivel ?? 1}</td>
+                        <td>{fmtFecha(s.fecha_inicio)}</td>
+                        <td>{fmtFecha(s.fecha_fin)}</td>
+                        <td>
+                          {s.docente_activo_hoy ? (
+                            <span className={`badge ${s.docente_activo_hoy.es_suplencia ? 'badge-warning' : 'badge-success'}`}>
+                              {s.docente_activo_hoy.nombre}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          <span className={`badge ${s.estado ? 'badge-success' : 'badge-neutral'}`}>
+                            {s.estado_label || (s.estado ? 'Activa' : 'Finalizada')}
+                          </span>
+                        </td>
+                        <AccionesCelda
+                          acciones={s.estado ? [
+                            { accion: 'editar', onClick: () => abrirEditar(s) },
+                            { accion: 'finalizar', onClick: () => handleFinalizar(s) },
+                          ] : [
+                            { accion: 'editar', onClick: () => abrirEditar(s) },
+                            { accion: 'finalizar', onClick: () => handleFinalizar(s) },
+                          ]}
+                          entidad="suplencia"
+                        />
+                      </tr>
+                    </Fragment>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabla historial: Suplencias finalizadas */}
+      <div className="card">
+        <div className="card-header-flex">
+          <h3 className="m-0"><i className="fas fa-history" aria-hidden="true" /> Historial de Suplencias Finalizadas</h3>
+        </div>
+        <div className="card-body">
+          <div className="filter-row mb-16">
+            <div className="form-group-filter" style={{ minWidth: '200px' }}>
+              <label htmlFor="hist-docente">Docente</label>
+              <input id="hist-docente" type="text" placeholder="Filtrar por docente..." value={filtrosHistorial.docente} onChange={(e) => setFiltrosHistorial(p => ({ ...p, docente: e.target.value }))} />
+            </div>
+            <div className="form-group-filter" style={{ minWidth: '200px' }}>
+              <label htmlFor="hist-curso">Curso</label>
+              <input id="hist-curso" type="text" placeholder="Filtrar por curso..." value={filtrosHistorial.curso} onChange={(e) => setFiltrosHistorial(p => ({ ...p, curso: e.target.value }))} />
+            </div>
+            <div className="form-group-filter" style={{ minWidth: '200px' }}>
+              <label htmlFor="hist-materia">Materia</label>
+              <input id="hist-materia" type="text" placeholder="Filtrar por materia..." value={filtrosHistorial.materia} onChange={(e) => setFiltrosHistorial(p => ({ ...p, materia: e.target.value }))} />
+            </div>
+          </div>
+
+          {cargando ? (
+            <LoadingSpinner text="Cargando historial..." size="sm" inline />
+          ) : historialFiltrado.length === 0 ? (
+            <p className="empty-state-message">No hay suplencias finalizadas con los filtros actuales.</p>
+          ) : (
+            <div className="table-responsive">
+              <table>
+                <thead>
                   <tr>
-                    <td>{s.curso_nombre || '—'}</td>
-                    <td>{s.materia_nombre || '—'}</td>
-                    <td>{s.titular_nombre || '—'}</td>
-                    <td>{s.suplente_nombre || '—'}</td>
-                    <td>Nivel {s.nivel ?? 1}</td>
-                    <td>{fmtFecha(s.fecha_inicio)}</td>
-                    <td>{fmtFecha(s.fecha_fin)}</td>
-                    <td>
-                      {s.docente_activo_hoy ? (
-                        <span className={`badge ${s.docente_activo_hoy.es_suplencia ? 'badge-warning' : 'badge-success'}`}>
-                          {s.docente_activo_hoy.nombre}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td>
-                      <span className={`badge ${s.estado ? 'badge-success' : 'badge-neutral'}`}>
-                        {s.estado_label || (s.estado ? 'Activa' : 'Finalizada')}
-                      </span>
-                    </td>
-                    <td className="acciones-cell flex-row--center">
-                      {s.estado ? (
-                        <div>
-                          <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(s)} aria-label="Modificar suplencia" title="Modificar"><i className="fas fa-edit" aria-hidden="true" /></button>
-                          <button type="button" className="btn btn-sm btn-success" onClick={() => handleFinalizar(s)} aria-label="Finalizar suplencia" title="Finalizar"><i className="fas fa-flag-checkered" aria-hidden="true" /></button>
-                          <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(s)} aria-label="Eliminar suplencia" title="Eliminar"><i className="fas fa-trash-alt" aria-hidden="true" /></button>
-                        </div>
-                      ) : (
-                        <div>
-                          <button type="button" className="btn btn-sm btn-danger" onClick={() => handleEliminar(s)} aria-label="Eliminar suplencia" title="Eliminar"><i className="fas fa-trash-alt" aria-hidden="true" /></button>
-                        </div>
-                      )}
-                    </td>
+                    <th>Curso / División</th>
+                    <th>Materia</th>
+                    <th>Docente Titular</th>
+                    <th>Docente Suplente</th>
+                    <th>Nivel</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Motivo</th>
+                    <th>Finalizada</th>
                   </tr>
-                </Fragment>
-              ))
-            )}
-          </tbody>
-        </table>
+                </thead>
+                <tbody>
+                  {historialFiltrado.map((s) => (
+                    <tr key={s.id_suplencia}>
+                      <td>{s.curso_nombre || '—'}</td>
+                      <td>{s.materia_nombre || '—'}</td>
+                      <td>{s.titular_nombre || '—'}</td>
+                      <td>{s.suplente_nombre || '—'}</td>
+                      <td>Nivel {s.nivel ?? 1}</td>
+                      <td>{fmtFecha(s.fecha_inicio)}</td>
+                      <td>{fmtFecha(s.fecha_fin)}</td>
+                      <td>{s.motivo || '—'}</td>
+                      <td>{fmtFecha(s.fecha_fin) || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -57,7 +57,7 @@ function PanelMateriasAdeudadasEstudiante({ miEstudiante }) {
       return;
     }
     Promise.all([
-      getMateriasAdeudadas({ alumno: miAlumno.id }),
+      getMateriasAdeudadas({ alumno: miEstudiante.id }),
       getRendicionesMateriasAdeudadas(),
       getActividadesMateriasAdeudadas(),
       getIntensificacionesAcademicas(),

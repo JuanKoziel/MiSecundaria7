@@ -14,8 +14,6 @@ import ComunicadosJefe from './ComunicadosJefe';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import Notificaciones from '../Notificaciones';
 import AdministracionPreceptores from './AdministracionPreceptores';
-import AsignacionCursos from './AsignacionCursos';
-import SupervisionPreceptores from './SupervisionPreceptores';
 import EstadisticasPreceptoria from './EstadisticasPreceptoria';
 import Historial from '../Administracion/historial';
 import AdelantosHoras from '../Shared/AdelantosHoras';
@@ -157,24 +155,10 @@ function JefePreceptorDashboard({ user, onLogout }) {
           </div>
         );
 
-      case 'asignacion-cursos':
-        return (
-          <div className="view-section active">
-            <AsignacionCursos />
-          </div>
-        );
-
       case 'estadisticas':
         return (
           <div className="view-section active">
             <EstadisticasPreceptoria />
-          </div>
-        );
-
-      case 'supervision-preceptores':
-        return (
-          <div className="view-section active">
-            <SupervisionPreceptores />
           </div>
         );
 

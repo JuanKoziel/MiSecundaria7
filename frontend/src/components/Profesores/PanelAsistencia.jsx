@@ -205,8 +205,11 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
         await cargarCargaUnica();
       }
       toast.success('Asistencia guardada exitosamente.');
+      // Punto 13.2: refrescar datos inmediatamente para que la UI refleje lo guardado
       await refreshData();
       await cargarServerTime();
+      // Forzar recarga de la tabla de asistencias del día actual
+      await cargarAsistencias();
     } catch (err) {
       toast.error(mensajeErrorAmigable(err));
     } finally {
@@ -248,38 +251,25 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
     );
   }
 
-  if (serverInfo?.evento_activo) {
-    return (
-      <div className="card" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', textAlign: 'center' }}>
-        <div style={{ maxWidth: '480px' }}>
-          <div style={{ fontSize: '3em', marginBottom: '16px' }}>&#128683;</div>
-          <h3 style={{ marginBottom: '12px', color: '#dc3545' }}>No es posible registrar asistencias</h3>
-          <p style={{ color: '#555', lineHeight: '1.6', margin: 0 }}>
-            Actualmente existe un evento institucional activo.
-          </p>
-          <p style={{ color: '#555', lineHeight: '1.6', marginTop: '8px', marginBottom: 0 }}>
-            Evento: <strong style={{ color: '#333' }}>{serverInfo.evento_tipo}</strong>
-          </p>
-          {serverInfo.evento_descripcion && (
-            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
-              Descripción: <strong style={{ color: '#333' }}>{serverInfo.evento_descripcion}</strong>
-            </p>
-          )}
-          {serverInfo.evento_horario && (
-            <p style={{ color: '#555', lineHeight: '1.6', marginTop: '4px', marginBottom: 0 }}>
-              Horario afectado: <strong style={{ color: '#333' }}>{serverInfo.evento_horario}</strong>
-            </p>
-          )}
-          <p style={{ color: '#555', lineHeight: '1.6', marginTop: '12px', marginBottom: 0, fontStyle: 'italic' }}>
-            Las asistencias volverán a habilitarse automáticamente al finalizar el evento.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Punto 2.1: la suspensión ya no oculta la planilla. Se muestra un aviso y la
+  // información cargada queda consultable; solo se bloquea la escritura (punto 2.2).
+  const suspensionActiva = Boolean(serverInfo?.evento_activo);
 
   return (
     <div className="card">
+      {suspensionActiva && (
+        <div className="aviso-suspension" role="status">
+          <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+          <div>
+            <strong>Día suspendido: la información es de solo lectura</strong>
+            Podés consultar las asistencias ya registradas ({serverInfo.evento_tipo}
+            {serverInfo.evento_horario ? `, ${serverInfo.evento_horario}` : ''}), pero no se pueden
+            registrar ni modificar hasta que termine el evento.
+            {serverInfo.evento_descripcion ? ` ${serverInfo.evento_descripcion}` : ''}
+          </div>
+        </div>
+      )}
+
       <div className="card-header-flex">
         <h3><i className="fas fa-calendar-check" aria-hidden="true" /> Planilla de Asistencia</h3>
         <div className="flex-row">
@@ -296,7 +286,8 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
               type="button"
               className="btn btn-primary"
               onClick={handleGuardar}
-              disabled={guardando || !enHorarioEfectivo || !esFechaHoy || filas.length === 0}
+              disabled={guardando || suspensionActiva || !enHorarioEfectivo || !esFechaHoy || filas.length === 0}
+              title={suspensionActiva ? 'Día suspendido: la información es de solo lectura' : undefined}
             >
               <i className="fas fa-save" aria-hidden="true" /> {guardando ? 'Guardando...' : 'Guardar Asistencia'}
             </button>
@@ -426,7 +417,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
             </tr>
           </thead>
           <tbody>
-            {!enHorarioEfectivo && esFechaHoy ? (
+            {!enHorarioEfectivo && esFechaHoy && filas.length === 0 ? (
               <tr>
                 <td colSpan={2} className="empty-state-message">
                   {serverInfo?.estado?.mensaje || 'No hay horario disponible.'}
@@ -450,7 +441,7 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
                         const est = estObj.nombre_estado;
                         const seleccionado = fila.estado === est;
                         const deshabilitado = fila.estado !== '' && !seleccionado;
-                        const bloq = !puedeEditar || !enHorarioEfectivo || !esFechaHoy;
+                        const bloq = suspensionActiva || !puedeEditar || !enHorarioEfectivo || !esFechaHoy;
                         const colorMap = {
                           Presente: { border: '#28a745', bg: '#d4edda' },
                           Ausente: { border: '#dc3545', bg: '#f8d7da' },

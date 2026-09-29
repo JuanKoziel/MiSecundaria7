@@ -33,13 +33,14 @@ function FamiliaDashboard({ user, onLogout }) {
     // la familia (backend filtra por la relación N:M tutor-estudiante).
     return hijosFamilia.map((hijo) => {
       const estudiante = getEstudianteById(hijo.alumnoId);
+      const alumnoId = hijo.alumnoId ?? hijo.id_alumno ?? hijo.idAlumno;
       return {
         ...hijo,
         nombre: estudiante ? nombreCompleto(estudiante) : 'Estudiante',
         dni: estudiante?.dni ?? '—',
         // Contador de notificaciones sin leer por hijo (académicas).
         sinLeer: notificaciones.filter(
-          (n) => !n.leida && Number(n.id_alumno) === Number(hijo.alumnoId),
+          (n) => !n.leida && (n.id_alumno ?? n.idAlumno ?? n.id_alumno) != null && Number(n.id_alumno ?? n.idAlumno ?? n.id_alumno) === Number(alumnoId),
         ).length,
       };
     });

@@ -3,6 +3,8 @@ import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { createCurso, updateCurso } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
+import AccionesCelda from '../../components/Shared/AccionesCelda';
+import NumericInput from '../../components/Shared/NumericInput';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { mensajeErrorAmigable } from '../../utils/errores';
 
@@ -24,14 +26,26 @@ function FormCurso({ formData, setFormData, editing, guardando, onSubmit, onCanc
       <form onSubmit={onSubmit} style={{ position: 'relative' }}>
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <div className="preceptor-form-row preceptor-form-row--two">
-            <div className="form-group-filter">
-              <label htmlFor="curso-anio">Año</label>
-              <input id="curso-anio" type="number" min="1" max="7" value={formData.anio} onChange={(e) => setFormData((p) => ({ ...p, anio: e.target.value }))} required />
-            </div>
-            <div className="form-group-filter">
-              <label htmlFor="curso-division">División</label>
-              <input id="curso-division" type="number" min="1" max="20" value={formData.division} onChange={(e) => setFormData((p) => ({ ...p, division: e.target.value }))} required />
-            </div>
+            <NumericInput
+              id="curso-anio"
+              label="Año"
+              value={formData.anio}
+              onChange={(val) => setFormData((p) => ({ ...p, anio: val }))}
+              required
+              min={1}
+              max={7}
+              placeholder="1-7"
+            />
+            <NumericInput
+              id="curso-division"
+              label="División"
+              value={formData.division}
+              onChange={(val) => setFormData((p) => ({ ...p, division: val }))}
+              required
+              min={1}
+              max={20}
+              placeholder="1-20"
+            />
           </div>
           <div className="preceptor-form-row preceptor-form-row--two">
             <div className="form-group-filter">
@@ -253,22 +267,15 @@ function Cursos() {
                           {c.activo ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
-                      <td className="acciones-cell flex-row--center">
-                        {c.activo ? (
-                          <div>
-                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => abrirEditar(c)} aria-label="Editar curso" title="Editar">
-                              <i className="fas fa-edit" aria-hidden="true" />
-                            </button>
-                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDesactivar(c)} aria-label="Desactivar curso" title="Desactivar">
-                              <i className="fas fa-ban" aria-hidden="true" />
-                            </button>
-                          </div>
-                        ) : (
-                          <button type="button" className="btn btn-sm btn-success" onClick={() => handleReactivar(c)} title="Reactivar">
-                            <i className="fas fa-check" aria-hidden="true" /> Reactivar
-                          </button>
-                        )}
-                      </td>
+                      <AccionesCelda
+                      acciones={c.activo ? [
+                        { accion: 'editar', onClick: () => abrirEditar(c) },
+                        { accion: 'deshabilitar', onClick: () => handleDesactivar(c) },
+                      ] : [
+                        { accion: 'habilitar', onClick: () => handleReactivar(c) },
+                      ]}
+                      entidad="curso"
+                    />
                     </tr>
                   </Fragment>
                 ))

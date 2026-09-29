@@ -1,4 +1,5 @@
 import { useData } from '../../context/DataContext';
+import { buildMediaUrl } from '../../utils/medios';
 import { BASE_URL } from '../../services/api';
 
 const API_BASE = BASE_URL;
@@ -38,7 +39,7 @@ function Actas({ hijo }) {
                   <td>
                     {acta.ruta_archivo ? (
                       <a
-                        href={`${API_BASE}${acta.ruta_archivo}`}
+                        href={`${buildMediaUrl(acta.ruta_archivo)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn btn-success table-download-btn"

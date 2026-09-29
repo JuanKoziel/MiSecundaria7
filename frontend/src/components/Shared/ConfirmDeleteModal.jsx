@@ -12,6 +12,7 @@ export default function ConfirmDeleteModal({
   note = NOTA_DEFECTO,
   confirmText = 'Eliminar',
   cancelText = 'Cancelar',
+  variant = 'danger',
   loading = false,
   loadingText = 'Eliminando...',
   onConfirm,
@@ -53,8 +54,8 @@ export default function ConfirmDeleteModal({
         aria-labelledby="confirm-modal-title"
         aria-describedby="confirm-modal-message"
       >
-        <div className="confirm-modal__icon">
-          <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+        <div className={`confirm-modal__icon confirm-modal__icon--${variant}`}>
+          <i className={`fas ${variant === 'danger' ? 'fa-triangle-exclamation' : 'fa-circle-question'}`} aria-hidden="true" />
         </div>
         <h3 id="confirm-modal-title" className="confirm-modal__title">{title}</h3>
         <p id="confirm-modal-message" className="confirm-modal__message">{message}</p>
@@ -71,7 +72,7 @@ export default function ConfirmDeleteModal({
           </button>
           <button
             type="button"
-            className="btn btn-danger"
+            className={`btn ${variant === 'danger' ? 'btn-danger' : 'btn-primary'}`}
             disabled={loading}
             onClick={onConfirm}
           >

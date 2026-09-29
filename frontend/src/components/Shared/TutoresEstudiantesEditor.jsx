@@ -22,6 +22,7 @@ function TutoresEstudiantesEditor({
 
   const toggleEstudiante = (id) => {
     const idNum = Number(id);
+    if (Number.isNaN(idNum) || idNum <= 0) return;
     const yaExiste = alumnos_ids.includes(idNum);
     if (yaExiste) {
       setEstudiantesIds(alumnos_ids.filter((x) => x !== idNum));

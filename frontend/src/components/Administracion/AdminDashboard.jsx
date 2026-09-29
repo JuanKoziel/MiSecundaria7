@@ -19,12 +19,18 @@ import Historial from './historial';
 import AdelantosHoras from '../Shared/AdelantosHoras';
 import PanelAdmin from './PanelAdmin';
 import Actas from '../Preceptores/actas';
+import TutoresFamilias from '../Preceptores/tutoresFamilias';
 import { getDirectivos } from '../../services/api';
 import { useData } from '../../context/DataContext';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function AdminDashboard({ user, onLogout }) {
-  const { navIntent } = useData();
+  const {
+    navIntent,
+    cursosObj,
+    selectedCursoId,
+    setSeleccionCursoMateria,
+  } = useData();
   const [view, setView] = useState('perfil');
   const [directivos, setDirectivos] = useState([]);
 
@@ -43,6 +49,16 @@ function AdminDashboard({ user, onLogout }) {
     setAnioLectivo(nuevoAnio);
     setCurso('');
   };
+
+  // Punto 1.4: el header es la única fuente de selección. Lo que se elige ahí se
+  // publica en el contexto global para que las vistas consuman siempre el mismo
+  // curso y no vuelvan a mostrar selectores duplicados.
+  useEffect(() => {
+    const seleccionado = (cursosObj || []).find((c) => c.nombre_curso === curso);
+    const idActual = seleccionado?.id_curso ? String(seleccionado.id_curso) : '';
+    if (idActual === String(selectedCursoId || '')) return;
+    setSeleccionCursoMateria(idActual, '', '');
+  }, [curso, cursosObj, selectedCursoId, setSeleccionCursoMateria]);
 
   const filtrosProps = {
     anioLectivo,
@@ -65,43 +81,45 @@ function AdminDashboard({ user, onLogout }) {
       case 'perfil':
         return <PanelAdmin miDirectivo={miDirectivo} user={user} />;
       case 'alumnos':
-        return <Estudiantes />;
+        return <Estudiantes {...filtrosProps} />;
       case 'docentes':
-        return <Docentes />;
+        return <Docentes {...filtrosProps} />;
       case 'preceptores':
-        return <Preceptores />;
+        return <Preceptores {...filtrosProps} />;
       case 'jefes-preceptores':
-        return <Preceptores rol="jefe_preceptores" />;
+        return <Preceptores rol="jefe_preceptores" {...filtrosProps} />;
       case 'horarios':
-        return <Horarios />;
+        return <Horarios {...filtrosProps} />;
       case 'adelantos-horas':
-        return <AdelantosHoras />;
+        return <AdelantosHoras {...filtrosProps} />;
       case 'asistencias':
-        return <Asistencias />;
+        return <Asistencias {...filtrosProps} />;
       case 'calendario':
-        return <CalendarioInstitucional />;
+        return <CalendarioInstitucional {...filtrosProps} />;
       case 'notas':
-        return <Notas />;
+        return <Notas {...filtrosProps} />;
       case 'comunicados':
-        return <Comunicados />;
+        return <Comunicados {...filtrosProps} />;
       case 'cursos':
-        return <Cursos />;
+        return <Cursos {...filtrosProps} />;
       case 'materias':
-        return <Materias />;
+        return <Materias {...filtrosProps} />;
       case 'suplencias':
-        return <Suplencias />;
+        return <Suplencias {...filtrosProps} />;
       case 'historial':
-        return <Historial />;
+        return <Historial {...filtrosProps} />;
+      case 'tutores':
+        return <TutoresFamilias {...filtrosProps} />;
       case 'actas':
         return <Actas {...filtrosProps} showFiltros />;
       case 'info':
-        return <DiagnosticosView userRole={user.role === 'director' ? 'director' : 'admin'} />;
+        return <DiagnosticosView userRole={user.role === 'director' ? 'director' : 'admin'} {...filtrosProps} />;
       case 'administradores':
-        return <Administradores />;
+        return <Administradores {...filtrosProps} />;
       case 'notificaciones':
-        return <Notificaciones userRole={user.role} />;
+        return <Notificaciones userRole={user.role} {...filtrosProps} />;
       default:
-        return <Estudiantes />;
+        return <Estudiantes {...filtrosProps} />;
     }
   };
 
@@ -110,7 +128,14 @@ function AdminDashboard({ user, onLogout }) {
       <Sidebar view={view} setView={setView} onLogout={onLogout} />
 
       <main className="main-content">
-        <Header user={user} nombreCompleto={nombreCompletoAdmin} />
+        <Header
+            user={user}
+            nombreCompleto={nombreCompletoAdmin}
+            anioLectivo={anioLectivo}
+            curso={curso}
+            onAnioChange={handleAnioChange}
+            onCursoChange={setCurso}
+          />
         <div className="view-section active">{renderView()}</div>
       </main>
     </div>

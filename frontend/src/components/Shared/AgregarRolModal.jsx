@@ -77,7 +77,7 @@ function AgregarRolModal({
   const [asignacionesDisponibles, setAsignacionesDisponibles] = useState([]);
   const [cursoMateriasDisponibles, setCursoMateriasDisponibles] = useState([]);
   const [cursosDisponibles, setCursosDisponibles] = useState([]);
-  const [materiasDisponibles, setMateriasDisponibles] = useState([]);
+  const [todasMaterias, setTodasMaterias] = useState([]);
   const [cursoSeleccionado, setCursoSeleccionado] = useState('');
   const [materiaSeleccionada, setMateriaSeleccionada] = useState('');
   const [cargandoAsignaciones, setCargandoAsignaciones] = useState(false);
@@ -95,7 +95,7 @@ function AgregarRolModal({
     setAsignacionesDisponibles([]);
     setCursoMateriasDisponibles([]);
     setCursosDisponibles([]);
-    setMateriasDisponibles([]);
+    setTodasMaterias([]);
     setCursoSeleccionado('');
     setMateriaSeleccionada('');
     setErrorAsignacion('');
@@ -118,7 +118,7 @@ function AgregarRolModal({
           ]);
           setCursoMateriasDisponibles(Array.isArray(cmData) ? cmData : []);
           setCursosDisponibles(Array.isArray(cursosData) ? cursosData : []);
-          setMateriasDisponibles(Array.isArray(materiasData) ? materiasData : []);
+          setTodasMaterias(Array.isArray(materiasData) ? materiasData : []);
         } else {
           const data = fetchAssignmentsFn ? await fetchAssignmentsFn() : [];
           setAsignacionesDisponibles(Array.isArray(data) ? data : []);
@@ -133,6 +133,43 @@ function AgregarRolModal({
 
     cargar();
   }, [paso, roleConfig.needAssignment, roleConfig.assignmentType, fetchAssignmentsFn, fetchCursosFn, fetchMateriasFn]);
+
+  // Punto 10.2: las materias del curso se derivan de la relación curso-materia.
+  // La lista completa NUNCA se sobrescribe (si se sobreescribe, al cambiar de curso
+  // el nuevo curso se queda sin materias). La materia depende del curso, no de la
+  // orientación.
+  const materiasDisponibles = useMemo(() => {
+    if (!cursoSeleccionado) return [];
+
+    const delCurso = (cursoMateriasDisponibles || []).filter(
+      (cm) => String(cm.id_curso) === String(cursoSeleccionado),
+    );
+
+    if (delCurso.length > 0) {
+      const vistos = new Set();
+      return delCurso
+        .map((cm) => ({ id_materia: cm.id_materia, nombre_materia: cm.materia_nombre }))
+        .filter((m) => {
+          const id = String(m.id_materia);
+          if (m.id_materia == null || vistos.has(id)) return false;
+          vistos.add(id);
+          return true;
+        });
+    }
+
+    // Respaldo: si no hay relaciones curso-materia registradas, usar las materias
+    // que traigan un curso asociado.
+    return (todasMaterias || []).filter(
+      (m) =>
+        String(m.id_curso) === String(cursoSeleccionado) ||
+        String(m.curso_id) === String(cursoSeleccionado),
+    );
+  }, [cursoSeleccionado, cursoMateriasDisponibles, todasMaterias]);
+
+  // Al cambiar de curso, la materia elegida deja de ser válida.
+  useEffect(() => {
+    setMateriaSeleccionada('');
+  }, [cursoSeleccionado]);
 
   const filtradas = useMemo(() => {
     const lista = personas || [];
@@ -361,14 +398,24 @@ function AgregarRolModal({
           id="agregar-rol-materia"
           value={materiaSeleccionada}
           onChange={(e) => setMateriaSeleccionada(e.target.value)}
+          disabled={!cursoSeleccionado}
         >
           <option value="">Seleccionar materia...</option>
-          {materiasDisponibles.map((m) => (
+          {!cursoSeleccionado && (
+            <option value="" disabled>Primero seleccione un curso</option>
+          )}
+          {cursoSeleccionado && materiasDisponibles.length === 0 && (
+            <option value="" disabled>No hay materias disponibles para este curso</option>
+          )}
+          {cursoSeleccionado && materiasDisponibles.map((m) => (
             <option key={m.id_materia} value={String(m.id_materia)}>
               {m.nombre_materia}
             </option>
           ))}
         </select>
+        {!cursoSeleccionado && (
+          <small className="text-muted">Debe seleccionar un curso primero.</small>
+        )}
       </div>
       <button
         type="button"

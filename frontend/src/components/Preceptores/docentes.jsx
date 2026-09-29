@@ -552,10 +552,10 @@ const abrirCrear = () => {
                   <td>{asigTexto}</td>
                   {!readOnly && <td>{proximaAccion(d)}</td>}
                   {!readOnly && (
-                    <td className="acciones-cell" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', justifyItems: 'center' }}>
+                    <td className="acciones-cell acciones-cell--grid2">
                       <button
                         type="button"
-                        className="btn btn-sm btn-secondary"
+                        className="btn btn-sm btn-secondary btn-accion-icono"
                         onClick={() => abrirEditar(d)}
                         title="Editar"
                       >
@@ -564,7 +564,7 @@ const abrirCrear = () => {
                       {puedeCambiarEstado && (
                         <button
                           type="button"
-                          className={`btn btn-sm ${d.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
+                          className={`btn btn-sm btn-accion-icono ${d.usuario_estado === false ? 'btn-success' : 'btn-warning'}`}
                           onClick={() => toggleEstado(d)}
                           title={d.usuario_estado === false ? 'Habilitar' : 'Deshabilitar'}
                           disabled={guardando}
@@ -574,7 +574,7 @@ const abrirCrear = () => {
                       )}
                       <button
                         type="button"
-                        className={`btn btn-sm btn-secondary${programando === d.id ? ' active' : ''}`}
+                        className={`btn btn-sm btn-secondary btn-accion-icono${programando === d.id ? ' active' : ''}`}
                         onClick={() => abrirProgramar(d)}
                         title="Programar"
                       >
@@ -582,7 +582,7 @@ const abrirCrear = () => {
                       </button>
                       <button
                         type="button"
-                        className="btn btn-sm btn-danger"
+                        className="btn btn-sm btn-danger btn-accion-icono"
                         onClick={() => eliminarDocente(d)}
                         title="Eliminar"
                       >

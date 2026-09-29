@@ -1,20 +1,36 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import PanelEstudiantes from '../Profesores/PanelEstudiantes';
 
 function Notas() {
-  const { cursosObj, cursoMateria, getMateriasByCurso } = useData();
+  const {
+    cursosObj,
+    cursoMateria,
+    getMateriasByCurso,
+    selectedCursoId,
+  } = useData();
 
-  const [curso, setCurso] = useState('1°1');
-  const materiasCurso = useMemo(() => getMateriasByCurso(curso), [curso, getMateriasByCurso]);
+  // Punto 1.4: la vista consume la selección global del header. No se vuelve a
+  // mostrar el selector de Año/División porque ya está en el header del rol.
+  const cursoObj = useMemo(
+    () =>
+      (cursosObj || []).find((c) => String(c.id_curso) === String(selectedCursoId || '')) || null,
+    [cursosObj, selectedCursoId],
+  );
+  const curso = cursoObj?.nombre_curso || '';
+  const cursoId = cursoObj?.id_curso || null;
+
   const [materia, setMateria] = useState('');
 
-  const cursoObj = useMemo(
-    () => (cursosObj || []).find((c) => c.nombre_curso === curso) || null,
-    [cursosObj, curso],
+  const materiasCurso = useMemo(
+    () => (curso ? getMateriasByCurso(curso) : []),
+    [curso, getMateriasByCurso],
   );
-  const cursoId = cursoObj?.id_curso || null;
+
+  // Al cambiar de curso, la materia elegida deja de ser válida.
+  useEffect(() => {
+    setMateria((prev) => (materiasCurso.includes(prev) ? prev : (materiasCurso[0] ?? '')));
+  }, [materiasCurso]);
 
   const cursoMateriaEntry = useMemo(
     () =>
@@ -24,25 +40,14 @@ function Notas() {
     [cursoMateria, curso, materia],
   );
 
-  const handleCursoChange = (nuevoCurso) => {
-    setCurso(nuevoCurso);
-    const materias = getMateriasByCurso(nuevoCurso);
-    setMateria(materias[0] ?? '');
-  };
-
   return (
     <div>
       <div className="card">
         <div className="card-header-flex">
-          <h3><i className="fas fa-graduation-cap" aria-hidden="true" /> Calificaciones — {curso} › {materia || '…'}</h3>
+          <h3><i className="fas fa-graduation-cap" aria-hidden="true" /> Calificaciones — {curso || '…'} › {materia || '…'}</h3>
           <span className="badge role-badge-display">Solo lectura</span>
         </div>
 
-        <FiltrosAnioCurso
-          cursosObj={cursosObj}
-          defaultToFirst
-          onCursoChange={(nuevoCurso) => handleCursoChange(nuevoCurso)}
-        />
         <div className="filter-row">
           <div className="form-group-filter">
             <label htmlFor="materia-notas">Materia</label>
@@ -50,7 +55,9 @@ function Notas() {
               id="materia-notas"
               value={materia}
               onChange={(e) => setMateria(e.target.value)}
+              disabled={!curso || materiasCurso.length === 0}
             >
+              {materiasCurso.length === 0 && <option value="">Sin materias</option>}
               {materiasCurso.map((m) => (
                 <option key={m} value={m}>
                   {m}

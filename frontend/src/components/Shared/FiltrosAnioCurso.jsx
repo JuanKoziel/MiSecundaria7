@@ -51,7 +51,11 @@ function FiltrosControlado({ aniosLectivos, cursosObj, anioLectivo, curso, onAni
   };
 
   const cursoCompleto = anioActual && divActual ? `${anioActual}°${divActual}` : '';
-  const orientacion = cursoCompleto ? orientacionDeCurso(cursoCompleto) : '';
+  // Punto 5.2: orientación GUARDADA en el curso, sin inferir por la división.
+  const cursoObjSeleccionado = (cursosObj || []).find(
+    (c) => String(c.nombre_curso || '').trim() === String(cursoCompleto || '').trim(),
+  );
+  const orientacion = orientacionDeCurso(cursoObjSeleccionado);
 
   return (
     <div className="filter-row">
@@ -105,10 +109,20 @@ function FiltrosControlado({ aniosLectivos, cursosObj, anioLectivo, curso, onAni
         </select>
       </div>
 
-      {orientacion && (
+      {cursoCompleto && (
         <div className="form-group-filter filtro-orientacion">
-          <label>Orientación</label>
-          <span className="badge orientacion-badge">{orientacion}</span>
+          <label htmlFor="filtro-orientacion">Orientación</label>
+          <span
+            id="filtro-orientacion"
+            className="badge orientacion-badge"
+            title={
+              orientacion
+                ? `Orientación del curso: ${orientacion}`
+                : 'Este curso no tiene orientación cargada'
+            }
+          >
+            {orientacion || '—'}
+          </span>
         </div>
       )}
     </div>

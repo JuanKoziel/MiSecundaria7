@@ -1,4 +1,5 @@
-import { useState, Fragment } from 'react';
+import { useState, useRef, Fragment } from 'react';
+import { validarCambioFecha, hoy, esFinDeSemana, proximaLaborable } from '../../utils/fechas';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -19,12 +20,12 @@ import {
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
-import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
 import { estudiantesPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import FormModal from '../../components/Shared/FormModal';
 import FilePicker from '../../components/Shared/FilePicker';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import { buildMediaUrl } from '../../utils/medios';
 
 const API_BASE = BASE_URL;
 
@@ -44,7 +45,14 @@ async function resolverTipoActa() {
 
 const formVacio = { tipo: '', titulo: '', fecha: '', descripcion: '', alumnoId: '', docenteId: '' };
 
+/* 13.x: al abrir el alta, la fecha del acta viene predeterminada a hoy. Se
+   calcula en cada apertura (no al cargar el módulo) para que un formulario
+   abierto después de medianoche no quede con la fecha del día anterior. Al
+   editar se conserva la fecha ya guardada. */
+const formVacioNuevo = () => ({ ...formVacio, fecha: hoy() });
+
 function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCancel, listaEstudiantes, docentesDelCurso, curso, nombreCorto, archivo, setArchivo, editando, removeArchivo, setRemoveArchivo, mensaje, onlyCursos = false }) {
+  const [avisoFecha, setAvisoFecha] = useState('');
   return (
     <FormModal title={editing ? 'Editar acta' : 'Nueva acta'} onClose={onCancel} error={mensaje && mensaje.startsWith('Error') ? mensaje : null} onClearError={() => setMensaje('')}>
       <form onSubmit={onSubmit}>
@@ -52,10 +60,23 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
 
           {editing ? (
             <div className="preceptor-form-row preceptor-form-row--two">
-              <div className="form-group-filter">
-                <label>Fecha</label>
-                <input type="date" value={formData.fecha} onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))} />
-              </div>
+                <div className="form-group-filter">
+                  <label>Fecha</label>
+                  <input
+                    type="date"
+                    value={formData.fecha}
+                    onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))}
+                    onBlur={(e) => {
+                      if (esFinDeSemana(e.target.value)) {
+                        setFormData((p) => ({ ...p, fecha: proximaLaborable(e.target.value) }));
+                        setAvisoFecha('No se pueden registrar los fines de semana. Se movió al lunes siguiente.');
+                      } else {
+                        setFormData((p) => ({ ...p, fecha: validarCambioFecha(e.target.value).valor }));
+                      }
+                    }}
+                  />
+                  {avisoFecha && <div className="alert alert-warning" style={{ marginTop: 6 }}>{avisoFecha}</div>}
+                </div>
               <div className="form-group-filter">
                 <label>Título</label>
                 <input type="text" value={formData.titulo} onChange={(e) => setFormData((p) => ({ ...p, titulo: e.target.value }))} />
@@ -75,7 +96,20 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
                 </div>
                 <div className="form-group-filter">
                   <label>Fecha</label>
-                  <input type="date" value={formData.fecha} onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))} />
+                <input
+                  type="date"
+                  value={formData.fecha}
+                  onChange={(e) => setFormData((p) => ({ ...p, fecha: e.target.value }))}
+                  onBlur={(e) => {
+                    if (esFinDeSemana(e.target.value)) {
+                      setFormData((p) => ({ ...p, fecha: proximaLaborable(e.target.value) }));
+                      setAvisoFecha('No se pueden registrar los fines de semana. Se movió al lunes siguiente.');
+                    } else {
+                      setFormData((p) => ({ ...p, fecha: validarCambioFecha(e.target.value).valor }));
+                    }
+                  }}
+                />
+                {avisoFecha && <div className="alert alert-warning" style={{ marginTop: 6 }}>{avisoFecha}</div>}
                 </div>
               </div>
               <div className="preceptor-form-row">
@@ -122,11 +156,17 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
                 <p className="mt-10 text-muted">Seleccioná un tipo de acta primero.</p>
               )}
             </div>
-            <div className="form-group-filter">
+          </div>
+
+          {/* El campo "Archivo" va en su propia fila y ocupa el ancho completo
+              (punto 4.5): al cargar o quitar un archivo no debe empujar ni
+              desplazar los selectores de arriba. */}
+          <div className="preceptor-form-row">
+            <div className="form-group-filter preceptor-form-group--full">
               <label>Archivo</label>
               {editando?.ruta_archivo && !removeArchivo && (
                 <div style={{ marginBottom: '4px' }}>
-                  <a href={`${API_BASE}${editando.ruta_archivo}`} target="_blank" rel="noopener noreferrer">Archivo actual</a>
+                  <a href={`${buildMediaUrl(editando.ruta_archivo)}`} target="_blank" rel="noopener noreferrer">Archivo actual</a>
                   <button type="button" className="btn-link-danger" style={{ marginLeft: '8px' }} onClick={() => setRemoveArchivo(true)}>
                     <i className="fas fa-times" aria-hidden="true" /> Quitar
                   </button>
@@ -176,16 +216,24 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
   const { user } = useAuth();
   const toast = useToast();
 
-  const esAdminODirector = Array.isArray(user?.roles) &&
-    (user.roles.includes('admin') || user.roles.includes('director'));
+  /* Los permisos se resuelven con el MISMO criterio que el backend
+     (`roles_efectivos`): si hay rol activo se usa solo ese rol; si no, se
+     toman todos los roles del usuario. Usar `user.roles` completo deshabilitaba
+     la creación de actas a usuarios multirrol que estaban operando como
+     preceptor/jefe de preceptores, aunque el backend sí los autorizaba. */
+  const rolesEfectivos = user?.role
+    ? [user.role]
+    : (Array.isArray(user?.roles) ? user.roles : []);
 
-  const puedeCrearActa = Array.isArray(user?.roles) &&
+  const esAdminODirector = rolesEfectivos.includes('admin') || rolesEfectivos.includes('director');
+
+  const puedeCrearActa =
     !esAdminODirector &&
-    (user.roles.includes('docente') ||
-      user.roles.includes('preceptor') ||
-      user.roles.includes('jefe_preceptores'));
+    (rolesEfectivos.includes('docente') ||
+      rolesEfectivos.includes('preceptor') ||
+      rolesEfectivos.includes('jefe_preceptores'));
 
-  const esDocente = Array.isArray(user?.roles) && user.roles.includes('docente');
+  const esDocente = rolesEfectivos.includes('docente');
 
   const canEditActa = (acta) => {
     if (esAdminODirector) return true;
@@ -199,11 +247,16 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
   };
 
   const [showNewForm, setShowNewForm] = useState(false);
-  const [formData, setFormData] = useState(formVacio);
+  const [formData, setFormData] = useState(formVacioNuevo);
   const [editando, setEditando] = useState(null);
   const [archivo, setArchivo] = useState(null);
   const [removeArchivo, setRemoveArchivo] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  // Candado sincrónico: `setGuardando(true)` solo llega al render en el
+  // siguiente ciclo, así que un doble clic rápido podía disparar dos
+  // `guardarActa` y crear el acta duplicada. Este ref corta el segundo intento
+  // en el mismo tick.
+  const guardandoRef = useRef(false);
   const [mensaje, setMensaje] = useState('');
   const [showEstudiantes, setShowEstudiantes] = useState(true);
   const [showDocentes, setShowDocentes] = useState(true);
@@ -240,7 +293,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
 
   const limpiar = () => {
     setShowNewForm(false);
-    setFormData(formVacio);
+    setFormData(formVacioNuevo());
     setEditando(null);
     setArchivo(null);
     setRemoveArchivo(false);
@@ -251,7 +304,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
     if (showNewForm) {
       limpiar();
     } else {
-      setFormData({ ...formVacio, tipo: onlyCursos ? 'curso' : '' });
+      setFormData({ ...formVacioNuevo(), tipo: onlyCursos ? 'curso' : '' });
       setEditando(null);
       setArchivo(null);
       setRemoveArchivo(false);
@@ -263,12 +316,18 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
   const guardarActa = async (payload) => {
     const anio = Number(anioLectivo);
     const cObj = cursoObj || cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === anio);
+    if (!cObj) {
+      throw new Error('No se encontró el curso seleccionado para el año lectivo indicado.');
+    }
     let rutaArchivo;
     if (archivo) {
       const uploaded = await uploadFile(archivo, 'actas');
       rutaArchivo = uploaded.url;
     }
     const idTipoActa = await resolverTipoActa();
+    if (!idTipoActa) {
+      throw new Error('No se pudo resolver el tipo de acta. Contacte al administrador.');
+    }
     const actaPayload = {
       titulo: payload.titulo,
       fecha: payload.fecha,
@@ -278,20 +337,24 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
     };
 
     const acta = await createActa(actaPayload);
-    if (acta?.id_acta && cObj) {
-      if (payload.tipo === 'alumno') {
-        await createActaEstudiante({ id_acta: acta.id_acta, id_alumno: Number(payload.alumnoId) });
-        await createActaCurso({ id_acta: acta.id_acta, id_curso: cObj.id_curso });
-      } else if (payload.tipo === 'docente') {
-        await createActaDocente({ id_acta: acta.id_acta, id_docente: Number(payload.docenteId) });
-      } else if (payload.tipo === 'curso') {
-        await createActaCurso({ id_acta: acta.id_acta, id_curso: cObj.id_curso });
-      }
+    if (!acta?.id_acta) {
+      throw new Error('El acta se creó pero no se obtuvo su ID. Intente nuevamente.');
+    }
+    if (payload.tipo === 'alumno') {
+      if (!payload.alumnoId) throw new Error('Falta el ID del estudiante.');
+      await createActaEstudiante({ id_acta: acta.id_acta, id_alumno: Number(payload.alumnoId) });
+      await createActaCurso({ id_acta: acta.id_acta, id_curso: cObj.id_curso });
+    } else if (payload.tipo === 'docente') {
+      if (!payload.docenteId) throw new Error('Falta el ID del docente.');
+      await createActaDocente({ id_acta: acta.id_acta, id_docente: Number(payload.docenteId) });
+    } else if (payload.tipo === 'curso') {
+      await createActaCurso({ id_acta: acta.id_acta, id_curso: cObj.id_curso });
     }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (guardandoRef.current) return;
     if (!formData.tipo || !formData.titulo || !formData.fecha) {
       toast.warning('Completá tipo, título y fecha.');
       return;
@@ -301,6 +364,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
       toast.warning('Seleccioná el destinatario correspondiente.');
       return;
     }
+    guardandoRef.current = true;
     setGuardando(true);
     setMensaje('');
     try {
@@ -309,8 +373,16 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
       limpiar();
       await refreshData();
     } catch (err) {
-      toast.error(mensajeErrorAmigable(err));
+      const msg = mensajeErrorAmigable(err);
+      // Si el error es genérico, dar más contexto
+      if (msg.includes('curso') || msg.includes('tipo') || msg.includes('estudiante') || msg.includes('docente')) {
+        toast.error(msg);
+      } else {
+        toast.error(`Error al crear acta: ${msg}`);
+      }
+      setMensaje(`Error: ${msg}`);
     } finally {
+      guardandoRef.current = false;
       setGuardando(false);
     }
   };
@@ -392,20 +464,6 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
   };
 
   if (!filtrosCompletos(anioLectivo, curso)) {
-    if (showFiltros) {
-      return (
-        <div className="card">
-          <FiltrosAnioCurso
-            cursosObj={cursosObj}
-            anioLectivo={anioLectivo}
-            curso={curso}
-            onAnioChange={onAnioChange}
-            onCursoChange={onCursoChange}
-          />
-          <EmptyFiltros />
-        </div>
-      );
-    }
     return (
       <div>
         <EmptyFiltros />
@@ -415,15 +473,6 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
 
   return (
     <div className="card">
-      {showFiltros && (
-        <FiltrosAnioCurso
-          cursosObj={cursosObj}
-          anioLectivo={anioLectivo}
-          curso={curso}
-          onAnioChange={onAnioChange}
-          onCursoChange={onCursoChange}
-        />
-      )}
       <h3><i className="fas fa-file-signature" aria-hidden="true" /> Actas</h3>
 
       {mensaje && !editando && !showNewForm && (
@@ -501,7 +550,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
                           <td>{acta.descripcion}</td>
                           <td>
                             {acta.ruta_archivo ? (
-                              <a href={`${API_BASE}${acta.ruta_archivo}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
+                              <a href={`${buildMediaUrl(acta.ruta_archivo)}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
                                 <i className="fas fa-file-pdf" aria-hidden="true" /> Ver
                               </a>
                             ) : '—'}
@@ -567,7 +616,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
                           <td>{acta.descripcion}</td>
                           <td>
                             {acta.ruta_archivo ? (
-                              <a href={`${API_BASE}${acta.ruta_archivo}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
+                              <a href={`${buildMediaUrl(acta.ruta_archivo)}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
                                 <i className="fas fa-file-pdf" aria-hidden="true" /> Ver
                               </a>
                             ) : '—'}
@@ -631,7 +680,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
                         <td>{acta.descripcion}</td>
                         <td>
                           {acta.ruta_archivo ? (
-                            <a href={`${API_BASE}${acta.ruta_archivo}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
+                            <a href={`${buildMediaUrl(acta.ruta_archivo)}`} target="_blank" rel="noopener noreferrer" className="btn btn-success table-download-btn">
                               <i className="fas fa-file-pdf" aria-hidden="true" /> Ver
                             </a>
                           ) : '—'}
