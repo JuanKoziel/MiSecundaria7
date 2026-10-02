@@ -13,7 +13,8 @@ import {
   BASE_URL,
 } from '../../services/api';
 import { cursoConOrientacion, parseCurso } from '../../utils/orientacion';
-import { findCursoObj, getAniosCurso, getDivisiones } from '../Shared/cursoFilters';
+import { findCursoObj } from '../Shared/cursoFilters';
+import { aListaCursos } from '../Preceptores/preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { mensajeErrorAmigable } from '../../utils/errores';
 
@@ -33,7 +34,7 @@ function getDestinoLabel(destino) {
   return 'General';
 }
 
-function Comunicados() {
+function Comunicados({ anioLectivo: anioGlobal = '', curso: cursoGlobal = '', cursos: cursosGlobal }) {
   const {
     comunicados,
     cursosObj,
@@ -51,11 +52,6 @@ function Comunicados() {
     cicloId: '',
     destinos: [],
     materiaId: '',
-  });
-  const [filtro, setFiltro] = useState({
-    cicloId: '',
-    anioCurso: '',
-    division: '',
   });
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -76,7 +72,39 @@ function Comunicados() {
   );
 
   const anioLectivoSeleccionado = form.cicloId ? String(ciclosMap.get(String(form.cicloId))?.anio || '') : '';
-  const anioLectivoFiltro = filtro.cicloId ? String(ciclosMap.get(String(filtro.cicloId))?.anio || '') : '';
+
+  // 5.5 — El filtro de "Comunicados enviados" usa el selector global del header
+  // (Año lectivo / Curso) en lugar de sus propios selectores de Año / División.
+  // El selector global entrega el nombre del curso ("2°1"); los alcances del
+  // comunicado guardan `curso` (año) y `division` por separado, así que se
+  // traducen con `parseCurso`. Sin selección global no se filtra (se listan todos).
+  // 5.6 — Con varias divisiones marcadas el filtro ya no puede ser un único
+  // par (año, división): pasa a conjuntos. Un alcance del comunicado tiene que
+  // caer dentro de CUALQUIER curso marcado, no en todos.
+  const filtro = useMemo(() => {
+    // `cursos` es el array del header; `curso` el primero. Se prioriza el array.
+    const nombres = aListaCursos(
+      (Array.isArray(cursosGlobal) && cursosGlobal.length > 0) ? cursosGlobal : cursoGlobal,
+    );
+    if (!anioGlobal && nombres.length === 0) {
+      return { cicloId: '', anios: [], divisiones: [] };
+    }
+    const ciclo = (ciclosLectivos || []).find(
+      (c) => String(c.anio) === String(anioGlobal || ''),
+    );
+    const anios = new Set();
+    const divisiones = new Set();
+    nombres.forEach((n) => {
+      const partes = parseCurso(n || '');
+      if (partes.anio && partes.anio < 999) anios.add(String(partes.anio));
+      if (partes.division && partes.division < 999) divisiones.add(String(partes.division));
+    });
+    return {
+      cicloId: ciclo ? String(ciclo.id_ciclo) : '',
+      anios: [...anios],
+      divisiones: [...divisiones],
+    };
+  }, [anioGlobal, cursoGlobal, cursosGlobal, ciclosLectivos]);
 
   const cursosDelCiclo = useMemo(
     () => (cursosObj || []).filter((curso) => String(curso.ciclo_anio || '') === String(anioLectivoSeleccionado || '')),
@@ -155,11 +183,15 @@ function Comunicados() {
       const alcances = Array.isArray(c.alcances) ? c.alcances : [];
       const matchAlcance = (a) => {
         if (filtro.cicloId && String(a.id_ciclo || '') !== String(filtro.cicloId)) return false;
-        if (filtro.anioCurso && a.curso !== null && a.curso !== undefined && String(a.curso) !== String(filtro.anioCurso)) return false;
-        if (filtro.division && a.division !== null && a.division !== undefined && String(a.division) !== String(filtro.division)) return false;
+        if (filtro.anios.length > 0 && a.curso !== null && a.curso !== undefined) {
+          if (!filtro.anios.includes(String(a.curso))) return false;
+        }
+        if (filtro.divisiones.length > 0 && a.division !== null && a.division !== undefined) {
+          if (!filtro.divisiones.includes(String(a.division))) return false;
+        }
         return true;
       };
-      if (filtro.cicloId || filtro.anioCurso || filtro.division) {
+      if (filtro.cicloId || filtro.anios.length > 0 || filtro.divisiones.length > 0) {
         return alcances.some((a) => matchAlcance(a));
       }
       return true;
@@ -405,66 +437,9 @@ function Comunicados() {
           <span className="badge badge-neutral">{listaFiltrada.length}</span>
         </div>
 
-        <div className="filter-row">
-          <div className="form-group-filter">
-            <label htmlFor="filtro-ciclo">Año lectivo</label>
-            <select
-              id="filtro-ciclo"
-              value={filtro.cicloId}
-              onChange={(e) => setFiltro((p) => ({
-                ...p,
-                cicloId: e.target.value,
-                anioCurso: '',
-                division: '',
-              }))}
-            >
-              <option value="">Todos</option>
-              {ciclosOrdenados.map((ciclo) => (
-                <option key={ciclo.id_ciclo} value={ciclo.id_ciclo}>
-                  {ciclo.anio}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group-filter">
-            <label htmlFor="filtro-anio-curso">Año</label>
-            <select
-              id="filtro-anio-curso"
-              value={filtro.anioCurso}
-              onChange={(e) => setFiltro((p) => ({
-                ...p,
-                anioCurso: e.target.value,
-                division: '',
-              }))}
-              disabled={!filtro.cicloId}
-            >
-              <option value="">Todos</option>
-              {getAniosCurso(cursosObj, anioLectivoFiltro).map((anio) => (
-                <option key={anio} value={anio}>
-                  {anio}°
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group-filter">
-            <label htmlFor="filtro-division">División</label>
-            <select
-              id="filtro-division"
-              value={filtro.division}
-              onChange={(e) => setFiltro((p) => ({ ...p, division: e.target.value }))}
-              disabled={!filtro.anioCurso}
-            >
-              <option value="">Todas</option>
-              {getDivisiones(cursosObj, anioLectivoFiltro, filtro.anioCurso).map((div) => (
-                <option key={div} value={div}>
-                  {div}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        {/* 5.5 — Sin selectores propios: el filtro usa el Año lectivo / Curso del
+            header global. Con un curso elegido se listan los comunicados que
+            abarcan ese curso (un alcance de año completo también coincide). */}
 
         {listaFiltrada.length === 0 ? (
           <p className="empty-state-message empty-state-centered">

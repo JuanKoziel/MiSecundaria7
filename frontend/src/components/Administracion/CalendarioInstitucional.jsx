@@ -10,6 +10,7 @@ import {
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import { hoy } from '../../utils/fechas';
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_CAB = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -33,7 +34,10 @@ const ALCANCE_OPCIONES = [
 const FORM_DEFAULT = {
   tipo_evento: 'Feriado',
   descripcion: '',
-  fecha: '',
+  // 5.15 — los campos de fecha de evento traen hoy por defecto. Antes era `''` y,
+  // peor, el botón "Nuevo Evento" caía al día 1 del mes que se estaba viendo, así
+  // que al crear un evento un día 20 se guardaba con fecha 1 sin avisar.
+  fecha: hoy(),
   permanente: false,
   alcance: 'todo_dia',
   hora_inicio: '',
@@ -54,10 +58,10 @@ function coloresUnicos(eventos) {
 }
 
 function CalendarioInstitucional({ readOnly = false }) {
-  const hoy = new Date();
+  const hoyActual = new Date();
   const toast = useToast();
-  const [anio, setAnio] = useState(hoy.getFullYear());
-  const [mes, setMes] = useState(hoy.getMonth());
+  const [anio, setAnio] = useState(hoyActual.getFullYear());
+  const [mes, setMes] = useState(hoyActual.getMonth());
   const [eventos, setEventos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [diaSeleccionado, setDiaSeleccionado] = useState(null);
@@ -121,8 +125,8 @@ function CalendarioInstitucional({ readOnly = false }) {
   };
 
   const irAHoy = () => {
-    setAnio(hoy.getFullYear());
-    setMes(hoy.getMonth());
+    setAnio(hoyActual.getFullYear());
+    setMes(hoyActual.getMonth());
     setDiaSeleccionado(null);
     setEventoVer(null);
   };
@@ -135,6 +139,19 @@ function CalendarioInstitucional({ readOnly = false }) {
     setMensaje('');
     setModalAbierto(true);
   };
+
+  // 5.15 — día que corresponde a la celda enfocada: el seleccionado, o el día de
+  // hoy si el calendario está parado en el mes actual, o el 1 del mes si se está
+  // mirando otro mes. Antes `|| 1` mandaba siempre al día 1.
+  const diaEnVista = () => {
+    if (diaSeleccionado) return diaSeleccionado;
+    const ahora = new Date();
+    if (ahora.getFullYear() === anio && ahora.getMonth() === mes) return ahora.getDate();
+    return 1;
+  };
+
+  const fechaEnVista = () =>
+    `${anio}-${String(mes + 1).padStart(2, '0')}-${String(diaEnVista()).padStart(2, '0')}`;
 
   const abrirModalEditar = (ev) => {
     if (readOnly) return;
@@ -255,7 +272,7 @@ function CalendarioInstitucional({ readOnly = false }) {
       <div className="card-header-flex">
         <h3><i className="fas fa-calendar-alt" aria-hidden="true" /> Calendario Institucional</h3>
         {!readOnly && (
-          <button type="button" className="btn btn-primary" onClick={() => abrirModalNuevo(diaSeleccionado || 1)}>
+          <button type="button" className="btn btn-primary" onClick={() => abrirModalNuevo(diaEnVista())}>
             <i className="fas fa-plus" aria-hidden="true" /> Nuevo Evento
           </button>
         )}
@@ -279,7 +296,7 @@ function CalendarioInstitucional({ readOnly = false }) {
           <i className="fas fa-calendar-plus" aria-hidden="true" />
           <input
             type="date"
-            value={`${anio}-${String(mes + 1).padStart(2, '0')}-${String(diaSeleccionado || 1).padStart(2, '0')}`}
+            value={fechaEnVista()}
             onChange={(e) => {
               if (!e.target.value) return;
               const [y, m, d] = e.target.value.split('-').map(Number);
@@ -290,7 +307,7 @@ function CalendarioInstitucional({ readOnly = false }) {
             }}
           />
         </div>
-        {anio !== hoy.getFullYear() && (
+        {anio !== hoyActual.getFullYear() && (
           <button type="button" className="btn btn-secondary btn-sm" onClick={irAHoy} title="Volver a hoy">
             Hoy
           </button>

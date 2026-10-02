@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useData } from '../../context/DataContext';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { getAsistenciasEstudianteDetalle } from '../../services/api';
+import { hoy as hoyLocal } from '../../utils/fechas';
 import LoadingSpinner from './LoadingSpinner';
 
 const ESTADO_LABELS = {
@@ -68,17 +68,28 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
   const [estadoHoy, setEstadoHoy] = useState('Pendiente');
   const [estadosHoy, setEstadosHoy] = useState([]);
 
+  // Materias del curso del alumno. Antes la lista se armaba acá con
+  // `cm.id_curso === idCurso`: si los tipos no coincidían (p. ej. "3" vs 3) el
+  // filtro no dejaba pasar nada y la pantalla terminaba mostrando
+  // "No hay asistencias registradas" aunque el alumno tuviera la carga hecha.
+  // Se compara por String para que sea inmune al tipo.
   const materias = useMemo(() => {
-    const map = new Map();
-    (cursoMateria || [])
-      .filter((cm) => cm.id_curso === idCurso)
-      .forEach((cm) => {
-        if (!map.has(cm.id)) {
-          map.set(cm.id, { id: cm.id, nombre: cm.materia_nombre || 'Sin nombre' });
-        }
-      });
-    return [...map.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const mapa = new Map();
+    (Array.isArray(cursoMateria) ? cursoMateria : []).forEach((cm) => {
+      if (idCurso != null && cm.id_curso != null && String(cm.id_curso) !== String(idCurso)) return;
+      if (!cm.id_materia) return;
+      if (!mapa.has(String(cm.id_materia))) {
+        mapa.set(String(cm.id_materia), { id: cm.id_materia, nombre: cm.materia_nombre || 'Sin nombre' });
+      }
+    });
+    return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [cursoMateria, idCurso]);
+
+  // Ref para leer la lista de materias desde `cargarResumen` sin ponerla en sus
+  // dependencias: si fuera dependencia, cada fetch cambiaría `materias` y
+  // dispararía otro fetch (bucle infinito de requests).
+  const materiasRef = useRef(materias);
+  useEffect(() => { materiasRef.current = materias; }, [materias]);
 
   const cargarResumen = useCallback(async () => {
     if (!alumnoId) return;
@@ -86,7 +97,10 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
       const data = await getAsistenciasEstudianteDetalle('', alumnoId);
       const todas = Array.isArray(data) ? data : data.results || [];
 
-      const hoy = new Date().toISOString().split('T')[0];
+      // Fecha local, no UTC. Con `toISOString()` en Argentina (UTC-3) después de
+      // las 21:00 la fecha caía en el día siguiente y el estado de "Hoy" se
+      // calculaba sobre un día que todavía no había empezado.
+      const hoy = hoyLocal();
       // Orden cronológico: el backend devuelve por -fecha, -hora, por eso se
       // reordena ascendente por hora antes de combinar.
       const estadosHoy = todas
@@ -115,8 +129,10 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
       // `todas` viene ordenado -fecha, -hora, así el primer registro por
       // materia ya es el más reciente.
       const mapa = {};
+      const cmPorMateria = {};
       todas.forEach((r) => {
         const nombre = r.materia_nombre || 'General';
+        if (r.id_curso_materia != null) cmPorMateria[nombre] = r.id_curso_materia;
         if (!mapa[nombre]) {
           mapa[nombre] = { presente: 0, ausente: 0, tarde: 0, ultimaFecha: '', ultimoEstado: 'Sin registros' };
         }
@@ -129,12 +145,25 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
           mapa[nombre].ultimoEstado = est;
         }
       });
-      setResumenPorMateria(
-        materias.map((m) => ({
+
+      // Se listan las materias del curso y, además, cualquier materia que
+      // aparezca en los registros aunque no esté en `cursoMateria` (por ejemplo
+      // si el listado de materias del curso todavía no cargó). Así la tabla
+      // nunca queda vacía teniendo asistencias reales.
+      const filas = new Map();
+      materiasRef.current.forEach((m) => {
+        filas.set(m.nombre, {
           nombre: m.nombre,
           id: m.id,
           ...(mapa[m.nombre] || { presente: 0, ausente: 0, tarde: 0, ultimaFecha: '', ultimoEstado: 'Sin registros' }),
-        }))
+        });
+      });
+      Object.keys(mapa).forEach((nombre) => {
+        if (filas.has(nombre)) return;
+        filas.set(nombre, { nombre, id: cmPorMateria[nombre] ?? nombre, ...mapa[nombre] });
+      });
+      setResumenPorMateria(
+        [...filas.values()].sort((a, b) => a.nombre.localeCompare(b.nombre))
       );
     } catch {
       setEstadoHoy('Pendiente');
@@ -142,7 +171,7 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
       setResumenReciente({ presente: 0, ausente: 0, tarde: 0, pendiente: 0 });
       setResumenPorMateria([]);
     }
-  }, [alumnoId, materias]);
+  }, [alumnoId]);
 
   useEffect(() => {
     cargarResumen();
@@ -236,7 +265,7 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
               <tbody>
                 {resumenPorMateria.map((m) => (
                   <tr
-                    key={m.id}
+                    key={m.nombre}
                     style={{ cursor: 'pointer' }}
                     onClick={() => setMateriaId(String(m.id))}
                     title={`Ver detalle de ${m.nombre}`}
@@ -284,8 +313,11 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
             onChange={(e) => setMateriaId(e.target.value)}
           >
             <option value="">Seleccione una materia...</option>
-            {materias.map((m) => (
-              <option key={m.id} value={m.id}>{m.nombre}</option>
+            {/* Se usan las mismas filas de la tabla de arriba (que ya es la
+                unión de materias del curso y de las que aparecen en los
+                registros) para que toda fila tenga su opción y viceversa. */}
+            {resumenPorMateria.map((m) => (
+              <option key={m.nombre} value={m.id}>{m.nombre}</option>
             ))}
           </select>
         </div>

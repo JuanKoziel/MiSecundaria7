@@ -128,17 +128,131 @@ export function DataProvider({ children }) {
   const [selectedMateria, setSelectedMateria] = useState('');
   const [selectedCursoMateriaId, setSelectedCursoMateriaId] = useState('');
 
+  // 5.6 — Multiselección de cursos. El header global pasó a ser un grupo de
+  // checkboxes de división, así que la selección son N cursos y no uno. Se
+  // guarda el **nombre** completo de cada curso (ej. ['3°1ª', '3°2ª']) y el
+  // `id_curso` de cada uno, porque las tablas filtran por nombre y los paneles
+  // por id.
+  const [selectedCursos, setSelectedCursos] = useState([]);
+  const [selectedCursoIds, setSelectedCursoIds] = useState([]);
+
+  // Mientras no se migren todas las vistas, `selectedCursoId` sigue siendo el
+  // primer curso de la selección. Es lo queallows que las vistas que todavía
+  // filtran por un curso solo sigan funcionando sin tocarlas.
+  const setSeleccionCursos = useCallback((nombres, ids) => {
+    const listaNombres = (Array.isArray(nombres) ? nombres : []).filter(Boolean);
+    const listaIds = (Array.isArray(ids) ? ids : []).filter((x) => x !== null && x !== undefined);
+    setSelectedCursos(listaNombres);
+    setSelectedCursoIds(listaIds.map(String));
+    setSelectedCursoId(listaIds.length > 0 ? String(listaIds[0]) : '');
+  }, []);
+
+  const clearSeleccionCursos = useCallback(() => {
+    setSelectedCursos([]);
+    setSelectedCursoIds([]);
+    setSelectedCursoId('');
+  }, []);
+
+  // 5.6 — Las vistas que aún fijan un solo curso (panel del Preceptor, navegación
+  // desde una notificación) pasan solo el `id_curso`. Para que los filtros por
+  // array no queden vacíos, ese curso se resuelve a nombre y se deja como
+  // selección de un único elemento.
+  const nombreCursoDesdeId = useCallback((cursoId) => {
+    if (cursoId === null || cursoId === undefined || cursoId === '') return '';
+    const lista = data?.cursosObj;
+    if (!Array.isArray(lista)) return '';
+    const c = lista.find((x) => String(x.id_curso) === String(cursoId));
+    return c?.nombre_curso || '';
+  }, [data]);
+
   const setSeleccionCursoMateria = useCallback((cursoId, materia, cursoMateriaId) => {
     setSelectedCursoId(cursoId || '');
     setSelectedMateria(materia || '');
     setSelectedCursoMateriaId(cursoMateriaId || '');
-  }, []);
+    const nombre = nombreCursoDesdeId(cursoId);
+    setSelectedCursos(nombre ? [nombre] : []);
+    setSelectedCursoIds(cursoId === '' || cursoId === null || cursoId === undefined
+      ? []
+      : [String(cursoId)]);
+  }, [nombreCursoDesdeId]);
 
   const clearSeleccionCursoMateria = useCallback(() => {
     setSelectedCursoId('');
     setSelectedMateria('');
     setSelectedCursoMateriaId('');
+    setSelectedCursos([]);
+    setSelectedCursoIds([]);
   }, []);
+
+  // 5.1 — Materia pendiente de resolver por id. El backend emite la materia como
+  // `materiaId` / `cursoMateriaId` (pk), pero los selectores globales trabajan con
+  // el NOMBRE de la materia. Si la lista de curso-materias todavía no está
+  // cargada, se guarda el id acá y se resuelve el nombre apenas llegue el dato.
+  const [navMateriaPendiente, setNavMateriaPendiente] = useState(null);
+
+  // El backend manda la materia por pk; los selectores globales usan el nombre.
+  const cursoMateriaDatos = data?.cursoMateria;
+
+  const nombreMateriaDesdeIds = useCallback((materiaId, cursoMateriaId) => {
+    if (!cursoMateriaDatos) return '';
+    const lista = Array.isArray(cursoMateriaDatos)
+      ? cursoMateriaDatos
+      : (cursoMateriaDatos.results || []);
+    if (cursoMateriaId) {
+      const porCm = lista.find((cm) => String(cm.id) === String(cursoMateriaId));
+      if (porCm && porCm.materia_nombre) return porCm.materia_nombre;
+    }
+    if (materiaId) {
+      const porMateria = lista.find((cm) => String(cm.id_materia) === String(materiaId));
+      if (porMateria && porMateria.materia_nombre) return porMateria.materia_nombre;
+    }
+    return '';
+  }, [cursoMateriaDatos]);
+
+  // 5.1 — Aplica el contexto de la notificación a la selección global para que la
+  // vista destino abra con el curso y la materia ya elegidos.
+  const aplicarSeleccionDesdeParams = useCallback((params = {}) => {
+    const p = params || {};
+    const cursoResuelto = p.cursoId ?? p.curso_id ?? p.curso ?? '';
+    const materiaId = p.materiaId ?? p.materia_id ?? null;
+    const cursoMateriaId = p.cursoMateriaId ?? p.curso_materia_id ?? null;
+
+    if (cursoResuelto !== '' && cursoResuelto !== null && cursoResuelto !== undefined) {
+      // 5.6 — Notificar desde una notificación marca una sola división, así que
+      // la selección pasa a ser de un único curso en los arrays también.
+      setSelectedCursoId(String(cursoResuelto));
+      const nombreCurso = nombreCursoDesdeId(cursoResuelto);
+      setSelectedCursos(nombreCurso ? [nombreCurso] : []);
+      setSelectedCursoIds([String(cursoResuelto)]);
+    }
+    if (cursoMateriaId) {
+      setSelectedCursoMateriaId(String(cursoMateriaId));
+    }
+    if (materiaId !== null && materiaId !== undefined) {
+      const nombre = nombreMateriaDesdeIds(materiaId, cursoMateriaId);
+      if (nombre) {
+        setSelectedMateria(nombre);
+        setNavMateriaPendiente(null);
+      } else {
+        // Aún no hay datos: se deja pendiente para resolver más tarde.
+        setSelectedMateria('');
+        setNavMateriaPendiente({ materiaId, cursoMateriaId: cursoMateriaId || null });
+      }
+    }
+  }, [nombreMateriaDesdeIds, nombreCursoDesdeId]);
+
+  // Resuelve el nombre de la materia pendiente en cuanto llegan los curso-materias.
+  useEffect(() => {
+    if (!navMateriaPendiente) return;
+    const nombre = nombreMateriaDesdeIds(
+      navMateriaPendiente.materiaId,
+      navMateriaPendiente.cursoMateriaId,
+    );
+    if (nombre) {
+      setSelectedMateria(nombre);
+      setNavMateriaPendiente(null);
+    }
+  }, [navMateriaPendiente, nombreMateriaDesdeIds]);
 
   // Parte 16/17: notificaciones nuevas en tiempo de sesión.
   // Conjunto de ids cargados inicialmente (no deben disparar toast) y lista de
@@ -824,10 +938,13 @@ export function DataProvider({ children }) {
     return true;
   }, []);
 
-  // Parte 8: navegación desde notificaciones
+  // Parte 8 / 5.1: navegación desde notificaciones. La selección global se
+  // actualiza ANTES de propagar el navIntent, para que la vista destino ya
+  // monte con el curso y la materia que trae la notificación.
   const navegarDesdeNotificacion = useCallback((destino, params = {}) => {
+    aplicarSeleccionDesdeParams(params);
     setNavIntent({ destino, params, timestamp: Date.now() });
-  }, []);
+  }, [aplicarSeleccionDesdeParams]);
 
   // Notificaciones que el usuario ya descartó del toast (para no volver a
   // mostrarlas aunque el sondeo las vuelva a listar).
@@ -889,6 +1006,11 @@ export function DataProvider({ children }) {
       selectedCursoMateriaId,
       setSeleccionCursoMateria,
       clearSeleccionCursoMateria,
+      // 5.6 — Multiselección de cursos
+      selectedCursos,
+      selectedCursoIds,
+      setSeleccionCursos,
+      clearSeleccionCursos,
     }}>
       {children}
     </DataContext.Provider>
@@ -967,6 +1089,11 @@ export function useData() {
       selectedCursoMateriaId: '',
       setSeleccionCursoMateria: () => {},
       clearSeleccionCursoMateria: () => {},
+      // 5.6
+      selectedCursos: [],
+      selectedCursoIds: [],
+      setSeleccionCursos: () => {},
+      clearSeleccionCursos: () => {},
     };
   }
   return {
@@ -992,5 +1119,9 @@ export function useData() {
     selectedCursoMateriaId: ctx.selectedCursoMateriaId,
     setSeleccionCursoMateria: ctx.setSeleccionCursoMateria,
     clearSeleccionCursoMateria: ctx.clearSeleccionCursoMateria,
+    selectedCursos: ctx.selectedCursos,
+    selectedCursoIds: ctx.selectedCursoIds,
+    setSeleccionCursos: ctx.setSeleccionCursos,
+    clearSeleccionCursos: ctx.clearSeleccionCursos,
   };
 }

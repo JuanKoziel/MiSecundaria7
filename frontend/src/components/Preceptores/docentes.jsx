@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useData } from '../../context/DataContext';
 import { createDocente, updateDocente, deleteDocente, createCursoMateria, updateCursoMateria, deleteCursoMateria, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getCursoMateria, getCursos, getMaterias } from '../../services/api';
 import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
@@ -13,6 +13,8 @@ import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
+import NumericInput from '../Shared/NumericInput';
 
 const formVacio = {
   usuario_nombre: '',
@@ -28,14 +30,6 @@ const formVacio = {
   id_usuario_existente: '',
   modo_creacion: 'nuevo',
 };
-
-function toInputDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
 
 function formatDateTime(value) {
   if (!value) return '---';
@@ -128,6 +122,9 @@ function Docentes({ readOnly = false }) {
     (d) => !idsDocentesSinRol.includes(Number(d.id_usuario)),
   );
   const docenteSel = lista.find((d) => String(d.id) === seleccionado) || allDocentes.find((d) => String(d.id) === seleccionado);
+  // Registro del docente que tiene abierta la programación, para leer su estado
+  // actual al validar (5.9).
+  const estadoProgramando = allDocentes.find((d) => String(d.id) === String(programando)) || null;
 
   const listaFiltrada = useMemo(() => {
     if (!searchTerm) return lista;
@@ -446,8 +443,17 @@ const abrirCrear = () => {
     if (!programando) return;
     const deshab = progForm.fecha_deshabilitacion_programada;
     const hab = progForm.fecha_habilitacion_programada;
-    if (deshab && hab && new Date(hab) > new Date(deshab)) {
-      toast.warning('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
+    // 5.9 — la validación depende del estado actual de la cuenta: la primera
+    // acción agendada tiene que ser la opuesta a ese estado. Antes se exigía
+    // siempre "habilitación antes que deshabilitación", lo que impedía agendar
+    // la re-habilitación posterior a una deshabilitación ya programada.
+    const errorFecha = errorProgramacion({
+      estadoInicial: estadoProgramando?.usuario_estado,
+      deshabilitacion: deshab,
+      habilitacion: hab,
+    });
+    if (errorFecha) {
+      toast.warning(errorFecha);
       return;
     }
     setGuardando(true);
@@ -725,15 +731,12 @@ const abrirCrear = () => {
             onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
           />
         </div>
-        <div className="form-group-filter">
-          <label htmlFor="doc-telefono">Teléfono</label>
-          <input
+          <NumericInput
             id="doc-telefono"
-            type="text"
+            label="Teléfono"
             value={form.telefono}
-            onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+            onChange={(valor) => setForm((p) => ({ ...p, telefono: valor }))}
           />
-        </div>
         <AsignacionesEditor
           asignaciones={asignaciones}
           setAsignaciones={setAsignaciones}
@@ -829,15 +832,12 @@ const renderFormModificar = () => (
             onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
           />
         </div>
-        <div className="form-group-filter">
-          <label htmlFor="doc-telefono-mod">Teléfono</label>
-          <input
+          <NumericInput
             id="doc-telefono-mod"
-            type="text"
+            label="Teléfono"
             value={form.telefono}
-            onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+            onChange={(valor) => setForm((p) => ({ ...p, telefono: valor }))}
           />
-        </div>
         <AsignacionesEditor
           asignaciones={asignaciones}
           setAsignaciones={setAsignaciones}

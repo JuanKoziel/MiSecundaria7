@@ -15,6 +15,7 @@ import ActividadesView from '../Shared/ActividadesView';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
 import PanelFamilia from './PanelFamilia';
+import PanelMateriasAdeudadasFamilia from './PanelMateriasAdeudadasFamilia';
 import { useData } from '../../context/DataContext';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 
@@ -99,6 +100,30 @@ function FamiliaDashboard({ user, onLogout }) {
         return (
           <div className="view-section active">
             <Actas hijo={hijoSeleccionado} />
+          </div>
+        );
+
+      // Punto 5.20: materias adeudadas del hijo seleccionado, en solo lectura.
+      // Se resuelve con getEstudianteById como el resto de las vistas, así que al
+      // cambiar de hijo en el header se recarga con el alumno correspondiente.
+      case 'materias-adeudadas':
+        return (
+          <div className="view-section active">
+            {(() => {
+              const estudiante = getEstudianteById(hijoSeleccionado.alumnoId);
+              if (!estudiante) {
+                return (
+                  <div className="card">
+                    <div className="card-body">
+                      <p className="empty-state-message">
+                        No se pudo encontrar el alumno vinculado a esta selección.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              return <PanelMateriasAdeudadasFamilia estudiante={estudiante} />;
+            })()}
           </div>
         );
 

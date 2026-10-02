@@ -44,12 +44,29 @@ export function ErrorOverlayProvider({ children }) {
     setErrorActual(extraerMensaje(mensaje));
   }, []);
 
+  const cerrarError = useCallback(() => setErrorActual(null), []);
+
   useEffect(() => {
     suscriptores.add(setErrorActual);
     return () => {
       suscriptores.delete(setErrorActual);
     };
   }, []);
+
+  // 5.16 — Escape cierra la capa de error global. Antes el Escape solo estaba
+  // atado al botón "Cerrar" mediante onKeyDown, y como el foco estaba en el texto
+  // del mensaje nunca se disparaba.
+  useEffect(() => {
+    if (!errorActual) return undefined;
+    const alPresionar = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setErrorActual(null);
+      }
+    };
+    document.addEventListener('keydown', alPresionar);
+    return () => document.removeEventListener('keydown', alPresionar);
+  }, [errorActual]);
 
   return (
     <ErrorOverlayContext.Provider value={{ mostrarError }}>
@@ -65,10 +82,7 @@ export function ErrorOverlayProvider({ children }) {
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
-                onClick={() => setErrorActual(null)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') setErrorActual(null);
-                }}
+                onClick={cerrarError}
               >
                 Cerrar
               </button>

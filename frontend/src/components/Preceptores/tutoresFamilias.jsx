@@ -7,11 +7,12 @@ import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
 import TutoresEstudiantesEditor from '../../components/Shared/TutoresEstudiantesEditor';
 import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
-import FilaEstadoCuenta from '../../components/Shared/FilaEstadoCuenta';
 import { cursosPorAnio, estudiantesPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
+import NumericInput from '../Shared/NumericInput';
 
 const TIPOS_TUTOR = ['Padre', 'Madre', 'Tutor'];
 
@@ -32,14 +33,6 @@ const formVacio = {
   id_usuario_existente: '',
   modo_creacion: 'nuevo',
 };
-
-function toInputDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
 
 function formatDateTime(value) {
   if (!value) return '---';
@@ -122,6 +115,9 @@ function TutoresFamilias({ readOnly = false }) {
   }, []);
 
   const tutorSel = lista.find((t) => String(t.id_tutor) === seleccionado);
+  // Registro de la fila que tiene abierta la programación, para leer su estado
+  // actual al validar (5.9).
+  const estadoProgramando = lista.find((t) => String(t.id_tutor) === String(programando)) || null;
 
   const listaFiltrada = useMemo(() => {
     if (!searchTerm) return lista;
@@ -365,8 +361,17 @@ function TutoresFamilias({ readOnly = false }) {
     if (!programando) return;
     const deshab = progForm.fecha_deshabilitacion_programada;
     const hab = progForm.fecha_habilitacion_programada;
-    if (deshab && hab && new Date(hab) > new Date(deshab)) {
-      toast.warning('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
+    // 5.9 — la validación depende del estado actual de la cuenta: la primera
+    // acción agendada tiene que ser la opuesta a ese estado. Antes se exigía
+    // siempre "habilitación antes que deshabilitación", lo que impedía agendar
+    // la deshabilitación posterior a una habilitación ya programada.
+    const errorFecha = errorProgramacion({
+      estadoInicial: estadoProgramando?.usuario_estado,
+      deshabilitacion: deshab,
+      habilitacion: hab,
+    });
+    if (errorFecha) {
+      toast.warning(errorFecha);
       return;
     }
     setGuardando(true);
@@ -575,13 +580,16 @@ function TutoresFamilias({ readOnly = false }) {
           onChange={(e) => setForm((p) => ({ ...p, contrasena: e.target.value }))}
         />
       </div>
-      <FilaEstadoCuenta
-        id="tut-estado"
-        etiqueta="Estado"
-        checked={form.estado}
-        disabled={guardando}
-        onChange={(checked) => setForm((p) => ({ ...p, estado: checked }))}
-      />
+      <label htmlFor="tut-estado" className="preceptor-status-toggle">
+        <input
+          id="tut-estado"
+          type="checkbox"
+          checked={form.estado}
+          disabled={guardando}
+          onChange={(e) => setForm((p) => ({ ...p, estado: e.target.checked }))}
+        />
+        <span>{estadoLabel(form.estado)}</span>
+      </label>
       <div className="form-group-filter">
         <label htmlFor="tut-fecha-deshabilitacion">Fecha deshabilitación programada</label>
         <input
@@ -651,15 +659,12 @@ function TutoresFamilias({ readOnly = false }) {
           onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))}
         />
       </div>
-      <div className="form-group-filter">
-        <label htmlFor="tut-telefono">Teléfono</label>
-        <input
+        <NumericInput
           id="tut-telefono"
-          type="text"
+          label="Teléfono"
           value={form.telefono}
-          onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+          onChange={(valor) => setForm((p) => ({ ...p, telefono: valor }))}
         />
-      </div>
       <div className="form-group-filter">
         <label htmlFor="tut-direccion">Dirección</label>
         <input

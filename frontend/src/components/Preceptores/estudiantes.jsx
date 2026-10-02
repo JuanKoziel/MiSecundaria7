@@ -5,10 +5,12 @@ import { createEstudiante, updateEstudiante, deleteEstudiante } from '../../serv
 import EmptyFiltros from './EmptyFiltros';
 import FormModal from '../../components/Shared/FormModal';
 import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
-import { estudiantesPorAnioYCurso, cursosPorAnio, filtrosCompletos } from './preceptorUtils';
+import { estudiantesPorAnioYCurso, cursosPorAnio, filtrosCompletos, aListaCursos } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
+import NumericInput from '../Shared/NumericInput';
 
 const formVacio = {
   usuario_nombre: '',
@@ -25,14 +27,6 @@ const formVacio = {
   anioLectivo: '',
   curso: '',
 };
-
-function toInputDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
 
 function formatDateTime(value) {
   if (!value) return '---';
@@ -72,8 +66,12 @@ function mensajeError(err) {
   return mensajeErrorAmigable(err);
 }
 
-function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlobal, curso: cursoGlobal, onAnioChange, onCursoChange }) {
+function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anioGlobal, curso: cursoGlobal, cursos: cursosGlobal, onAnioChange, onCursoChange }) {
   const { aniosLectivos, inscripciones, cursos, estudiantes, nombreCompleto, cursosObj, refreshData } = useData();
+  // 5.6 - `cursoGlobal` puede llegar como string (preceptor, un curso) o como
+  // array (Admin/Jefe, multiselección). `cursosGlobal` es el array del header y
+  // tiene prioridad; `curso` es siempre el array efectivo, y el título del modal
+  // usa el primero para no mostrar una lista larga.
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [anioLectivoLocal, setAnioLectivoLocal] = useState('');
@@ -91,7 +89,11 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
     typeof onAnioChange === 'function' &&
     typeof onCursoChange === 'function';
   const anioLectivo = esControlado ? anioGlobal : anioLectivoLocal;
-  const curso = esControlado ? cursoGlobal : cursoLocal;
+  const entrada = Array.isArray(cursosGlobal) && cursosGlobal.length > 0
+    ? cursosGlobal
+    : (esControlado ? cursoGlobal : cursoLocal);
+  const curso = aListaCursos(entrada);
+  const cursoTitulo = curso[0] || '';
   const setAnioLectivo = esControlado ? onAnioChange : setAnioLectivoLocal;
   const setCurso = esControlado ? onCursoChange : setCursoLocal;
 
@@ -100,6 +102,9 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
 
   const lista = estudiantesPorAnioYCurso(anioLectivo, curso, inscripciones, estudiantes, cursosPermitidos);
   const estudianteSel = lista.find((a) => String(a.id) === seleccionado);
+  // Registro de la fila que tiene abierta la programación, para leer su estado
+  // actual al validar (5.9).
+  const estadoProgramando = lista.find((a) => String(a.id) === String(programando)) || null;
   const filtrosOk = filtrosCompletos(anioLectivo, curso);
   const cursosCrear = cursosPorAnio(form.anioLectivo, inscripciones, cursos, cursosObj, cursosPermitidos);
 
@@ -269,8 +274,17 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
     if (!programando) return;
     const deshab = progForm.fecha_deshabilitacion_programada;
     const hab = progForm.fecha_habilitacion_programada;
-    if (deshab && hab && new Date(hab) > new Date(deshab)) {
-      toast.warning('La fecha de habilitación no puede ser posterior a la fecha de deshabilitación.');
+    // 5.9 — la validación depende del estado actual de la cuenta: la primera
+    // acción agendada tiene que ser la opuesta a ese estado. Antes se exigía
+    // siempre "habilitación antes que deshabilitación", lo que impedía agendar
+    // la re-habilitación posterior a una deshabilitación ya programada.
+    const errorFecha = errorProgramacion({
+      estadoInicial: estadoProgramando?.usuario_estado,
+      deshabilitacion: deshab,
+      habilitacion: hab,
+    });
+    if (errorFecha) {
+      toast.warning(errorFecha);
       return;
     }
     setGuardando(true);
@@ -521,15 +535,12 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
           Datos personales
         </p>
       </div>
-      <div className="form-group-filter">
-        <label htmlFor="estudiante-telefono-mod">Teléfono</label>
-        <input
+        <NumericInput
           id="estudiante-telefono-mod"
-          type="text"
+          label="Teléfono"
           value={form.telefono}
-          onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+          onChange={(valor) => setForm((p) => ({ ...p, telefono: valor }))}
         />
-      </div>
       <div className="form-group-filter">
         <label htmlFor="estudiante-fecha-nac-mod">Fecha de Nacimiento</label>
         <input
@@ -707,7 +718,7 @@ function Estudiantes({ readOnly = false, preceptorCursos = [], anioLectivo: anio
 
       {(modo === 'crear' || modo === 'modificar') && (
         <FormModal
-          title={`${tituloModal}${modo === 'modificar' ? ` — ${curso} (${anioLectivo})` : ''}`}
+          title={`${tituloModal}${modo === 'modificar' ? ` — ${cursoTitulo} (${anioLectivo})` : ''}`}
           onClose={cerrarFormulario}
           error={mensaje && mensaje.startsWith('Error') ? mensaje : null}
           onClearError={() => setMensaje('')}

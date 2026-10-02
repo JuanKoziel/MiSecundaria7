@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 
 import Sidebar from './sidebar';
 import Header from './header';
@@ -35,16 +35,50 @@ function PreceptorDashboard({ user, onLogout }) {
 
   const [view, setView] = useState('perfil');
 
-  // Parte 8: manejar navegación desde notificaciones.
+  // Parte 8 / 5.1: manejar navegación desde notificaciones. Además de la vista,
+  // deja año lectivo y curso ya seleccionados. El curso puede venir por nombre o
+  // por id; si llega por id se resuelve contra `cursosObj` (una vez, por
+  // timestamp, para no pisar la elección manual del header).
+  const navAplicadoRef = useRef(null);
+  const [cursoPendienteNav, setCursoPendienteNav] = useState('');
+
   useEffect(() => {
-    if (navIntent && navIntent.destino) {
-      const vista = viewDesdeDestino(navIntent.destino, 'preceptor');
-      if (vista) setView(vista);
-      const { params } = navIntent;
-      if (params?.anio) setAnioLectivo(String(params.anio));
-      if (params?.curso) setCurso(String(params.curso));
+    if (!navIntent || !navIntent.destino) return;
+    if (navAplicadoRef.current === navIntent.timestamp) return;
+    navAplicadoRef.current = navIntent.timestamp;
+
+    const vista = viewDesdeDestino(navIntent.destino, 'preceptor');
+    if (vista) setView(vista);
+
+    const p = navIntent.params || {};
+    const anio = p.anio ?? p.anioLectivo ?? null;
+    if (anio) setAnioLectivo(String(anio));
+
+    const porNombre = p.cursoNombre ?? p.curso_nombre
+      ?? (typeof p.curso === 'string' && /[°º]/.test(p.curso) ? p.curso : null)
+      ?? null;
+    const porId = p.cursoId ?? p.curso_id
+      ?? (typeof p.curso === 'string' && p.curso && !/[°º]/.test(p.curso) ? p.curso : null)
+      ?? null;
+
+    if (porNombre) {
+      setCurso(String(porNombre));
+      setCursoPendienteNav('');
+    } else if (porId) {
+      setCursoPendienteNav(String(porId));
     }
   }, [navIntent]);
+
+  useEffect(() => {
+    if (!cursoPendienteNav) return;
+    const encontrado = (cursosObj || []).find(
+      (c) => String(c.id_curso) === String(cursoPendienteNav),
+    );
+    if (encontrado) {
+      setCurso(String(encontrado.nombre_curso));
+      setCursoPendienteNav('');
+    }
+  }, [cursoPendienteNav, cursosObj]);
 
   const [anioLectivo, setAnioLectivo] = useState('');
   const [curso, setCurso] = useState('');

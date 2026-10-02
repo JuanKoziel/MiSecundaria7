@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 
 import Sidebar from './sidebar';
 import Header from './header';
@@ -22,7 +22,7 @@ import { useMemo } from 'react';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 
 function JefePreceptorDashboard({ user, onLogout }) {
-  const { preceptores, administradores, navIntent } = useData();
+  const { preceptores, administradores, navIntent, cursosObj, selectedCursoIds, setSeleccionCursos } = useData();
 
   const userId = user?.id_usuario ?? user?.id ?? null;
   const miPreceptor = useMemo(() => {
@@ -58,29 +58,95 @@ function JefePreceptorDashboard({ user, onLogout }) {
 
   const [view, setView] = useState('perfil');
 
+  // 5.6 — multiselección de cursos; `curso` sigue siendo el primero de la lista
+  // para las vistas que todavía filtran por un curso solo.
+  const [anioLectivo, setAnioLectivo] = useState('');
+  const [curso, setCurso] = useState('');
+  const [cursos, setCursos] = useState([]);
+
   // Navegación desde notificaciones: el Jefe de Preceptores navega como
   // preceptor (mismas vistas). Solo cambia de sección si existe una vista
   // válida; si no, no navega (nunca pantalla en blanco).
+  // 5.1: además deja el año lectivo y el curso ya seleccionados en el header.
+  // Se aplica una vez por navegación (guarda por timestamp) para no pisar la
+  // elección manual del header cuando `cursosObj` se refresca.
+  const navAplicadoRef = useRef(null);
+  const [cursoPendienteNav, setCursoPendienteNav] = useState('');
+
   useEffect(() => {
-    if (navIntent && navIntent.destino) {
-      const vista = viewDesdeDestino(navIntent.destino, 'preceptor');
-      if (vista) setView(vista);
+    if (!navIntent || !navIntent.destino) return;
+    if (navAplicadoRef.current === navIntent.timestamp) return;
+    navAplicadoRef.current = navIntent.timestamp;
+
+    const vista = viewDesdeDestino(navIntent.destino, 'preceptor');
+    if (vista) setView(vista);
+
+    const p = navIntent.params || {};
+    const anio = p.anio ?? p.anioLectivo ?? null;
+    if (anio) setAnioLectivo(String(anio));
+
+    const porNombre = p.cursoNombre ?? p.curso_nombre
+      ?? (typeof p.curso === 'string' && /[°º]/.test(p.curso) ? p.curso : null)
+      ?? null;
+    const porId = p.cursoId ?? p.curso_id
+      ?? (typeof p.curso === 'string' && p.curso && !/[°º]/.test(p.curso) ? p.curso : null)
+      ?? null;
+
+    // 5.6 — la notificación trae un curso puntual, así que se deja marcada solo
+    // esa división (y no todas las del año).
+    if (porNombre) {
+      setCursos([String(porNombre)]);
+      setCurso(String(porNombre));
+      setCursoPendienteNav('');
+    } else if (porId) {
+      setCursoPendienteNav(String(porId));
     }
   }, [navIntent]);
 
-  const [anioLectivo, setAnioLectivo] = useState('');
-  const [curso, setCurso] = useState('');
+  useEffect(() => {
+    if (!cursoPendienteNav) return;
+    const encontrado = (cursosObj || []).find(
+      (c) => String(c.id_curso) === String(cursoPendienteNav),
+    );
+    if (encontrado) {
+      setCursos([String(encontrado.nombre_curso)]);
+      setCurso(String(encontrado.nombre_curso));
+      setCursoPendienteNav('');
+    }
+  }, [cursoPendienteNav, cursosObj]);
 
   const handleAnioChange = (nuevoAnio) => {
     setAnioLectivo(nuevoAnio);
     setCurso('');
+    setCursos([]);
   };
+
+  const handleCursosChange = useCallback((lista) => {
+    const nombres = (Array.isArray(lista) ? lista : []).filter(Boolean);
+    setCursos(nombres);
+    setCurso(nombres[0] || '');
+  }, []);
+
+  // 5.6 — Se publica la selección en el contexto global (igual que hace el panel
+  // de Administración) para que las vistas que leen del contexto en vez de por
+  // props —Asistencias, Adelantos de Horas— filtren por todas las divisiones
+  // marcadas y no queden sin filtro.
+  useEffect(() => {
+    const nombres = cursos.length > 0 ? cursos : (curso ? [curso] : []);
+    const ids = nombres
+      .map((n) => (cursosObj || []).find((c) => c.nombre_curso === n)?.id_curso)
+      .filter((x) => x !== undefined && x !== null);
+    if (ids.join(',') === selectedCursoIds.join(',')) return;
+    setSeleccionCursos(nombres, ids);
+  }, [cursos, curso, cursosObj, selectedCursoIds, setSeleccionCursos]);
 
   const filtrosProps = {
     anioLectivo,
     curso,
+    cursos,
     onAnioChange: handleAnioChange,
     onCursoChange: setCurso,
+    onCursosChange: handleCursosChange,
   };
 
   const renderView = () => {

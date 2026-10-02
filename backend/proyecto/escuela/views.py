@@ -951,10 +951,15 @@ def _notificar_inasistencia(asistencia):
     )
 
     # Usar notificar_alumno con estrategia DAILY (agrupa por día)
+    # 5.1: se incluye el curso del alumno para que la vista destino abra con el
+    # curso y la materia ya seleccionados.
     notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, strategy='DAILY', nav={
         'destino': 'asistencias',
         'params': {
             'alumnoId': alumno.id_alumno,
+            'cursoId': alumno.id_curso_id,
+            'cursoMateriaId': cm.id_curso_materia if cm is not None else None,
+            'materiaId': cm.id_materia_id if cm is not None else None,
             'fecha': asistencia.fecha.isoformat() if asistencia.fecha else None,
         }
     })
@@ -1162,6 +1167,9 @@ def _notificar_calificacion(calificacion, accion='cargada'):
         'destino': 'calificaciones',
         'params': {
             'alumnoId': alumno.id_alumno if alumno else None,
+            # 5.1: el curso del alumno permite que la vista destino abra con el
+            # curso y la materia ya seleccionados.
+            'cursoId': alumno.id_curso_id if alumno else None,
             'materiaId': calificacion.id_curso_materia.id_materia.id_materia if calificacion.id_curso_materia and calificacion.id_curso_materia.id_materia else None,
             'cursoMateriaId': calificacion.id_curso_materia_id,
         }
@@ -3401,7 +3409,14 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             'proximo_inicio': primero['hora_inicio'],
         }
 
-    @action(detail=False, methods=['get'], url_path='alumno-detalle')
+    # El permiso del viewset es `PuedeRegistrarAsistencias` (escritura para
+    # admin/director/preceptor/docente). Este action es de solo lectura y lo
+    # consumen los portals de Alumno y Familia, así que heredar ese permiso
+    # los dejaba en 403. El control real de acceso está acá adentro: se exige
+    # rol 'alumno' o 'familia', y para familia que el alumno sea un hijo del
+    # tutor (`alumno_ids_de_tutor`).
+    @action(detail=False, methods=['get'], url_path='alumno-detalle',
+            permission_classes=[IsAuthenticated])
     def alumno_detalle(self, request):
         roles = get_roles_for_usuario(request.user.username)
         try:
@@ -3449,6 +3464,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
                 docente_nombre = '-'
             result.append({
                 'id': a.id_asistencia,
+                'id_curso_materia': a.id_curso_materia_id,
                 'fecha': a.fecha.strftime('%Y-%m-%d'),
                 'hora': a.hora.strftime('%H:%M') if a.hora else '',
                 'materia_nombre': a.id_curso_materia.id_materia.nombre_materia
@@ -6631,6 +6647,12 @@ def _notificar_recursada(recursada, accion):
     """
     alumno = recursada.id_alumno
     nombre = recursada.id_materia.nombre_materia if recursada.id_materia else 'la materia'
+    # 5.1: el curso del alumno y la materia permiten que la vista destino abra
+    # con el contexto de la notificación ya seleccionado.
+    params_curso = {
+        'cursoId': alumno.id_curso_id if alumno else None,
+        'materiaId': recursada.id_materia_id,
+    }
     if accion == 'resultado':
         titulo = 'Resultado de recursada'
         resultado = 'APROBADA' if recursada.estado == 'APROBADA' else 'DESAPROBADA'
@@ -6638,6 +6660,7 @@ def _notificar_recursada(recursada, accion):
         nav_destino = 'recursadas'
         params = {
             'recursadaId': recursada.id_recursada,
+            **params_curso,
         }
     else:
         titulo = 'Recursada cargada'
@@ -6645,6 +6668,7 @@ def _notificar_recursada(recursada, accion):
         nav_destino = 'recursadas'
         params = {
             'recursadaId': recursada.id_recursada,
+            **params_curso,
         }
     notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
         'destino': nav_destino,

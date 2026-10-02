@@ -1,4 +1,4 @@
-﻿import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
@@ -8,6 +8,7 @@ import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FormModal from '../../components/Shared/FormModal';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
 
 const API_BASE = BASE_URL;
 const PREVIEWABLE_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp']);
@@ -327,14 +328,6 @@ function normalize(str) {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '');
 }
 
-function toInputDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
-
 function formateaMensajeError(err) {
   return mensajeErrorAmigable(err);
 }
@@ -413,6 +406,18 @@ function Docentes() {
     }
     if (!formData.dni || !formData.nombre || !formData.apellido) {
       toast.warning('Completá DNI, nombre y apellido.');
+      return;
+    }
+    // 5.9 — con las dos fechas cargadas, la primera de la línea de tiempo tiene
+    // que ser la opuesta al estado que se está guardando; si no, la primera de
+    // las dos no haría nada.
+    const errorFechas = errorProgramacion({
+      estadoInicial: formData.estado !== false,
+      deshabilitacion: formData.fecha_deshabilitacion_programada,
+      habilitacion: formData.fecha_habilitacion_programada,
+    });
+    if (errorFechas && (formData.fecha_deshabilitacion_programada || formData.fecha_habilitacion_programada)) {
+      toast.warning(errorFechas);
       return;
     }
     setGuardandoDocente(true);
@@ -884,16 +889,16 @@ function Docentes() {
                 />
               </div>
 
-              <div className="form-group-filter">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={formData.estado}
-                    onChange={(e) => setFormData((p) => ({ ...p, estado: e.target.checked }))}
-                  />
-                  {' '}Habilitado
-                </label>
-              </div>
+                <div className="form-group-filter">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={formData.estado}
+                      onChange={(e) => setFormData((p) => ({ ...p, estado: e.target.checked }))}
+                    />
+                    {' '}Habilitado
+                  </label>
+                </div>
             </div>
             <div className="standard-modal-footer">
               <button type="button" className="btn btn-secondary" onClick={cerrarFormDocente}>

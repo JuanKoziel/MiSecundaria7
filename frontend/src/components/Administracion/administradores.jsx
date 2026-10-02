@@ -6,20 +6,12 @@ import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
 import AccionesCelda from '../../components/Shared/AccionesCelda';
 import NumericInput from '../../components/Shared/NumericInput';
-import FilaEstadoCuenta from '../../components/Shared/FilaEstadoCuenta';
 import { createUsuario, deleteUsuario, getUsuarios, updateUsuario, getDocentes, getPreceptores, getDirectivos, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingScreen from '../Shared/LoadingScreen';
 import AccionesLeyenda from '../Shared/AccionesLeyenda';
-
-function toInputDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
+import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
 
 function formatDateTime(value) {
   if (!value) return '---';
@@ -270,10 +262,24 @@ function Administradores() {
     }
   };
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess();
+
+    // 5.9 — si se cargan las dos fechas, la primera de la línea de tiempo tiene
+    // que ser la opuesta al estado que se está guardando; si no, la primera de
+    // las dos no haría nada. En creación no hay estado previo todavía, así que
+    // se toma el que se está por guardar.
+    const errorFechas = errorProgramacion({
+      estadoInicial: formData.estado === false ? false : true,
+      deshabilitacion: formData.fecha_deshabilitacion_programada,
+      habilitacion: formData.fecha_habilitacion_programada,
+    });
+    if (errorFechas && (formData.fecha_deshabilitacion_programada || formData.fecha_habilitacion_programada)) {
+      toast.warning(errorFechas);
+      return;
+    }
 
     try {
       const { id_usuario_existente, ...formDataCopy } = formData;
@@ -407,13 +413,18 @@ const handleSubmit = async (e) => {
           <section className="preceptor-form-section">
             <h4>Estado de la cuenta</h4>
             <div className="preceptor-form-row preceptor-form-row--status">
-              <FilaEstadoCuenta
-                id="admin-estado"
-                etiqueta="Estado"
-                checked={formData.estado}
-                disabled={guardandoUsuario}
-                onChange={(checked) => setFormData({ ...formData, estado: checked })}
-              />
+              <div className="form-group-filter">
+                <label htmlFor="admin-estado" className="preceptor-status-toggle">
+                  <input
+                    id="admin-estado"
+                    type="checkbox"
+                    checked={formData.estado}
+                    onChange={(e) => setFormData({ ...formData, estado: e.target.checked })}
+                    disabled={guardandoUsuario}
+                  />
+                  <span>{estadoLabel(formData.estado)}</span>
+                </label>
+              </div>
 
               <div className="form-group-filter">
                 <label htmlFor="fecha_deshabilitacion_programada">Fecha deshabilitación programada</label>

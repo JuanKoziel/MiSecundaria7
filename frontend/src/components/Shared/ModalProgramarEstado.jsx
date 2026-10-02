@@ -1,19 +1,12 @@
 import { useEffect, useState } from 'react';
 import FormModal from './FormModal';
+import { aInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
 
 function formatearFecha(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium', timeStyle: 'short' }).format(d);
-}
-
-function aInputDateTime(value) {
-  if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const offset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
 }
 
 /**
@@ -37,6 +30,7 @@ export default function ModalProgramarEstado({
   onCancelarProgramacion,
 }) {
   const [form, setForm] = useState({ fecha_deshabilitacion_programada: '', fecha_habilitacion_programada: '' });
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!abierto) return;
@@ -44,6 +38,7 @@ export default function ModalProgramarEstado({
       fecha_deshabilitacion_programada: aInputDateTime(fechaDeshabilitacion),
       fecha_habilitacion_programada: aInputDateTime(fechaHabilitacion),
     });
+    setError('');
   }, [abierto, fechaDeshabilitacion, fechaHabilitacion]);
 
   if (!abierto || !persona) return null;
@@ -65,6 +60,20 @@ export default function ModalProgramarEstado({
         className="preceptor-form"
         onSubmit={(e) => {
           e.preventDefault();
+          // 5.9 — la primera acción agendada tiene que ser la opuesta al estado
+          // actual de la cuenta. Así se puede agendar la re-habilitación
+          // posterior a una deshabilitación ya programada (y al revés), que antes
+          // quedaba bloqueado.
+          const err = errorProgramacion({
+            estadoInicial: estadoActual,
+            deshabilitacion: form.fecha_deshabilitacion_programada,
+            habilitacion: form.fecha_habilitacion_programada,
+          });
+          if (err) {
+            setError(err);
+            return;
+          }
+          setError('');
           onGuardar({
             fecha_deshabilitacion_programada: form.fecha_deshabilitacion_programada || null,
             fecha_habilitacion_programada: form.fecha_habilitacion_programada || null,
@@ -73,7 +82,13 @@ export default function ModalProgramarEstado({
       >
         <div className="standard-modal-body" style={{ display: 'grid', gap: '14px' }}>
           <p className="m-0" style={{ color: '#cbd5e1', lineHeight: '1.5' }}>
-            La cuenta está <strong>{estadoActual ? 'habilitada' : 'deshabilitada'}</strong>. Definí las fechas
+            La cuenta está{' '}
+            <strong>
+              {estadoActual === null || estadoActual === undefined
+                ? 'sin usuario'
+                : (estadoActual ? 'habilitada' : 'deshabilitada')}
+            </strong>
+            . Definí las fechas
             para que el cambio se aplique solo. Mientras haya una programación pendiente, el estado real del
             usuario no cambia.
           </p>
@@ -85,9 +100,10 @@ export default function ModalProgramarEstado({
                 id="prog-deshabilitacion"
                 type="datetime-local"
                 value={form.fecha_deshabilitacion_programada}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, fecha_deshabilitacion_programada: e.target.value }))
-                }
+                onChange={(e) => {
+                  setError('');
+                  setForm((prev) => ({ ...prev, fecha_deshabilitacion_programada: e.target.value }));
+                }}
               />
             </div>
             <div className="form-group-filter">
@@ -96,10 +112,17 @@ export default function ModalProgramarEstado({
                 id="prog-habilitacion"
                 type="datetime-local"
                 value={form.fecha_habilitacion_programada}
-                onChange={(e) => setForm((prev) => ({ ...prev, fecha_habilitacion_programada: e.target.value }))}
+                onChange={(e) => {
+                  setError('');
+                  setForm((prev) => ({ ...prev, fecha_habilitacion_programada: e.target.value }));
+                }}
               />
             </div>
           </div>
+
+          {error && (
+            <p className="form-error-message" role="alert">{error}</p>
+          )}
 
           <div className="form-group-filter">
             <span style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: 'var(--text-light)' }}>

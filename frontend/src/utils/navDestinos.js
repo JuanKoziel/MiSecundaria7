@@ -30,10 +30,15 @@ const MAPA_POR_ROL = {
     boletin: 'calificaciones',
     asistencias: 'asistencias',
     actas: 'actas',
-    previas: 'calificaciones',
-    rendiciones: 'calificaciones',
-    recursadas: 'calificaciones',
-    intensificaciones: 'calificaciones',
+    // Punto 5.20: el portal de Familia tiene su propio apartado "Materias
+    // Adeudadas" (solo lectura). Antes estas notificaciones caían en
+    // 'calificaciones', que muestra notas y no las materias a intensificar, a
+    // rendir ni en estado de previa: el tutor recibía el aviso y al hacer clic
+    // no encontraba la información.
+    previas: 'materias-adeudadas',
+    rendiciones: 'materias-adeudadas',
+    recursadas: 'materias-adeudadas',
+    intensificaciones: 'materias-adeudadas',
     comunicados: 'comunicados',
     horarios: 'horarios',
     eventos: 'calendario',

@@ -2,11 +2,12 @@ import { useData } from '../../context/DataContext';
 import { riteHTML, exportarRitePDF } from '../../utils/rite';
 import { useMemo } from 'react';
 import { useRiteAcademico } from '../../hooks/useRiteAcademico';
+import { useAsistenciasAlumno } from '../../hooks/useAsistenciasAlumno';
 import RiteExtras from '../RiteExtras';
 import RiteTablaPrincipal from '../RiteTablaPrincipal';
 
 function Calificaciones({ hijo }) {
-  const { calificacionesFamilia, materiasPorCurso, cursoMateria, periodos, asistenciasAdmin, estudiantes } = useData();
+  const { calificacionesFamilia, materiasPorCurso, cursoMateria, periodos, estudiantes } = useData();
 
   // Obtener el objeto real del estudiante
   const estudiante = estudiantes.find((a) => a.id === hijo.alumnoId);
@@ -69,21 +70,11 @@ function Calificaciones({ hijo }) {
     }
   });
 
-  // Calcular inasistencias por materia para el hijo seleccionado
-  const inasistenciasPorMateria = useMemo(() => {
-    if (!estudiante) return {};
-    const misAsistencias = asistenciasAdmin.filter((a) => a.alumnoId === estudiante.id);
-    const porMateria = {};
-    misAsistencias.forEach((a) => {
-      const cm = cursoMateria.find((c) => c.id === a.id_curso_materia);
-      if (!cm) return;
-      const mat = cm.materia_nombre;
-      if (!porMateria[mat]) porMateria[mat] = { ausencias: 0, tardanzas: 0 };
-      if (a.estado === 'Ausente') porMateria[mat].ausencias += 1;
-      else if (a.estado === 'Tarde') porMateria[mat].tardanzas += 1;
-    });
-    return porMateria;
-  }, [asistenciasAdmin, estudiante, cursoMateria]);
+  // Inasistencias por materia del hijo seleccionado. El endpoint por alumno ya
+  // devuelve `materia_nombre`, así que no hace falta cruzar contra `cursoMateria`
+  // para resolver el nombre. Antes se leía de `asistenciasAdmin`, que en el
+  // contexto global está siempre vacío.
+  const { inasistenciasPorMateria } = useAsistenciasAlumno(estudiante?.id);
 
   const handleDescargarRite = () => {
     if (!estudiante) return;

@@ -26,12 +26,10 @@ function timeStr(value) {
   return s.slice(0, 5);
 }
 
-const HorarioSemanal = function HorarioSemanal({ cursosOptions, esControlado = false, cursoIdExterno = '', onRegisterSave }) {
+const HorarioSemanal = function HorarioSemanal({ cursoIdExterno = '', onRegisterSave }) {
   const { modulos, refreshData } = useData() || {};
   const toast = useToast();
-  const [cursoIdLocal, setCursoIdLocal] = useState('');
-  const cursoSeleccionado = esControlado ? cursoIdExterno : cursoIdLocal;
-  const setCursoSeleccionado = esControlado ? () => {} : setCursoIdLocal;
+  const cursoSeleccionado = cursoIdExterno;
   const [materiasCurso, setMateriasCurso] = useState([]);
   const [celdas, setCeldas] = useState({});
   const [originalCeldas, setOriginalCeldas] = useState({});
@@ -149,24 +147,6 @@ const HorarioSemanal = function HorarioSemanal({ cursosOptions, esControlado = f
 
   return (
     <div>
-      {!esControlado && (
-        <div className="filter-row">
-          <div className="form-group-filter" style={{ maxWidth: '320px' }}>
-            <label htmlFor="hs-curso">Curso</label>
-            <select
-              id="hs-curso"
-              value={cursoSeleccionado}
-              onChange={(e) => setCursoSeleccionado(e.target.value)}
-            >
-              <option value="">— Seleccionar curso —</option>
-              {cursosOptions.map((c) => (
-                <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-
       {cursoSeleccionado && (
         <div>
           {cargandoGrilla ? (
@@ -218,12 +198,13 @@ const HorarioSemanal = function HorarioSemanal({ cursosOptions, esControlado = f
                 </table>
               </div>
 
-              <div className="form-actions mt-16">
+<div className="form-actions mt-16" style={{ justifyContent: 'flex-end' }}>
                 <button
                   type="button"
                   className="btn btn-primary"
                   disabled={guardando}
-onClick={executeSave}
+                  onClick={handleGuardar}
+                  style={{ height: '38px', minWidth: '120px' }}
                 >
                   {guardando ? 'Guardando...' : 'Guardar'}
                 </button>
@@ -236,12 +217,10 @@ onClick={executeSave}
   );
 }
 
-function EducacionFisica({ cursosOptions, esControlado = false, cursoIdExterno = '' }) {
+function EducacionFisica({ cursoIdExterno = '' }) {
   const toast = useToast();
   const { refreshData } = useData() || {};
-  const [cursoIdLocal, setCursoIdLocal] = useState('');
-  const cursoSeleccionado = esControlado ? cursoIdExterno : cursoIdLocal;
-  const setCursoSeleccionado = esControlado ? () => {} : setCursoIdLocal;
+  const cursoSeleccionado = cursoIdExterno;
   const [horarios, setHorarios] = useState([]);
   const [cmEf, setCmEf] = useState(null);
   const [form, setForm] = useState(null);
@@ -378,24 +357,6 @@ function EducacionFisica({ cursosOptions, esControlado = false, cursoIdExterno =
 
   return (
     <div>
-      {!esControlado && (
-        <div className="filter-row">
-          <div className="form-group-filter" style={{ maxWidth: '320px' }}>
-            <label htmlFor="ef-curso">Curso</label>
-            <select
-              id="ef-curso"
-              value={cursoSeleccionado}
-              onChange={(e) => { setCursoSeleccionado(e.target.value); resetForm(); }}
-            >
-              <option value="">— Seleccionar curso —</option>
-              {cursosOptions.map((c) => (
-                <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-
       {mensaje && (
         <p
           className={`form-error-message ${mensaje.includes('Error') ? '' : 'form-error-message--ok'}`}
@@ -525,8 +486,8 @@ function EducacionFisica({ cursosOptions, esControlado = false, cursoIdExterno =
   );
 }
 
-function Horarios({ esControlado = false, cursoGlobal = '' }) {
-  const { cursosObj } = useData();
+function Horarios({ cursoGlobal = '', curso = '' }) {
+  const { cursosObj, selectedCursoId } = useData();
   const [modo, setModo] = useState('semanal');
   const [guardando, setGuardando] = useState(false);
   const saveFnRef = useRef(null);
@@ -542,16 +503,33 @@ function Horarios({ esControlado = false, cursoGlobal = '' }) {
     }
   }, []);
 
+  // Al salir de la grilla semanal se descarta el handler registrado para que
+  // el boton Guardar de la barra nunca dispare el guardado de otra pestana.
+  useEffect(() => {
+    if (modo !== 'semanal') saveFnRef.current = null;
+  }, [modo]);
+
   const cursosOptions = useMemo(() => {
     if (!Array.isArray(cursosObj)) return [];
     return [...cursosObj].sort((a, b) => (a.nombre_curso || '').localeCompare(b.nombre_curso || ''));
   }, [cursosObj]);
 
+  // El curso puede venir por prop (nombre, desde Preceptores) o desde el selector
+  // global de Administracion (`selectedCursoId` en DataContext).
+  const cursoNombreExterno = curso || cursoGlobal;
+
   const cursoIdExterno = useMemo(() => {
-    if (!cursoGlobal) return '';
-    const c = cursosObj.find((x) => String(x.nombre_curso) === String(cursoGlobal));
-    return c ? String(c.id_curso) : '';
-  }, [cursoGlobal, cursosObj]);
+    if (cursoNombreExterno) {
+      const c = (cursosObj || []).find(
+        (x) => String(x.nombre_curso) === String(cursoNombreExterno),
+      );
+      return c ? String(c.id_curso) : '';
+    }
+    return selectedCursoId ? String(selectedCursoId) : '';
+  }, [cursoNombreExterno, cursosObj, selectedCursoId]);
+
+  const sinCurso = !cursoIdExterno;
+  const puedeGuardar = modo === 'semanal' && !sinCurso;
 
   return (
     <div className="card">
@@ -559,51 +537,53 @@ function Horarios({ esControlado = false, cursoGlobal = '' }) {
         <h3><i className="fas fa-calendar-alt" aria-hidden="true" /> Horarios</h3>
       </div>
 
-      <div className="filter-row mb-20" style={{ alignItems: 'center' }}>
-        <div className="form-group-filter" style={{ maxWidth: '320px' }}>
-          <label>Vista</label>
-          <div className="flex-row">
-            <button
-              type="button"
-              className={`btn btn-sm ${modo === 'semanal' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setModo('semanal')}
-            >
-              Horario semanal
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${modo === 'ef' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setModo('ef')}
-            >
-              Educación Física
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${modo === 'ver' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setModo('ver')}
-            >
-              Ver horarios
-            </button>
-          </div>
+      <div className="horarios-toolbar mb-20">
+        <div className="horarios-toolbar__views">
+          <button
+            type="button"
+            className={`btn btn-sm ${modo === 'semanal' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setModo('semanal')}
+          >
+            Horario semanal
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${modo === 'ef' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setModo('ef')}
+          >
+            Educación Física
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${modo === 'ver' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setModo('ver')}
+          >
+            Ver horarios
+          </button>
         </div>
         <button
           type="button"
-          className="btn btn-primary btn-guardar-horarios ml-auto"
-          disabled={guardando}
-          onClick={handleGuardar}
-          style={{ height: '38px', minWidth: '120px' }}
+          className="btn btn-sm btn-primary horarios-toolbar__save"
+          disabled={guardando || !puedeGuardar}
+          onClick={executeSave}
         >
           <i className="fas fa-save" aria-hidden="true" />{' '}
           {guardando ? 'Guardando...' : 'Guardar'}
         </button>
       </div>
 
-      {modo === 'semanal' && <HorarioSemanal cursosOptions={cursosOptions} esControlado={esControlado} cursoIdExterno={cursoIdExterno} onRegisterSave={registerSaveFn} />}
-      {modo === 'ef' && <EducacionFisica cursosOptions={cursosOptions} esControlado={esControlado} cursoIdExterno={cursoIdExterno} onRegisterSave={registerSaveFn} />}
-      {modo === 'ver' && (
+      {sinCurso && (
+        <p className="empty-state-message empty-state-centered">
+          Selecciona un curso en el filtro superior para ver sus horarios.
+        </p>
+      )}
+
+      {modo === 'semanal' && !sinCurso && <HorarioSemanal cursoIdExterno={cursoIdExterno} onRegisterSave={registerSaveFn} />}
+      {modo === 'ef' && !sinCurso && <EducacionFisica cursoIdExterno={cursoIdExterno} />}
+      {modo === 'ver' && !sinCurso && (
         <VistaHorarios
           cursosOptions={cursosOptions}
-          cursoForzado={esControlado ? cursoIdExterno : undefined}
+          cursoForzado={cursoIdExterno}
           mostrarTitulo={false}
         />
       )}

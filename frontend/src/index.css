@@ -39,10 +39,10 @@
     --form-error-text: #991b1b;
     --form-sticky-bg: #eef2f7;
     --toggle-bg: #f8fafc;
+    --toggle-switch-bg: #f8fafc;
     --toggle-track-bg: #d7dee8;
     --toggle-track-border: #cbd5e1;
     --toggle-thumb-bg: #fff;
-    --toggle-switch-bg: #f8fafc;
 }
 
 /* Dark theme overrides (aplicar con clase .dark-theme en html o body) */
@@ -61,10 +61,10 @@ html.dark {
     --form-error-text: #fca5a5;
     --form-sticky-bg: #0d233a;
     --toggle-bg: #1e293b;
+    --toggle-switch-bg: #1e293b;
     --toggle-track-bg: #475569;
     --toggle-track-border: #64748b;
     --toggle-thumb-bg: #f1f5f9;
-    --toggle-switch-bg: #1e293b;
 }
 
 * {
@@ -1347,6 +1347,34 @@ body {
     outline: 3px solid #ffffff;
     outline-offset: 2px;
     box-shadow: 0 0 0 5px var(--primary-color);
+}
+/* Barra de vistas de Horarios: los tres botones de vista a la izquierda y
+   Guardar pegado al margen derecho, con sangria y a la misma altura que el
+   resto de los botones de la barra (btn-sm, sin alturas fijas). */
+.horarios-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.horarios-toolbar__views {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+/* Sin overrides de padding/height/font: el boton Guardar usa exactamente el
+   mismo `btn-sm` que los botones de vista, para que midan igual. */
+.horarios-toolbar__save {
+    margin-left: auto;
+    margin-right: 8px;
+    font-weight: 700;
+}
+@media (max-width: 768px) {
+    .horarios-toolbar__save {
+        margin-left: 0;
+        margin-right: 0;
+    }
 }
 /* Mensaje de error/sugerencia dentro de un formulario.
    Se pinta por encima de inputs, celdas y footer del propio modal para que
@@ -3966,6 +3994,68 @@ html.dark .toggle-switch-input:checked + .toggle-switch-status + .toggle-switch-
     opacity: 0.55;
     cursor: not-allowed;
     background: #f1f5f9;
+}
+
+/* 5.6 — División con checkboxes: permite marcar varias divisiones del año. */
+.selector-group--checkboxes {
+    max-width: 420px;
+}
+
+.division-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 10px;
+    min-height: 42px;
+}
+
+.division-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--sidebar-color);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.division-checkbox:hover {
+    border-color: var(--primary-color);
+    background: #fff7ed;
+}
+
+.division-checkbox:has(input:checked) {
+    border-color: var(--primary-color);
+    background: rgba(253, 126, 20, 0.1);
+    color: var(--primary-color);
+}
+
+.division-checkbox input[type='checkbox'] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--primary-color);
+    cursor: pointer;
+    margin: 0;
+}
+
+.division-checkbox input[type='checkbox']:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.division-checkboxes__placeholder {
+    font-size: 0.78rem;
+    color: #94a3b8;
 }
 
 .btn-clear-selection {

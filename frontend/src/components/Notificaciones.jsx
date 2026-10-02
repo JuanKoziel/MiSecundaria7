@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { tieneVistaParaDestino, destinoDesdeTitulo } from '../utils/navDestinos';
+import { hoy as fechaHoy, sumarDias } from '../utils/fechas';
 
 function formatearFecha(fecha) {
   if (!fecha) return '—';
@@ -20,12 +21,12 @@ function fechaDia(fecha) {
 
 function etiquetaDia(diaKey) {
   if (!diaKey) return '';
-  const hoy = fechaDia(new Date().toISOString());
+  // 5.15 — se comparan contra la fecha local. Con `toISOString()` (UTC) el
+  // "Hoy" se corría una hora: entre las 21:00 y las 24:00 una notificación de
+  // hoy caía en la etiqueta de fecha suelta y una de ayer decía "Hoy".
+  const hoy = fechaHoy();
   if (diaKey === hoy) return 'Hoy';
-  const ayerD = new Date();
-  ayerD.setDate(ayerD.getDate() - 1);
-  const ayer = fechaDia(ayerD.toISOString());
-  if (diaKey === ayer) return 'Ayer';
+  if (diaKey === sumarDias(hoy, -1)) return 'Ayer';
   const [, m, d] = diaKey.split('-');
   return `${d}/${m}`;
 }

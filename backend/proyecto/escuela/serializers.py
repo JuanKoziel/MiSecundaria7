@@ -101,6 +101,51 @@ def _vincular_tutor_alumnos(padre, alumnos_ids):
 
 _sentinel = object()
 
+
+def _validar_programacion_estado(usuario):
+    """Valida el par de fechas programadas de una cuenta (punto 5.9).
+
+    `aplicar_programaciones_usuario` aplica el campo que ya venció y lo limpia,
+    así que las dos fechas forman una línea de tiempo que arranca en el estado
+    actual. Si la primera de las dos no es la acción opuesta a ese estado, no
+    hace nada y el usuario termina en un estado distinto al esperado.
+
+    Se valida contra el estado actual de la cuenta, no contra la fecha de hoy:
+    agendar una re-habilitación posterior a una deshabilitación ya programada
+    es válido y tiene que poder hacerse.
+    """
+    fecha_deshabilitacion = usuario.fecha_deshabilitacion_programada
+    fecha_habilitacion = usuario.fecha_habilitacion_programada
+    if not fecha_deshabilitacion or not fecha_habilitacion:
+        return
+
+    if fecha_deshabilitacion <= fecha_habilitacion:
+        primero, campo_incorrecto = 'deshabilitacion', 'fecha_deshabilitacion_programada'
+        fecha_primero, fecha_segunda = fecha_deshabilitacion, fecha_habilitacion
+    else:
+        primero, campo_incorrecto = 'habilitacion', 'fecha_habilitacion_programada'
+        fecha_primero, fecha_segunda = fecha_habilitacion, fecha_deshabilitacion
+
+    esperada = 'deshabilitacion' if usuario.estado else 'habilitacion'
+    if primero == esperada:
+        return
+
+    def _fmt(fecha):
+        return timezone.localtime(fecha).strftime('%d/%m/%Y %H:%M') if fecha else '—'
+
+    if usuario.estado:
+        mensaje = (
+            f'La cuenta está habilitada: la deshabilitación ({_fmt(fecha_deshabilitacion)}) '
+            f'tiene que ser anterior a la habilitación ({_fmt(fecha_habilitacion)}).'
+        )
+    else:
+        mensaje = (
+            f'La cuenta está deshabilitada: la habilitación ({_fmt(fecha_habilitacion)}) '
+            f'tiene que ser anterior a la deshabilitación ({_fmt(fecha_deshabilitacion)}).'
+        )
+    raise serializers.ValidationError({campo_incorrecto: mensaje})
+
+
 def _build_usuario_account(
     *,
     instance,
@@ -162,6 +207,7 @@ def _build_usuario_account(
         raise serializers.ValidationError({'contrasena': 'La contrasena es obligatoria para crear el usuario.'})
 
     try:
+        _validar_programacion_estado(usuario)
         usuario.save()
     except IntegrityError:
         raise serializers.ValidationError({

@@ -299,7 +299,7 @@ function FormAdelanto({ formData, setFormData, editing, guardando, onSubmit, onC
 }
 
 function GestionAdelantosHoras({ readOnly = false }) {
-  const { modulos, cursoMateria, refreshData } = useData();
+  const { modulos, cursoMateria, refreshData, selectedCursoId, selectedCursoIds } = useData();
   const toast = useToast();
   const [adelantos, setAdelantos] = useState([]);
   const [cargando, setCargando] = useState(false);
@@ -309,9 +309,28 @@ function GestionAdelantosHoras({ readOnly = false }) {
   const [guardando, setGuardando] = useState(false);
   const [soloActivos, setSoloActivos] = useState(true);
   const [suplencias, setSuplencias] = useState([]);
-  const [filtroCurso, setFiltroCurso] = useState('');
+  const [filtroCursoLocal, setFiltroCursoLocal] = useState('');
   const [filtroDocente, setFiltroDocente] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
+  // 5.5 — Filtro por Materia (nuevo). Se arma con las materias que aparecen en
+  // los adelantos cargados, no con el catálogo completo.
+  const [filtroMateria, setFiltroMateria] = useState('');
+
+  // 5.5 — Cuando hay selector global de curso (Administración), el filtro de curso
+  // lo consume y no se muestra un selector propio. Sin selector global (uso desde
+  // el panel del Preceptor) se conserva el selector local para no perder filtrado.
+  // 5.6 — Con varias divisiones marcadas el filtro de curso pasa a ser una lista
+  // de ids. El `<select>` propio (que se usa en el panel del Preceptor, sin
+  // selector global) sigue siendo de un curso.
+  const cursosGlobales = useMemo(
+    () => (Array.isArray(selectedCursoIds) ? selectedCursoIds.map(String) : [])
+      .filter(Boolean),
+    [selectedCursoIds],
+  );
+  const hayCursoGlobal = cursosGlobales.length > 0 || Boolean(selectedCursoId);
+  const filtroCurso = hayCursoGlobal
+    ? (cursosGlobales.length > 0 ? cursosGlobales : [String(selectedCursoId)])
+    : (filtroCursoLocal ? [filtroCursoLocal] : []);
 
   const cargar = async () => {
     setCargando(true);
@@ -357,14 +376,25 @@ function GestionAdelantosHoras({ readOnly = false }) {
     Number(a.estado) === 0 ? 'eliminado' : a.finalizado ? 'finalizado' : 'activo'
   );
 
+  const materiasEnTabla = useMemo(() => {
+    const mapa = new Map();
+    (adelantos || []).forEach((a) => {
+      if (a.id_materia != null && !mapa.has(String(a.id_materia))) {
+        mapa.set(String(a.id_materia), a.materia_nombre || 'Materia');
+      }
+    });
+    return [...mapa.entries()].map(([id_materia, materia_nombre]) => ({ id_materia, materia_nombre }));
+  }, [adelantos]);
+
   const adelantosFiltrados = useMemo(() => {
     return adelantos.filter((a) => {
-      if (filtroCurso && String(a.id_curso) !== String(filtroCurso)) return false;
+      if (filtroCurso.length > 0 && !filtroCurso.includes(String(a.id_curso))) return false;
+      if (filtroMateria && String(a.id_materia) !== String(filtroMateria)) return false;
       if (filtroDocente && String(a.id_docente) !== String(filtroDocente)) return false;
       if (filtroEstado && estadoDe(a) !== filtroEstado) return false;
       return true;
     });
-  }, [adelantos, filtroCurso, filtroDocente, filtroEstado]);
+  }, [adelantos, filtroCurso, filtroMateria, filtroDocente, filtroEstado]);
 
   const resumen = useMemo(() => {
     return adelantosFiltrados.reduce((acc, a) => {
@@ -492,12 +522,26 @@ function GestionAdelantosHoras({ readOnly = false }) {
       </div>
 
       <div className="filter-row mb-12">
+        {/* 5.5 — El selector de curso solo se muestra cuando NO hay selector global
+            (uso desde el panel del Preceptor). En Administración lo reemplaza el
+            filtro de curso del header. */}
+        {!hayCursoGlobal && (
+          <div className="form-group-filter">
+            <label>Curso / División</label>
+            <select value={filtroCursoLocal} onChange={(e) => setFiltroCursoLocal(e.target.value)}>
+              <option value="">Todos los cursos</option>
+              {cursosEnTabla.map((c) => (
+                <option key={c.id_curso} value={c.id_curso}>{c.curso_nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="form-group-filter">
-          <label>Curso / División</label>
-          <select value={filtroCurso} onChange={(e) => setFiltroCurso(e.target.value)}>
-            <option value="">Todos los cursos</option>
-            {cursosEnTabla.map((c) => (
-              <option key={c.id_curso} value={c.id_curso}>{c.curso_nombre}</option>
+          <label>Materia</label>
+          <select value={filtroMateria} onChange={(e) => setFiltroMateria(e.target.value)}>
+            <option value="">Todas las materias</option>
+            {materiasEnTabla.map((m) => (
+              <option key={m.id_materia} value={m.id_materia}>{m.materia_nombre}</option>
             ))}
           </select>
         </div>
@@ -631,14 +675,14 @@ function GestionAdelantosHoras({ readOnly = false }) {
   );
 }
 
-function AdelantosHoras({ readOnly = false }) {
+function AdelantosHoras({ readOnly = false, ...resto }) {
   return (
     <div className="card">
       <div className="card-header">
         <h2 className="m-0">Adelantos de Horas</h2>
       </div>
       <div className="card-body">
-        <GestionAdelantosHoras readOnly={readOnly} />
+        <GestionAdelantosHoras readOnly={readOnly} {...resto} />
       </div>
     </div>
   );

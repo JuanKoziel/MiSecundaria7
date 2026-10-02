@@ -8,6 +8,7 @@ import { cursoConOrientacion } from '../../utils/orientacion';
 import { viewDesdeDestino } from '../../utils/navDestinos';
 import { riteHTML, exportarRitePDF } from '../../utils/rite';
 import { useRiteAcademico } from '../../hooks/useRiteAcademico';
+import { useAsistenciasAlumno } from '../../hooks/useAsistenciasAlumno';
 import RiteExtras from '../RiteExtras';
 import RiteTablaPrincipal from '../RiteTablaPrincipal';
 import VistaHorarios from '../Administracion/VistaHorarios';
@@ -23,7 +24,6 @@ function EstudianteDashboard({ user, onLogout }) {
   const {
     estudiantes,
     calificacionesCompletas,
-    asistenciasAdmin,
     periodos,
     materiasPorCurso,
     cursoMateria,
@@ -121,25 +121,16 @@ function EstudianteDashboard({ user, onLogout }) {
     return result;
   }, [misCalificaciones, periodos, miEstudiante, materiasPorCurso, cursoMateria]);
 
-  const misAsistencias = useMemo(() => {
-    if (!miEstudiante) return [];
-    return asistenciasAdmin
-      .filter((a) => a.alumnoId === miEstudiante.id)
-      .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-  }, [asistenciasAdmin, miEstudiante]);
-
-  const inasistenciasPorMateria = useMemo(() => {
-    const porMateria = {};
-    asistenciasAdmin
-      .filter((a) => miEstudiante && a.alumnoId === miEstudiante.id && (a.estado === 'Ausente' || a.estado === 'Tarde'))
-      .forEach((a) => {
-        const mat = a.materia || 'General';
-        if (!porMateria[mat]) porMateria[mat] = { ausencias: 0, tardanzas: 0 };
-        if (a.estado === 'Ausente') porMateria[mat].ausencias += 1;
-        else porMateria[mat].tardanzas += 1;
-      });
-    return porMateria;
-  }, [asistenciasAdmin, miEstudiante]);
+  // Las asistencias del alumno no salen de `asistenciasAdmin`: en DataContext
+  // `asistenciasRaw` está pineado a `[]` (la tabla completa no se descarga), así
+  // que antes el resumen de la home y el RITE salían siempre en cero.
+  const {
+    total,
+    ausente: ausencias,
+    tarde: tardanzas,
+    presente: presentes,
+    inasistenciasPorMateria,
+  } = useAsistenciasAlumno(miEstudiante?.id);
 
   const handleDescargarRite = () => {
     if (!miEstudiante) return;
@@ -159,13 +150,10 @@ function EstudianteDashboard({ user, onLogout }) {
     exportarRitePDF(html, `RITE — ${miEstudiante.apellido}, ${miEstudiante.nombre}`);
   };
 
-  const resumenAsistencia = useMemo(() => {
-    const total = misAsistencias.length;
-    const ausencias = misAsistencias.filter((a) => a.estado === 'Ausente').length;
-    const tardanzas = misAsistencias.filter((a) => a.estado === 'Tarde').length;
-    const presentes = misAsistencias.filter((a) => a.estado === 'Presente').length;
-    return { total, ausencias, tardanzas, presentes };
-  }, [misAsistencias]);
+  const resumenAsistencia = useMemo(
+    () => ({ total, ausencias, tardanzas, presentes }),
+    [total, ausencias, tardanzas, presentes],
+  );
 
   const iniciales = useMemo(() => {
     const n = (miEstudiante?.nombre || '').trim().charAt(0) || '';

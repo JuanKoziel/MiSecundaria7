@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { createDiagnosticoGrupal, deleteDiagnosticoGrupal } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
+import { hoy } from '../../utils/fechas';
 import FormModal from './FormModal';
 
 function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEditables }) {
@@ -167,7 +168,9 @@ function DiagnosticosView({ userRole, selectedChild, cursoSeleccionado, cursosEd
       const payload = {
         id_curso: Number(newDiagnostico.id_curso),
         id_docente: miDocente.id,
-        fecha: new Date().toISOString().split('T')[0],
+        // 5.15 — `toISOString()` convierte a UTC: en Argentina (UTC-3) entre las
+        // 21:00 y las 24:00 guardaba el diagnóstico con la fecha de mañana.
+        fecha: hoy(),
         descripcion: newDiagnostico.descripcion,
       };
 

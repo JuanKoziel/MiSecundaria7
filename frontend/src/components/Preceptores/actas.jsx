@@ -20,7 +20,7 @@ import {
 } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import EmptyFiltros from './EmptyFiltros';
-import { estudiantesPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
+import { estudiantesPorAnioYCurso, filtrosCompletos, aListaCursos } from './preceptorUtils';
 import FormModal from '../../components/Shared/FormModal';
 import FilePicker from '../../components/Shared/FilePicker';
 import { useToast } from '../../context/ToastContext';
@@ -201,7 +201,11 @@ function FormActa({ formData, setFormData, editing, guardando, onSubmit, onCance
   );
 }
 
-function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = false, onlyCursos = false }) {
+// 5.5 — Los selectores de Año lectivo / Curso viven en el header global, así que
+// este componente ya no renderiza filtros propios: siempre es controlado por las
+// props del dashboard. Se eliminó el prop `showFiltros`, que quedó muerto tras la
+// remoción de los selectores locales.
+function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, onlyCursos = false }) {
   const {
     actas: actasCurso,
     actasEstudiante,
@@ -262,11 +266,17 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
   const [showDocentes, setShowDocentes] = useState(true);
   const [showCurso, setShowCurso] = useState(true);
 
-  const listaEstudiantes = estudiantesPorAnioYCurso(anioLectivo, curso, inscripciones, estudiantes);
-  const cursoObj = cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === Number(anioLectivo));
+  // 5.6: `curso` puede llegar como array (multiselección del header). `cursoObj`
+  // sigue resolviendo el primero porque las acciones de esta vista (crear acta de
+  // curso, etc.) son de a un curso; las listas de abajo sí usan `cursosSel`.
+  const cursosSel = aListaCursos(curso);
+  const cursoPrimero = cursosSel[0] || '';
+
+  const listaEstudiantes = estudiantesPorAnioYCurso(anioLectivo, cursosSel, inscripciones, estudiantes);
+  const cursoObj = cursosObj.find((c) => c.nombre_curso === cursoPrimero && c.ciclo_anio === Number(anioLectivo));
 
   const docentesDelCurso = docentes.filter((d) =>
-    d.asignaciones?.some((a) => a.curso === curso),
+    d.asignaciones?.some((a) => cursosSel.includes(a.curso)),
   );
 
   const estudianteActas = {};
@@ -288,7 +298,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
   });
 
   const actasDelCurso = actasCurso.filter(
-    (a) => a.curso === curso && !actasEstudiante.some((aa) => aa.actaId === a.actaId),
+    (a) => cursosSel.includes(a.curso) && !actasEstudiante.some((aa) => aa.actaId === a.actaId),
   );
 
   const limpiar = () => {
@@ -315,7 +325,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
 
   const guardarActa = async (payload) => {
     const anio = Number(anioLectivo);
-    const cObj = cursoObj || cursosObj.find((c) => c.nombre_curso === curso && c.ciclo_anio === anio);
+    const cObj = cursoObj || cursosObj.find((c) => c.nombre_curso === cursoPrimero && c.ciclo_anio === anio);
     if (!cObj) {
       throw new Error('No se encontró el curso seleccionado para el año lectivo indicado.');
     }
@@ -499,7 +509,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
           onCancel={limpiar}
           listaEstudiantes={listaEstudiantes}
           docentesDelCurso={docentesDelCurso}
-          curso={curso}
+          curso={cursoPrimero}
           nombreCorto={nombreCorto}
           archivo={archivo}
           setArchivo={setArchivo}
@@ -718,7 +728,7 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, showFiltros = 
           onCancel={cancelEdit}
           listaEstudiantes={listaEstudiantes}
           docentesDelCurso={docentesDelCurso}
-          curso={curso}
+          curso={cursoPrimero}
           nombreCorto={nombreCorto}
           archivo={archivo}
           setArchivo={setArchivo}

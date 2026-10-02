@@ -2,7 +2,6 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import FormModal from '../../components/Shared/FormModal';
-import FilaEstadoCuenta from '../../components/Shared/FilaEstadoCuenta';
 import ModalProgramarEstado from '../../components/Shared/ModalProgramarEstado';
 import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
@@ -27,6 +26,8 @@ import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingScreen from '../Shared/LoadingScreen';
 import AccionesLeyenda from '../Shared/AccionesLeyenda';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
+import { cursosSinPreceptor, etiquetaCursosSinPreceptor } from '../../utils/cursosSinPreceptor';
 
 const formVacio = {
   usuario_nombre: '',
@@ -43,19 +44,22 @@ const formVacio = {
   modo_creacion: 'nuevo', // 'nuevo' | 'existente'
 };
 
-function toInputDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
-
 function formatDateTime(value) {
   if (!value) return '---';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '---';
   return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+}
+
+/**
+ * Estado de la cuenta listo para la validación de 5.9: `true`/`false`, o `null`
+ * cuando la persona todavía no tiene usuario. Importa conservar el `null`, porque
+ * `x !== false` daba `true` para un `usuario_estado` ausente y hacía pasar la
+ * validación como si la cuenta estuviera habilitada.
+ */
+function programaEstadoActual(persona) {
+  const estado = persona?.usuario_estado;
+  return estado === null || estado === undefined ? null : !!estado;
 }
 
 function estadoLabel(estado) {
@@ -544,6 +548,18 @@ function Preceptores({ rol = 'preceptor' }) {
       toast.warning('Ingresá al menos una fecha programada (deshabilitación o habilitación).');
       return;
     }
+    // 5.9 — el modal ya valida el orden contra el estado actual de la cuenta;
+    // acá se repite como red, porque este handler también se puede disparar con
+    // fechas que vienen de otro camino.
+    const errorFecha = errorProgramacion({
+      estadoInicial: programaEstadoActual(programandoPreceptor),
+      deshabilitacion: fechas.fecha_deshabilitacion_programada,
+      habilitacion: fechas.fecha_habilitacion_programada,
+    });
+    if (errorFecha) {
+      toast.warning(errorFecha);
+      return;
+    }
     setGuardandoProgramar(true);
     setError('');
     setSuccess('');
@@ -617,13 +633,17 @@ function Preceptores({ rol = 'preceptor' }) {
           <section className="preceptor-form-section">
             <h4>Estado de la cuenta</h4>
             {/* Punto 6.3 / 6.4: mismo control de estado que Docentes. */}
-            <FilaEstadoCuenta
-              id="preceptor-estado"
-              etiqueta="Habilitado"
-              checked={formData.estado}
-              valorTexto={estadoLabel(formData.estado)}
-              onChange={(checked) => setFormData((prev) => ({ ...prev, estado: checked }))}
-            />
+            <div className="form-group-filter">
+              <label htmlFor="preceptor-estado" className="preceptor-status-toggle">
+                <input
+                  id="preceptor-estado"
+                  type="checkbox"
+                  checked={formData.estado}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, estado: e.target.checked }))}
+                />
+                <span>{estadoLabel(formData.estado)}</span>
+              </label>
+            </div>
 
             <div className="preceptor-form-row preceptor-form-row--two">
               <div className="form-group-filter">
@@ -941,7 +961,7 @@ function Preceptores({ rol = 'preceptor' }) {
         <ModalProgramarEstado
           abierto={mostrarProgramar}
           persona={programandoPreceptor}
-          estadoActual={programandoPreceptor.usuario_estado !== false}
+          estadoActual={programaEstadoActual(programandoPreceptor)}
           fechaDeshabilitacion={programandoPreceptor.usuario_fecha_deshabilitacion_programada}
           fechaHabilitacion={programandoPreceptor.usuario_fecha_habilitacion_programada}
           guardando={guardandoProgramar}
@@ -974,6 +994,8 @@ function AsignacionCursosAdmin({
   fetchAsignacionPreceptores,
 }) {
   const preceptorObj = preceptores.find((p) => String(p.id) === String(selectedPreceptorId));
+  // Punto 5.14: cursos que ningún preceptor tiene asignados.
+  const sinPreceptor = cursosSinPreceptor(cursosObj, preceptores);
 
   return (
     <div className="card">
@@ -983,6 +1005,14 @@ function AsignacionCursosAdmin({
 
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
+
+      {/* Punto 5.14: avisador de cursos sin preceptor */}
+      {sinPreceptor.length > 0 && (
+        <div className="alert alert-warning" role="alert">
+          <i className="fas fa-exclamation-triangle" aria-hidden="true" />{' '}
+          {etiquetaCursosSinPreceptor(sinPreceptor)}
+        </div>
+      )}
 
       {selectedPreceptorId && preceptorObj ? (
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>

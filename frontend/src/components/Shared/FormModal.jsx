@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useRef } from 'react';
+import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 const FOCUSEABLES =
@@ -8,6 +8,29 @@ export default function FormModal({ title, onClose, children, error, onClearErro
   const modalRef = useRef(null);
   const focoPrevioRef = useRef(null);
   const tituloId = useId();
+  // 5.16 — Varios consumidores (suplencias, docentes, adelantos, roles,
+  // programming de estado, etc.) no pasan `onClearError`, así que el botón
+  // "Cerrar" no tenía con qué limpiar el error y la capa no se iba nunca. El
+  // descarte se resuelve acá: se oculta localmente y, si el consumidor sí
+  // limpia el error, también se le avota. Se re-arma cuando llega un error nuevo.
+  const [errorDescartado, setErrorDescartado] = useState(false);
+  const errorVisible = Boolean(error) && !errorDescartado;
+
+  const descartarError = useCallback(() => {
+    setErrorDescartado(true);
+    if (typeof onClearError === 'function') onClearError();
+  }, [onClearError]);
+
+  useEffect(() => {
+    setErrorDescartado(false);
+  }, [error]);
+
+  // Callback ref estable: enfoca el texto una sola vez, al montarse. Con un
+  // arrow ref inline React lo re-ejecutaba en cada render y el mensaje le robaba
+  // el foco al usuario (y al botón Cerrar).
+  const enfocarTexto = useCallback((nodo) => {
+    if (nodo) nodo.focus();
+  }, []);
 
   /* Al abrir: guarda el elemento que tenía el foco, lo lleva al primer campo
      focusable del modal, bloquea el scroll del fondo y registra el teclado a
@@ -35,9 +58,17 @@ export default function FormModal({ title, onClose, children, error, onClearErro
       if (e.key === 'Escape') {
         // Si hay una capa por encima (confirmación o error), esa capa es la que
         // responde al Escape; el formulario no debe cerrarse también.
-        const hayCapaSuperior =
-          document.querySelector('.confirm-modal') || document.querySelector('.form-error-overlay');
-        if (hayCapaSuperior) return;
+        const hayConfirmacion = document.querySelector('.confirm-modal');
+        if (hayConfirmacion) return;
+        if (errorVisible) {
+          // 5.16 — Escape también descarta la capa de error (antes solo
+          // respondía si el botón Cerrar tenía el foco, y no lo tenía).
+          e.preventDefault();
+          e.stopPropagation();
+          descartarError();
+          return;
+        }
+        if (document.querySelector('.form-error-overlay')) return;
         if (cerrarConEscape) {
           e.preventDefault();
           onClose?.();
@@ -59,7 +90,7 @@ export default function FormModal({ title, onClose, children, error, onClearErro
     };
     document.addEventListener('keydown', manejarTeclado);
     return () => document.removeEventListener('keydown', manejarTeclado);
-  }, [cerrarConEscape, onClose]);
+  }, [cerrarConEscape, onClose, errorVisible, descartarError]);
 
   return (
     <Fragment>
@@ -82,21 +113,18 @@ export default function FormModal({ title, onClose, children, error, onClearErro
         </div>,
         document.body,
       )}
-      {error &&
+      {errorVisible &&
         createPortal(
           <div className="form-error-overlay" role="alertdialog" aria-modal="true" aria-labelledby="form-modal-error-text">
             <div className="form-error-overlay-card">
               <i className="fas fa-triangle-exclamation" aria-hidden="true"></i>
-              <span className="form-error-overlay-text" id="form-modal-error-text" tabIndex={-1} ref={(nodo) => nodo?.focus()}>
+              <span className="form-error-overlay-text" id="form-modal-error-text" tabIndex={-1} ref={enfocarTexto}>
                 {error}
               </span>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
-                onClick={onClearError}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') onClearError?.();
-                }}
+                onClick={descartarError}
               >
                 Cerrar
               </button>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Sidebar from './sidebar/sidebar';
 import Header from './header/header';
 import Estudiantes from './estudiantes';
@@ -28,43 +28,120 @@ function AdminDashboard({ user, onLogout }) {
   const {
     navIntent,
     cursosObj,
-    selectedCursoId,
+    selectedCursoIds,
     setSeleccionCursoMateria,
+    setSeleccionCursos,
   } = useData();
   const [view, setView] = useState('perfil');
   const [directivos, setDirectivos] = useState([]);
 
-  // Parte 8: manejar navegación desde notificaciones.
+  // 5.6 — multiselección de cursos. `curso` se sigue manteniendo con el primero
+  // de la lista para las vistas que todavía filtran por un curso solo.
+  const [anioLectivo, setAnioLectivo] = useState('');
+  const [curso, setCurso] = useState('');
+  const [cursos, setCursos] = useState([]);
+
+  // Parte 8 / 5.1: manejar navegación desde notificaciones. Además de cambiar de
+  // vista, deja el curso (y el año lectivo) ya seleccionados en el header global
+  // para que la vista destino abra con el contexto de la notificación.
+  // Se aplica UNA vez por navegación (guarda por timestamp) para que un refresco
+  // de `cursosObj` no vuelva a pisar la elección manual del header.
+  const navAplicadoRef = useRef(null);
+  const [cursoPendienteNav, setCursoPendienteNav] = useState('');
+
   useEffect(() => {
-    if (navIntent && navIntent.destino) {
-      const vista = viewDesdeDestino(navIntent.destino, user.role);
-      if (vista) setView(vista);
+    if (!navIntent || !navIntent.destino) return;
+    if (navAplicadoRef.current === navIntent.timestamp) return;
+    navAplicadoRef.current = navIntent.timestamp;
+
+    const vista = viewDesdeDestino(navIntent.destino, user.role);
+    if (vista) setView(vista);
+
+    const p = navIntent.params || {};
+    const anio = p.anio ?? p.anioLectivo ?? null;
+    if (anio) setAnioLectivo(String(anio));
+
+    // El curso puede venir por id o por nombre; el header trabaja con nombre.
+    const porNombre = p.cursoNombre ?? p.curso_nombre
+      ?? (typeof p.curso === 'string' && /[°º]/.test(p.curso) ? p.curso : null)
+      ?? null;
+    const porId = p.cursoId ?? p.curso_id
+      ?? (typeof p.curso === 'string' && p.curso && !/[°º]/.test(p.curso) ? p.curso : null)
+      ?? null;
+
+    // 5.6 — la notificación trae un curso puntual, así que se deja marcada solo
+    // esa división (y no todas las del año).
+    if (porNombre) {
+      setCursos([String(porNombre)]);
+      setCurso(String(porNombre));
+      setCursoPendienteNav('');
+    } else if (porId) {
+      setCursoPendienteNav(String(porId));
     }
   }, [navIntent, user.role]);
 
-  const [anioLectivo, setAnioLectivo] = useState('');
-  const [curso, setCurso] = useState('');
+  // Si el curso llegó por id y la lista aún no estaba cargada, se resuelve el
+  // nombre en cuanto llegan los cursos para que el header muestre la selección.
+  useEffect(() => {
+    if (!cursoPendienteNav) return;
+    const encontrado = (cursosObj || []).find(
+      (c) => String(c.id_curso) === String(cursoPendienteNav),
+    );
+    if (encontrado) {
+      setCursos([String(encontrado.nombre_curso)]);
+      setCurso(String(encontrado.nombre_curso));
+      setCursoPendienteNav('');
+    }
+  }, [cursoPendienteNav, cursosObj]);
 
   const handleAnioChange = (nuevoAnio) => {
     setAnioLectivo(nuevoAnio);
     setCurso('');
+    setCursos([]);
   };
+
+  const handleCursosChange = useCallback((lista) => {
+    const nombres = (Array.isArray(lista) ? lista : []).filter(Boolean);
+    setCursos(nombres);
+    setCurso(nombres[0] || '');
+  }, []);
 
   // Punto 1.4: el header es la única fuente de selección. Lo que se elige ahí se
   // publica en el contexto global para que las vistas consuman siempre el mismo
   // curso y no vuelvan a mostrar selectores duplicados.
+  // 5.6: publicar el curso (y su lista) es tarea del efecto de abajo, que va
+  // después. Acá solo se limpia la materia cuando el curso de referencia cambia,
+  // porque una materia de otra división mostraría datos ajenos.
+  const cursoPrevioRef = useRef(curso);
   useEffect(() => {
+    if (cursoPrevioRef.current === curso) return;
+    cursoPrevioRef.current = curso;
     const seleccionado = (cursosObj || []).find((c) => c.nombre_curso === curso);
-    const idActual = seleccionado?.id_curso ? String(seleccionado.id_curso) : '';
-    if (idActual === String(selectedCursoId || '')) return;
-    setSeleccionCursoMateria(idActual, '', '');
-  }, [curso, cursosObj, selectedCursoId, setSeleccionCursoMateria]);
+    setSeleccionCursoMateria(
+      seleccionado?.id_curso ? String(seleccionado.id_curso) : '',
+      '',
+      '',
+    );
+  }, [curso, cursosObj, setSeleccionCursoMateria]);
+
+  // 5.6 — se publica la lista completa de cursos elegidos, no solo el primero.
+  useEffect(() => {
+    const nombres = cursos.length > 0 ? cursos : (curso ? [curso] : []);
+    const ids = nombres
+      .map((n) => (cursosObj || []).find((c) => c.nombre_curso === n)?.id_curso)
+      .filter((x) => x !== undefined && x !== null);
+    const firma = ids.join(',');
+    if (firma === selectedCursoIds.join(',')) return;
+    setSeleccionCursos(nombres, ids);
+  }, [cursos, curso, cursosObj, selectedCursoIds, setSeleccionCursos]);
 
   const filtrosProps = {
     anioLectivo,
     curso,
+    cursos,
     onAnioChange: handleAnioChange,
     onCursoChange: setCurso,
+    onCursosChange: handleCursosChange,
   };
 
   useEffect(() => {
@@ -111,7 +188,7 @@ function AdminDashboard({ user, onLogout }) {
       case 'tutores':
         return <TutoresFamilias {...filtrosProps} />;
       case 'actas':
-        return <Actas {...filtrosProps} showFiltros />;
+        return <Actas {...filtrosProps} />;
       case 'info':
         return <DiagnosticosView userRole={user.role === 'director' ? 'director' : 'admin'} {...filtrosProps} />;
       case 'administradores':
@@ -128,14 +205,16 @@ function AdminDashboard({ user, onLogout }) {
       <Sidebar view={view} setView={setView} onLogout={onLogout} />
 
       <main className="main-content">
-        <Header
-            user={user}
-            nombreCompleto={nombreCompletoAdmin}
-            anioLectivo={anioLectivo}
-            curso={curso}
-            onAnioChange={handleAnioChange}
-            onCursoChange={setCurso}
-          />
+            <Header
+              user={user}
+              nombreCompleto={nombreCompletoAdmin}
+              anioLectivo={anioLectivo}
+              curso={curso}
+              cursos={cursos}
+              onAnioChange={handleAnioChange}
+              onCursoChange={setCurso}
+              onCursosChange={handleCursosChange}
+            />
         <div className="view-section active">{renderView()}</div>
       </main>
     </div>

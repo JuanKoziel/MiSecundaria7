@@ -16,16 +16,24 @@ function normalizeCursoPermitido(c) {
   return '';
 }
 
+// 5.6 — Normaliza la selección de cursos a un array de nombres. Acepta un
+// string (comportamiento anterior, un curso solo) o el array del header global.
+export function aListaCursos(curso) {
+  if (Array.isArray(curso)) return curso.filter(Boolean);
+  return curso ? [curso] : [];
+}
+
 export function estudiantesPorAnioYCurso(anioLectivo, curso, inscripciones, estudiantes, cursosPermitidos = []) {
-  if (!anioLectivo || !curso) return [];
+  const seleccionados = aListaCursos(curso);
+  if (!anioLectivo || seleccionados.length === 0) return [];
   const nombresPermitidos = cursosPermitidos.map(normalizeCursoPermitido).filter(Boolean);
-  if (nombresPermitidos.length > 0 && !nombresPermitidos.includes(curso)) return [];
+  if (nombresPermitidos.length > 0 && !seleccionados.some((c) => nombresPermitidos.includes(c))) return [];
   const anio = Number(anioLectivo);
   const idsInscripcion = inscripciones
-    .filter((i) => i.anioLectivo === anio && i.curso === curso)
+    .filter((i) => i.anioLectivo === anio && seleccionados.includes(i.curso))
     .map((i) => i.alumnoId);
   return estudiantes.filter(
-    (a) => idsInscripcion.includes(a.id) || (a.curso === curso && Number(a.ciclo_anio) === anio),
+    (a) => idsInscripcion.includes(a.id) || (seleccionados.includes(a.curso) && Number(a.ciclo_anio) === anio),
   );
 }
 
@@ -50,11 +58,14 @@ export function cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj, cur
 }
 
 export function docentesPorFiltros(anioLectivo, curso, materia, docentes, asignacionesDocente) {
+  // 5.6 — `curso` puede ser un array (multiselección del header): el docente
+  // tiene que tener alguna asignación en CUALQUIER curso marcado.
+  const seleccionados = aListaCursos(curso);
   return docentes.filter((d) =>
     asignacionesDocente.some((a) => {
       if (a.docenteId !== d.id) return false;
       if (anioLectivo && a.anioLectivo !== Number(anioLectivo)) return false;
-      if (curso && a.curso !== curso) return false;
+      if (seleccionados.length > 0 && !seleccionados.includes(a.curso)) return false;
       if (materia && a.materia !== materia) return false;
       return true;
     }),
@@ -70,8 +81,11 @@ export function nombreDocente(docente) {
 }
 
 export function filtrosCompletos(anioLectivo, curso) {
-  // El curso debe incluir año y división (ej: "2°1"), no solo el año ("2°").
-  return Boolean(anioLectivo && curso && /\d+\s*[°º]\s*\d+/.test(String(curso)));
+  // 5.6 — Con multiselección alcanza con que haya al menos un curso marcado, y
+  // cada uno debe traer año y división (ej: "2°1"), no solo el año ("2°").
+  const seleccionados = aListaCursos(curso);
+  if (!anioLectivo || seleccionados.length === 0) return false;
+  return seleccionados.some((c) => /\d+\s*[°º]\s*\d+/.test(String(c)));
 }
 
 export function ritePorEstudiante(alumnoId, curso, hijosFamilia, calificacionesFamilia) {

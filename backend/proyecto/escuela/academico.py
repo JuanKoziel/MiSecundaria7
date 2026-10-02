@@ -98,7 +98,11 @@ def _notificar_consolidacion(alumno, cm, estado_materia):
     notificar_alumno(alumno=alumno, titulo=titulo, mensaje=mensaje, nav={
         'destino': 'boletin',
         'params': {
+            # 5.1: curso y curso-materia para que la vista destino abra con el
+            # contexto completo de la notificación.
+            'cursoId': alumno.id_curso_id if alumno else None,
             'materiaId': materia.id_materia if materia else None,
+            'cursoMateriaId': cm.id_curso_materia if cm else None,
             'estado': estado_materia,
         }
     })

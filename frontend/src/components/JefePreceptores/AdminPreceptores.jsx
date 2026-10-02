@@ -21,6 +21,9 @@ import { useToast } from '../../context/ToastContext';
 import LoadingScreen from '../Shared/LoadingScreen';
 import AccionesLeyenda from '../Shared/AccionesLeyenda';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import AsignacionCursos from './AsignacionCursos';
+import NumericInput from '../Shared/NumericInput';
+import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
 
 const formVacio = {
   usuario_nombre: '',
@@ -36,14 +39,6 @@ const formVacio = {
   id_usuario_existente: '',
   modo_creacion: 'nuevo',
 };
-
-function toInputDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
 
 function formatDateTime(value) {
   if (!value) return '---';
@@ -102,6 +97,9 @@ function AdminPreceptores() {
   const [preceptores, setPreceptores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  // Punto 5.13: el Jefe de Preceptores tiene el mismo tab "Asignación de Cursos"
+  // que tiene el Admin en este módulo.
+  const [activeTab, setActiveTab] = useState('admin');
   const [showModal, setShowModal] = useState(false);
   const [editingPreceptor, setEditingPreceptor] = useState(null);
   const [formData, setFormData] = useState(formVacio);
@@ -267,6 +265,21 @@ function AdminPreceptores() {
     setGuardando(true);
 
     try {
+      // 5.9 — con las dos fechas cargadas, la primera de la línea de tiempo tiene
+      // que ser la opuesta al estado que se está guardando. Abajo, en el caso
+      // de perfil incompleto, las fechas se borran del payload: no hay cuenta que
+      // programar todavía.
+      const errorFechas = errorProgramacion({
+        estadoInicial: formData.estado !== false,
+        deshabilitacion: formData.fecha_deshabilitacion_programada,
+        habilitacion: formData.fecha_habilitacion_programada,
+      });
+      if (errorFechas && (formData.fecha_deshabilitacion_programada || formData.fecha_habilitacion_programada)) {
+        toast.warning(errorFechas);
+        setGuardando(false);
+        return;
+      }
+
       const payload = {
         ...formData,
         cursos_ids: normalizarCursosIds(formData.cursos_ids),
@@ -517,15 +530,12 @@ function AdminPreceptores() {
                 />
               </div>
 
-              <div className="form-group-filter">
-                <label htmlFor="preceptor-telefono">Telefono</label>
-                <input
-                  id="preceptor-telefono"
-                  type="text"
-                  value={formData.telefono}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, telefono: e.target.value }))}
-                />
-              </div>
+              <NumericInput
+                id="preceptor-telefono"
+                label="Telefono"
+                value={formData.telefono}
+                onChange={(valor) => setFormData((prev) => ({ ...prev, telefono: valor }))}
+              />
             </div>
           </section>
 
@@ -611,12 +621,30 @@ function AdminPreceptores() {
         </div>
       </div>
 
-      <div className="empty-state-message flex-gap-16--wrap mb-12">
-        <span><i className="fas fa-edit" aria-hidden="true" /> Editar</span>
-        <span><i className="fas fa-toggle-on" aria-hidden="true" /> Habilitar / Deshabilitar</span>
-        <span><i className="fas fa-trash" aria-hidden="true" /> Eliminar</span>
+      {/* Punto 5.13: mismo par de tabs que tiene el Admin en este módulo */}
+      <div className="asist-tipo-selector mb-16">
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('admin')}
+        >
+          <i className="fas fa-user-tie" aria-hidden="true" /> Administrar Preceptores
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'asignacion-cursos' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('asignacion-cursos')}
+        >
+          <i className="fas fa-calendar-day" aria-hidden="true" /> Asignación de Cursos
+        </button>
       </div>
 
+      {activeTab === 'asignacion-cursos' ? (
+        <AsignacionCursos />
+      ) : (
+        <>
+      {/* Punto 5.13: se eliminó la leyenda de solo texto que quedaba arriba de la
+          tabla, duplicada con <AccionesLeyenda /> (que sí tiene colores). */}
       {success && <div className="alert alert-success">{success}</div>}
 
       <div className="mb-12">
@@ -715,6 +743,8 @@ function AdminPreceptores() {
           </tbody>
         </table>
       </div>
+        </>
+      )}
 
       {showModal && renderFormulario()}
 

@@ -4,6 +4,7 @@ import { getPreceptores, updateCurso } from '../../services/api';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import { cursosSinPreceptor, etiquetaCursosSinPreceptor } from '../../utils/cursosSinPreceptor';
 
 function normalize(str) {
   if (!str) return '';
@@ -100,6 +101,12 @@ function AsignacionCursos() {
     );
   };
 
+  // Punto 5.14: cursos que ningún preceptor tiene asignados.
+  const sinPreceptor = useMemo(
+    () => cursosSinPreceptor(cursosObj, preceptores),
+    [cursosObj, preceptores],
+  );
+
   const handleAsignar = async (cursoId) => {
     setError('');
     setSuccess('');
@@ -149,6 +156,14 @@ function AsignacionCursos() {
 
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
+
+      {/* Punto 5.14: avisador de cursos sin preceptor */}
+      {sinPreceptor.length > 0 && (
+        <div className="alert alert-warning" role="alert">
+          <i className="fas fa-exclamation-triangle" aria-hidden="true" />{' '}
+          {etiquetaCursosSinPreceptor(sinPreceptor)}
+        </div>
+      )}
 
       {selectedPreceptorId && preceptorObj ? (
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>

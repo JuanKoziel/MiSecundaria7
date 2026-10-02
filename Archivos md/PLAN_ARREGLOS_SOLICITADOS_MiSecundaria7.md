@@ -1239,3 +1239,968 @@ Requerido:
 ---
 
 **Leyenda de estados:** PENDIENTE — EN CURSO — HECHO — PARCIAL — BLOQUEADO
+
+---
+
+## R-16. Horarios (5.5 selector global + 5.12 botón Guardar) — Validado por el usuario
+
+Corrige 5.5 (Horarios debe consumir el selector global) y 5.12 (botón Guardar en la
+barra superior, alineado a la derecha). El usuario confirmó que ambos puntos quedaron
+bien. Resuelve también el error en consola `executeSave is not defined`.
+
+### Causa raíz del selector global
+- `AdminDashboard` renderiza `<Horarios {...filtrosProps} />` y `filtrosProps` trae
+  `curso` (el **nombre** del curso). Pero `Horarios` solo leía la prop `cursoGlobal`,
+  que es la que pasa `PreceptorDashboard`. En Administración la prop nunca llegaba:
+  `esControlado` quedaba en `false` y cada vista secundaria caía a su estado local
+  `cursoIdLocal`, que arrancaba vacío → no se mostraba ningún horario.
+- El botón interno de `HorarioSemanal` quedó con `onClick={executeSave}` tras un
+  reemplazo masivo. `executeSave` vive en el componente padre, así que al hacer clic
+  se lanzaba `ReferenceError: executeSave is not defined` dentro de `HorarioSemanal2`.
+
+### Cambios en `Administracion/horarios.jsx`
+- `Horarios` resuelve el curso en este orden:
+  1. `selectedCursoId` de `DataContext` (selector global de Administración), que es la
+     misma fuente que ya consumen Asistencias y Notas.
+  2. `curso` / `cursoGlobal` por nombre, que es lo que sigue pasando Preceptores.
+- Se eliminaron los estados locales `cursoIdLocal` de `HorarioSemanal` y
+  `EducacionFisica`: ambos usan siempre el curso externo, ya sin selector propio.
+- `VistaHorarios` siempre recibe `cursoForzado`, así que tampoco muestra su selector
+  interno; y solo se renderiza si hay curso seleccionado.
+- Sin curso seleccionado se muestra "Selecciona un curso en el filtro superior para
+  ver sus horarios" y el botón Guardar queda deshabilitado.
+- El botón local "Guardar" de la grilla semanal volvió a llamar a su propio
+  `handleGuardar`; el guardado lo dispara la barra superior a través de
+  `onRegisterSave` → `saveFnRef` → `executeSave`.
+- `saveFnRef` se descarta al cambiar de pestaña, para que Guardar nunca dispare el
+  handler de otra vista. Queda habilitado solo en "Horario semanal" (en Educación
+  Física el guardado es el del propio formulario; en "Ver horarios" es lectura).
+
+### Cambios en `index.css` (`.horarios-toolbar`)
+- Nueva barra en flex: los tres botones de vista a la izquierda y `Guardar` con
+  `margin-left: auto`, más `margin-right: 8px` como sangría del margen derecho.
+- El botón Guardar usa el mismo `btn btn-sm` que los de vista **sin** overrides de
+  `padding` / `height` / `font-size`, para que tenga exactamente la misma altura.
+- En ≤768 px la sangría y el `auto` se desactivan para que no se corte el botón.
+
+**Estado:** HECHO (validado en navegador por el usuario el 29/09/2026).
+**Build:** `npm run build` ✓.
+
+---
+
+## R-17. Parte 5 — 5.1 Notificaciones: auto-selección del contexto al navegar
+
+Al hacer clic en una notificación, la vista destino debe abrir con el curso, la
+materia y el año lectivo que trae la notificación ya seleccionados, en vez de
+arrancar vacíos.
+
+### Causa raíz
+- `navegarDesdeNotificacion` solo guardaba `navIntent = { destino, params }`. Nadie
+  consumía `params`: cada dashboard solo cambiaba de sección y el selector de curso
+  quedaba como estaba.
+- `AdminDashboard`, `JefePreceptorDashboard` y `PreceptorDashboard` solo leían
+  `params.curso`, pero el backend nunca envió un curso en los `nav_params` de sus
+  emisores, y tampoco `params.materia` / `params.cursoMateriaId`.
+- El backend emite la materia como **pk** (`materiaId`, `cursoMateriaId`), mientras
+  que `selectedMateria` —el valor del `<select>` global— es el **nombre** de la
+  materia. Sin traducción, un id nunca iba a matchear una opción del selector.
+- Riesgo de regresión detectado durante la implementación: en `AdminDashboard` el
+  efecto que publica la selección del header hacia `selectedCursoId` podía borrar
+  el curso que la notificación acababa de aplicar (condición de carrera), porque
+  `curso` local seguía vacío.
+
+### Frontend — `context/DataContext.jsx`
+- `nombreMateriaDesdeIds(materiaId, cursoMateriaId)`: traduce los pk a
+  `materia_nombre` usando la lista de curso-materias ya cargada. Busca primero por
+  `id_curso_materia` y después por `id_materia`.
+- `navMateriaPendiente` + efecto de reintento: si la lista todavía no llegó, el id
+  queda pendiente y el nombre se resuelve en cuanto llegan los datos, de modo que
+  la materia nunca se pierde por una carrera de carga.
+- `aplicarSeleccionDesdeParams(params)`: aplica `cursoId` / `curso`, `materiaId` y
+  `cursoMateriaId` a `selectedCursoId`, `selectedMateria` y `selectedCursoMateriaId`.
+  Acepta ambas grafías (`cursoId`/`curso_id`, `materiaId`/`materia_id`,
+  `cursoMateriaId`/`curso_materia_id`).
+- `navegarDesdeNotificacion` ahora llama a `aplicarSeleccionDesdeParams` **antes**
+  de propagar el `navIntent`, para que la vista destino ya monte con la selección
+  hecha. Esto cubre en particular al panel del docente, que consume
+  `selectedCursoId` / `selectedMateria` directamente.
+
+### Frontend — headers con selector propio
+`AdminDashboard`, `JefePreceptorDashboard` y `PreceptorDashboard`:
+- El curso puede llegar por **nombre** o por **id**. Se detecta por el carácter
+  `°`/`º` en el string; si llega por id se resuelve el nombre contra `cursosObj`.
+- Si la lista de cursos aún no está cargada, el id queda en `cursoPendienteNav` y se
+  resuelve cuando llegan los datos.
+- Guarda por **timestamp** del `navIntent` (`navAplicadoRef`): la navegación se
+  aplica **una sola vez**, así un refresco de `cursosObj` no vuelve a pisar la
+  elección manual del header. Sin esta guarda, el efecto se re-ejecutaba en cada
+  refresco de datos y revolvía la selección del usuario.
+- `PreceptorDashboard` antes solo leía `params.curso`; ahora acepta id y nombre.
+
+### Backend — emisores con contexto completo
+- `views.py` `_notificar_asistencia`: agrega `cursoId` (del alumno), `cursoMateriaId`
+  y `materiaId`.
+- `views.py` `_notificar_calificacion`: agrega `cursoId` del alumno.
+- `views.py` `_notificar_recursada`: agrega `cursoId` y `materiaId` en ambos casos
+  (cargada y resultado).
+- `academico.py` `_notificar_consolidacion`: agrega `cursoId` y `cursoMateriaId`.
+
+Solo se agregan claves al diccionario `nav_params` que ya viaja dentro del mensaje
+de la notificación. No requiere migración ni cambio en la base de datos.
+
+**Estado:** HECHO (código). Falta validación en navegador.
+**Verificación:** `npm run build` ✓ · `python -m py_compile` ✓.
+
+---
+
+## R-18. Parte 5 — 5.5 Selectores duplicados: consumir el selector global
+
+Las vistas de Administración no deben renderizar sus propios selectores de
+Año lectivo / Curso / División: deben leer la selección del header.
+
+### Admin → Estudiantes — la vista estaba rota, no solo duplicada
+- `Administracion/estudiantes.jsx` renderizaba `<EstudiantesPreceptor />` **sin
+  props**, aunque `AdminDashboard` le pasa `filtrosProps`.
+- `Preceptores/estudiantes.jsx` decide ser controlado con
+  `anioGlobal !== undefined && typeof onAnioChange === 'function' && typeof
+  onCursoChange === 'function'`. Sin props quedaba en modo no controlado, con
+  `anioLectivoLocal` y `cursoLocal` vacíos, así que `filtrosCompletos(...)` nunca
+  se cumplía y la tabla se quedaba **permanentemente** en `EmptyFiltros`: nunca
+  mostraba estudiantes, ni siquiera con el curso elegido en el header.
+- **Cambio:** el wrapper de Admin reenvía las props (`function Estudiantes(props) {
+  return <EstudiantesPreceptor {...props} />; }`). Con eso queda controlado por el
+  header y consume exactamente la misma selección que el resto de las vistas.
+
+### Admin → Actas
+- Los selectores locales ya se habían quitado, pero quedaba el prop `showFiltros`
+  declarado en la firma y sin uso en el cuerpo, que `AdminDashboard` seguía
+  pasando. Se eliminaron el prop y el argumento.
+
+### Admin → Comunicados
+- "Comunicados enviados" tenía su propio `filter-row` con tres selectores
+  (Año lectivo / Año / División) guardados en un estado `filtro` local.
+- **Cambio:** `filtro` pasó a ser un `useMemo` derivado de la selección global
+  (`anioLectivo` + `curso` del header). El selector global entrega el nombre del
+  curso ("2°1") y los alcances del comunicado guardan `curso` (año) y `division`
+  por separado, así que se traducen con `parseCurso`; el año lectivo se traduce a
+  `id_ciclo` buscando en `ciclosLectivos`.
+- Se eliminó el `filter-row` completo. Sin selección global el filtro queda vacío
+  y se listan todos los comunicados.
+- La lógica de `matchAlcance` ya toleraba alcances sin `curso`/`division`, así que
+  un comunicado de alcance "año completo" sigue apareciendo al elegir una división
+  concreta de ese año. Se aprovecho ese comportamiento en lugar de duplicar reglas.
+- Imports `getAniosCurso` y `getDivisiones` quedaron sin uso y se quitaron
+  (`findCursoObj` y `cursoConOrientacion` se siguen usando en otros lugares).
+
+### Admin/Preceptores → Adelanto de horas
+- **Filtro por Materia (nuevo, pedido en 5.5):** se agregó `filtroMateria`, con
+  opciones armadas a partir de las materias presentes en los adelantos cargados
+  (`id_materia` / `materia_nombre` de `AdelantoHorasSerializer`), no del catálogo
+  completo. Participa de `adelantosFiltrados` y de las dependencias del `useMemo`.
+- **Selector de curso:** cuando existe selección global (`selectedCursoId`), el
+  filtro de curso la consume y el selector local de "Curso / División" no se
+  renderiza. Cuando no hay selector global (uso desde el panel del Preceptor, que
+  no publica la selección al contexto) el selector local se conserva, para no
+  perder esa capacidad de filtrado.
+- `AdelantosHoras` ahora reenvía las props que recibe a `GestionAdelantosHoras`
+  (mismo patrón que el wrapper de Estudiantes).
+
+**Estado:** HECHO (código). Falta validación en navegador.
+**Verificación:** `npm run build` ✓.
+
+---
+
+## R-19. Parte 5 — 5.16 Actas Estudiante: botón Cerrar que no cerraba
+
+La creación del acta ya estaba corregida (endpoints `/acta-alumno/`, validado por el
+usuario). Lo que quedaba era el botón **Cerrar** de la capa de error.
+
+### Causa raíz (dos bugs, ninguno en el CSS)
+1. **`onClearError` no lo pasaban 12 de los 24 consumidores de `FormModal`.** El
+   botón Cerrar hacía literalmente `onClick={onClearError}`; si el prop no llegaba,
+   la llamada era `undefined` y la capa no se iba nunca. Affected:
+   `Administracion/suplencias`, `Preceptores/docentes`,
+   `Profesores/PanelMateriasAdeudadasDocente`, `Shared/AdelantosHoras`,
+   `Shared/AgregarRolModal`, `Shared/QuitarRolModal`, `Shared/DiagnosticosView`,
+   `Shared/ModalProgramarEstado`, entre otros.
+2. **Escape estaba atado al botón, que no tenía el foco.** El `onKeyDown` con la
+   comprobación de Escape estaba en el `<button>`, mientras que el foco real estaba
+   en el `<span>` del mensaje (`ref={(nodo) => nodo?.focus()}`). Con el foco en el
+   texto, Escape no llegaba al botón. Además el handler de documento de `FormModal`
+   descartaba el Escape en cuanto veía un `.form-error-overlay` en el DOM, así que
+   tampoco funcionaba desde ahí.
+
+### Cambios en `Shared/FormModal.jsx`
+- Estado local `errorDescartado` + `descartarError()`: el descarte se resuelve
+  dentro del componente (oculta la capa) y, si el consumidor sí pasa
+  `onClearError`, también se le avota. Se re-arma con `useEffect` cuando llega un
+  error distinto, así que un error nuevo vuelve a mostrarse.
+- Escape a nivel de documento cierra la capa de error, **sin** cerrar el formulario
+  subyacente. Se reordena la precedencia: primero `.confirm-modal`, después la capa
+  de   error; antes cualquier overlay hacía de escudo y el Escape quedaba ignorado.
+- El `ref` del mensaje pasa a ser un callback ref estable (`enfocarTexto`). Con el
+  arrow ref inline, React lo re-ejecutaba en cada render y el mensaje le robaba el
+  foco de forma continua.
+
+### Cambios en `context/ErrorOverlayContext.jsx`
+- Mismo problema de Escape en la capa global: el `onKeyDown` estaba solo en el
+  botón. Se agrega un listener a nivel de documento, activo mientras haya error.
+
+**Estado:** HECHO (código). Falta validación en navegador.
+**Verificación:** `npm run build` ✓.
+
+---
+
+## R-20. Parte 5 — 5.18 Asistencias no se reflejan en Alumno y Familia
+
+Reportado: "en el portal de **Alumno** y en **Familia > Resumen**, las asistencias
+tomadas no se muestran correctamente". Eran **cuatro** fallas encimadas; con la
+primera sola bastaba para que la pantalla saliera vacía.
+
+### 1. La URL del endpoint no existía (404)
+El action del viewset se llama `alumno-detalle`
+(`@action(detail=False, url_path='alumno-detalle')`), pero el cliente pedía
+`/asistencias/estudiante-detalle/`. Toda request devolvía 404 y el `catch` del
+componente se quedaba con listas vacías sin avisar.
+**Fix:** `services/api.js` → `/asistencias/alumno-detalle/`.
+
+### 2. El permiso del viewset rechazaba a los propios destinatarios (403)
+`AsistenciaViewSet.permission_classes = [IsAuthenticated, PuedeRegistrarAsistencias]`,
+y ese segundo permiso es de **escritura** para admin/director/preceptor/docente.
+El action heredaba esa lista, así que aunque la URL hubiera estado bien, Alumno y
+Familia recibían 403.
+**Fix:** `permission_classes=[IsAuthenticated]` en el action. El control de acceso
+no se relaja: sigue exigiendo rol `alumno` o `familia` **dentro** del método, y
+para familia que el alumno esté entre `alumno_ids_de_tutor(tutor)`.
+
+### 3. El contexto global nunca tuvo asistencias
+Este es el que rompía las tarjetas de Resumen, y es la causa directa de "Familia >
+Resumen". En `DataContext` la tabla de asistencias **no se descarga**, a propósito
+(es la más pesada, sin paginar), y el lugar se rellena con un `Promise.resolve([])`
+para no alterar el `Promise.all` posicional. Por lo tanto `asistenciasAdmin` y
+`asistenciasFamilia` eran **siempre `[]`**, y todo lo que leía de ahí daba 0:
+
+| Consumidor | Qué mostraba |
+|---|---|
+| `Familia/Resumen.jsx` | presentes / ausentes / tardanzas / % de asistencia en 0 |
+| `EstudianteDashboard.jsx` | contadores de la home, siempre 0 |
+| `EstudianteDashboard.jsx` | `inasistenciasPorMateria` del RITE PDF, siempre vacío |
+| `Estudiante/PanelEstudiante.jsx` | tarjeta "Inasistencias", siempre 0 |
+| `Familia/Calificaciones.jsx` | inasistencias por materia del RITE, siempre vacío |
+
+**Fix:** nuevo hook `hooks/useAsistenciasAlumno.js` (siguiendo el patrón de
+`useRiteAcademico.js`) que pide el endpoint **acotado por alumno** y agrega
+presentes/ausentes/tardanzas/inasistencias por materia. Los cinco consumidores
+pasan a usar el hook. No se descarga la tabla completa: se mantiene la decisión de
+rendimiento original y se corrige la fuente de datos.
+
+### 4. Filtro por curso con comparación estricta
+`AsistenciasUnificada` armaba la lista de materias con
+`(cursoMateria || []).filter((cm) => cm.id_curso === idCurso)`. Si los tipos no
+coincidían (`"3"` vs `3`, habitual entre query params y enteros de Django) el
+filtro no dejaba pasar nada y la tabla caía a "No hay asistencias registradas".
+**Fix:** comparación por `String(...)`. Además el resumen por materia ahora es la
+**unión** de las materias del curso y de las que aparecen en los registros, así la
+tabla nunca queda vacía teniendo asistencias reales, y la tabla y el selector de
+"Detalle por materia" usan la misma lista (antes una fila podía no tener opción
+en el `<select>`).
+
+### 5. Fecha de "Hoy" calculada en UTC
+`new Date().toISOString().split('T')[0]` devuelve la fecha en UTC. En Argentina
+(UTC-3) después de las 21:00 ya es el día siguiente, así que el estado combinado de
+"Hoy" se calculaba sobre un día que todavía no había empezado.
+**Fix:** se usa el helper `hoy()` de `utils/fechas.js`, que arma la fecha con la
+hora local. Es el mismo criterio que se aplica en 5.9/5.15.
+
+### Aditivo en el backend
+`alumno_detalle` ahora devuelve `id_curso_materia` en cada fila, para que el
+cliente pueda pedir el detalle de una materia sin depender del listado de
+`cursoMateria`.
+
+### Verificación
+`npm run build` ✓ · `python -m py_compile` ✓ · `AsistenciaMateriaDetalle.jsx` no
+tiene consumidores (componente muerto) y `alumno-detalle` solo lo usan los dos
+portals, así que el relaxation del permiso no afecta ningún flujo de
+preceptor/docente/admin.
+
+**Estado:** HECHO (código). Falta validación en navegador.
+
+---
+
+## R-21. Parte 5 — 5.6 Selección múltiple de cursos con checkboxes
+
+Reportado: poder **elegir varios cursos a la vez** en vez de uno solo. Decisiones
+tomadas con el usuario antes de tocar código:
+
+- **UI:** el selector de **División** pasa a ser un grupo de checkboxes (una casilla
+  por división). **Año lectivo** y **Año** académico siguen siendo `<select>`, sin
+  cambios.
+- **Alcance:** solo las tablas que **ya filtraban en cliente**. No se adaptaron
+  endpoints ni se cambió ningún query del backend en esta tanda.
+
+### Modelo de selección
+`DataContext` gana `selectedCursos` (nombres, ej. `['3°1ª','3°2ª']`) y
+`selectedCursoIds` (ids), más `setSeleccionCursos` y `clearSeleccionCursos`.
+`selectedCursoId` **se conserva** como shim del primer curso, para que las vistas
+que todavía filtran por un curso solo sigan funcionando sin tocarlas. Los headers de
+Administración y de Jefatura notifican las dos formas: el array por `onCursosChange` y
+el primero por `onCursoChange`.
+
+Correcciones necesarias para que el modelo quedara consistente:
+
+- El `Provider` y el retorno de `useData()` **no exponían** los arrays nuevos (solo
+  estaban en el objeto por defecto de carga). `Administracion/asistencias.jsx` leía
+  `selectedCursos` y habría recibido `undefined`.
+- `setSeleccionCursoMateria` y `aplicarSeleccionDesdeParams` fijaban el curso pero
+  **no** los arrays, así que las vistas migradas se quedaban sin filtro. Ahora
+  resuelven el nombre del curso (`nombreCursoDesdeId`) y dejan la selección como
+  lista de un único elemento. Esto es lo que hace que **navegar desde una
+  notificación deje marcada solo esa división** y no todas las del año.
+- El panel del Jefe de Preceptores no publicaba nada en el contexto. Ahora publica la
+  lista completa, igual que Administración; si no, Asistencias y Adelantos de Horas
+  abrían sin filtro en ese panel.
+- En ambos headers `divisionesDisponibles` usaba `anioActual` **antes** de
+  declararse: al renderizar, `ReferenceError: Cannot access 'anioActual' before
+  initialization`. El build no lo detecta porque no es un error de sintaxis.
+- El botón "Limpiar" y el badge de orientación del Jefe usaban `divActual` /
+  `cursoCompleto` derivados del `curso` único; ahora salen del primer curso de la
+  selección.
+- `filtrosCompletos` daba por válida una selección sin divisiones (bastaba con que
+  el añoLECTivo estuviera cargado). Ahora exige que algún curso marcado traiga año Y
+  división (`"2°1"`).
+
+### Año académico sin divisiones marcadas
+`anioActual` se derivaba del curso marcado, así que **desmarcar todas las divisiones
+borraba el Año** y no había forma de volver a elegir una sin tocar Año lectivo. Se
+pasa a estado local (`anioSeleccionado`), que se reinicia al cambiar de Año lectivo
+—las divisiones de otro ciclo no son las mismas— y del que se vuelve a caer al año
+del curso cuando hay selección.
+
+### Vistas migradas a array
+Solo las que ya filtraban en cliente. `preceptorUtils.js` centraliza la normalización
+con `aListaCursos()` y los helpers aceptan string o array.
+
+| Vista | Cambio |
+|---|---|
+| `Preceptores/estudiantes.jsx` | recibe `cursos` (tiene prioridad sobre `curso`) y filtra por la lista |
+| `Preceptores/actas.jsx` | estudiantes, docentes y actas de curso de todas las divisiones; las acciones de creación siguen con el primero |
+| `Administracion/asistencias.jsx` | filtro de estudiantes y de curso-materia por lista; etiqueta el curso en el `<select>` cuando hay más de una división |
+| `Administracion/comunicados.jsx` | el filtro de alcances pasa de un par (año, división) a conjuntos: un alcance tiene que caer en **cualquier** curso marcado |
+| `Shared/AdelantosHoras.jsx` | filtro de curso por lista de ids; el `<select>` propio del panel del Preceptor sigue siendo de un curso |
+| `Preceptores/preceptorUtils.js` | `docentesPorFiltros` acepta array (el Preceptor sigue pasando un string) |
+
+**Fuera de alcance, a propósito:** los tabs que llaman al backend
+(`getRegistroDiario`, `getAsistenciasDocentesHoy`, `getHistorialAsistenciasDocentes`,
+`getAsistenciasPreceptorMateria`) siguen recibiendo el **primer** curso, porque sus
+endpoints son de un curso. También quedan sin tocar Notas, Horarios, Diagnósticos
+(para admin no filtra por curso hoy), Suplencias, Tutores/Familias e Historial: no
+tienen filtro de curso en cliente.
+
+### Verificación
+`npm run build` ✓ (el build no detecta los dos errores de runtime de arriba; se
+arreglaron por lectura del código).
+
+**Estado:** HECHO (código). Falta validación en navegador.
+
+---
+
+## R-22 - 5.9 Programacion de estado + 5.15 Default "hoy" (fechas)
+
+Cerrados juntos porque los dos tocan la misma logica de fechas de cuenta/evento.
+
+### 5.9 - Programacion de habilitacion/deshabilitacion
+
+El problema era que el par de fechas se guardaba sin ningun control de orden.
+escuela.usuario_estado.aplicar_programaciones_usuario aplica el campo que ya
+vencio y lo limpia, asi que las dos fechas forman una linea de tiempo que arranca en
+el estado **actual** de la cuenta. Si la primera de las dos no era la accion opuesta a
+ese estado, el trabajo no hacia nada y la cuenta terminaba en un estado distinto del
+esperado: por ejemplo, una cuenta habilitada con deshabilitacion al 20/06 y
+habilitacion al 10/06 quedaba deshabilitada para siempre, porque la habilitacion ya
+vencia y se aplicaba primero.
+
+**Criterio implementado** (identico en frontend y backend):
+- Con **las dos** fechas cargadas, la primera debe ser la accion opuesta al estado
+  actual: si la cuenta esta **habilitada**, deshabilitacion antes que habilitacion; si
+  esta **deshabilitada**, habilitacion antes que deshabilitacion.
+- Con **una sola** fecha se acepta, sin compararla contra hoy: agendar una
+  re-habilitacion posterior a una deshabilitacion ya programada es valido y tiene que
+  poder hacerse.
+- No se valida contra la fecha actual. El punto pedia "no anterior a la fecha actual",
+  pero bloquear eso impediria agendar la re-habilitacion de una cuenta que quedo
+  deshabilitada por una fecha ya vencida, que es justamente el caso a resolver.
+
+**Frontend:** nuevo helper compartido rontend/src/utils/programacionEstado.js
+(InputDateTime, alidarProgramacionEstado, errorProgramacion) que reemplaza las
+ocho copias de 	oInputDateTime que estaban duplicadas. Aplicado en las tres vistas
+de Preceptores (docentes, estudiantes, tutores/familias), en el modal canonico
+ModalProgramarEstado (con mensaje de error visible), y en los formularios de
+Administracion (preceptores, docentes, administradores) y Jefe de Preceptores >
+Administracion de preceptores.
+
+**Backend:** nueva validacion _validar_programacion_estado en
+ackend/proyecto/escuela/serializers.py, invocada dentro de _build_usuario_account
+justo antes del save(). Cubre Docentes, Administradores y Preceptores con una sola
+barrera, para que el orden no se pueda romper desde ningun cliente. No se cambio el
+modelo ni los endpoints.
+
+### 5.15 - Default "hoy" consistente
+
+- **Calendario Institucional**: FORM_DEFAULT.fecha ahora es hoy(). Ademas se
+  corrigio un default que era peor que estar vacio: "Nuevo Evento" y el input
+  "Ir a una fecha" usaban diaSeleccionado || 1, asi que al crear un evento sin
+  dia previo seleccionado se guardaba con **dia 1** del mes visible sin avisar. Ahora
+  usan diaEnVista(): el dia seleccionado, o el dia de hoy si el calendario esta
+  parado en el mes actual, o el 1 si se esta mirando otro mes.
+- **Diagnosticos grupales**: Shared/DiagnosticosView.jsx usaba
+  
+ew Date().toISOString().split('T')[0], que convierte a UTC. En Argentina (UTC-3)
+  entre las 21:00 y las 24:00 el diagnostico se guardaba con la fecha de manana.
+  Reemplazado por hoy() de utils/fechas.
+- **Notificaciones**: mismo bug UTC en etiquetaDia, que armaba "Hoy" y "Ayer" con
+  	oISOString(). Entre las 21:00 y las 24:00 una notificacion de hoy caia en la
+  etiqueta de fecha suelta y una de ayer decia "Hoy". Ahora usa hoy() y
+  sumarDias(hoy, -1).
+- **Verificado que ya cumplian** (sin cambios): actas (Preceptores/actas.jsx),
+  asistencias (Administracion/asistencias.jsx, Preceptores/asistencias.jsx,
+  Shared/AsistenciasUnificada.jsx), adelantos (Shared/AdelantosHoras.jsx) y actas
+  docente (Profesores/ActasDocente.jsx) ya usan hoy() de utils/fechas en sus
+  campos de creacion. Los filtros y rangos se dejaron sin default, como pide el punto.
+- **Fuera de alcance deliberado:** Suplencias.fecha_inicio sigue vacio. No figura en
+  la lista de 5.15 (actas, asistencias, adelantos, actas docente, calendario) y es un
+  rango de(start)/fin, no un campo de evento unico.
+
+Nota de refactor: en CalendarioInstitucional.jsx la variable local hoy se renombro a
+hoyActual para no ensombrecer el hoy importado de utils/fechas.
+
+### Verificacion
+- 
+pm run build frontend: exit 0.
+- python -m py_compile de serializers.py, iews.py, models.py,
+  usuario_estado.py: exit 0.
+- _validar_programacion_estado ejercitada con 9 casos (ambas direcciones sobre cuenta
+  habilitada y deshabilitada, el orden invalido en cada caso, fecha unica, sin fechas,
+  e instante igual): todos OK. Los dos primeros "fallos" observados eran expectativas
+  mal escritas en la tabla de prueba, no un defecto del validador.
+- Busqueda de 	oISOString().split('T')[0] / 	oISOString().slice(0, 10) en src:
+  sin resultados restantes.
+- 	oInputDateTime duplicado: queda una sola definicion, en utils/programacionEstado.js.
+
+**Estado:** HECHO (codigo). Falta validacion en navegador: probar los dos sentidos de
+programacion sobre una cuenta habilitada y otra deshabilitada, el par invertido que
+debe rechazar, "Nuevo Evento" en el Calendario sin dia seleccionado, y un diagnostico
+creado a la noche.
+---
+
+## R-23. Parte 5 - 5.13 Jefe > Administracion de Preceptores + 5.14 Avisador de cursos sin preceptor
+
+Los dos puntos faltaban por completo y se resolvieron juntos porque tocan la misma
+pantalla.
+
+### 5.13 - Jefe de Preceptores: tab "Asignacion de Cursos" y leyenda duplicada
+
+**Leyenda duplicada.** Contrary a lo anotado antes, la leyenda de solo texto **si** seguia
+presente: JefePreceptores/AdminPreceptores.jsx renderizaba las dos, la de texto plano
+(<div className="empty-state-message flex-gap-16--wrap mb-12"> con Editar / Habilitar /
+Deshabilitar / Eliminar) arriba del buscador y AccionesLeyenda mas abajo, ya con
+colores. Se elimino la de texto plano y se conservo AccionesLeyenda.
+
+**Tab "Asignacion de Cursos".** El componente JefePreceptores/AsignacionCursos.jsx ya
+existia, con la UI completa (lista de preceptores, cursos asignados, cursos
+disponibles, asignar/quitar), pero **no estaba importado en ningun lado**: el Jefe
+renderizaba AdministracionPreceptores > AdminPreceptores, y ese modulo no tenia
+tabs. En Administracion/preceptores.jsx el tab ya existia pero estaba detrás de
+{!esJefe && (...)}, asi que el rol jefe nunca lo veia.
+
+Se agrego el mismo par de tabs que usa el Admin, con ctiveTab en
+JefePreceptores/AdminPreceptores.jsx y el contenido conmutado entre la tabla de
+preceptores y <AsignacionCursos />. El AsignacionCursos ya es autocontenido (saca
+cursosObj del DataContext y llama a getPreceptores / updateCurso), asi que no
+tuvo que recibir props.
+
+Nota: esJefe en Administracion/preceptores.jsx sigue ocultando los tabs; no se toco
+porque ese componente no lo renderiza el Jefe.
+
+### 5.14 - Avisador de cursos sin preceptor
+
+No existedia en ninguna de las dos vistas de asignacion. Se agrego el banner
+lert alert-warning con el conteo y los nombres de los cursos sin preceptor, arriba de
+todo (despues de los alertas de error/exito).
+
+Helper compartido nuevo: rontend/src/utils/cursosSinPreceptor.js
+(cursosSinPreceptor, etiquetaCursosSinPreceptor, idsCursosAsignados), para que
+Administracion y Jefe de Preceptores muestren exactamente el mismo aviso.
+
+La fuente de verdad es id_preceptor del propio curso: CursoSerializer usa
+ields = '__all__', asi que /cursos/ ya trae la FK y no hace falta cruzarla contra
+la lista de preceptores. El cruce por cursos_asignados queda como fallback para
+payloads que no traigan el campo. cursosObj es la lista completa de DataContext, no
+la que filtra el selector global, asi que el conteo no depende del curso seleccionado
+arriba. /cursos/ ya aplica ctivo=True en el listado, asi que los cursos dados de
+baja no se cuentan.
+
+### Verificacion
+- 
+pm run build: exit 0.
+- cursosSinPreceptor se aplica en los dos puntos de entrada:
+  JefePreceptores/AsignacionCursos.jsx (via useMemo) y
+  AsignacionCursosAdmin dentro de Administracion/preceptores.jsx.
+
+**Estado:** HECHO (codigo). Falta validacion en navegador: entrar como Jefe de
+Preceptores, confirmar que aparecen los dos tabs, que la leyenda sin colores ya no esta,
+que el banner aparece con el conteo correcto y que asignar/quitar un curso lo actualiza.
+---
+
+## R-24. Parte 5 - 5.2 Campos de telefono (solo digitos) + verificacion de puntos ya cumplidos
+
+### Correccion: 5.2 NO estaba cumplido
+
+En la revision anterior se dio por bueno, y estaba mal. NumericInput existia y se
+usaba en 3 formularios (Administracion > Administradores, Cursos y Preceptores), pero
+los **4 formularios de Preceptores y Jefe de Preceptores tenian un <input type="text">
+suelto para telefono**, que aceptaba cualquier caracter:
+
+- Preceptores/docentes.jsx (alta y edicion: doc-telefono y doc-telefono-mod)
+- Preceptores/estudiantes.jsx (estudiante-telefono-mod)
+- Preceptores/tutoresFamilias.jsx (	ut-telefono)
+- JefePreceptores/AdminPreceptores.jsx (preceptor-telefono)
+
+Los cuatro se reemplazaron por NumericInput, que filtra con soloNumeros
+(utils/numericValidation.js). Ahora los 6 campos de telefono de la app pasan por el
+mismo componente y no queda ningun 	ype="text" para telefono.
+
+### Defecto encontrado y corregido en NumericInput
+
+NumericInput sembraba el valor una sola vez (useState(() => formatearNumero(value)))
+y nunca lo resincronizaba con el padre. En un modal que resetea el formulario al
+cerrarse, eso dejaba el input mostrando el valor anterior: se abria el modal de otro
+preceptor y seguia el telefono del anterior. El defecto ya afectaba a los 3 usos
+previos (Administradores, Cursos, Preceptores de Administracion).
+
+Se agrego un useEffect que compara contra el ultimo valor externo visto, en vez de
+comparar contra alorLocal. Asi no pisa lo que el usuario esta escribiendo (cada tecla
+se re-eco desde el padre) y solo resincroniza cuando el padre cambia el valor de verdad.
+De paso limpia 	ouched y el error de validacion en ese caso.
+
+### Puntos verificados que ya cumplian (sin cambios de codigo)
+
+Se auditaron uno por uno contra el codigo, no de memoria:
+
+- **5.3** Admin > Tutores/Familias: existe. Administracion/AdminDashboard.jsx:22
+  importa TutoresFamilias desde Preceptores/ y lo monta en case 'tutores', o sea
+  es el mismo componente del usuario Preceptor, no una copia.
+- **5.4** Materias al agregar a un curso: ya sin filtro por orientacion.
+  Administracion/asignacionMaterias.jsx:54 filtra solo m.activo && m.id_curso ===
+  cursoObj.id_curso, con el comentario de que la materia depende del curso y no de la
+  orientacion. Sin curso seleccionado lista todas las activas (linea 51).
+- **5.7** Comunicados, Descargar y Borrar en la misma linea: el contenedor
+  .comunicado-card-actions es display: flex y el boton Borrar lleva
+  margin-left: auto, asi que queda a la derecha en la misma fila.
+  (comunicados.jsx:484-506, index.css).
+- **5.8** Admin > Docentes: los 10 botones ya estan reorganizados con "Ver DDJJ"
+  (docentes.jsx:663) y los 4 de DDJJ agrupados adentro.
+- **5.11** Suplencias: la celda de acciones renderiza solo editar y inalizar
+  (suplencias.jsx:449-456). No hay Ver ni Eliminar exposed en la grilla; los
+  handlers handleFinalizar/handleEliminar existen, pero handleEliminar no se
+  renderiza en la tabla.
+- **5.17** "Estudiantes asignados": la columna existe y se puebla
+  (Preceptores/tutoresFamilias.jsx:429), que es el unico lugar donde se muestra la
+  tabla de Tutores/Familias.
+- **5.19** Alumno > Materias adeudadas: la vista esta completa
+  (Estudiante/PanelMateriasAdeudadasStudiante.jsx), con estados PENDIENTE / APROBADA /
+  RECURSANDO / DESAPROBADA via adgeEstado y el detalle de intensificaciones
+  (getIntensificacionesAcademicas).
+
+### Sigue pendiente
+- **5.20** (Familia > Materias adeudadas) no existe: cero coincidencias de "adeudadas"
+  en components/Familia/. Es la unica de la lista sin tocar.
+- **5.10** sigue diferido por decision del usuario.
+- Todo lo de R-17 a R-24 sigue esperando validacion en navegador.
+
+### Verificacion
+- 
+pm run build: exit 0.
+- Los 6 campos de telefono verificados con NumericInput (grep sobre los ids).
+
+**Estado:** 5.2 HECHO (codigo). El resto, verificado sin cambios.
+---
+
+## R-25. Parte 5 - 5.20 Familia: Materias adeudadas (solo lectura) + navegacion de la notificacion
+
+Ultimo punto de la Parte 5 sin implementar. El backend ya estaba completo: faltaba
+solo el frontend del portal de Familia.
+
+### Lo que ya funcionaba y no se toco
+
+Se verifico antes de escribir codigo, y el backend resulto estar listo:
+
+- permissions.alumnos_permitidos y lumno_ids_familia ya acotan los cuatro
+  endpoints al ambito del rol: para amilia devuelven solo los alumnos vinculados
+  a sus tutores. Aplica a MateriaAdeudadaViewSet, RendicionMateriaAdeudadaViewSet,
+  IntensificacionAcademicaViewSet y ActividadMateriaAdeudadaViewSet (este ultimo
+  tiene ademas el acotado al hijo por parametro lumno, con el comentario "A4").
+- **La notificacion a tutores ya existia**: 
+otificar_alumno
+  (escuela/notifications.py) notifica al alumno y a cada tutor con segmento
+  amilia, y las vistas de rendiciones e intensificaciones ya la llaman
+  (_notificar_rendicion, _notificar_intensificacion). No se creo ninguna
+  notificacion nueva: se reutilizo el mecanismo de 5.19.
+
+### Panel compartido
+
+La implementacion se movio a rontend/src/components/Shared/PanelMateriasAdeudadas.jsx
+y los dos portales la consumen:
+
+- Estudiante/PanelMateriasAdeudadasEstudiante.jsx quedo como envoltura minima para
+  no cambiar el punto de importacion que ya usa EstudianteDashboard.
+- Familia/PanelMateriasAdeudadasFamilia.jsx es la nueva envoltura del portal de
+  Familia, en tercera persona ("el estudiante no tiene materias adeudadas").
+
+Se compartio en vez de duplicar los ~300 lineas porque los dos portales muestran lo
+mismo en solo lectura y una correccion en uno no debe dejar al otro desactualizado.
+
+El panel ya era de solo lectura (solo descarga PDFs), asi que la restricion de 5.20 se
+cumple sin cambios de comportamiento. Lo que si cambio: ahora se manda lumno
+ explicito a los cuatro endpoints, que es lo que hace que al cambiar el hijo
+seleccionado en el header se recargue con el alumno correcto (punto 15.1 del plan,
+"suscribirse a selectedChild y recargar datos").
+
+### Vista en el portal de Familia
+
+- Familia/sidebarMenu.js: nueva entrada materias-adeudadas en la seccion
+  "Seguimiento Academico", con icono a-book.
+- Familia/FamiliaDashboard.jsx: nuevo case 'materias-adeudadas' que resuelve el
+  alumno con getEstudianteById(hijoSeleccionado.alumnoId), igual que Resumen y
+  Asistencias, y muestra un estado vacio explicito si no lo encuentra.
+
+### Correccion de navegacion de notificaciones (el bug real del punto)
+
+El plan pide "vista de solo lectura y notificacion a tutores". La notificacion ya
+llegaba, pero al hacer clic el tutor caia en la vista equivocada: en
+utils/navDestinos.js el mapa de amilia tinha
+
+    previas: 'calificaciones',  rendiciones: 'calificaciones',
+    recursadas: 'calificaciones',  intensificaciones: 'calificaciones'
+
+Es decir, el aviso "registro una intensificacion" mandaba a Calificaciones, que
+muestra notas y no las materias a intensificar, a rendir ni en estado de previa. El
+tutor recibia el aviso y no encontraba la informacion. Ahora los cuatro destinos
+apuntan a materias-adeudadas, igual que yaenian en el rol lumno.
+
+### Verificacion
+- 
+pm run build: exit 0.
+- python -m py_compile de iews.py, permissions.py, 
+otifications.py: exit 0.
+- El panel del docente (Profesores/PanelMateriasAdeudadasDocente.jsx) es una
+  implementacion aparte y quedo sin tocar.
+
+**Estado:** HECHO (codigo). Falta validacion en navegador: entrar como Familia, abrir
+Seguimiento Academico > Materias Adeudadas, cambiar de hijo y confirmar que recarga,
+y hacer clic en una notificacion de intensification/rendicion para ver que ahora
+aterriza en la seccion correcta.
+---
+
+## R-26. Punto 5.10 - Toggle Switch: rediseño visual (referencia del usuario)
+
+El usuario compartio una imagen de referencia y pidio que el control de
+deshabilitar/habilitar "se vea de esa forma". Se reimplemento el diseno; no se
+copio el CSS de la referencia.
+
+### Que cambia a ojo
+
+| Aspecto | Antes | Ahora |
+| --- | --- | --- |
+| Color del track, apagado | gris claro #d7dee8 con borde 2px | azul-gris #607d8b, sin borde |
+| Color del track, encendido | azul primario #2563eb | verde agua #00bfa5 |
+| Color del thumb | blanco | #eceff1 |
+| Sombra del thumb |   2px 4px rgba(0,0,0,.2) difusa |   0 0.62em #444a, halo |
+| Foco | outline de 3px sobre el track | halo   0 0 0.1em sobre el thumb |
+| Transicion | 200ms | 300ms (la referencia se siente mas fluida) |
+| Estado deshabilitado | **sin estilo** | track #cfd8dc, thumb #90a4ae, 
+ot-allowed |
+
+La forma de la referencia es: track en pildora (order-radius: 9999px, antes
+14px fijo), thumb circular y track/teal sin borde, que es lo que hace que se
+lea de un vistazo. Se mantuvo el texto "Habilitado"/"Deshabilitado" al lado,
+porque el estado no se deduce solo del color y ya venia validado en las pruebas
+de navegacion por teclado.
+
+### Correccion real que aparecio al reescribir
+
+- **El atributo disabled no tenia ningun estilo.** Administracion/administradores.jsx
+  y Preceptores/tutoresFamilias.jsx ya pasan disabled para bloquear el control
+  mientras se guarda, pero el switch se veia identico al activo y con cursor de
+  mano: daba a entender que se podia hacer clic. Ahora tiene estado propio.
+- **El desplazamiento del thumb era un px magico** (	ranslateX(24px)). Se
+  sustituyo por calc(var(--toggle-track-w) - var(--toggle-thumb-size) - var(--toggle-inset) * 2),
+  derivado del ancho del track, asi que cambiar --toggle-track-w no deja el
+  thumb desalineado en el estado encendido.
+- **El modo oscuro estaba a medias.** Las variables oscuras viven bajo
+  .dark-theme, pero el bloque @media (prefers-color-scheme: dark) traia
+  track y thumb hardcodeados y solo esos dos: el texto y el color de encendido
+  seguian con los valores claros. Ahora ese bloque declara las variables del
+  toggle completas. El apagado de esta limpieza es que la app no aplica tema
+  oscuro por preferencia del sistema (solo por clase), asi que el
+  prefers-color-scheme solo afecta a este control; no se toco el tema global.
+
+### Donde
+
+Solo rontend/src/index.css: se redefinieron las variables --toggle-* en :root
+y en el bloque .dark-theme, y se reescribio el bloque .toggle-switch-*. No se
+toco ningun .jsx: ToggleSwitch y FilaEstadoCuenta siguen igual, porque el
+cambio es de estilo y el DOM ya usa ole="switch", <label> y ria-live.
+
+**Estado:** HECHO (codigo). Pendiente de vista: los cuatro estados (off, on,
+foco con teclado, deshabilitado) en claro y en oscuro.
+---
+
+## R-27. Punto 5.10 - Reabierto: color verde/rojo + unificacion del control de estado
+
+5.10 estaba diferido "hasta especificar bien lo que hacer". El usuario lo reabrio y
+aprobo el diseno: **verde = habilitado, rojo = deshabilitado**.
+
+### 1. Color por estado (ajuste sobre R-26)
+
+Se reemplazo la paleta de la referencia (gris azulado apagado / verde agua
+encendido) por la semantica de estado que pidio el usuario:
+
+- --toggle-on:  #16a34a (habilitado, verde)
+- --toggle-off: #b91c1c (deshabilitado, rojo)
+- El texto al lado del switch acompana al color del track, para que el estado no
+  dependa solo del color.
+- En oscuro: #15803d / #7f1d1d, mas apagados para no brillar.
+
+Se reutilizaron los mismos valores que ya tenia el resto del proyecto
+(.estado-cuenta-valor--off usaba #b91c1c, los badges de asistencia
+#16a34a/#dc2626) en vez de inventar una paleta nueva.
+
+**Ojo con un choque de meanings:** el atributo HTML disabled y el estado
+"deshabilitado" son cosas distintas. disabled significa "no se puede hacer clic
+ahora mismo" (mientras se guarda el formulario) y quedo **gris**; el rojo es el
+estado de la cuenta. Queda anotado en el CSS para que nadie los mezcle.
+
+### 2. Hallazgo de paso: el toggle no dependia del color primario real
+
+--primary-color en este proyecto vale #fd7e14, con el comentario
+/* Tu naranja de prueba */. El toggle usaba ar(--primary-color, #2563eb),
+o sea que el fallback nunca aplicaba y el estado encendido era **naranja**, no
+azul, y el outline de foco tambien. R-26 ya lo habia desconectado de
+--primary-color; ahora el toggle no depende de ninguna variable global de
+color, asi que un cambio de color de marca no lo altera. El naranja de prueba
+sigue pendiente en el resto de la app: no se toco aqui porque excede 5.10.
+
+### 3. Unificacion del control en los 9 formularios de cuentas
+
+El punto pedia que no queden checkboxes sueltos ni variantes multiples. La
+auditoria encontro **dos variantes** distintas, no una:
+
+- Shared/FilaEstadoCuenta (el control unico) en 3 formularios:
+  administradores, preceptores y tutores/familias.
+- .preceptor-status-toggle, un checkbox con estilo propio, en **6** formularios:
+  JefePreceptores (preceptores), Preceptores (docentes x2, estudiantes x2) y
+  Administracion (docentes).
+
+Los 6 migraron a FilaEstadoCuenta, y se borro el CSS de
+.preceptor-status-toggle. Administracion/docentes.jsx era ademas el gap que el
+propio plan anotaba en 6.3 ("no muestra un ToggleSwitch; usa otro control para
+Habilitado"). Ahora los 9 formularios usan el mismo componente.
+
+Se reviso ademas que ningun checkbox quedara con el rol de estado de cuenta. Los
+que quedan en la app son de otra naturaleza y se dejaron como estan: seleccion
+multiple (asignar cursos a un preceptor, comunicados, asistencias, permisos de
+roles), filtros "mostrar inactivos", recordarme del login y los toggles de
+colapso del sidebar. TutoresEstudiantesEditor tambien se dejo: ahi el checkbox
+marca si un alumno esta vinculado al tutor, que es una seleccion de la lista y no
+el estado de una cuenta.
+
+### 4. Prop muerta y conflicto de especificidad
+
+- Administracion/preceptores.jsx pasaba alorTexto={estadoLabel(...)} a
+  FilaEstadoCuenta, pero ni FilaEstadoCuenta ni ToggleSwitch aceptan esa
+  prop: se descartaba en silencio. Se elimino.
+- Los 4 sitios migrados dentro de un <div className="form-group-filter"> se
+  se dejaron sin wrapper. .form-group-filter label (0,1,1) le gana a
+  .toggle-switch-label (0,1,0) y le impone display:block (mata el layout
+  flex), ont-size: 0.85rem y un color distinto; ademas
+  .form-group-filter input aplica width: 100%; padding: 12px; border al input
+  invisible del switch. El .preceptor-status-toggle input { width: auto !important; padding: 0 !important }
+  que se borro existia justamente para pelear eso, asi que el problema volvio con
+  cualquier wrapper nuevo. Se agrego lex: 1 1 auto; min-width: 0 a
+  .toggle-switch-row para que el control crezca como sus campos vecinos sin
+  desbordar la columna de 170px del grid .preceptor-form-row--status.
+
+### 5. Etiqueta unificada
+
+La etiqueta paso de "Habilitado" (Administracion/preceptores) o "Estado" + texto
+(los demas) a **"Estado"** en los 9 sitios, dejando que el switch muestre el
+"Habilitado"/"Deshabilitado". Antes "Habilitado" aparecia dos veces seguidas en
+algunos formularios.
+
+**Estado:** HECHO (codigo). 
+pm run build exit 0. Pendiente de vista: los 9
+formularios en claro y en oscuro, y que el switch siga Guardando bien el estado
+(la migracion cambio la firma del onChange de e.target.checked a checked).
+---
+
+---
+
+## R-28. Punto 5.10 - El switch tambien en la fila de la tabla (y donde buscarlo)
+
+El usuario abrio el portal y no vio el switch en ningun lado, ni en Admin. Motivo:
+R-27 migro solo el **formulario** de alta/edicion, pero en cada modulo el estado
+tambien se cambia desde la **fila de la tabla**, con un boton `habilitar` /
+`deshabilitar`. Eso no se habia tocado. Dos mecanismos por modulo, no uno.
+
+### Donde queda ahora el switch
+
+En el formulario, seccion "Estado de la cuenta" (modal de alta o de edicion):
+
+- Admin > Administradores, Admin > Preceptores, Admin > Docentes
+- Jefe de Preceptoria > Preceptores
+- Preceptores > Docentes (alta y edicion), Preceptores > Estudiantes (alta y edicion)
+- Preceptores > Tutores y Familias
+
+En la fila de la tabla, dentro de la celda de acciones (reemplazando al boton):
+
+- Admin > Administradores, Admin > Preceptores, Admin > Docentes
+- Admin > Cursos (Activar/Desactivar), Admin > Materias (Activar/Desactivar)
+- Jefe de Preceptoria > Preceptores
+- Preceptores > Docentes, Preceptores > Estudiantes, Preceptores > Tutores
+
+La columna "Estado" conserva el badge con el texto, como pidio el usuario: el switch
+es el control y el badge lo que se escanea.
+
+### Variante compacta
+
+Se agrego `variant="compacto"` a `ToggleSwitch`, no un componente nuevo, para no
+volver a las variantes multiples que 5.10 prohibe:
+
+- Solo el track (44x24, thumb de 16px) sin el recuadro de la fila.
+- La etiqueta y el texto de estado quedan con `.visually-hidden`: no se ven, pero
+  siguen en el DOM y el lector de pantalla los lee.
+- Se agregaron `textoOn`/`textoOff` para que Cursos y Materias digan
+  "Activo/Inactivo" en vez de "Habilitado/Deshabilitado".
+
+### Defectos que aparecieron al hacerlo
+
+1. **`ariaLabel` estaba muerto.** `ToggleSwitch` declaraba el prop y nunca lo
+   usaba (solo aplicaba `aria-labelledby`). En una tabla de 20 filas, 20 switches
+   identicos quedan anunciados como "switch" sin decir de quien: inusable con
+   lector de pantalla. Ahora se aplica `aria-label` (que gana sobre
+   `aria-labelledby`) y tambien como `title` para el mouse. Cada fila lo nombra:
+   "Deshabilitar a Perez, Juan".
+2. **El `aria-label` del boton viejo tampoco llegaba a la fila.** En Jefe de
+   Preceptoria decia "Habilitar preceptor" identico en todas las filas, sin el
+   nombre. Corregido de paso.
+3. **`AccionesCelda` renderiza su propio `<td>`** y en varias tablas ya estaba
+   anidado dentro de otro `<td>` (HTML invalido que el navegador corrige de forma
+   impredecible). Meter el switch "al lado" de ese componente habria producido
+   exactamente ese problema. Se resolvio agregando un prop `extra` a
+   `AccionesCelda`: el switch se renderiza dentro de su celda. Beneficio extra: la
+   tabla no gana una columna, asi que no hubo que tocar ningun `<th>`.
+4. **El switch rompia la fila de acciones.** La celda tiene `text-align: center` y
+   los botones son inline-block; un contenedor `display: flex` es block y mandaba
+   los botones a una linea y el switch a otra. La variante compacta quedo
+   `inline-flex`.
+5. `.acciones-cell--grid1`, que `AccionesCelda` agrega cuando queda una sola
+   accion, no existe en el CSS. No se toco: la celda base ya centra con
+   `text-align: center` y el switch se centra solo. Queda anotado como deuda.
+
+### Lo que NO se migro (y por que)
+
+- `asignacionMaterias.jsx`: su accion es "Quitar materia" (borrar la materia del
+  curso), no activar/desactivar. No es el mismo control.
+- Checkboxes de seleccion multiple (cursos de un preceptor, comunicados,
+  asistencias, permisos de roles), filtros "mostrar inactivos", "recordarme" del
+  login y colapsos del sidebar: no son estado de cuenta.
+- `TutoresEstudiantesEditor`: el checkbox marca si un alumno esta vinculado al
+  tutor; es seleccion de lista.
+
+**Estado:** HECHO (codigo). `npm run build` exit 0, 0 botones de
+habilitar/deshabilitar restantes. Pendiente de vista: los 9 switches de tabla y
+los 9 formularios, en claro y en oscuro.
+
+## R-29. Reversión total del punto 5.10 (toggle switch)
+
+**Decision del usuario:** borrar el toggle de **toda** la aplicacion y dejar los
+botones como estaban. Se eligio ademas **no** borrar R-26/R-27/R-28 del historial:
+este punto es el que deja constancia de que el trabajo se revirtio.
+
+### Que se elimino
+
+1. **`frontend/src/components/Shared/ToggleSwitch.jsx`**: borrado.
+2. **`frontend/src/components/Shared/FilaEstadoCuenta.jsx`**: borrado. Era un wrapper
+   delgado de `ToggleSwitch` con `label={etiqueta}` y no hacia nada mas.
+3. **`AccionesCelda.jsx`**: revertido a `HEAD`, se le habia agregado el prop `extra`
+   para colgar el switch en la fila. El componente quedo como estaba.
+
+### Botones de tabla restaurados (9)
+
+Volvieron los botones `habilitar` / `deshabilitar` / `activar` / `desactivar` con
+el icono `fa-check` / `fa-ban` y su clase `btn-success` / `btn-warning`:
+
+- `Administracion/administradores.jsx`: accion `habilitar`/`deshabilitar` de nuevo
+  dentro de `acciones`.
+- `Administracion/preceptores.jsx`: accion `habilitar`/`deshabilitar` entre editar y
+  programar, con la guarda `usuario_estado === null || undefined` -> `disabled`.
+- `Administracion/cursos.jsx` y `Administracion/materias.jsx`: vuelve el boton
+  `deshabilitar` en la fila activa y el `habilitar` en la inactiva. Quedaron
+  **identicos a `HEAD`**.
+- `Administracion/docentes.jsx`, `JefePreceptores/AdminPreceptores.jsx`,
+  `Preceptores/docentes.jsx`, `Preceptores/estudiantes.jsx` y
+  `Preceptores/tutoresFamilias.jsx`: vuelve el `<button>` con `fa-ban` / `fa-check`,
+  respetando `guardando` / `guardandoDocente` como `disabled` y el `puedeCambiarEstado`
+  del preceptor.
+
+### Formularios (9)
+
+Los 6 formularios que ya tenian checkbox propio volvieron **exactamente** a su
+marcado de `HEAD`: wrapper `div.form-group-filter`, su `label` "Estado" y el
+checkbox con clase `preceptor-status-toggle` (`Preceptores/docentes.jsx` x2,
+`Preceptores/estudiantes.jsx` x2, `JefePreceptores/AdminPreceptores.jsx`).
+`Administracion/docentes.jsx` volvio a su checkbox simple con el texto `Habilitado`.
+
+Los 3 que en `HEAD` usaban `FilaEstadoCuenta` (o sea, `Administracion/administradores.jsx`,
+`Administracion/preceptores.jsx` y `Preceptores/tutoresFamilias.jsx`) ya no pueden
+volver a ese componente porque se borro. Se migraron al checkbox `.preceptor-status-toggle`
+que ya era el patron del resto de la app, con `estadoLabel()` para el texto
+(`Habilitado` / `Deshabilitado` / `Sin usuario`) y preservando los `disabled`
+(`guardandoUsuario`, `guardando`).
+
+### CSS
+
+`frontend/src/index.css` quedo **identico a `HEAD`** en todo lo del toggle: se
+restauraron las variables `--toggle-track-bg` / `--toggle-track-border` /
+`--toggle-thumb-bg` en `:root` y en el bloque `.dark-theme`, y el bloque
+`.toggle-switch-*` completo. Se fueron las variables de la version con color por
+estado (`--toggle-on`, `--toggle-off`, `--toggle-glow`, `--toggle-inset`,
+`--toggle-track-w`, `--toggle-thumb-size`, `--toggle-shadow`, `--toggle-disabled-*`),
+la variante `.toggle-switch-row--compacto`, el `@media (prefers-color-scheme: dark)`
+del switch y el glow del thumb.
+
+### Decisiones de alcance
+
+- Se revirtieron los **9 usos de formulario**, incluidos los 3 que ya venian de
+  `HEAD` antes de R-26, porque el usuario pidio quitar el toggle de toda la app.
+- No se toco `Shared/SidebarToggle.jsx`: es el colapso del sidebar, no el estado
+  de una cuenta.
+- No se toco `asignacionMaterias.jsx` ni los checkboxes de seleccion multiple,
+  filtros, permisos, "recordarme" ni el vinculo alumno-tutor: no son estado de cuenta.
+- `Shared/ModalProgramarEstado.jsx` se mantiene: es la ventana de fechas de la
+  programacion, no el toggle.
+
+### Verificacion
+
+- `npm run build` en `frontend/`: **exit 0**, 215 modulos.
+- 0 coincidencias de `FilaEstadoCuenta`, `ToggleSwitch` y `variant="compacto"` en
+  `frontend/src`.
+- `.toggle-switch-row--compacto` y las variables de la version con color: 0.
+- `git diff` sin ninguna linea de toggle en los 11 archivos tocados.
+- `cursos.jsx`, `materias.jsx`, `docentes.jsx` (Admin), `AdminPreceptores.jsx`,
+  `docentes.jsx` y `estudiantes.jsx` (Preceptores), `AccionesCelda.jsx` e
+  `index.css`: sin diferencias en los controles de estado respecto de `HEAD`.
+
+**Estado:** HECHO. R-26, R-27 y R-28 quedan como historial de un intento revertido;
+el punto 5.10 queda como estaba antes de R-26. Pendiente de vista: que los botones
+y los checkboxes se vean igual que antes.

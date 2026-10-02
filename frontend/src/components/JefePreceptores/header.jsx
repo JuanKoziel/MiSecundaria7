@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { parseCurso, orientacionDeCurso } from '../../utils/orientacion';
 import SidebarToggle from '../Shared/SidebarToggle';
@@ -12,59 +13,123 @@ function inicialesDesdeNombre(nombreCompleto, user) {
   return user.username ? user.username.charAt(0).toUpperCase() : 'U';
 }
 
-function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCursoChange }) {
+function Header({
+  user,
+  nombreCompleto,
+  anioLectivo,
+  curso,
+  cursos,
+  onAnioChange,
+  onCursoChange,
+  onCursosChange,
+}) {
   const { cursosObj, aniosLectivos } = useData();
 
   const iniciales = inicialesDesdeNombre(nombreCompleto, user);
   const nombreMostrar = nombreCompleto || user.username || 'Usuario';
   const rol = 'JEFE DE PRECEPTORES';
 
+  const anioLectivoLocal = anioLectivo || '';
+  const cursoLocal = curso || '';
+  // 5.6 — lista de cursos marcados; se cae a `[]` si la vista destino todavía
+  // no pasa `cursos`, para que el header no rompa usándose suelto.
+  const cursosSeleccionados = Array.isArray(cursos) ? cursos : [];
+
   const cursosDelCiclo = (cursosObj || []).filter(
-    (c) => String(c.ciclo_anio) === String(anioLectivo),
+    (c) => String(c.ciclo_anio) === String(anioLectivoLocal),
   );
 
+  const partesPorCurso = cursosDelCiclo.map((c) => parseCurso(c.nombre_curso));
+
   const aniosDisponibles = [
-    ...new Set(
-      cursosDelCiclo
-        .map((c) => parseCurso(c.nombre_curso).anio)
-        .filter((a) => a),
-    ),
+    ...new Set(partesPorCurso.map((p) => p.anio).filter((a) => a)),
   ].sort((a, b) => a - b);
 
-  const { anio: anioActual, division: divActual } = parseCurso(curso);
+  // 5.6 — El año académico se guarda en estado local para que sobreviva a
+  // "ninguna división marcada"; si se derivara solo del curso elegido, al
+  // desmarcar todas se borraría el Año y no habría forma de volver sin tocar
+  // Año lectivo.
+  const anioDesdeCurso = cursosSeleccionados.length > 0
+    ? (parseCurso(cursosSeleccionados[0]).anio || '')
+    : '';
+  const [anioSeleccionado, setAnioSeleccionado] = useState(anioDesdeCurso);
+  const anioActual = anioDesdeCurso || anioSeleccionado || parseCurso(cursoLocal).anio || '';
+
+  useEffect(() => {
+    setAnioSeleccionado('');
+  }, [anioLectivoLocal]);
 
   const divisionesDisponibles = [
     ...new Set(
-      cursosDelCiclo
-        .map((c) => parseCurso(c.nombre_curso))
+      partesPorCurso
         .filter((p) => p.anio === anioActual)
         .map((p) => p.division)
         .filter((d) => d),
     ),
   ].sort((a, b) => a - b);
 
+  // 5.6 — Se notifican las dos formas: el array (lo que usan las vistas
+  // migradas) y `curso` con el primero, para que las vistas que todavía son de
+  // un curso solo sigan funcionando. Si el consumidor todavía no implementa
+  // `onCursosChange`, se cae al comportamiento anterior de un solo curso.
+  const notificarSeleccion = (lista) => {
+    if (onCursosChange) {
+      onCursosChange(lista);
+    } else if (onCursoChange) {
+      onCursoChange(lista[0] || '');
+    }
+  };
+
   const handleAnioAcadChange = (e) => {
     const nuevoAnio = e.target.value;
-    onCursoChange(nuevoAnio ? `${nuevoAnio}°` : '');
-  };
-
-  const handleDivisionChange = (e) => {
-    const nuevaDiv = e.target.value;
-    if (!anioActual || !nuevaDiv) {
-      onCursoChange(anioActual ? `${anioActual}°` : '');
+    setAnioSeleccionado(nuevoAnio);
+    if (!nuevoAnio) {
+      notificarSeleccion([]);
       return;
     }
-    onCursoChange(`${anioActual}°${nuevaDiv}`);
+    // Al cambiar de año se marcan todas sus divisiones, que es lo que se espera
+    // al abrir un año nuevo.
+    const divsDelAnio = [
+      ...new Set(
+        partesPorCurso
+          .filter((p) => p.anio === nuevoAnio)
+          .map((p) => p.division)
+          .filter(Boolean),
+      ),
+    ].sort((a, b) => a - b);
+    notificarSeleccion(divsDelAnio.map((d) => `${nuevoAnio}°${d}`));
   };
 
-  const cursoCompleto = anioActual && divActual ? `${anioActual}°${divActual}` : '';
+  const handleDivisionToggle = (nombre, marcado) => {
+    const siguiente = marcado
+      ? [...cursosSeleccionados, nombre]
+      : cursosSeleccionados.filter((c) => c !== nombre);
+    // Orden estable por año y división para que la lista no cambie de orden
+    // cada vez que se desmarca y remarks una.
+    const ordenadas = [...siguiente].sort((a, b) => {
+      const pa = parseCurso(a);
+      const pb = parseCurso(b);
+      const da = pa.anio ?? 0;
+      const db = pb.anio ?? 0;
+      if (da !== db) return da - db;
+      return String(pa.division ?? '').localeCompare(String(pb.division ?? ''), 'es', { numeric: true });
+    });
+    notificarSeleccion(ordenadas);
+  };
+
+  // 5.6 — Con varias divisiones marcadas, la orientación se muestra del primer
+  // curso de la selección: con varias no hay una sola orientación que represente
+  // a todas.
+  const cursoCompleto = cursosSeleccionados.length > 0
+    ? cursosSeleccionados[0]
+    : cursoLocal;
   // Punto 5.2: se muestra la orientación GUARDADA en el curso, nunca inferida por
   // la división. Si el curso no tiene orientación, se muestra "—".
   const cursoObjSeleccionado = (cursosObj || []).find(
     (c) => String(c.nombre_curso || '').trim() === String(cursoCompleto || '').trim(),
   );
   const orientacion = orientacionDeCurso(cursoObjSeleccionado);
-  const tieneFiltros = !!(anioLectivo || curso);
+  const tieneFiltros = !!(anioLectivoLocal || cursoLocal || cursosSeleccionados.length > 0);
 
   return (
     <header className="main-header main-header--dark">
@@ -90,7 +155,7 @@ function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCurs
             <select
               id="global-anio-lectivo"
               className="global-select"
-              value={anioLectivo}
+              value={anioLectivoLocal}
               onChange={(e) => onAnioChange(e.target.value)}
             >
               <option value="" disabled hidden>
@@ -113,7 +178,7 @@ function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCurs
               className="global-select"
               value={anioActual || ''}
               onChange={handleAnioAcadChange}
-              disabled={!anioLectivo}
+              disabled={!anioLectivoLocal}
             >
               <option value="" disabled hidden>
                 Año...
@@ -126,26 +191,43 @@ function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCurs
             </select>
           </div>
 
-          <div className="selector-group">
-            <label htmlFor="global-division" className="selector-label">
+          {/* 5.6 — División como checkboxes: se pueden marcar varias divisiones
+              del mismo año. Año lectivo y Año siguen siendo <select>. */}
+          <div className="selector-group selector-group--checkboxes">
+            <span className="selector-label" id="global-division-label">
               <i className="fas fa-users" aria-hidden="true" /> División
-            </label>
-            <select
-              id="global-division"
-              className="global-select"
-              value={divActual || ''}
-              onChange={handleDivisionChange}
-              disabled={!anioActual}
+            </span>
+            <div
+              className="division-checkboxes"
+              role="group"
+              aria-labelledby="global-division-label"
             >
-              <option value="" disabled hidden>
-                División...
-              </option>
-              {divisionesDisponibles.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+              {anioActual && divisionesDisponibles.length > 0 ? (
+                divisionesDisponibles.map((d) => {
+                  const nombre = `${anioActual}°${d}`;
+                  return (
+                    <label
+                      key={d}
+                      className="division-checkbox"
+                      title={nombre}
+                    >
+                      <input
+                        type="checkbox"
+                        name="global-division"
+                        value={nombre}
+                        checked={cursosSeleccionados.includes(nombre)}
+                        onChange={(e) => handleDivisionToggle(nombre, e.target.checked)}
+                      />
+                      <span>{d}</span>
+                    </label>
+                  );
+                })
+              ) : (
+                <span className="division-checkboxes__placeholder">
+                  {anioActual ? 'Sin divisiones' : 'Elegí un año...'}
+                </span>
+              )}
+            </div>
           </div>
 
           {cursoCompleto && (
@@ -167,7 +249,7 @@ function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCurs
               className="btn-clear-selection"
               onClick={() => {
                 onAnioChange('');
-                onCursoChange('');
+                notificarSeleccion([]);
               }}
               title="Limpiar selección"
             >

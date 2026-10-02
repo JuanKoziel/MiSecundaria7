@@ -278,7 +278,10 @@ export async function getAsistenciasEstudianteDetalle(cursoMateriaId, alumnoId) 
   const params = {};
   if (cursoMateriaId) params.curso_materia = cursoMateriaId;
   if (alumnoId) params.id_alumno = alumnoId;
-  const { data } = await api.get('/asistencias/estudiante-detalle/', { params });
+  // El action del viewset se llama `alumno-detalle`, no `estudiante-detalle`.
+  // Con la ruta equivocada la request devolvía 404 y los portals de Alumno y
+  // Familia no mostraban ninguna asistencia.
+  const { data } = await api.get('/asistencias/alumno-detalle/', { params });
   return data;
 }
 

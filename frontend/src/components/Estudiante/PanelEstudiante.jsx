@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useData } from '../../context/DataContext';
+import { useAsistenciasAlumno } from '../../hooks/useAsistenciasAlumno';
 import { formatDNI } from '../../utils/dni';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import ProfileBanner from '../Shared/ProfileBanner';
@@ -17,12 +18,16 @@ function StatCard({ icon, value, label, color }) {
 }
 
 function PanelEstudiante({ miEstudiante, user, recursadas = [] }) {
-  const { materiasPorCurso, calificacionesCompletas, asistenciasAdmin, periodos } = useData();
+  const { materiasPorCurso, calificacionesCompletas, periodos } = useData();
+
+  // `asistenciasAdmin` del contexto está siempre vacío (`asistenciasRaw` se
+  // pinea a `[]` porque la tabla completa no se descarga), por lo que la tarjeta
+  // de inasistencias mostraba 0 siempre. Se cuenta contra el endpoint del alumno.
+  const { ausente: inasistencias } = useAsistenciasAlumno(miEstudiante?.id);
 
   const stats = useMemo(() => {
     if (!miEstudiante) return null;
     const safeCalificaciones = calificacionesCompletas ?? [];
-    const safeAsistencias = asistenciasAdmin ?? [];
     const misNotas = safeCalificaciones.filter((c) => c.id_alumno === miEstudiante.id);
     const notasNumericas = misNotas
       .map((c) => Number(c.nota_numerica))
@@ -30,9 +35,6 @@ function PanelEstudiante({ miEstudiante, user, recursadas = [] }) {
     const promedio = notasNumericas.length > 0
       ? (notasNumericas.reduce((a, b) => a + b, 0) / notasNumericas.length).toFixed(1)
       : null;
-    const inasistencias = safeAsistencias.filter(
-      (a) => a.alumnoId === miEstudiante.id && a.estado === 'Ausente'
-    ).length;
 
     let estadoAcademico = 'Sin calificaciones';
     if (notasNumericas.length > 0) {
@@ -43,7 +45,7 @@ function PanelEstudiante({ miEstudiante, user, recursadas = [] }) {
     }
 
     return { promedio, inasistencias, estadoAcademico, notasCount: notasNumericas.length };
-  }, [miEstudiante, calificacionesCompletas, asistenciasAdmin]);
+  }, [miEstudiante, calificacionesCompletas, inasistencias]);
 
   if (!miEstudiante) {
     return (

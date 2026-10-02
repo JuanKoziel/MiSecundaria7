@@ -27,16 +27,37 @@ function Asistencias() {
     nombreCorto,
     eventosInstitucionales,
     selectedCursoId,
+    selectedCursos,
+    selectedCursoIds,
   } = useData();
 
   // Punto 1.4: la vista consume la selección global del header de Administración.
   // No se vuelve a mostrar el selector de Año/División dentro de la vista.
+  //
+  // 5.6: el header puede tener varias divisiones marcadas. `cursoObjSel` /
+  // `curso` siguen resolviendo el PRIMERO, porque las pestañas que piden datos al
+  // backend (diaria, materia, registro diario) trabajan de a un curso por vez.
+  // Lo que sí se multitabuló son las tablas que ya filtraban en memoria:
+  // estudiantes y los cursos-materia del selector de materia.
   const cursoObjSel = useMemo(
     () =>
       (cursosObj || []).find((c) => String(c.id_curso) === String(selectedCursoId || '')) || null,
     [cursosObj, selectedCursoId],
   );
   const curso = cursoObjSel?.nombre_curso || '';
+
+  // Nombres e ids de todos los cursos marcados; si el contexto todavía no trae
+  // el array (o no hay selección) se cae al curso único para no romper nada.
+  const cursosSel = useMemo(() => {
+    if (Array.isArray(selectedCursos) && selectedCursos.length > 0) return selectedCursos;
+    return curso ? [curso] : [];
+  }, [selectedCursos, curso]);
+  const cursosSelIds = useMemo(() => {
+    if (Array.isArray(selectedCursoIds) && selectedCursoIds.length > 0) {
+      return selectedCursoIds.map(String);
+    }
+    return selectedCursoId ? [String(selectedCursoId)] : [];
+  }, [selectedCursoIds, selectedCursoId]);
 
   const [tab, setTab] = useState('dia');
   const [materiaCmId, setMateriaCmId] = useState('');
@@ -66,15 +87,24 @@ function Asistencias() {
     setEstudianteMateria('');
   }, [selectedCursoId]);
 
+  // 5.6: `===` pasa a `includes` sobre la lista de cursos marcados.
   const cmCurso = useMemo(
-    () => (cursoObjSel ? cursoMateria.filter((cm) => cm.id_curso === cursoObjSel.id_curso) : []),
-    [cursoMateria, cursoObjSel],
+    () => (cursosSelIds.length > 0
+      ? cursoMateria.filter((cm) => cursosSelIds.includes(String(cm.id_curso)))
+      : []),
+    [cursoMateria, cursosSelIds],
   );
 
   const listaEstudiantes = useMemo(
-    () => estudiantes.filter((a) => a.curso === curso).sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '')),
-    [estudiantes, curso],
+    () => estudiantes
+      .filter((a) => cursosSel.includes(a.curso))
+      .sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '')),
+    [estudiantes, cursosSel],
   );
+
+  // 5.6: la etiqueta del curso se muestra solo cuando hay más de una división
+  // marcada; con una sola, el nombre del curso es redundante.
+  const etiquetaCurso = (a) => (cursosSel.length > 1 ? ` (${a.curso})` : '');
 
   const today = hoy();
 
@@ -250,7 +280,7 @@ function Asistencias() {
                 >
                   <option value="">Todos...</option>
                   {listaEstudiantes.map((a) => (
-                    <option key={a.id} value={a.id}>{nombreCorto(a)}</option>
+                    <option key={a.id} value={a.id}>{nombreCorto(a)}{etiquetaCurso(a)}</option>
                   ))}
                 </select>
               </div>
@@ -303,9 +333,13 @@ function Asistencias() {
                 onChange={(e) => setMateriaCmId(e.target.value)}
               >
                 <option value="">Seleccione materia...</option>
+                {/* 5.6: con varias divisiones marcadas pueden repetirse nombres de
+                    materia, así que se muestra el curso para distinguirlas. */}
                 {cmCurso.map((cm) => (
                   <option key={cm.id} value={cm.id}>
-                    {cm.materia_nombre}
+                    {cmCurso.length > 0 && cursosSel.length > 1
+                      ? `${cm.materia_nombre} — ${cm.curso_nombre || ''}`.trim()
+                      : cm.materia_nombre}
                   </option>
                 ))}
               </select>
@@ -328,7 +362,7 @@ function Asistencias() {
               >
                 <option value="">Todos...</option>
                 {listaEstudiantes.map((a) => (
-                  <option key={a.id} value={a.id}>{nombreCorto(a)}</option>
+                  <option key={a.id} value={a.id}>{nombreCorto(a)}{etiquetaCurso(a)}</option>
                 ))}
               </select>
             </div>

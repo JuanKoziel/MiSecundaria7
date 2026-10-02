@@ -1,4 +1,5 @@
 import { useData } from '../../context/DataContext';
+import { useAsistenciasAlumno } from '../../hooks/useAsistenciasAlumno';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { formatDNI } from '../../utils/dni';
 
@@ -27,18 +28,23 @@ function EstadoTile({ label, estado, color }) {
 }
 
 function Resumen({ hijo }) {
-  const { asistenciasFamilia, calificacionesFamilia, cursosObj, getEstudianteById, materiasPorCurso } = useData();
+  const { calificacionesFamilia, cursosObj, getEstudianteById, materiasPorCurso } = useData();
   const estudiante = getEstudianteById(hijo.alumnoId);
   const cursoObj = cursosObj.find((c) => c.id_curso === estudiante?.id_curso);
   const turno = cursoObj?.turno_calculado || '—';
   const preceptor = cursoObj?.preceptor_nombre_completo || '—';
-  const asistencias = asistenciasFamilia.filter((a) => a.hijoId === hijo.id);
   const calificaciones = calificacionesFamilia.filter((c) => c.hijoId === hijo.id);
 
-  const presentes = asistencias.filter((a) => a.estado === 'Presente').length;
-  const ausentes = asistencias.filter((a) => a.estado === 'Ausente').length;
-  const tardanzas = asistencias.filter((a) => a.estado === 'Tarde').length;
-  const registradas = asistencias.length;
+  // Las asistencias no salen del contexto global: ahí `asistenciasRaw` está
+  // pineado a `[]` (tabla completa sin paginar) y por eso el Resumen mostraba
+  // 0/0/0/0 aunque hubiera cargas. Se piden acotadas por alumno.
+  const {
+    presente: presentes,
+    ausente: ausentes,
+    tarde: tardanzas,
+    total: registradas,
+  } = useAsistenciasAlumno(estudiante?.id);
+
   const porcentajeAsistencia =
     registradas > 0 ? clamp((presentes / registradas) * 100) : 0;
 

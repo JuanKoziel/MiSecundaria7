@@ -10,6 +10,7 @@ export const menuItems = [
       { id: 'calificaciones', label: 'Calificaciones', icon: 'fa-clipboard-list' },
       { id: 'asistencias', label: 'Asistencias', icon: 'fa-user-check' },
       { id: 'actas', label: 'Actas', icon: 'fa-file-signature' },
+      { id: 'materias-adeudadas', label: 'Materias Adeudadas', icon: 'fa-book' },
     ],
   },
 
