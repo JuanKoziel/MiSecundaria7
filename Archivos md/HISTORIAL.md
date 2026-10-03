@@ -2,7 +2,7 @@
 
 > **Propósito:** Registro de todas las auditorías, correcciones y decisiones significativas tomadas en el proyecto. Este archivo preserva el trabajo ya realizado para referencia futura.
 >
-> **Última actualización:** 2026-09-04
+> **Última actualización:** 2026-10-03
 
 ---
 
@@ -750,4 +750,91 @@ solo notifica las que llegaron en la sesión.
 
 ---
 
-*Documento actualizado el 2026-09-04 · Proyecto Mi Secundaria 7*
+## 15. Corrección de HTTP 500 masivos por esquema desalineado + logo 404 (2026-10-03)
+
+### 15.1 Síntoma
+
+Casi todos los endpoints de la API devolvían **HTTP 500**. La causa raíz era
+una sola, repetida con distintas columnas:
+
+```text
+django.db.utils.OperationalError:
+(1054, "Unknown column 'materias.activo' in 'SELECT'")
+```
+
+Los modelos de `escuela` son `managed = False`, así que `migrate` nunca creaba
+sus columnas. La base se había provisionado con
+`deploy/sql/sistema_escolar.mariadb.sql`, una foto antigua del MySQL original a
+la que le faltaban **51 columnas/alineaciones** que el backend ya usaba:
+borrado lógico (`estado`, `fecha_eliminacion`), flags `activo`, y columnas de
+funcionalidad (`cursos.orientacion`, `padres_tutores.correo/tipo`,
+`asistencias.hora/justificado`, `horarios.id_modulo`,
+`notificaciones.id_alumno`, el contenido de `planificaciones`, etc.).
+
+### 15.2 Corrección
+
+No se quitó `managed = False` (la base es externa y esa decisión se respeta) y
+**no** se resolvió borrando columnas de los modelos (eso habría roto el borrado
+lógico y el historial). Se agregó una capa explícita y repetible:
+
+| Pieza | Rol |
+|-------|-----|
+| `backend/proyecto/escuela/schema.py` | Especificación declarativa: columnas, nulabilidad, índices/FK y rellenos. Fuente única de verdad. |
+| `escuela/migrations/0007_sincronizar_esquema_managed_false.py` | Aplica solo el DDL faltante. Reversible (suelta la FK antes de la columna). |
+| `manage.py verificar_esquema` | Compara el esquema físico con los modelos. `--aplicar` ejecuta el DDL. Sale con código 1 si hay desvío. |
+| `manage.py generar_sql_esquema` | Emite el SQL idempotente (`deploy/sql/002_esquema.sql`) para instalaciones/actualizaciones. |
+| `escuela/tests/test_esquema.py`, `test_api_sin_500.py` | Regresión: toda columna de todo modelo existe; ningún listado devuelve 5xx; sin autenticar todo sigue rechazado. |
+
+Propiedades del DDL: **aditivo** (solo ADD/MODIFY de alineación; nunca DROP ni
+TRUNCATE), **idempotente** (cada sentencia se valida contra
+`information_schema`), y **conservador con los datos** (rellena NULLs con el
+valor por defecto del modelo; solo endurece a NOT NULL si no quedan NULLs).
+
+Decisiones de modelado:
+- `horarios`: se agregó `id_modulo` (FK a `modulos`) y se backfilleó desde la
+  columna denormalizada `numero_modulo`, que se conserva.
+- `planificaciones`: `estado` es `Borrador`/`Publicado` (no borrado lógico); el
+  flag de borrado es `eliminado`. Se conservan `titulo`/`descripcion`.
+- `asistencias.hora` se crea NULL, se rellena y se endurece a NOT NULL.
+- Se conservan sin tocar las columnas físicas heredadas
+  (`cursos.turno`, `asistencias.numero_modulo/observacion`,
+  `horarios.numero_modulo/hora_inicio/hora_fin`, `*.ruta_archivo`).
+
+### 15.3 Procedimiento aplicado (verificado)
+
+1. Backup verificado con `mariadb-dump --single-transaction --routines
+   --triggers --events` y restauración de prueba en una base aparte.
+2. `docker compose build api && up -d api` (el código va horneado en la imagen).
+3. `manage.py migrate` → `Applying escuela.0007... OK`.
+4. `manage.py verificar_esquema` → salida 0.
+5. Barrido de los 43 endpoints: **todos 200** con JWT; **todos 401** (o 404 en
+   una ruta de detalle) sin autenticar. No se abrió ninguna ruta ni permiso.
+6. Diff de datos `--no-create-info` antes/después: idéntico salvo la fila nueva
+   de `django_migrations`.
+7. Reversión probada en una copia: `migrate escuela 0006` y re-aplicación
+   dejan el esquema alineado.
+8. Tests: **15 OK**. `manage.py check` limpio.
+
+### 15.4 Logo 404
+
+`frontend/src/components/Shared/Logo.jsx` usaba `src="/logo-escuela.png"`
+absoluto desde la raíz del dominio, pero Vite publica bajo `base:
+'/misecundaria7/'` → el navegador pedía `/logo-escuela.png` (404). Se cambió a
+`` `${import.meta.env.BASE_URL}logo-escuela.png` `` y se regeneraron `dist/` y
+`frontend/misecundaria7-frontend.zip`. El frontend se sirve desde un host
+externo: hay que re-subir el contenido de `dist/` (o el zip) a la raíz del sitio.
+
+### 15.5 Limitación conocida
+
+El volcado `deploy/sql/sistema_escolar.mariadb.sql` es **incompleto**: define 42
+tablas y la base real tiene 67 (faltan, entre otras, `modulos`,
+`historial_academico`, `cargos_*`, `suplencias_docentes`, `actividades_docentes`).
+`deploy/sql/002_esquema.sql` es seguro sobre un esquema parcial (cada ALTER/FK
+verifica que existan la tabla y la referenciada), pero una instalación
+verdaderamente desde cero necesita también esas 25 tablas, que hoy solo existen
+en la base de producción. Documentado aquí para no dar por sentado que el dump
+basta.
+
+---
+
+*Documento actualizado el 2026-10-03 · Proyecto Mi Secundaria 7*

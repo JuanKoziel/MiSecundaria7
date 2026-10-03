@@ -1,0 +1,56 @@
+services:
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: misecundaria7-api:local
+    container_name: misecundaria7-api
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    volumes:
+      - /srv/data/misecundaria7/media:/app/media
+      - /srv/data/misecundaria7/static:/app/staticfiles
+    networks:
+      - internal
+      - reverse-proxy
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11
+    container_name: misecundaria7-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - misecundaria7_db:/var/lib/mysql
+    networks:
+      - internal
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "healthcheck.sh",
+          "--connect",
+          "--innodb_initialized"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  misecundaria7_db:
+
+networks:
+  internal:
+    name: misecundaria7-internal
+    internal: true
+
+  reverse-proxy:
+    external: true

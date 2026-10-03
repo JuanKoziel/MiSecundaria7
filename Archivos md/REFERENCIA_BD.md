@@ -803,6 +803,57 @@ El análisis del proyecto indicó que:
 
 Por eso, para cambios de datos, priorizar el esquema real recuperado de MySQL.
 
+## Columnas que los modelos necesitan y el SQL de referencia no tenía (corregido 2026-10-03)
+
+Los modelos son `managed = False`: Django nunca crea ni altera estas tablas. El
+esquema se provisionaba solo con `deploy/sql/sistema_escolar.mariadb.sql`, que es
+una foto antigua del MySQL original y **no** incluía las columnas que el backend
+ya usaba. Resultado: casi todos los listados devolvían HTTP 500 con
+
+```text
+django.db.utils.OperationalError:
+(1054, "Unknown column 'materias.activo' in 'SELECT'")
+```
+
+Columnas agregadas por `escuela/migrations/0007_sincronizar_esquema_managed_false.py`:
+
+| Tabla | Columnas |
+|-------|----------|
+| `alumnos`, `docentes`, `preceptores`, `directivos`, `padres_tutores`, `materias`, `cursos`, `curso_materia`, `periodos_evaluacion`, `actas`, `comunicados`, `diagnosticos_grupales` | `estado`, `fecha_eliminacion` |
+| `ciclos_lectivos` | `fecha_eliminacion` |
+| `planificaciones` | `contenido`, `objetivos`, `salidas`, `fundamentacion`, `estado` (Borrador/Publicado), `eliminado`, `fecha_ultima_modificacion`, `fecha_eliminacion` |
+| `materias`, `cursos`, `curso_materia` | `activo` |
+| `cursos` | `orientacion` |
+| `padres_tutores` | `correo`, `tipo` |
+| `asistencias` | `hora`, `justificado` |
+| `horarios` | `id_modulo` (+ índice y FK a `modulos`), derivado de `numero_modulo` |
+| `notificaciones` | `id_alumno` (+ índice y FK a `alumnos`) |
+
+Alineaciones de nulabilidad: `asistencias.hora`, `usuarios.estado`,
+`ciclos_lectivos.estado` y `notificaciones.leida` pasan a `NOT NULL`;
+`comunicados.id_curso` pasa a admitir `NULL`.
+
+`planificaciones.estado` **no** es el flag de borrado lógico: ese rol lo cumple
+`planificaciones.eliminado` (ver `PlanificacionManager` y `utils.marcar_eliminado`).
+Las columnas físicas heredadas (`planificaciones.titulo`, `.descripcion`,
+`horarios.hora_inicio/hora_fin/numero_modulo`, `asistencias.numero_modulo`,
+`.observacion`, `cursos.turno`) **no** se eliminaron: se conservan los datos.
+
+La especificación completa vive en `backend/proyecto/escuela/schema.py` y se
+puede verificar o re-aplicar en cualquier momento:
+
+```bash
+# informar diferencias (código de salida 1 si hay desalineación)
+docker compose -f deploy/compose.yml exec -T api python manage.py verificar_esquema
+
+# aplicar el DDL faltante (idempotente, aditivo, no destructivo)
+docker compose -f deploy/compose.yml exec -T api python manage.py verificar_esquema --aplicar
+
+# emitir el SQL equivalente para instalaciones desde cero
+docker compose -f deploy/compose.yml exec -T api \
+    python manage.py generar_sql_esquema --salida deploy/sql/002_esquema.sql
+```
+
 ---
 
 # 20. Reglas específicas para la carga 2026

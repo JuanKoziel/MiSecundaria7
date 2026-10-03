@@ -805,7 +805,8 @@ horarios
 - Nunca asumir que un campo existe porque aparece en el SQL de referencia.
 - Antes de modificar un modelo Django, verificar la estructura real de MySQL con `DESCRIBE <tabla>;` o `SHOW COLUMNS FROM <tabla>;`.
 - Si hay discrepancia entre el modelo Django y la BD real, la BD real tiene razón. Actualizar el modelo Django.
-- No crear migraciones ni modificar el esquema desde Django (`managed = False` en todos los modelos).
+- `migrate` no crea ni altera estas tablas (`managed = False`). Para extender el esquema físico hay que pasar por la especificación declarativa de `escuela/schema.py` (migración + `verificar_esquema`), nunca por un `ALTER` suelto. Ver §14.3.
+- Antes de tocar la base, hacer backup verificado y confirmar que el archivo no está vacío.
 
 ### 8.3 Propósito de cada tabla
 
@@ -1229,9 +1230,98 @@ Varios errores de desarrollo se originaron porque se confiaba en el SQL de refer
 - Inconsistencias entre el modelo Django y la estructura real de MySQL.
 - Tiempo perdido debuggeando problemas que en realidad eran diferencias entre el SQL de referencia y la BD real.
 
+**Corolario (implementado el 2026-10-03):** como `managed = False` impide que
+Django cree columnas, la base real tiene que ser la fuente de verdad **y** hay
+que tener un mecanismo para extenderla de forma repetible. Ese mecanismo es
+`backend/proyecto/escuela/schema.py` (especificación declarativa), la migración
+`0007_sincronizar_esquema_managed_false`, el comando `verificar_esquema` y los
+tests de `escuela/tests/`. Ver §14.3.
+
 ---
 
-### 14.3 Un único DataContext como fuente de verdad
+### 14.3 Sincronización del esquema físico (migración 0007)
+
+**Qué pasó:**
+El esquema se provisionaba únicamente con `deploy/sql/sistema_escolar.mariadb.sql`,
+una foto antigua del MySQL original. Ese volcado no tiene las columnas de
+borrado lógico (`estado`, `fecha_eliminacion`), ni `activo`, ni varias columnas
+de funcionalidad que el backend y el frontend ya usaban
+(`cursos.orientacion`, `padres_tutores.correo/tipo`, `asistencias.hora/justificado`,
+`horarios.id_modulo`, `notificaciones.id_alumno`, el contenido pedagógico de
+`planificaciones`). Como los modelos son `managed = False`, `migrate` no las
+tocaba: 24 endpoints devolvían HTTP 500 con
+`(1054, "Unknown column 'materias.activo' in 'SELECT'")`.
+
+**Cómo se resolvió:**
+Se mantuvo `managed = False` (no se quita: la base es externa) y se agregó una
+capa explícita de sincronización:
+
+| Pieza | Rol |
+|-------|-----|
+| `escuela/schema.py` | Especificación declarativa: qué columnas deben existir, con qué tipo, y qué índice/FK las acompaña. Única fuente de verdad. |
+| `escuela/migrations/0007_sincronizar_esquema_managed_false.py` | Aplica el DDL que falta. Delega en `schema.aplicar_esquema()`. |
+| `manage.py verificar_esquema` | Compara el esquema físico con la especificación. Sale con código 1 si hay desvío. Acepta `--aplicar`. |
+| `manage.py generar_sql_esquema` | Emite el SQL equivalente (idempotente) para instalar desde cero. |
+| `escuela/tests/test_esquema.py` | Regresión: toda columna de todo modelo debe existir en la base; el SQL no puede contener operaciones destructivas. |
+| `escuela/tests/test_api_sin_500.py` | Regresión: ningún listado del router puede devolver 5xx, y sin autenticar todos siguen rechazados. |
+
+**Reglas de diseño del DDL:**
+- Solo `ADD COLUMN`, `ADD INDEX`, `ADD CONSTRAINT` y `MODIFY COLUMN` para
+  alinear nulabilidad. Nunca `DROP`, `TRUNCATE` ni `DELETE`.
+- Cada sentencia se valida contra `information_schema` antes de ejecutarse:
+  se puede ejecutar tantas veces como haga falta.
+- Las filas existentes se rellenan con el valor por defecto del modelo, para que
+  los managers con borrado lógico (`ActivoManager`, que filtran `estado=True`)
+  sigan viendo los registros que ya estaban cargados.
+- `MODIFY ... NOT NULL` solo se aplica si ya no quedan NULLs; si quedan, se
+  informa y no se toca.
+
+**Flujo de verificación antes de un despliegue:**
+
+```bash
+# 1. Backup (verificar que el archivo no está vacío)
+cd deploy && set -a && . ./.env && set +a
+docker exec -e MYSQL_PWD="$DB_ROOT_PASSWORD" misecundaria7-db sh -c \
+    'mariadb-dump -uroot --single-transaction --routines --triggers \
+     --events --default-character-set=utf8mb4 sistema_escolar' \
+    > /srv/backups/misecundaria7/database/$(date +%Y%m%d-%H%M%S)-pre.sql
+
+# 2. Reconstruir la imagen (el código va horneado en la imagen, no hay bind mount)
+docker compose -f deploy/compose.yml build api
+docker compose -f deploy/compose.yml up -d api
+
+# 3. Aplicar migraciones y confirmar que el esquema quedó alineado
+docker compose -f deploy/compose.yml exec -T api python manage.py migrate
+docker compose -f deploy/compose.yml exec -T api python manage.py verificar_esquema
+
+# 4. Tests (usan una base `test_*` aparte; nunca tocan la real)
+docker compose -f deploy/compose.yml exec -T api python manage.py test escuela
+```
+
+Para que los tests puedan crear su base efímera, el usuario de la aplicación
+necesita el privilegio sobre el patrón `test\_%`:
+
+```sql
+GRANT ALL PRIVILEGES ON `test\_%`.* TO 'misecundaria7'@'%';
+FLUSH PRIVILEGES;
+```
+
+**Reversión:** `python manage.py migrate escuela 0006` deshace la 0007. El
+`reverse` suelta primero las FK nuevas y después las columnas; volver a aplicar
+`0007` deja el esquema alineado. En producción conviene dejarla aplicada: bajarla
+implica perder las columnas y sus datos.
+
+**Límite del volcado de referencia:** `deploy/sql/sistema_escolar.mariadb.sql`
+define 42 tablas y la base real tiene 67 (faltan, entre otras, `modulos`,
+`historial_academico`, `suplencias_docentes`, `actividades_docentes`). El SQL
+generado (`deploy/sql/002_esquema.sql`) es seguro sobre un esquema parcial:
+cada `ALTER`/FK comprueba que existan la tabla y la tabla referenciada. Pero una
+instalación desde cero necesita también esas 25 tablas, que hoy solo están en la
+base de producción. No dar por sentado que el dump basta.
+
+---
+
+### 14.4 Un único DataContext como fuente de verdad
 
 **Contexto:**
 En las primeras versiones del frontend, cada componente cargaba sus propios datos llamando a la API directamente. Esto provocaba que:
@@ -1258,7 +1348,7 @@ Se necesitaba una fuente única de verdad centralizada que cargara todos los dat
 
 ---
 
-### 14.4 Un único api.js para todas las llamadas HTTP
+### 14.5 Un único api.js para todas las llamadas HTTP
 
 **Contexto:**
 Inicialmente, cada componente importaba axios directamente y hacía sus propias llamadas. Esto llevó a:
@@ -1288,7 +1378,7 @@ Centralizar todas las llamadas HTTP en un solo archivo (`api.js`) garantiza que:
 
 ---
 
-### 14.5 Formularios desplegables en lugar de modales
+### 14.6 Formularios desplegables en lugar de modales
 
 **Contexto:**
 En muchas aplicaciones web, los formularios de creación/edición se implementan como modales (ventanas emergentes que se superponen al contenido). En este proyecto, se optó por un enfoque diferente: formularios desplegables inline que se muestran/ocultan dentro del mismo flujo de la página.
@@ -1315,7 +1405,7 @@ Los modales presentan varios problemas para este tipo de sistema escolar:
 
 ---
 
-### 14.6 PDFs generados desde Django, no desde React
+### 14.7 PDFs generados desde Django, no desde React
 
 **Contexto:**
 El sistema requiere generar documentos PDF: proyectos pedagógicos, RITE de calificaciones. La generación de PDFs desde el frontend (React) es posible usando librerías como jsPDF, html2pdf, o `window.print()`, pero presentan limitaciones significativas.
@@ -1341,7 +1431,7 @@ El sistema requiere generar documentos PDF: proyectos pedagógicos, RITE de cali
 
 ---
 
-### 14.7 Todo el proyecto utiliza español
+### 14.8 Todo el proyecto utiliza español
 
 **Contexto:**
 El sistema es utilizado por una escuela secundaria argentina. Todos los usuarios (administrativos, docentes, preceptores, estudiantes, familias) hablan español. La base de datos preexistente ya tenía nombres de tablas y columnas en español.
@@ -1363,7 +1453,7 @@ Mezclar inglés y español en un proyecto crea confusión innecesaria. Si los no
 
 ---
 
-### 14.8 Todos los módulos comparten el mismo diseño visual
+### 14.9 Todos los módulos comparten el mismo diseño visual
 
 **Contexto:**
 El sistema tiene 5 roles (Admin, Preceptor, Docente, Estudiante, Familia), cada uno con su propio dashboard y conjunto de vistas. Inicialmente, cada rol tenía ligeras variaciones de diseño que hacían que el sistema se sintiera como 5 aplicaciones diferentes en lugar de una sola.
@@ -1388,7 +1478,7 @@ La consistencia visual es fundamental para la experiencia de usuario en un siste
 
 ---
 
-### 14.9 Reutilización de componentes antes de crear nuevos
+### 14.10 Reutilización de componentes antes de crear nuevos
 
 **Contexto:**
 En las primeras etapas del proyecto, cada desarrollador creaba componentes desde cero para cada nueva funcionalidad, incluso cuando existían componentes similares en otros módulos. Esto resultó en múltiples implementaciones del mismo patrón (tablas de estudiantes, tarjetas de perfil, formularios de búsqueda) con ligeras variaciones, lo que duplicaba el código y el esfuerzo de mantenimiento.
@@ -1410,7 +1500,7 @@ La reutilización es un principio fundamental de React. Cuando el mismo patrón 
 
 ---
 
-### 14.10 Mantener la arquitectura existente sin innovar
+### 14.11 Mantener la arquitectura existente sin innovar
 
 **Contexto:**
 Cada vez que un nuevo desarrollador o IA trabaja en el proyecto, existe la tentación de introducir mejores prácticas modernas, nuevas librerías, o patrones diferentes a los existentes. Esto es contraproducente porque:
@@ -1435,7 +1525,7 @@ El proyecto tiene una arquitectura probada que funciona. Los patrones están est
 
 ---
 
-### 14.11 Archivos monolíticos por capa (models.py, serializers.py, views.py)
+### 14.12 Archivos monolíticos por capa (models.py, serializers.py, views.py)
 
 **Contexto:**
 En proyectos Django típicos, es común tener una estructura de archivos por modelo o por app: `models/alumno.py`, `views/docente.py`, etc. Este proyecto, en cambio, tiene un solo `models.py` con 21 modelos, un solo `serializers.py` con ~40 serializers, y un solo `views.py` con ~19 viewsets.
@@ -1459,7 +1549,7 @@ El proyecto tiene una sola app Django (`escuela`). La base de datos es externa, 
 
 ---
 
-### 14.12 Enrutamiento por estado en lugar de React Router
+### 14.13 Enrutamiento por estado en lugar de React Router
 
 **Contexto:**
 La mayoría de las aplicaciones React modernas usan React Router para el enrutamiento. Este proyecto no lo usa. En su lugar, cada dashboard mantiene una variable de estado `view` que determina qué componente se renderiza, mediante un switch.
@@ -1484,7 +1574,7 @@ El sistema no es una aplicación con páginas independientes (cada una con su pr
 
 ---
 
-### 14.13 Sin librerías externas de UI
+### 14.14 Sin librerías externas de UI
 
 **Contexto:**
 La mayoría de los proyectos web modernos utilizan librerías de UI como Material UI, Chakra UI, Bootstrap, o Ant Design para acelerar el desarrollo. Este proyecto no usa ninguna: todo el CSS es manual en `index.css`.
@@ -1509,7 +1599,7 @@ La mayoría de los proyectos web modernos utilizan librerías de UI como Materia
 
 ---
 
-### 14.14 Sin TypeScript
+### 14.15 Sin TypeScript
 
 **Contexto:**
 El proyecto utiliza JavaScript puro con JSX, no TypeScript. Esto es una decisión deliberada, no una omisión.
@@ -1533,7 +1623,7 @@ El proyecto utiliza JavaScript puro con JSX, no TypeScript. Esto es una decisió
 
 ---
 
-### 14.15 Sin tests automatizados (actualizado)
+### 14.16 Sin tests automatizados (actualizado)
 
 **Contexto:**
 El proyecto originalmente no tenía tests automatizados (ni unitarios, ni de integración, ni end-to-end). Sin embargo, **esto ha cambiado** — actualmente existen tests.
@@ -1713,7 +1803,22 @@ En **update**, además elimina el PDF anterior del disco antes de regenerar.
 
 **Problema:** El modelo Django tiene un campo que no existe en la tabla MySQL, o viceversa.
 
-**Solución:** Como `managed = False`, los modelos deben coincidir EXACTAMENTE con la estructura de la BD. Verificar `db_table` y `db_column`.
+**Síntoma típico:** HTTP 500 en varios endpoints a la vez, con
+`(1054, "Unknown column '<tabla>.<columna>' in 'SELECT'")`. Suele indicar que
+falta una columna de borrado lógico (`estado` / `fecha_eliminacion`) o un flag
+`activo`, porque `ActivoManager` las filtra en casi todas las consultas.
+
+**Diagnóstico:**
+
+```bash
+docker compose -f deploy/compose.yml exec -T api python manage.py verificar_esquema
+```
+
+**Solución:** Como `managed = False`, los modelos deben coincidir EXACTAMENTE con
+la estructura de la BD. Verificar `db_table` y `db_column`. Si la columna falta
+de verdad, agregarla a `escuela/schema.py` y correr `manage.py migrate`
+(migración idempotente, ver §14.3). No resolverlo borrando la columna del modelo:
+eso rompe el borrado lógico y el historial.
 
 ### 17.3 Serializer/modelo desincronizados
 
@@ -1939,10 +2044,11 @@ This reveals the **precondition dependency** problem in `PanelProfesores`: click
 2. **No cambiar el backend si el frontend puede resolverlo.** Preferir lógica del lado del cliente cuando sea posible.
 3. **Un cambio en DataContext afecta a TODOS los dashboards.** Verificar que ningún otro rol se rompa.
 4. **Los nombres de endpoints son plurales** en kebab-case (`/api/curso-materia/`).
-5. **Todos los modelos tienen `managed = False`** — Django nunca debe crear/modificar tablas.
+5. **Todos los modelos tienen `managed = False`** — Django nunca debe crear/modificar tablas. Para extender el esquema físico se usa `escuela/schema.py` + `manage.py migrate`, nunca un `ALTER` suelto (§14.3).
 6. **El CSS es global** — no crear estilos inline a menos que sea absolutamente necesario.
 7. **Los componentes de perfil siempre muestran datos condicionalmente** (`{campo && ...}`) porque no todos los roles tienen los mismos campos.
 8. **Todos los hooks deben ir ANTES de cualquier early return.** Si un dato puede ser null en el primer render, poner el guardia dentro de `useMemo`/`useEffect`, no antes del hook.
+9. **Los assets públicos van con `import.meta.env.BASE_URL`**, nunca con ruta absoluta desde la raíz del dominio. `vite.config.js` define `base: '/misecundaria7/'`, así que `src="/logo-escuela.png"` daba 404; lo correcto es `` src={`${import.meta.env.BASE_URL}logo-escuela.png`} ``.
 
 ### 18.5 Estructura a seguir para nuevos módulos
 
@@ -1969,6 +2075,8 @@ Después de cualquier modificación, verificar:
 4. **No regresión:** Que los perfiles existentes (todos los roles) sigan funcionando.
 5. **CSS:** Que no se hayan introducido estilos que rompan el layout existente.
 6. **Rules of Hooks:** Verificar que ningún hook esté después de un early return.
+7. **Esquema:** Si se tocó un modelo, `python manage.py verificar_esquema` debe salir con código 0 (§14.3).
+8. **Tests:** `python manage.py test escuela` (15 tests: esquema + barrido de endpoints sin 5xx).
 
 ---
 

@@ -156,7 +156,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -184,6 +185,24 @@ CORS_ALLOW_HEADERS = [
     'x-rol-activo',
 ]
 
+CSRF_TRUSTED_ORIGINS_ENV = os.environ.get(
+    'CSRF_TRUSTED_ORIGINS',
+    ''
+)
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in CSRF_TRUSTED_ORIGINS_ENV.split(',')
+    if o.strip()
+]
+
+# Cloudflare -> Nginx -> Gunicorn/Django
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
 
 # Django REST Framework
 REST_FRAMEWORK = {
