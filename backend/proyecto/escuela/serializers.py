@@ -7,7 +7,11 @@ from django.utils import timezone
 from django.db import transaction
 from django.db.utils import IntegrityError
 
-from escuela.utils import normalizar_dni, obtener_docente_activo
+from escuela.utils import (
+    es_estado_asistencia_base,
+    normalizar_dni,
+    obtener_docente_activo,
+)
 
 
 class EnteroOpcionalField(serializers.IntegerField):
@@ -235,15 +239,68 @@ class RolSerializer(serializers.ModelSerializer):
 
 
 class EstadoAsistenciaSerializer(serializers.ModelSerializer):
+    # Marca los cinco estados de los que depende la lógica de asistencia
+    # (ver `utils.ESTADOS_ASISTENCIA_BASE`). Es un campo calculado: no agrega
+    # ninguna columna a la tabla.
+    es_base = serializers.SerializerMethodField()
+
     class Meta:
         model = EstadoAsistencia
         fields = '__all__'
+        read_only_fields = ('es_base',)
+
+    def get_es_base(self, obj):
+        return es_estado_asistencia_base(obj.nombre_estado)
+
+    def validate_nombre_estado(self, value):
+        nombre = (value or '').strip()
+        if not nombre:
+            raise serializers.ValidationError('El nombre del estado es obligatorio.')
+        if len(nombre) > 50:
+            raise serializers.ValidationError(
+                'El nombre del estado puede tener hasta 50 caracteres.'
+            )
+        qs = EstadoAsistencia.objects.filter(nombre_estado__iexact=nombre)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                'Ya existe un estado de asistencia con ese nombre.'
+            )
+
+        # Renombrar un estado base rompería el registro de asistencias, que lo
+        # reconoce por su nombre exacto. Se permite cambiar mayúsculas y espacios
+        # (el nombre sigue siendo "Presente"), pero no convertirlo en otro texto.
+        if self.instance is not None:
+            anterior = (self.instance.nombre_estado or '').strip()
+            if es_estado_asistencia_base(anterior) and nombre != anterior:
+                raise serializers.ValidationError(
+                    f'"{anterior}" es un estado base del sistema: no se puede '
+                    'cambiar su nombre porque el registro de asistencias lo '
+                    'reconoce por ese nombre exacto.'
+                )
+        return nombre
 
 
 class TipoActaSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoActa
         fields = '__all__'
+
+    def validate_nombre_tipo(self, value):
+        nombre = (value or '').strip()
+        if not nombre:
+            raise serializers.ValidationError('El nombre del tipo de acta es obligatorio.')
+        if len(nombre) > 50:
+            raise serializers.ValidationError(
+                'El nombre del tipo de acta puede tener hasta 50 caracteres.'
+            )
+        qs = TipoActa.objects.filter(nombre_tipo__iexact=nombre)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Ya existe un tipo de acta con ese nombre.')
+        return nombre
 
 
 class TipoAccionSerializer(serializers.ModelSerializer):
@@ -256,12 +313,105 @@ class PeriodoEvaluacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PeriodoEvaluacion
         fields = '__all__'
+        read_only_fields = ('fecha_eliminacion',)
+
+    def validate_orden_periodo(self, value):
+        # La columna es NULL en el esquema, así que el campo llega como
+        # opcional: la obligatoriedad se comprueba acá y en `validate`.
+        if value is None:
+            raise serializers.ValidationError('El orden del período es obligatorio.')
+        if value < 1:
+            raise serializers.ValidationError(
+                'El orden del período debe ser un número entero positivo.'
+            )
+        return value
+
+    def validate(self, attrs):
+        # `nombre_periodo` es blank/null en el modelo: la obligatoriedad y el
+        # recorte se resuelven acá para que el mensaje sea explícito.
+        nombre = attrs.get(
+            'nombre_periodo',
+            getattr(self.instance, 'nombre_periodo', None),
+        )
+        if not nombre or not str(nombre).strip():
+            raise serializers.ValidationError({
+                'nombre_periodo': 'El nombre del período es obligatorio.',
+            })
+        attrs['nombre_periodo'] = str(nombre).strip()
+
+        # El orden identifica la posición del período en el consolidado de
+        # calificaciones, así que no puede repetirse entre períodos activos.
+        orden = attrs.get(
+            'orden_periodo',
+            getattr(self.instance, 'orden_periodo', None),
+        )
+        if orden is None:
+            raise serializers.ValidationError({
+                'orden_periodo': 'El orden del período es obligatorio.',
+            })
+        if orden < 1:
+            raise serializers.ValidationError({
+                'orden_periodo': (
+                    'El orden del período debe ser un número entero positivo.'
+                ),
+            })
+        qs = PeriodoEvaluacion.all_objects.filter(
+            orden_periodo=orden, estado=True,
+        )
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError({
+                'orden_periodo': (
+                    f'Ya existe un período de evaluación activo con el '
+                    f'orden {orden}.'
+                ),
+            })
+        return attrs
 
 
 class CicloLectivoSerializer(serializers.ModelSerializer):
     class Meta:
         model = CicloLectivo
         fields = '__all__'
+        read_only_fields = ('fecha_eliminacion',)
+
+    def validate_anio(self, value):
+        if value is None:
+            raise serializers.ValidationError('El año del ciclo lectivo es obligatorio.')
+        # La columna física es `YEAR(4)`, que en MariaDB solo admite de 1901 a
+        # 2155. Sin este rango, un año como 3000 pasaba la validación y
+        # reventaba al insertar con un DataError (HTTP 500) en vez de un 400.
+        if not (1901 <= value <= 2155):
+            raise serializers.ValidationError(
+                'El año del ciclo lectivo debe estar entre 1901 y 2155 '
+                '(por ejemplo, 2026).'
+            )
+        return value
+
+    def validate(self, attrs):
+        inicio = attrs.get('fecha_inicio', getattr(self.instance, 'fecha_inicio', None))
+        fin = attrs.get('fecha_fin', getattr(self.instance, 'fecha_fin', None))
+        if inicio and fin and fin < inicio:
+            raise serializers.ValidationError({
+                'fecha_fin': (
+                    'La fecha de fin no puede ser anterior a la fecha de inicio.'
+                ),
+            })
+
+        # Un año con dos ciclos activos rompería los filtros por ciclo de toda
+        # la aplicación (cursos, comunicados, reportes). La tabla no tiene
+        # índice único, así que la regla se valida acá.
+        anio = attrs.get('anio', getattr(self.instance, 'anio', None))
+        if anio is not None:
+            qs = CicloLectivo.all_objects.filter(anio=anio, estado=True)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({
+                    'anio': 'Ya existe un ciclo lectivo activo con ese año.',
+                })
+        return attrs
 
 
 def _normalizar_texto(texto):
@@ -1914,6 +2064,30 @@ class ModuloSerializer(serializers.ModelSerializer):
     class Meta:
         model = Modulos
         fields = '__all__'
+
+    def validate_nombre(self, value):
+        nombre = (value or '').strip()
+        if not nombre:
+            raise serializers.ValidationError('El nombre del módulo es obligatorio.')
+        if len(nombre) > 50:
+            raise serializers.ValidationError(
+                'El nombre del módulo puede tener hasta 50 caracteres.'
+            )
+        qs = Modulos.objects.filter(nombre__iexact=nombre)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Ya existe un módulo con ese nombre.')
+        return nombre
+
+    def validate(self, attrs):
+        inicio = attrs.get('hora_inicio', getattr(self.instance, 'hora_inicio', None))
+        fin = attrs.get('hora_fin', getattr(self.instance, 'hora_fin', None))
+        if inicio and fin and fin <= inicio:
+            raise serializers.ValidationError({
+                'hora_fin': 'La hora de fin debe ser posterior a la hora de inicio.',
+            })
+        return attrs
 
 
 class HorarioSerializer(serializers.ModelSerializer):

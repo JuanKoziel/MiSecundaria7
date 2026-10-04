@@ -14,6 +14,7 @@ import {
 } from '../../services/api';
 import VistaHorarios from './VistaHorarios';
 import AccionesCelda from '../../components/Shared/AccionesCelda';
+import AvisoDatosMaestros from '../../components/Shared/AvisoDatosMaestros';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 
@@ -152,9 +153,12 @@ const HorarioSemanal = function HorarioSemanal({ cursoIdExterno = '', onRegister
           {cargandoGrilla ? (
             <LoadingSpinner text="Cargando horarios..." size="sm" inline />
           ) : modulosSorted.length === 0 ? (
-            <p className="empty-state-message empty-state-centered">
-              No hay módulos horarios definidos en el sistema.
-            </p>
+            <AvisoDatosMaestros
+              mensaje="No hay módulos horarios definidos en el sistema."
+              detalle="Los módulos son las franjas horarias que se usan para armar la grilla de horarios."
+              accion="Crear módulo horario"
+              destino="modulos_horarios"
+            />
           ) : materiasCurso.length === 0 ? (
             <p className="empty-state-message empty-state-centered">
               El curso no tiene materias asignadas.

@@ -162,6 +162,59 @@ def seed_tipos_accion():
         pass
 
 
+# ---------- Estados de asistencia base ----------
+
+# El registro de asistencias (alumnos y docentes) resuelve el estado por
+# NOMBRE EXACTO: la lógica está cableada en `views.py` y no acepta cualquier
+# texto. Estos cinco nombres son parte del contrato funcional del sistema: si
+# falta alguno, el registro de asistencias falla con
+# "Estado de asistencia <nombre> no encontrado.".
+#
+# Son catálogo del sistema, NO datos de negocio: por eso se guarantees con un
+# seed idempotente en vez de depender de un INSERT manual.
+ESTADOS_ASISTENCIA_BASE = (
+    'Presente',
+    'Ausente',
+    'Tarde',
+    'Retirado',
+    'Justificado',
+)
+
+
+def es_estado_asistencia_base(nombre):
+    """True si `nombre` es uno de los estados base del sistema."""
+    return (nombre or '').strip() in ESTADOS_ASISTENCIA_BASE
+
+
+def seed_estados_asistencia_base():
+    """Garantiza la existencia de los estados base de asistencia.
+
+    Idempotente: usa `get_or_create` sobre `nombre_estado` (índice único en la
+    tabla), así que se puede ejecutar tantas veces como haga falta —migración,
+    `manage.py seed_estados_asistencia`, o a mano— sin duplicar registros ni
+    pisar los que ya estaban cargados.
+
+    Tolera que la tabla todavía no exista (base sin provisionar) para no
+    romper `migrate` ni el arranque de la aplicación.
+
+    Devuelve la lista de nombres realmente creados en esta llamada (vacía si no
+    creó ninguno), que el comando usa para informar.
+    """
+    from escuela.models import EstadoAsistencia
+
+    creados = []
+    try:
+        for nombre in ESTADOS_ASISTENCIA_BASE:
+            _estado, created = EstadoAsistencia.objects.get_or_create(
+                nombre_estado=nombre,
+            )
+            if created:
+                creados.append(nombre)
+    except (OperationalError, ProgrammingError):
+        return []
+    return creados
+
+
 def normalizar_dni(value):
     if not value:
         return value
@@ -179,6 +232,16 @@ def normalizar_dni(value):
     return f'{first}.{next3}.{last3}'
 
 def activar_o_crear(model_class, lookup, defaults):
+    """Reactiva un registro dado de baja por `lookup` o crea uno nuevo.
+
+    Esta función es la **dueña** del flag `activo` (ver `schema.py`: es el
+    "flag de disponibilidad"): siempre queda en `True` al salir. Por eso se
+    descarta cualquier `activo` venga en `defaults` — el campo es escribible
+    en el serializer, así que un cliente de la API podía mandarlo y el `create`
+    final reventaba con
+    `TypeError: got multiple values for keyword argument 'activo'` (HTTP 500).
+    """
+    defaults = {k: v for k, v in defaults.items() if k != 'activo'}
     try:
         existing = model_class.objects.filter(**lookup, activo=False).first()
         if existing:

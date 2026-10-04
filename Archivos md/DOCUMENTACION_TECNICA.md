@@ -28,6 +28,7 @@
 20. [Consistencia Visual entre Módulos](#20-consistencia-visual-entre-módulos)
 21. [Mi Perfil — Estadísticas por rol](#21-mi-perfil--estadísticas-por-rol)
 22. [Checklist de Verificación de Modelos](#22-checklist-de-verificación-de-modelos)
+23. [Administración → Configuración (datos maestros)](#23-administración--configuración-datos-maestros)
 
 ---
 
@@ -1182,6 +1183,13 @@ Implementado para todos los roles. Cada perfil usa el mismo patrón visual (grid
 | Familia | `PanelFamilia.jsx` | `useData().padresTutores` | Hijos Vinculados |
 | Admin | `PanelAdmin.jsx` | `getDirectivos()` | — (sin tabla extra) |
 
+### 13.13 Configuración (datos maestros)
+
+**Backend:** `CicloLectivoViewSet`, `ModuloViewSet`, `PeriodoEvaluacionViewSet`, `EstadoAsistenciaViewSet`, `TipoActaViewSet`
+**Frontend:** `Administracion/configuracion/` (Admin/Director)
+**Tablas:** `ciclos_lectivos`, `modulos`, `periodos_evaluacion`, `estados_asistencia`, `tipos_acta`
+**Propósito:** Administrar los cinco catálogos base del sistema sin `INSERT` manuales. Ver §23 para el detalle completo.
+
 ---
 
 ## 14. Decisiones Arquitectónicas
@@ -2262,3 +2270,154 @@ grep -n "ActivoManager\|PlanificacionManager\|all_objects" backend/proyecto/escu
 - [ ] Managers `ActivoManager`/`PlanificacionManager` verificados
 - [ ] `all_objects` presente donde corresponde
 - [ ] FK constraints verificadas contra MySQL DDL
+
+---
+
+## 23. Administración → Configuración (datos maestros)
+
+Módulo implementado el 2026-10-04. Antes de esto, con la base vacía **no había
+forma de crear un ciclo lectivo, un módulo horario ni un período de evaluación
+desde la interfaz**: había que hacer `INSERT` en MariaDB a mano.
+
+### 23.1 Catálogos y endpoints
+
+| Catálogo | Endpoint | Modo de baja | Permiso de escritura |
+| --- | --- | --- | --- |
+| Ciclos lectivos | `/api/ciclos-lectivos/` | Lógico (`estado`) | admin/director |
+| Módulos horarios | `/api/modulos/` | Físico + guarda de uso | admin/director |
+| Períodos de evaluación | `/api/periodos/` | Lógico (`estado`) | admin/director |
+| Estados de asistencia | `/api/estados-asistencia/` | Físico + guarda de uso | admin/director |
+| Tipos de acta | `/api/tipos-acta/` | Físico + guarda de uso | admin/director |
+
+Los tres catálogos con borrado lógico aceptan `?incluir_inactivos=1` (también
+`true`, `t`, `yes`, `si`, `sí`) para listar también los desactivados. El helper
+`_incluir_inactivos(request)` de `views.py` centraliza el parseo.
+
+`EstadoAsistenciaViewSet` y `TipoActaViewSet` pasaron de `ReadOnlyModelViewSet` a
+`ModelViewSet` con `IsAdminOrDirectorForWrite`. `roles` y `tipos_accion`
+**siguen siendo de solo lectura y fuera de Configuración**: `roles` está
+cableado en `permissions.py`/`auth_backend.py` y exponerlo como CRUD rompería la
+autorización; `tipos_accion` es catálogo interno cableado en `views.py`.
+
+### 23.2 Reglas de borrado
+
+Toda operación bloqueada responde **HTTP 400 con mensaje explicativo**, nunca 500
+por violación de `RESTRICT`:
+
+| Operación | Mensaje |
+| --- | --- |
+| Desactivar ciclo con cursos activos | `...porque N curso(s) activo(s) dependen de este ciclo lectivo.` |
+| Desactivar período usado por calificaciones | `...tiene N calificación(es) asociada(s).` |
+| Eliminar módulo asignado a horarios | `...está asignado a N horario(s).` |
+| Eliminar estado de asistencia en uso | `...tiene N asistencia(s) asociada(s).` |
+| Eliminar tipo de acta con actas | `...tiene N acta(s) asociada(s).` |
+| Eliminar estado base | `"X" es un estado base del sistema: el registro de asistencias lo reconoce por su nombre...` |
+
+En la interfaz, el borrado lógico se rotula **"Desactivar"** (no "Eliminar") y
+ofrece **"Reactivar"**. `AccionesCelda` es un componente compartido que rotula
+esas acciones "Habilitar"/"Deshabilitar"; Configuración les pasa un `titulo`
+propio, así que el tooltip y el `aria-label` sí dicen Desactivar/Reactivar sin
+cambiar las etiquetas globales del componente.
+
+### 23.3 Estados de asistencia base: seed idempotente
+
+`views.py` resuelve el estado de una asistencia por **nombre exacto**
+(alumnos y docentes), así que los cinco estados `Presente`, `Ausente`, `Tarde`,
+`Retirado`, `Justificado` son **contrato funcional**, no datos de negocio: si
+falta alguno, el registro de asistencias falla con
+`Estado de asistencia <nombre> no encontrado.`
+
+Se garantizan con `utils.ESTADOS_ASISTENCIA_BASE` +
+`utils.seed_estados_asistencia_base()` (idempotente vía `get_or_create` sobre el
+índice único de `nombre_estado`), expuesto en tres puntos coherentes con los
+patrones del proyecto:
+
+```bash
+python manage.py seed_estados_asistencia      # comando idempotente
+```
+
+- `migrations/0008_seed_estados_asistencia.py` — migración **de datos, sin DDL**.
+  Su `reverse` solo borra los estados que ella misma creó y que siguen sin uso.
+- `management/commands/seed_estados_asistencia.py` — para reponerlos a mano.
+
+`seed_estados_asistencia_base()` tolera que la tabla no exista todavía, para no
+romper `migrate` ni el arranque de la aplicación.
+
+No se pueden **eliminar** ni **renombrar**. El serializer expone `es_base`
+(`SerializerMethodField`, calculado, **sin columna nueva**) para que la interfaz
+pueda protegerlos.
+
+### 23.4 Frontend
+
+`frontend/src/components/Administracion/configuracion/`:
+
+| Archivo | Rol |
+| --- | --- |
+| `CatalogoConfiguracion.jsx` | Armazón compartido: tabla, "Mostrar registros inactivos", modal de alta/edición, acciones por fila, confirmación, `modo` `desactivar`\|`eliminar`, guards `noEditable`/`sinEliminar` |
+| `Configuracion.jsx` | Contenedor con pestañas; exporta `PESTANAS` |
+| `CiclosLectivos.jsx`, `ModulosHorarios.jsx`, `PeriodosEvaluacion.jsx`, `EstadosAsistencia.jsx`, `TiposActa.jsx` | Un archivo por catálogo: columnas, formulario y `itemKey` |
+
+`Configuracion.jsx` es un componente **controlado**: recibe `pestana` y
+`onPestanaChange`, y `AdminDashboard.jsx` le pasa `view` y `setView`. La pestaña
+activa *es* el nombre de vista del dashboard, así el submenú lateral, las
+pestañas internas y la navegación por `navIntent` comparten una sola fuente de
+verdad. (Una primera versión llevaba su propio estado `pestanaConfiguracion` y se
+desincronizaba del submenú; ver `HISTORIAL.md` §16.4.)
+
+Menú: grupo `configuracion` en `sidebarMenu.js`, 5 entradas,
+`roles: ['admin', 'director']`. Rutas: `ciclos-lectivos`, `modulos-horarios`,
+`periodos-evaluacion`, `estados-asistencia`, `tipos-acta`.
+
+### 23.5 Refresco global de catálogos
+
+`DataContext` expone **`refreshCatalogosMaestros()`**: vuelve a pedir los cuatro
+endpoints de catálogo y recalcula `horariosClase` y `notasDocenteAdmin`
+(agrupando por `orden_periodo`: `<= 1` → primer cuatrimestre, `=== 2` → segundo).
+Ante un fallo parcial conserva los valores anteriores en vez de vaciar el
+contexto.
+
+`CatalogoConfiguracion` la llama tras **cada** alta, edición, desactivación,
+reactivación y eliminación, de modo que los select del resto de la aplicación
+reflejan el cambio sin recargar la página.
+
+### 23.6 Aviso de datos maestros faltantes
+
+`frontend/src/components/Shared/AvisoDatosMaestros.jsx` reemplaza los selects
+vacíos por un mensaje accionable con botón que lleva a la pestaña
+correspondiente, reutilizando el `navIntent` del `DataContext`. Ejemplo: sin
+ciclos lectivos, el formulario de curso **no muestra un select vacío** sino
+
+> No hay ciclos lectivos registrados. Cree un ciclo lectivo antes de crear un
+> curso.  [Crear ciclo lectivo]
+
+El botón solo se renderiza si `viewDesdeDestino(destino, rol)` resuelve para el
+rol actual, así docentes y preceptores ven el mensaje sin un enlace muerto.
+
+Aplicado en: `cursos.jsx`, `horarios.jsx`, `AdelantosHoras.jsx`,
+`PanelEstudiantes.jsx`, `PanelAsistencia.jsx`, `Preceptores/asistencias.jsx`,
+`Preceptores/actas.jsx`, `Profesores/ActasDocente.jsx`.
+
+### 23.7 Verificación
+
+```bash
+python manage.py check
+python manage.py verificar_esquema
+python manage.py test escuela            # 84 tests
+python manage.py verificar_flujo_configuracion   # flujo real + limpieza
+```
+
+`verificar_flujo_configuracion` recorre contra la **base real**: crear ciclo →
+crear curso que lo usa → crear módulo → crear período → confirmar los 5 estados
+base protegidos → crear tipo de acta → confirmar que el catálogo ya aparece en el
+listado; más guardas de borrado (400, no 500) y permisos (preceptor 403,
+anónimo 401). Usa el año 2099 por defecto y **borra todo lo que crea**, incluso
+si falla. Si una corrida queda a medias: `--limpiar`.
+
+### 23.8 Requisitos que necesitan DDL (reportados, no implementados)
+
+- Columnas `estado` / `fecha_eliminacion` para `modulos`, `estados_asistencia` y
+  `tipos_acta`, para poder desactivar en lugar de eliminar.
+- `CHECK (hora_fin > hora_inicio)` en `modulos` (hoy solo en el serializer).
+- FK de las tablas `historial_*` hacia `ciclos_lectivos` (hoy guardan el año
+  como entero; por eso desactivar un ciclo no rompe el historial).
+- Alguna forma de registrar el "ciclo lectivo actual", si alguna vez se necesita.

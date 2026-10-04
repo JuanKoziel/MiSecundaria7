@@ -4,6 +4,7 @@ import { getServerTime, createAsistencia, getAsistencias, getCargasUnica, marcar
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import AvisoDatosMaestros from '../Shared/AvisoDatosMaestros';
 
 function serverTimestamp(serverInfo) {
   if (!serverInfo?.fecha) return Date.now();
@@ -406,6 +407,17 @@ function PanelAsistencia({ cursoMateriaId, cursoId, cursoNombre, puedeEditar = t
             </span>
           ))}
         </div>
+      )}
+
+      {/* Sin estados cargados la columna "Estado" queda vacía y no se puede
+          marcar asistencia: se avisa en vez de dejar la planilla inútil. */}
+      {estadosAsistencia.length === 0 && (
+        <AvisoDatosMaestros
+          mensaje="No hay estados de asistencia registrados."
+          detalle="Cree los estados de asistencia para poder tomar asistencia."
+          accion="Crear estado de asistencia"
+          destino="estados_asistencia"
+        />
       )}
 
       <div className="table-responsive">

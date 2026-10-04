@@ -5,6 +5,7 @@ import { getAdelantosHoras, createAdelantoHoras, updateAdelantoHoras, deleteAdel
 import FormModal from './FormModal';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import LoadingSpinner from './LoadingSpinner';
+import AvisoDatosMaestros from './AvisoDatosMaestros';
 import { suplenciasActivasEnFecha } from '../../utils/suplencias';
 import { hoy, proximaLaborable, esFinDeSemana } from '../../utils/fechas';
 import { mensajeErrorAmigable } from '../../utils/errores';
@@ -200,7 +201,12 @@ function FormAdelanto({ formData, setFormData, editing, guardando, onSubmit, onC
             <span className="adelanto-etiqueta">Módulos a adelantar</span>
             <div className="modulos-grilla">
               {modulosOrdenados.length === 0 ? (
-                <p className="empty-state-message">No hay módulos definidos en el sistema.</p>
+                <AvisoDatosMaestros
+                  mensaje="No hay módulos definidos en el sistema."
+                  detalle="Cree los módulos horarios para poder registrar adelantos de horas."
+                  accion="Crear módulo horario"
+                  destino="modulos_horarios"
+                />
               ) : (
                 modulosOrdenados.map((m) => {
                   const seleccionado = formData.modulosSel.includes(Number(m.id_modulo));

@@ -20,6 +20,7 @@ import AdelantosHoras from '../Shared/AdelantosHoras';
 import PanelAdmin from './PanelAdmin';
 import Actas from '../Preceptores/actas';
 import TutoresFamilias from '../Preceptores/tutoresFamilias';
+import Configuracion from './configuracion/Configuracion';
 import { getDirectivos } from '../../services/api';
 import { useData } from '../../context/DataContext';
 import { viewDesdeDestino } from '../../utils/navDestinos';
@@ -195,6 +196,15 @@ function AdminDashboard({ user, onLogout }) {
         return <Administradores {...filtrosProps} />;
       case 'notificaciones':
         return <Notificaciones userRole={user.role} {...filtrosProps} />;
+      // Configuración: cada submenú abre su pestaña de catálogo. `view` ES la
+      // pestaña, así el submenú lateral, las pestañas internas y la
+      // navegación por `navIntent` no pueden desincronizarse.
+      case 'ciclos-lectivos':
+      case 'modulos-horarios':
+      case 'periodos-evaluacion':
+      case 'estados-asistencia':
+      case 'tipos-acta':
+        return <Configuracion pestana={view} onPestanaChange={setView} />;
       default:
         return <Estudiantes {...filtrosProps} />;
     }

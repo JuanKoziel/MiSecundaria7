@@ -56,9 +56,36 @@ python manage.py verificar_esquema --aplicar
 # aplicar las migraciones (incluye la sincronización del esquema)
 python manage.py migrate
 
+# garantizar los estados de asistencia base (idempotente; ya lo hace la
+# migración 0008, sirve para reponerlos si alguien los borró)
+python manage.py seed_estados_asistencia
+
 # tests (crean una base `test_*` aparte; nunca tocan la real)
 python manage.py test escuela
 ```
+
+## Datos maestros (Administración → Configuración)
+
+Los catálogos base —ciclos lectivos, módulos horarios, períodos de evaluación,
+estados de asistencia y tipos de acta— se administran desde
+**Administración → Configuración** (solo `admin` y `director`), sin necesidad de
+`INSERT` manuales en MariaDB. Crear, editar, desactivar y reactivar está
+disponible en pantalla; donde el registro está en uso, la interfaz lo explica y
+la API responde `HTTP 400` en vez de fallar.
+
+Dos comandos de diagnóstico recorren el flujo completo contra la base real
+(crean datos de prueba y **los borran al terminar**):
+
+```bash
+# flujo mínimo de punta a punta + guardas de borrado + permisos
+python manage.py verificar_flujo_configuracion
+
+# borrar datos de una corrida anterior que haya quedado a medias
+python manage.py verificar_flujo_configuracion --limpiar
+```
+
+Detalles en `Archivos md/DOCUMENTACION_TECNICA.md` y
+`Archivos md/HISTORIAL.md` §16.
 
 Para que los tests puedan crear su base efímera, el usuario de la aplicación
 necesita el privilegio sobre el patrón `test\_%`:

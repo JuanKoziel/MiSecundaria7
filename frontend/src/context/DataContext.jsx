@@ -897,6 +897,109 @@ export function DataProvider({ children }) {
     setAdminCursoMateria(Array.isArray(raw) ? raw : []);
   }, []);
 
+  /* Catálogos de Administración → Configuración (datos maestros).
+     Refresco PUNTUAL: vuelve a pedir solo los cinco catálogos y actualiza las
+     claves derivadas de `data`, en vez de repetir `fetchData()` completo (que
+     son ~25 endpoints). Así, crear un ciclo lectivo desde Configuración se ve
+     de inmediato en el select del formulario de cursos, sin cerrar sesión ni
+     recargar la aplicación.
+     - `ciclosLectivos` / `aniosLectivos`: selects de ciclo en cursos y filtros.
+     - `modulos`: grilla de horarios, adelantos de horas y franjas calculadas.
+     - `estadosAsistencia`: botones de estado en el panel de asistencia.
+     - `periodos`: notas (DataContext agrupa por `orden_periodo`).
+     `horariosClase` y `notasDocenteAdmin` también dependen de catálogos, así que
+     se recalculan para que no queden desactualizadas. */
+  const refreshCatalogosMaestros = useCallback(async () => {
+    const [ciclosRaw, modulosRaw, estadosRaw, periodosRaw] = await Promise.all([
+      getCiclosLectivos().catch(() => null),
+      getModulos().catch(() => null),
+      getEstadosAsistencia().catch(() => null),
+      getPeriodos().catch(() => null),
+    ]);
+
+    // Un catálogo que falló se conserva tal como estaba: un error transitorio
+    // no debe vaciar los selects de toda la aplicación.
+    if (ciclosRaw === null && modulosRaw === null && estadosRaw === null && periodosRaw === null) {
+      return false;
+    }
+
+    setData((prev) => {
+      if (!prev) return prev;
+
+      const siguiente = { ...prev };
+
+      if (Array.isArray(ciclosRaw)) {
+        siguiente.ciclosLectivos = ciclosRaw;
+        siguiente.aniosLectivos = ciclosRaw.map((c) => c.anio);
+      }
+      if (Array.isArray(estadosRaw)) {
+        siguiente.estadosAsistencia = estadosRaw;
+      }
+      if (Array.isArray(periodosRaw)) {
+        siguiente.periodos = periodosRaw;
+      }
+      if (Array.isArray(modulosRaw)) {
+        const modulos = [...modulosRaw]
+          .sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''));
+        siguiente.modulos = modulos;
+
+        // `horariosClase` mapea materia -> franja horaria; depende de los
+        // módulos, así que se recalcula con los nuevos.
+        const modulosPorId = {};
+        modulos.forEach((m) => { modulosPorId[m.id_modulo] = m; });
+        const horariosClase = {};
+        (prev.horarios || []).forEach((h) => {
+          const mod = modulosPorId[h.id_modulo];
+          if (mod && h.materia_nombre) {
+            horariosClase[h.materia_nombre] =
+              `${String(mod.hora_inicio).slice(0, 5)} - ${String(mod.hora_fin).slice(0, 5)}`;
+          }
+        });
+        siguiente.horariosClase = horariosClase;
+      }
+
+      // `notasDocenteAdmin` agrupa calificaciones por `orden_periodo`: si cambia
+      // el catálogo de períodos, la agrupación tiene que rehacerse.
+      if (Array.isArray(periodosRaw) && Array.isArray(prev.calificacionesCompletas)) {
+        const ordenPorPeriodo = {};
+        periodosRaw.forEach((p) => { ordenPorPeriodo[p.id_periodo] = p.orden_periodo || 0; });
+        const grupos = {};
+        prev.calificacionesCompletas.forEach((c) => {
+          const clave = `${c.id_alumno}-${c.id_curso_materia}`;
+          if (!grupos[clave]) {
+            grupos[clave] = {
+              alumnoId: c.id_alumno,
+              id_curso_materia: c.id_curso_materia,
+              curso: c.curso_nombre || '',
+              materia: c.materia_nombre || '',
+              prenota1: '', nota1: '', prenota2: '', nota2: '',
+              diagnostico: '',
+              calId1: null, calId2: null,
+            };
+          }
+          const g = grupos[clave];
+          const orden = ordenPorPeriodo[c.id_periodo] || 0;
+          if (orden <= 1) {
+            g.prenota1 = c.pre_nota || '';
+            g.nota1 = c.nota_numerica ?? '';
+            g.diagnostico = c.diagnostico || g.diagnostico;
+            g.calId1 = c.id_calificacion;
+          } else if (orden === 2) {
+            g.prenota2 = c.pre_nota || '';
+            g.nota2 = c.nota_numerica ?? '';
+            if (c.diagnostico) g.diagnostico = c.diagnostico;
+            g.calId2 = c.id_calificacion;
+          }
+        });
+        siguiente.notasDocenteAdmin = Object.values(grupos).map((g, idx) => ({ id: idx + 1, ...g }));
+      }
+
+      return siguiente;
+    });
+
+    return true;
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -991,6 +1094,7 @@ export function DataProvider({ children }) {
       data, loading, refreshing, error, refreshData: fetchData,
       adminCursos, adminMaterias, adminCursoMateria,
       refreshAdminCursos, refreshAdminMaterias, refreshAdminCursoMateria,
+      refreshCatalogosMaestros,
       marcarNotificacionLeida,
       marcarTodasNotificacionesLeidas,
       navegarDesdeNotificacion,
@@ -1074,6 +1178,7 @@ export function useData() {
       refreshAdminCursos: () => {},
       refreshAdminMaterias: () => {},
       refreshAdminCursoMateria: () => {},
+      refreshCatalogosMaestros: () => {},
       marcarNotificacionLeida: () => {},
       marcarTodasNotificacionesLeidas: () => {},
       navegarDesdeNotificacion: () => {},
@@ -1106,6 +1211,7 @@ export function useData() {
     refreshAdminCursos: ctx.refreshAdminCursos,
     refreshAdminMaterias: ctx.refreshAdminMaterias,
     refreshAdminCursoMateria: ctx.refreshAdminCursoMateria,
+    refreshCatalogosMaestros: ctx.refreshCatalogosMaestros,
     marcarNotificacionLeida: ctx.marcarNotificacionLeida,
     marcarTodasNotificacionesLeidas: ctx.marcarTodasNotificacionesLeidas,
     navegarDesdeNotificacion: ctx.navegarDesdeNotificacion,

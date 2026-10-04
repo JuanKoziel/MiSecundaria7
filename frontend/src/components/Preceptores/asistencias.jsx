@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../Shared/LoadingSpinner';
+import AvisoDatosMaestros from '../Shared/AvisoDatosMaestros';
 import {
   createAsistencia,
   getAsistenciasPreceptorMateria,
@@ -263,6 +264,17 @@ function Asistencias({ anioLectivo, curso, onAnioChange, onCursoChange, readOnly
         <h3><i className="fas fa-user-check" aria-hidden="true" /> Control de asistencias</h3>
         {soloLectura && <span className="badge role-badge-display">Solo lectura</span>}
       </div>
+
+      {/* Sin estados cargados no se puede marcar la asistencia de nadie:
+          `estadoId` caería al id 1 por defecto y el registro fallaría. */}
+      {estadosAsistencia.length === 0 && (
+        <AvisoDatosMaestros
+          mensaje="No hay estados de asistencia registrados."
+          detalle="Cree los estados de asistencia para poder registrar asistencias."
+          accion="Crear estado de asistencia"
+          destino="estados_asistencia"
+        />
+      )}
 
       <div className="asist-tipo-selector">
         <button
