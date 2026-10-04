@@ -4208,6 +4208,35 @@ html.dark .toggle-switch-input:checked + .toggle-switch-status + .toggle-switch-
     opacity: 0.6;
 }
 
+/* La caja de divisiones acompaña el tema del header oscuro: con el fondo blanco
+   de las reglas base quedaba un recuaddo claro en medio del selector global. */
+.main-header--dark .division-checkboxes {
+    background: #102b44;
+    border-color: #2c4a68;
+}
+
+.main-header--dark .division-checkbox {
+    background: #16304a;
+    border-color: #2c4a68;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.main-header--dark .division-checkbox:hover {
+    background: #163a5c;
+    border-color: var(--primary-color);
+    color: #ffffff;
+}
+
+.main-header--dark .division-checkbox:has(input:checked) {
+    background: rgba(253, 126, 20, 0.22);
+    border-color: var(--primary-color);
+    color: #ffb86b;
+}
+
+.main-header--dark .division-checkboxes__placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
 .main-header--dark .btn-clear-selection {
     background: rgba(255, 77, 79, 0.14);
     border: 1px solid rgba(255, 77, 79, 0.4);

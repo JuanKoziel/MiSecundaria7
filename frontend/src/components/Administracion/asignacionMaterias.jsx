@@ -43,16 +43,20 @@ function AsignacionMaterias() {
     ? adminCursoMateria.filter((cm) => cm.id_curso === Number(cursoSeleccionado))
     : [];
 
-  const materiasAsignadasIds = asignacionesCurso.filter((cm) => cm.activo).map((cm) => cm.id_materia);
+  const materiasAsignadasIds = new Set(
+    asignacionesCurso.filter((cm) => cm.activo).map((cm) => Number(cm.id_materia)),
+  );
 
-  // Materias disponibles para el curso seleccionado (sin filtrar por orientación)
-  const materiasDisponibles = useMemo(() => {
-    if (!cursoObj) {
-      return adminMaterias.filter((m) => m.activo);
-    }
-    // La materia solo depende del curso, no de la orientación
-    return adminMaterias.filter((m) => m.activo && m.id_curso === cursoObj.id_curso);
-  }, [adminMaterias, cursoObj]);
+  // Todas las materias activas del catálogo. La materia NO pertenece a un curso
+  // (eso lo define la asignación curso_materia), por eso no se puede filtrar por
+  // curso: el selector ofrece el catálogo completo y marca las que el curso ya tiene.
+  const materiasDisponibles = useMemo(
+    () => adminMaterias
+      .filter((m) => m.activo)
+      .slice()
+      .sort((a, b) => String(a.nombre_materia || '').localeCompare(String(b.nombre_materia || ''), 'es')),
+    [adminMaterias],
+  );
 
   const abrirAgregar = () => {
     setEditando(null);
@@ -182,12 +186,12 @@ function AsignacionMaterias() {
                             <option value="">Seleccionar...</option>
                             {materiasDisponibles.map((m) => (
                               <option key={m.id_materia} value={m.id_materia}>
-                                {m.nombre_materia} {materiasAsignadasIds.includes(m.id_materia) ? '(ya asignada)' : ''}
+                                {m.nombre_materia} {materiasAsignadasIds.has(Number(m.id_materia)) ? '(ya asignada)' : ''}
                               </option>
                             ))}
                           </select>
-                          {materiasDisponibles.length === 0 && cursoObj && (
-                            <small className="text-muted">No hay materias disponibles para el curso <strong>{cursoObj.nombre_curso}</strong>.</small>
+                          {materiasDisponibles.length === 0 && (
+                            <small className="text-muted">No hay materias cargadas. Crealas en la pestaña &quot;Gestión de Materias&quot;.</small>
                           )}
                         </div>
                       )}

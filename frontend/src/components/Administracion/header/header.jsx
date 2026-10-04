@@ -61,10 +61,13 @@ function Header({
     setAnioSeleccionado('');
   }, [anioLectivoLocal]);
 
+  // El año se compara como texto: cuando viene del `<select>` es string y cuando
+  // viene de un curso marcado es number. Con `===` entre number y string nunca
+  // coincidía y la División quedaba vacía ("Sin divisiones") sin poder marcar.
   const divisionesDisponibles = [
     ...new Set(
       partesPorCurso
-        .filter((p) => p.anio === anioActual)
+        .filter((p) => String(p.anio) === String(anioActual))
         .map((p) => p.division)
         .filter((d) => d),
     ),
@@ -94,7 +97,7 @@ function Header({
     const divsDelAnio = [
       ...new Set(
         partesPorCurso
-          .filter((p) => p.anio === nuevoAnio)
+          .filter((p) => String(p.anio) === String(nuevoAnio))
           .map((p) => p.division)
           .filter(Boolean),
       ),
