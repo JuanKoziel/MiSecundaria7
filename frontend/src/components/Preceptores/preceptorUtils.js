@@ -80,6 +80,26 @@ export function nombreDocente(docente) {
   return `${docente.apellido}, ${docente.nombre}`;
 }
 
+// Los tutores se filtran por el curso del selector global del header: se
+// muestra solo el tutor que tiene al menos un alumno en ese curso/año. `curso`
+// acepta el string del preceptor o el array del multiselect (Admin/Jefe).
+export function tutoresPorAnioYCurso(anioLectivo, curso, tutores, cursosPermitidos = []) {
+  const seleccionados = aListaCursos(curso);
+  if (!anioLectivo || seleccionados.length === 0) return [];
+  const permitidos = (cursosPermitidos || []).map(normalizeCursoPermitido).filter(Boolean);
+  if (permitidos.length > 0 && !seleccionados.some((c) => permitidos.includes(c))) return [];
+  const anio = Number(anioLectivo);
+  return (tutores || []).filter((t) =>
+    (t.alumnos || t.estudiantes || []).some((al) => {
+      const nombreCurso = al.curso_nombre || al.curso || '';
+      if (!seleccionados.includes(nombreCurso)) return false;
+      const anioAlumno = al.ciclo_anio ?? al.anio_lectivo ?? null;
+      if (anioAlumno !== null && anioAlumno !== undefined && Number(anioAlumno) !== anio) return false;
+      return true;
+    }),
+  );
+}
+
 export function filtrosCompletos(anioLectivo, curso) {
   // 5.6 — Con multiselección alcanza con que haya al menos un curso marcado, y
   // cada uno debe traer año y división (ej: "2°1"), no solo el año ("2°").

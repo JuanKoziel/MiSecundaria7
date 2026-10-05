@@ -69,10 +69,13 @@ function PanelProfesores({ user, onLogout }) {
   }, []);
 
   const userId = user?.id_usuario ?? user?.id ?? null;
+  // Comparación por string: con `===` un id numérico de la API contra un id
+  // string del login dejaba al docente sin perfil y sin cursos en el selector.
   const miDocente = useMemo(
-    () => docentes.find((d) => d.id_usuario === userId) || null,
+    () => docentes.find((d) => d.id_usuario != null && userId != null && String(d.id_usuario) === String(userId)) || null,
     [docentes, userId],
   );
+  const miDocenteId = miDocente?.id ?? null;
   const nombreCompletoDocente = miDocente ? `${miDocente.apellido}, ${miDocente.nombre}` : null;
 
   const mapSuplencias = useMemo(
@@ -81,30 +84,31 @@ function PanelProfesores({ user, onLogout }) {
   );
 
   const misAsignaciones = useMemo(() => {
-    if (!miDocente) return [];
+    if (miDocenteId == null) return [];
+    const esTitular = (cm) => cm.id_docente != null && String(cm.id_docente) === String(miDocenteId);
+    const esSuplente = (cm) => {
+      const s = mapSuplencias[cm.id];
+      return Boolean(s && s.id_docente_suplente != null && String(s.id_docente_suplente) === String(miDocenteId));
+    };
     return cursoMateria
-      .filter((cm) => {
-        const s = mapSuplencias[cm.id];
-        if (cm.id_docente === miDocente.id) return true;
-        return Boolean(s && s.id_docente_suplente === miDocente.id);
-      })
+      .filter((cm) => esTitular(cm) || esSuplente(cm))
       .map((cm) => {
         const s = mapSuplencias[cm.id] || null;
-        const esSuplente = Boolean(s && s.id_docente_suplente === miDocente.id);
+        const suplenteActivo = Boolean(s);
         return {
           ...cm,
-          esSuplente,
-          suplenciaActiva: Boolean(s),
+          esSuplente: esSuplente(cm),
+          suplenciaActiva: suplenteActivo,
           suplenteNombre: s?.suplente_nombre || null,
-          puedeEditar: esSuplente || !Boolean(s),
+          puedeEditar: esSuplente(cm) || !suplenteActivo,
         };
       });
-  }, [cursoMateria, miDocente, mapSuplencias]);
+  }, [cursoMateria, miDocenteId, mapSuplencias]);
 
   const cursosEditables = useMemo(() => {
     const set = new Set();
     misAsignaciones.forEach((cm) => {
-      if (cm.puedeEditar) set.add(cm.id_curso);
+      if (cm.puedeEditar) set.add(Number(cm.id_curso));
     });
     return set;
   }, [misAsignaciones]);
@@ -113,7 +117,7 @@ function PanelProfesores({ user, onLogout }) {
     const map = new Map();
     misAsignaciones.forEach((cm) => {
       if (!map.has(cm.id_curso)) {
-        const cObj = cursosObj.find((c) => c.id_curso === cm.id_curso);
+        const cObj = cursosObj.find((c) => String(c.id_curso) === String(cm.id_curso));
         map.set(cm.id_curso, {
           id_curso: cm.id_curso,
           nombre: cm.curso_nombre || '',
@@ -121,7 +125,9 @@ function PanelProfesores({ user, onLogout }) {
         });
       }
     });
-    return [...map.values()];
+    return [...map.values()].sort(
+      (a, b) => (Number(a.anio) || 0) - (Number(b.anio) || 0) || String(a.nombre).localeCompare(String(b.nombre)),
+    );
   }, [misAsignaciones, cursosObj]);
 
   const materiasCurso = useMemo(

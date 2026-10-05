@@ -73,13 +73,17 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
   // filtro no dejaba pasar nada y la pantalla terminaba mostrando
   // "No hay asistencias registradas" aunque el alumno tuviera la carga hecha.
   // Se compara por String para que sea inmune al tipo.
+  //
+  // El `id` de cada fila es el `id_curso_materia` (NO el `id_materia`): el action
+  // `alumno-detalle` filtra por `Asistencia.id_curso_materia`, así que con el id de
+  // materia la consulta no encontraba nada y "Detalle por materia" salía vacío.
   const materias = useMemo(() => {
     const mapa = new Map();
     (Array.isArray(cursoMateria) ? cursoMateria : []).forEach((cm) => {
       if (idCurso != null && cm.id_curso != null && String(cm.id_curso) !== String(idCurso)) return;
-      if (!cm.id_materia) return;
-      if (!mapa.has(String(cm.id_materia))) {
-        mapa.set(String(cm.id_materia), { id: cm.id_materia, nombre: cm.materia_nombre || 'Sin nombre' });
+      if (cm.id == null) return;
+      if (!mapa.has(String(cm.id))) {
+        mapa.set(String(cm.id), { id: cm.id, nombre: cm.materia_nombre || 'Sin nombre' });
       }
     });
     return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -126,13 +130,14 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
       setResumenReciente(resumen);
 
       // Resumen por materia: últimas asistencias de cada materia.
-      // `todas` viene ordenado -fecha, -hora, así el primer registro por
-      // materia ya es el más reciente.
       const mapa = {};
       const cmPorMateria = {};
+      // `todas` viene ordenado -fecha, -hora: el primer registro de cada materia es
+      // el más reciente, así que el primer `id_curso_materia` que aparece es el que
+      // se usa para consultar el detalle (después se sobreescribía con el más viejo).
       todas.forEach((r) => {
         const nombre = r.materia_nombre || 'General';
-        if (r.id_curso_materia != null) cmPorMateria[nombre] = r.id_curso_materia;
+        if (r.id_curso_materia != null && cmPorMateria[nombre] == null) cmPorMateria[nombre] = r.id_curso_materia;
         if (!mapa[nombre]) {
           mapa[nombre] = { presente: 0, ausente: 0, tarde: 0, ultimaFecha: '', ultimoEstado: 'Sin registros' };
         }
@@ -160,7 +165,9 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
       });
       Object.keys(mapa).forEach((nombre) => {
         if (filas.has(nombre)) return;
-        filas.set(nombre, { nombre, id: cmPorMateria[nombre] ?? nombre, ...mapa[nombre] });
+        // Sin `id_curso_materia` no hay forma de consultar el detalle, así que la
+        // fila se lista pero sin id en vez de mandar un valor inválido como filtro.
+        filas.set(nombre, { nombre, id: cmPorMateria[nombre] ?? '', ...mapa[nombre] });
       });
       setResumenPorMateria(
         [...filas.values()].sort((a, b) => a.nombre.localeCompare(b.nombre))
@@ -187,7 +194,7 @@ export default function AsistenciasUnificada({ alumnoId, cursoMateria, idCurso, 
     setCargando(true);
     try {
       const data = await getAsistenciasEstudianteDetalle(cmId, alumnoId);
-      setAsistencias(data);
+      setAsistencias(Array.isArray(data) ? data : (data?.results || []));
     } catch {
       setAsistencias([]);
     } finally {

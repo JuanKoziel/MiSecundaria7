@@ -127,11 +127,11 @@ class PuedeGestionarCurso(permissions.BasePermission):
 
 
 class PuedeGestionarHorarios(permissions.BasePermission):
-    """Escritura de horarios para admin/director/preceptor.
+    """Escritura de horarios solo para admin/director.
 
-    El alcance fino (curso a cargo del preceptor) se resuelve en el
-    `perform_*` del viewset (`_check_preceptor_curso_access`), de la misma
-    forma que el resto de la gestión por preceptor.
+    El preceptor queda en modo solo lectura: puede consultar los horarios de
+    los cursos a su cargo (el alcance se resuelve en `get_queryset` del
+    viewset) pero no puede crearlos, modificarlos ni borrarlos.
     """
 
     def has_permission(self, request, view):
@@ -139,7 +139,7 @@ class PuedeGestionarHorarios(permissions.BasePermission):
             return request.user.is_authenticated
         username = request.user.username if request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
-        return any(rol in roles for rol in ('admin', 'director', 'preceptor'))
+        return any(rol in roles for rol in ('admin', 'director'))
 
 
 class PuedeVerHistorial(permissions.BasePermission):

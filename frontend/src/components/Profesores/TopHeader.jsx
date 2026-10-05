@@ -1,5 +1,5 @@
 import { useData } from '../../context/DataContext';
-import { useMemo } from 'react';
+import { useMemo, useCallback, useEffect, useRef } from 'react';
 import SidebarToggle from '../Shared/SidebarToggle';
 import Logo from '../Shared/Logo';
 
@@ -19,20 +19,32 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
 
   const userId = user?.id_usuario ?? user?.id ?? null;
   const miDocente = useMemo(
-    () => docentes.find((d) => d.id_usuario === userId) || null,
+    () => docentes.find((d) => d.id_usuario != null && userId != null && String(d.id_usuario) === String(userId)) || null,
     [docentes, userId],
+  );
+  const miDocenteId = miDocente?.id ?? null;
+
+  // Las comparaciones de ids se hacen por string: la API y el login no siempre
+  // devuelven el mismo tipo, y con `===` el selector quedaba vacío.
+  const esTitular = useCallback(
+    (cm) => miDocenteId != null && cm?.id_docente != null && String(cm.id_docente) === String(miDocenteId),
+    [miDocenteId],
+  );
+  const esSuplente = useCallback(
+    (cm) => {
+      const s = mapSuplencias?.[cm?.id];
+      return Boolean(s && miDocenteId != null && s.id_docente_suplente != null && String(s.id_docente_suplente) === String(miDocenteId));
+    },
+    [mapSuplencias, miDocenteId],
   );
 
   const misCursos = useMemo(() => {
-    if (!miDocente) return [];
+    if (miDocenteId == null) return [];
     const map = new Map();
     cursoMateria.forEach((cm) => {
-      const s = mapSuplencias?.[cm.id];
-      const esTitular = cm.id_docente === miDocente.id;
-      const esSuplente = Boolean(s && s.id_docente_suplente === miDocente.id);
-      if (!esTitular && !esSuplente) return;
+      if (!esTitular(cm) && !esSuplente(cm)) return;
       if (!map.has(cm.id_curso)) {
-        const cObj = cursosObj.find((c) => c.id_curso === cm.id_curso);
+        const cObj = cursosObj.find((c) => String(c.id_curso) === String(cm.id_curso));
         map.set(cm.id_curso, {
           id_curso: cm.id_curso,
           nombre: cm.curso_nombre || '',
@@ -40,8 +52,10 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
         });
       }
     });
-    return [...map.values()];
-  }, [cursoMateria, cursosObj, miDocente, mapSuplencias]);
+    return [...map.values()].sort(
+      (a, b) => (Number(a.anio) || 0) - (Number(b.anio) || 0) || String(a.nombre).localeCompare(String(b.nombre)),
+    );
+  }, [cursoMateria, cursosObj, miDocenteId, esTitular, esSuplente]);
 
   const inicial = user?.username ? user.username.charAt(0) : 'U';
   const iniciales = useMemo(() => {
@@ -54,20 +68,26 @@ function TopHeader({ user, nombreCompleto, onLogout }) {
 
   // Materias disponibles para el curso seleccionado (incluye suplencias)
   const materiasDelCurso = useMemo(() => {
-    if (!selectedCursoId || !miDocente) return [];
+    if (!selectedCursoId || miDocenteId == null) return [];
     return cursoMateria
-      .filter((cm) => {
-        const s = mapSuplencias?.[cm.id];
-        const esTitular = String(cm.id_curso) === String(selectedCursoId) && cm.id_docente === miDocente.id;
-        const esSuplente = String(cm.id_curso) === String(selectedCursoId) && Boolean(s && s.id_docente_suplente === miDocente.id);
-        return esTitular || esSuplente;
-      })
+      .filter((cm) => String(cm.id_curso) === String(selectedCursoId) && (esTitular(cm) || esSuplente(cm)))
       .map((cm) => ({
         id: cm.id,
         nombre: cm.materia_nombre,
-        esSuplente: Boolean(mapSuplencias?.[cm.id]?.id_docente_suplente === miDocente.id),
+        esSuplente: esSuplente(cm),
       }));
-  }, [cursoMateria, selectedCursoId, miDocente, mapSuplencias]);
+  }, [cursoMateria, selectedCursoId, miDocenteId, esTitular, esSuplente]);
+
+  // Al cargar, si todavía no hay curso elegido se toma el primero del docente para
+  // que el panel no quede en blanco. Solo una vez: el botón "limpiar" debe
+  // seguir vaciando la selección.
+  const cursoAutoSeleccionadoRef = useRef(false);
+  useEffect(() => {
+    if (cursoAutoSeleccionadoRef.current) return;
+    if (selectedCursoId || misCursos.length === 0) return;
+    cursoAutoSeleccionadoRef.current = true;
+    setSeleccionCursoMateria(String(misCursos[0].id_curso), '', '');
+  }, [selectedCursoId, misCursos, setSeleccionCursoMateria]);
 
   const handleCursoChange = (e) => {
     const nuevoId = e.target.value;

@@ -26,7 +26,7 @@ function timeStr(value) {
   return s.slice(0, 5);
 }
 
-const HorarioSemanal = function HorarioSemanal({ cursoIdExterno = '', onRegisterSave }) {
+const HorarioSemanal = function HorarioSemanal({ cursoIdExterno = '', onRegisterSave, soloLectura = false }) {
   const { modulos, refreshData } = useData() || {};
   const toast = useToast();
   const cursoSeleccionado = cursoIdExterno;
@@ -179,17 +179,21 @@ const HorarioSemanal = function HorarioSemanal({ cursoIdExterno = '', onRegister
                         </td>
                         {DIAS.map((dia) => (
                           <td key={`${dia}_${mod.id_modulo}`} style={{ padding: '4px 6px' }}>
-                            <select
-                              className="form-control"
-                              style={{ width: '100%', padding: '6px 8px', fontSize: '0.8rem' }}
-                              value={getCellValue(dia, mod.id_modulo)}
-                              onChange={(e) => handleCellChange(dia, mod.id_modulo, e.target.value)}
-                            >
-                              <option value="" />
-                              {materiasCurso.map((m) => (
-                                <option key={m.id} value={m.nombre}>{m.nombre}</option>
-                              ))}
-                            </select>
+                            {soloLectura ? (
+                              <span className="horario-solo-lectura">{getCellValue(dia, mod.id_modulo)}</span>
+                            ) : (
+                              <select
+                                className="form-control"
+                                style={{ width: '100%', padding: '6px 8px', fontSize: '0.8rem' }}
+                                value={getCellValue(dia, mod.id_modulo)}
+                                onChange={(e) => handleCellChange(dia, mod.id_modulo, e.target.value)}
+                              >
+                                <option value="" />
+                                {materiasCurso.map((m) => (
+                                  <option key={m.id} value={m.nombre}>{m.nombre}</option>
+                                ))}
+                              </select>
+                            )}
                           </td>
                         ))}
                       </tr>
@@ -199,15 +203,17 @@ const HorarioSemanal = function HorarioSemanal({ cursoIdExterno = '', onRegister
               </div>
 
 <div className="form-actions mt-16" style={{ justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={guardando}
-                  onClick={handleGuardar}
-                  style={{ height: '38px', minWidth: '120px' }}
-                >
-                  {guardando ? 'Guardando...' : 'Guardar'}
-                </button>
+                {!soloLectura && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={guardando}
+                    onClick={handleGuardar}
+                    style={{ height: '38px', minWidth: '120px' }}
+                  >
+                    {guardando ? 'Guardando...' : 'Guardar'}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -217,7 +223,7 @@ const HorarioSemanal = function HorarioSemanal({ cursoIdExterno = '', onRegister
   );
 }
 
-function EducacionFisica({ cursoIdExterno = '' }) {
+function EducacionFisica({ cursoIdExterno = '', soloLectura = false }) {
   const toast = useToast();
   const { refreshData } = useData() || {};
   const cursoSeleccionado = cursoIdExterno;
@@ -376,7 +382,7 @@ function EducacionFisica({ cursoIdExterno = '' }) {
             </p>
           ) : (
             <div>
-              {form && (
+              {!soloLectura && form && (
                 <form onSubmit={handleSubmit} className="mb-20">
                   <div className="filter-row">
                     <div className="form-group-filter">
@@ -432,7 +438,7 @@ function EducacionFisica({ cursoIdExterno = '' }) {
                 </form>
               )}
 
-              {!form && (
+              {!soloLectura && !form && (
                 <button
                   type="button"
                   className="btn btn-primary mb-16"
@@ -455,7 +461,7 @@ function EducacionFisica({ cursoIdExterno = '' }) {
                         <th>Hora inicio</th>
                         <th>Hora fin</th>
                         <th>Aula</th>
-                        <th>Acciones</th>
+                        {!soloLectura && <th>Acciones</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -465,13 +471,15 @@ function EducacionFisica({ cursoIdExterno = '' }) {
                           <td>{timeStr(h.hora_inicio)}</td>
                           <td>{timeStr(h.hora_fin)}</td>
                           <td>{h.aula || '—'}</td>
-                          <AccionesCelda
-                            acciones={[
-                              { accion: 'editar', onClick: () => handleEditar(h) },
-                              { accion: 'eliminar', onClick: () => handleEliminar(h) },
-                            ]}
-                            entidad="horario"
-                          />
+                          {!soloLectura && (
+                            <AccionesCelda
+                              acciones={[
+                                { accion: 'editar', onClick: () => handleEditar(h) },
+                                { accion: 'eliminar', onClick: () => handleEliminar(h) },
+                              ]}
+                              entidad="horario"
+                            />
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -486,7 +494,7 @@ function EducacionFisica({ cursoIdExterno = '' }) {
   );
 }
 
-function Horarios({ cursoGlobal = '', curso = '' }) {
+function Horarios({ cursoGlobal = '', curso = '', soloLectura = false }) {
   const { cursosObj, selectedCursoId } = useData();
   const [modo, setModo] = useState('semanal');
   const [guardando, setGuardando] = useState(false);
@@ -535,6 +543,11 @@ function Horarios({ cursoGlobal = '', curso = '' }) {
     <div className="card">
       <div className="card-header-flex">
         <h3><i className="fas fa-calendar-alt" aria-hidden="true" /> Horarios</h3>
+        {soloLectura && (
+          <span className="badge badge-neutral">
+            <i className="fas fa-eye" aria-hidden="true" /> Solo lectura
+          </span>
+        )}
       </div>
 
       <div className="horarios-toolbar mb-20">
@@ -561,15 +574,17 @@ function Horarios({ cursoGlobal = '', curso = '' }) {
             Ver horarios
           </button>
         </div>
-        <button
-          type="button"
-          className="btn btn-sm btn-primary horarios-toolbar__save"
-          disabled={guardando || !puedeGuardar}
-          onClick={executeSave}
-        >
-          <i className="fas fa-save" aria-hidden="true" />{' '}
-          {guardando ? 'Guardando...' : 'Guardar'}
-        </button>
+        {!soloLectura && (
+          <button
+            type="button"
+            className="btn btn-sm btn-primary horarios-toolbar__save"
+            disabled={guardando || !puedeGuardar}
+            onClick={executeSave}
+          >
+            <i className="fas fa-save" aria-hidden="true" />{' '}
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        )}
       </div>
 
       {sinCurso && (
@@ -578,8 +593,8 @@ function Horarios({ cursoGlobal = '', curso = '' }) {
         </p>
       )}
 
-      {modo === 'semanal' && !sinCurso && <HorarioSemanal cursoIdExterno={cursoIdExterno} onRegisterSave={registerSaveFn} />}
-      {modo === 'ef' && !sinCurso && <EducacionFisica cursoIdExterno={cursoIdExterno} />}
+      {modo === 'semanal' && !sinCurso && <HorarioSemanal cursoIdExterno={cursoIdExterno} onRegisterSave={registerSaveFn} soloLectura={soloLectura} />}
+      {modo === 'ef' && !sinCurso && <EducacionFisica cursoIdExterno={cursoIdExterno} soloLectura={soloLectura} />}
       {modo === 'ver' && !sinCurso && (
         <VistaHorarios
           cursosOptions={cursosOptions}

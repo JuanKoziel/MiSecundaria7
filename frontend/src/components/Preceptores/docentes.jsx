@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useData } from '../../context/DataContext';
 import { createDocente, updateDocente, deleteDocente, createCursoMateria, updateCursoMateria, deleteCursoMateria, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getCursoMateria, getCursos, getMaterias } from '../../services/api';
-import { cursosPorAnio, docentesPorFiltros, nombreDocente } from './preceptorUtils';
-import FiltrosAnioCurso from '../Shared/FiltrosAnioCurso';
+import { aListaCursos, docentesPorFiltros, nombreDocente } from './preceptorUtils';
 import FiltrosDocentesVista from './FiltrosDocentesVista';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import AsignacionesEditor from '../Shared/AsignacionesEditor';
@@ -15,6 +14,8 @@ import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
 import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
 import NumericInput from '../Shared/NumericInput';
+
+const SIN_CURSOS = [];
 
 const formVacio = {
   usuario_nombre: '',
@@ -69,15 +70,17 @@ function proximaAccion(d) {
   return '---';
 }
 
-function Docentes({ readOnly = false }) {
+function Docentes({ readOnly = false, anioLectivo = '', cursos = SIN_CURSOS, curso = '' }) {
   const dataCtx = useData();
   const allDocentes = dataCtx.docentes || [];
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const esCrear = modo === 'crear';
   const esModificar = modo === 'modificar';
-  const [anioLectivo, setAnioLectivo] = useState('');
-  const [curso, setCurso] = useState('');
+  // Año lectivo y curso llegan desde el selector global del dashboard (ver
+  // `cursos`, que es un array en los dashboards con multiselección).
+  const cursosKey = (Array.isArray(cursos) && cursos.length > 0 ? cursos : aListaCursos(curso)).join('|');
+  const cursosGlobales = useMemo(() => (cursosKey ? cursosKey.split('|') : []), [cursosKey]);
   const [materia, setMateria] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [form, setForm] = useState(formVacio);
@@ -114,9 +117,9 @@ function Docentes({ readOnly = false }) {
     cargarPersonasSinRol();
   }, []);
 
-  const tieneAlgunFiltro = anioLectivo || curso || materia;
+  const tieneAlgunFiltro = Boolean(anioLectivo) || cursosGlobales.length > 0 || Boolean(materia);
   const listaBase = tieneAlgunFiltro
-    ? docentesPorFiltros(anioLectivo, curso, materia, allDocentes, dataCtx.asignacionesDocente)
+    ? docentesPorFiltros(anioLectivo, cursosGlobales, materia, allDocentes, dataCtx.asignacionesDocente)
     : allDocentes;
   const lista = listaBase.filter(
     (d) => !idsDocentesSinRol.includes(Number(d.id_usuario)),
@@ -877,14 +880,8 @@ const renderFormModificar = () => (
 
       {!readOnly && (
         <FiltrosDocentesVista
-          anioLectivo={anioLectivo}
-          curso={curso}
+          cursos={cursosGlobales}
           materia={materia}
-          onAnio={(v) => {
-            setAnioLectivo(v);
-            setCurso('');
-          }}
-          onCurso={setCurso}
           onMateria={setMateria}
         />
       )}

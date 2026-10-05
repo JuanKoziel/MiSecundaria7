@@ -2950,34 +2950,27 @@ class HorarioEspecialViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_curso_materia__id_curso=curso)
         return qs
 
-    def _check_preceptor_curso_access(self, instance):
+    def _check_horario_write_access(self, instance):
+        """Solo admin/director escriben horarios (el preceptor es solo lectura)."""
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
         if 'admin' in roles or 'director' in roles:
             return
-        if 'preceptor' not in roles:
-            raise PermissionDenied('No tienes permiso para modificar horarios.')
-        if isinstance(instance, CursoMateria):
-            curso_id = instance.id_curso_id
-        else:
-            curso_id = instance.id_curso_materia.id_curso_id
-        cursos_ids = _preceptor_cursos_ids(self.request)
-        if not cursos_ids or int(curso_id) not in {int(c) for c in cursos_ids}:
-            raise PermissionDenied('No tienes permiso para modificar horarios de este curso.')
+        raise PermissionDenied('No tienes permiso para modificar horarios.')
 
     def perform_create(self, serializer):
         cm = serializer.validated_data.get('id_curso_materia')
         if cm is not None:
-            self._check_preceptor_curso_access(cm)
+            self._check_horario_write_access(cm)
         instance = serializer.save()
-        self._check_preceptor_curso_access(instance)
+        self._check_horario_write_access(instance)
 
     def perform_update(self, serializer):
         instance = serializer.save()
-        self._check_preceptor_curso_access(instance)
+        self._check_horario_write_access(instance)
 
     def perform_destroy(self, instance):
-        self._check_preceptor_curso_access(instance)
+        self._check_horario_write_access(instance)
         instance.delete()
 
 
@@ -3022,36 +3015,29 @@ class HorarioViewSet(viewsets.ModelViewSet):
             qs = qs.filter(id_curso_materia=curso_materia)
         return qs
 
-    def _check_preceptor_curso_access(self, instance):
+    def _check_horario_write_access(self, instance):
+        """Solo admin/director escriben horarios (el preceptor es solo lectura)."""
         username = self.request.user.username if self.request.user.is_authenticated else None
         roles = get_roles_for_usuario(username) if username else []
         if 'admin' in roles or 'director' in roles:
             return
-        if 'preceptor' not in roles:
-            raise PermissionDenied('No tienes permiso para modificar horarios.')
-        if isinstance(instance, CursoMateria):
-            curso_id = instance.id_curso_id
-        else:
-            curso_id = instance.id_curso_materia.id_curso_id
-        cursos_ids = _preceptor_cursos_ids(self.request)
-        if not cursos_ids or int(curso_id) not in {int(c) for c in cursos_ids}:
-            raise PermissionDenied('No tienes permiso para modificar horarios de este curso.')
+        raise PermissionDenied('No tienes permiso para modificar horarios.')
 
     def perform_create(self, serializer):
         cm = serializer.validated_data.get('id_curso_materia')
         if cm is not None:
-            self._check_preceptor_curso_access(cm)
+            self._check_horario_write_access(cm)
         instance = serializer.save()
-        self._check_preceptor_curso_access(instance)
+        self._check_horario_write_access(instance)
         _notificar_cambio_horario(instance, accion='creado')
 
     def perform_update(self, serializer):
         instance = serializer.save()
-        self._check_preceptor_curso_access(instance)
+        self._check_horario_write_access(instance)
         _notificar_cambio_horario(instance, accion='actualizado')
 
     def perform_destroy(self, instance):
-        self._check_preceptor_curso_access(instance)
+        self._check_horario_write_access(instance)
         _notificar_cambio_horario(instance, accion='eliminado')
         instance.delete()
 
@@ -5243,27 +5229,16 @@ class DiagnosticoGrupalViewSet(HistorialMixin, viewsets.ModelViewSet):
             # Administrators and directors can see all diagnostics
             return qs
 
-        if 'alumno' in roles and usuario_obj:
-            # Students can see diagnostics for their course
-            alumno = Alumno.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if alumno:
-                mi_curso_id = alumno.id_curso
-                qs = qs.filter(id_curso=mi_curso_id)
-            else:
-                qs = qs.none()
+        # Los diagnósticos grupales son un recurso del ámbito docente: el rol
+        # Alumno y el rol Familia quedan explícitamente excluidos (no alcanzan
+        # ni siquiera los diagnósticos de su propio curso). Los roles se
+        # evalúan por separado para que un usuario con varios perfiles no
+        # pierda el alcance del rol docente por tener además el de alumno.
+        if 'alumno' in roles or 'familia' in roles:
+            if 'docente' not in roles:
+                return qs.none()
 
-        elif 'familia' in roles and usuario_obj:
-            # Families can see diagnostics from their linked students' courses
-            tutor = PadreTutor.objects.filter(id_usuario=usuario_obj.id_usuario).first()
-            if tutor:
-                hijo_ids = alumno_ids_de_tutor(tutor)
-                hijos = Alumno.objects.filter(id_alumno__in=hijo_ids)
-                cursos_hijos_ids = list(hijos.values_list('id_curso', flat=True))
-                qs = qs.filter(id_curso__in=cursos_hijos_ids)
-            else:
-                qs = qs.none()
-
-        elif 'docente' in roles and usuario_obj:
+        if 'docente' in roles and usuario_obj:
             # Teachers can only see diagnostics for courses where they have assignments
             docente = Docente.objects.filter(id_usuario=usuario_obj.id_usuario).first()
             if docente:

@@ -1376,6 +1376,16 @@ body {
         margin-right: 0;
     }
 }
+/* Horarios en modo solo lectura (preceptor): la celda muestra el texto de la
+   materia con el mismo alto que el select que reemplaza, sin bordes. */
+.horario-solo-lectura {
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    color: #223;
+}
 /* Mensaje de error/sugerencia dentro de un formulario.
    Se pinta por encima de inputs, celdas y footer del propio modal para que
    nunca quede oculto (punto 1.3). */
@@ -3076,7 +3086,10 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 .preceptor-form-row {
     display: grid;
     gap: 14px;
-    align-items: end;
+    /* Top-alignado a propósito: con `end`, cuando un campo de la fila mostraba
+       la alerta de validación (`.form-error-text`, que suma altura) el resto de
+       los campos de esa misma fila se corría hacia abajo. */
+    align-items: start;
 }
 
 .preceptor-form-row + .preceptor-form-row {
@@ -4272,6 +4285,14 @@ html.dark .toggle-switch-input:checked + .toggle-switch-status + .toggle-switch-
 .user-profile-card .role-badge-display {
     width: 100%;
     justify-content: center;
+    /* La tarjeta mide 172px: con `white-space: nowrap` los roles largos
+       ("JEFE DE PRECEPTORES") se salían de la pastilla y quedaban
+       desalineados. Se permiten dos líneas centradas. */
+    white-space: normal;
+    text-align: center;
+    line-height: 1.25;
+    padding: 8px 12px;
+    gap: 7px;
 }
 
 @media (max-width: 900px) {
@@ -6647,6 +6668,21 @@ tr.date-group-header td {
     font-weight: 600;
     color: var(--text-dark);
     letter-spacing: 0.2px;
+}
+
+/* Los formularios `preceptor-form-grid` viven dentro de los modales oscuros:
+   los labels y los títulos de sección necesitan color claro, porque la regla
+   de arriba (que los pinta de `--text-dark`) gana por orden y los dejaba
+   ilegibles sobre el fondo navy del modal. */
+.standard-modal-body .preceptor-form-grid .form-group-filter label {
+    color: #e2e8f0;
+}
+.standard-modal-body .preceptor-form-grid .preceptor-section-title,
+.standard-modal-body .preceptor-section-title {
+    color: #f1f5f9;
+}
+.standard-modal-body .preceptor-form-grid .preceptor-modo-hint {
+    color: #cbd5e1;
 }
 
 /* ---- Select: fecha y flecha personalizada ---- */

@@ -1,65 +1,38 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import { cursosPorAnio } from './preceptorUtils';
+import { aListaCursos } from './preceptorUtils';
 
-function FiltrosDocentesVista({ anioLectivo, curso, materia, onAnio, onCurso, onMateria }) {
+// Año lectivo y curso NO se seleccionan acá: vienen del filtro global del header
+// de cada dashboard. Esta vista solo agrega el filtro propio de materia, que
+// depende del curso global ya elegido.
+function FiltrosDocentesVista({ cursos = [], materia, onMateria }) {
   const data = useData();
-  const aniosLectivos = data?.aniosLectivos ?? [];
-  const cursos = data?.cursos ?? [];
-  const cursosObj = data?.cursosObj ?? [];
-  const inscripciones = data?.inscripciones ?? [];
   const materiasPorCurso = data?.materiasPorCurso ?? {};
   const materias = data?.materias ?? [];
 
-  const cursosDelAnio = useMemo(
-    () => cursosPorAnio(anioLectivo, inscripciones, cursos, cursosObj),
-    [anioLectivo, inscripciones, cursos, cursosObj],
-  );
+  const cursosSeleccionados = useMemo(() => aListaCursos(cursos), [cursos]);
 
-  const materiasDisponibles = curso ? materiasPorCurso[curso] ?? [] : materias;
+  const materiasDisponibles = useMemo(() => {
+    if (cursosSeleccionados.length === 0) return materias;
+    const todas = cursosSeleccionados.flatMap((c) => materiasPorCurso[c] ?? []);
+    return [...new Set(todas)].sort((a, b) => String(a).localeCompare(String(b)));
+  }, [cursosSeleccionados, materiasPorCurso, materias]);
+
+  // Si al cambiar el curso global la materia elegida ya no existe, se limpia
+  // para no dejar el listado de docentes filtrado por algo invisible.
+  useEffect(() => {
+    if (materia && !materiasDisponibles.includes(materia)) onMateria('');
+  }, [materia, materiasDisponibles, onMateria]);
 
   return (
     <div className="filter-row">
-      <div className="form-group-filter">
-        <label htmlFor="docentes-anio">Año lectivo</label>
-        <select
-          id="docentes-anio"
-          value={anioLectivo}
-          onChange={(e) => onAnio(e.target.value)}
-        >
-          <option value="">Seleccione año...</option>
-          {aniosLectivos.map((anio) => (
-            <option key={anio} value={anio}>
-              {anio}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="form-group-filter">
-        <label htmlFor="docentes-curso">Curso</label>
-        <select
-          id="docentes-curso"
-          value={curso}
-          onChange={(e) => onCurso(e.target.value)}
-          disabled={!anioLectivo}
-        >
-          <option value="">Todos...</option>
-          {cursosDelAnio.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
-
       <div className="form-group-filter">
         <label htmlFor="docentes-materia">Materia</label>
         <select
           id="docentes-materia"
           value={materia}
           onChange={(e) => onMateria(e.target.value)}
-          disabled={!curso}
+          disabled={cursosSeleccionados.length === 0}
         >
           <option value="">Todas...</option>
           {materiasDisponibles.map((m) => (

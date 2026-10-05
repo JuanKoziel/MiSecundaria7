@@ -10,7 +10,6 @@ import Comunicados from './Comunicados';
 import Actas from './Actas';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
-import DiagnosticosView from '../Shared/DiagnosticosView';
 import ActividadesView from '../Shared/ActividadesView';
 import VistaHorarios from '../Administracion/VistaHorarios';
 import CalendarioInstitucional from '../Administracion/CalendarioInstitucional';
@@ -154,13 +153,8 @@ function FamiliaDashboard({ user, onLogout }) {
           </div>
         );
 
-      case 'info':
-        return (
-          <div className="view-section active">
-            <DiagnosticosView userRole="familia" selectedChild={hijoSeleccionado} />
-          </div>
-        );
-
+      // Los diagnosticos son grupales (del curso): la familia no debe verlos, asi
+      // que la vista 'info' quedo fuera del menu y cae en la vista por defecto.
       default:
         return (
           <div className="view-section active">

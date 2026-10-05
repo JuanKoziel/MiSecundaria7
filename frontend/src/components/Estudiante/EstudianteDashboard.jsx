@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import Notificaciones from '../Notificaciones';
 import ComunicadosView from '../Shared/ComunicadosView';
-import DiagnosticosView from '../Shared/DiagnosticosView';
 import AsistenciasUnificada from '../Shared/AsistenciasUnificada';
 import { cursoConOrientacion } from '../../utils/orientacion';
 import { viewDesdeDestino } from '../../utils/navDestinos';
@@ -212,10 +211,6 @@ function EstudianteDashboard({ user, onLogout }) {
         ) : view === 'comunicados' ? (
           <div className="view-section active">
             <ComunicadosView userRole="alumno" />
-          </div>
-        ) : view === 'info' ? (
-          <div className="view-section active">
-            <DiagnosticosView userRole="alumno" />
           </div>
         ) : view === 'calendario' ? (
           <div className="view-section active">

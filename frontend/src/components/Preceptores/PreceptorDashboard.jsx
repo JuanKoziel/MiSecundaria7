@@ -34,6 +34,8 @@ function PreceptorDashboard({ user, onLogout }) {
   const nombreCompletoPreceptor = miPreceptor ? `${miPreceptor.apellido}, ${miPreceptor.nombre}` : null;
 
   const [view, setView] = useState('perfil');
+  const [anioLectivo, setAnioLectivo] = useState('');
+  const [curso, setCurso] = useState('');
 
   // Parte 8 / 5.1: manejar navegación desde notificaciones. Además de la vista,
   // deja año lectivo y curso ya seleccionados. El curso puede venir por nombre o
@@ -80,9 +82,6 @@ function PreceptorDashboard({ user, onLogout }) {
     }
   }, [cursoPendienteNav, cursosObj]);
 
-  const [anioLectivo, setAnioLectivo] = useState('');
-  const [curso, setCurso] = useState('');
-
   const handleAnioChange = (nuevoAnio) => {
     setAnioLectivo(nuevoAnio);
     setCurso('');
@@ -127,21 +126,25 @@ function PreceptorDashboard({ user, onLogout }) {
       case 'tutores':
         return (
           <div className="view-section active">
-            <TutoresFamilias />
+            <TutoresFamilias
+              anioLectivo={anioLectivo}
+              curso={curso}
+              preceptorCursos={miPreceptor?.cursos}
+            />
           </div>
         );
 
       case 'docentes':
         return (
           <div className="view-section active">
-            <Docentes />
+            <Docentes anioLectivo={anioLectivo} curso={curso} />
           </div>
         );
 
       case 'horarios':
         return (
           <div className="view-section active">
-            <Horarios esControlado cursoGlobal={curso} />
+            <Horarios cursoGlobal={curso} soloLectura />
           </div>
         );
 

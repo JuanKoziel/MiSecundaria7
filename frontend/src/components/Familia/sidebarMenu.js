@@ -31,7 +31,9 @@ export const menuItems = [
     children: [
       { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
       { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
-      { id: 'info', label: 'Diagnósticos', icon: 'fa-info-circle' },
+      // "Diagnósticos" se saco del menu de Familia: los diagnosticos son grupales
+      // (del curso) y las familias no deben verlos. El portal lo muestra solo
+      // para roles pedagogicos.
     ],
   },
 ];

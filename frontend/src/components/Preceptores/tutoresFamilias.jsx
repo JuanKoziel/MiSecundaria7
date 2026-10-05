@@ -7,7 +7,7 @@ import AgregarRolModal from '../../components/Shared/AgregarRolModal';
 import QuitarRolModal from '../../components/Shared/QuitarRolModal';
 import TutoresEstudiantesEditor from '../../components/Shared/TutoresEstudiantesEditor';
 import AccionesLeyenda from '../../components/Shared/AccionesLeyenda';
-import { cursosPorAnio, estudiantesPorAnioYCurso, filtrosCompletos } from './preceptorUtils';
+import { aListaCursos, cursosPorAnio, estudiantesPorAnioYCurso, filtrosCompletos, tutoresPorAnioYCurso } from './preceptorUtils';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { useToast } from '../../context/ToastContext';
 import { mensajeErrorAmigable } from '../../utils/errores';
@@ -15,6 +15,8 @@ import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../util
 import NumericInput from '../Shared/NumericInput';
 
 const TIPOS_TUTOR = ['Padre', 'Madre', 'Tutor'];
+
+const SIN_CURSOS = [];
 
 const formVacio = {
   usuario_nombre: '',
@@ -76,8 +78,14 @@ function nombreTutor(t) {
   return `${t.apellido}, ${t.nombre}`;
 }
 
-function TutoresFamilias({ readOnly = false }) {
-  const { aniosLectivos, inscripciones, cursos, cursosObj, estudiantes, padresTutores: lista, refreshData } = useData();
+function TutoresFamilias({
+  readOnly = false,
+  anioLectivo = '',
+  cursos = SIN_CURSOS,
+  curso = '',
+  preceptorCursos = SIN_CURSOS,
+}) {
+  const { padresTutores: lista, refreshData } = useData();
   const toast = useToast();
   const [modo, setModo] = useState(readOnly ? 'vista' : '');
   const [form, setForm] = useState(formVacio);
@@ -119,10 +127,19 @@ function TutoresFamilias({ readOnly = false }) {
   // actual al validar (5.9).
   const estadoProgramando = lista.find((t) => String(t.id_tutor) === String(programando)) || null;
 
+  // El listado se limita a los tutores con alumnos en el curso del selector
+  // global del header (mismo criterio que el resto de las vistas del preceptor).
+  const cursosKey = (Array.isArray(cursos) && cursos.length > 0 ? cursos : aListaCursos(curso)).join('|');
+  const hayFiltroGlobal = Boolean(anioLectivo) && cursosKey.length > 0;
+  const listaBase = useMemo(
+    () => tutoresPorAnioYCurso(anioLectivo, cursosKey ? cursosKey.split('|') : [], lista, preceptorCursos),
+    [anioLectivo, cursosKey, lista, preceptorCursos],
+  );
+
   const listaFiltrada = useMemo(() => {
-    if (!searchTerm) return lista;
+    if (!searchTerm) return listaBase;
     const q = normalize(searchTerm);
-    return lista.filter((t) => {
+    return listaBase.filter((t) => {
       if (
         normalize(t.nombre).includes(q) ||
         normalize(t.apellido).includes(q) ||
@@ -139,7 +156,7 @@ function TutoresFamilias({ readOnly = false }) {
           normalize(`${al.nombre} ${al.apellido}`).includes(q),
       );
     });
-  }, [lista, searchTerm]);
+  }, [listaBase, searchTerm]);
 
   const cerrarFormulario = () => {
     setModo(readOnly ? 'vista' : '');
@@ -438,7 +455,9 @@ function TutoresFamilias({ readOnly = false }) {
               <td colSpan={readOnly ? 7 : 9} className="empty-state-message">
                 {searchTerm
                   ? 'No se encontraron tutores con ese criterio.'
-                  : 'No hay tutores registrados.'}
+                  : hayFiltroGlobal
+                    ? 'No hay tutores con alumnos en el curso seleccionado.'
+                    : 'Seleccioná un año lectivo y un curso en el filtro superior para ver los tutores.'}
               </td>
             </tr>
           ) : (

@@ -175,7 +175,7 @@ function JefePreceptorDashboard({ user, onLogout }) {
       case 'tutores':
         return (
           <div className="view-section active">
-            <TutoresFamilias readOnly />
+            <TutoresFamilias readOnly anioLectivo={anioLectivo} cursos={cursos} curso={curso} />
           </div>
         );
 

@@ -556,6 +556,10 @@ class PadreTutorSerializer(serializers.ModelSerializer):
     fecha_deshabilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     id_usuario_existente = EnteroOpcionalField(write_only=True, required=False, allow_null=True)
+    # Declarado explícitamente para evitar el UniqueValidator automático de DRF:
+    # al agregar el rol a un usuario que ya posee un perfil de tutor/familia
+    # (sin el rol, por ejemplo), su propio DNI no es un conflicto.
+    dni = serializers.CharField(max_length=20, required=True)
     alumnos_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -607,6 +611,25 @@ class PadreTutorSerializer(serializers.ModelSerializer):
 
     def validate_dni(self, value):
         return normalizar_dni(value)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        dni = attrs.get('dni')
+        id_usuario_existente = attrs.get('id_usuario_existente')
+        if dni:
+            dni = normalizar_dni(dni)
+            attrs['dni'] = dni
+            if id_usuario_existente:
+                # Al agregar el rol a un usuario existente no se rechaza el DNI:
+                # create() reutiliza el perfil que ya tiene esa persona.
+                return attrs
+            if self.instance:
+                if PadreTutor.all_objects.filter(dni=dni).exclude(pk=self.instance.pk).exists():
+                    raise serializers.ValidationError({'dni': 'Ya existe un/a tutor/familia con este/a dni.'})
+            else:
+                if PadreTutor.all_objects.filter(dni=dni).exists():
+                    raise serializers.ValidationError({'dni': 'Ya existe un/a tutor/familia con este/a dni.'})
+        return attrs
 
     def get_alumnos(self, obj):
         alumnos = [ta.id_alumno for ta in obj.tutoralumno_set.all()]
@@ -675,21 +698,19 @@ class PadreTutorSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         alumnos_ids = validated_data.pop('alumnos_ids', [])
         id_usuario_existente = validated_data.get('id_usuario_existente')
-        
+
         # Si se está agregando el rol a un usuario existente (Agregar rol), validar asignaciones requeridas
         if id_usuario_existente is not None:
             if Alumno.objects.filter(id_usuario_id=id_usuario_existente).exists():
                 raise serializers.ValidationError({
                     'id_usuario_existente': 'El usuario seleccionado es un alumno y no puede recibir otro rol.'
                 })
-            if PadreTutor.objects.filter(id_usuario_id=id_usuario_existente).exists():
-                raise serializers.ValidationError({
-                    'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de tutor/familia.'
-                })
             if not alumnos_ids:
                 raise serializers.ValidationError({
                     'alumnos_ids': 'Debe asignar al menos un alumno al agregar el rol de tutor/familia.'
                 })
+        # No se rechaza que la persona ya tenga perfil de tutor/familia: ese perfil
+        # se reutiliza y se le reassignan los alumnos indicados (ver más abajo).
         # Sin `id_usuario_existente` se crea una cuenta nueva: aquí
         # `id_usuario_existente` es None y filtrar por él se traduce a
         # `id_usuario_id IS NULL`, una comprobación sin sentido que hacía
@@ -697,14 +718,47 @@ class PadreTutorSerializer(serializers.ModelSerializer):
         # al crear un tutor nuevo. El duplicado de usuario_nombre ya lo
         # valida `_build_usuario_account`.
 
-        usuario, validated_data = _build_usuario_account(
-            instance=self.instance or PadreTutor(),
-            validated_data=validated_data,
-            username_key='usuario_nombre',
-            role_name='familia',
-        )
-        padre = PadreTutor.objects.create(id_usuario=usuario, **validated_data)
-        _vincular_tutor_alumnos(padre, alumnos_ids)
+        try:
+            with transaction.atomic():
+                usuario, validated_data = _build_usuario_account(
+                    instance=self.instance or PadreTutor(),
+                    validated_data=validated_data,
+                    username_key='usuario_nombre',
+                    role_name='familia',
+                )
+
+                tutor_existente = PadreTutor.all_objects.filter(id_usuario=usuario).first()
+                dni = validated_data.get('dni')
+                if tutor_existente is None and dni:
+                    # Solo se reutiliza una fila huérfana (sin usuario) o el propio
+                    # perfil de la persona; nunca el de otro usuario.
+                    perfil_por_dni = PadreTutor.all_objects.filter(dni=dni).first()
+                    if perfil_por_dni is not None and perfil_por_dni.id_usuario_id is not None:
+                        raise serializers.ValidationError({
+                            'dni': 'Ya existe un/a tutor/familia con este/a dni asociado a otro usuario.'
+                        })
+                    tutor_existente = perfil_por_dni
+                if tutor_existente is not None:
+                    # `all_objects` incluye los perfiles dados de baja lógica: al
+                    # reutilizar uno hay que reactivarlo, ya que `id_usuario` es
+                    # OneToOne y no admite un segundo perfil del mismo usuario.
+                    if tutor_existente.id_usuario_id != usuario.id_usuario:
+                        tutor_existente.id_usuario = usuario
+                    for attr, value in validated_data.items():
+                        setattr(tutor_existente, attr, value)
+                    tutor_existente.estado = True
+                    tutor_existente.fecha_eliminacion = None
+                    tutor_existente.save()
+                    padre = tutor_existente
+                    # Se reemplazan únicamente los vínculos de este tutor.
+                    TutorAlumno.objects.filter(id_tutor=padre).delete()
+                else:
+                    padre = PadreTutor.objects.create(id_usuario=usuario, **validated_data)
+                _vincular_tutor_alumnos(padre, alumnos_ids)
+        except IntegrityError:
+            raise serializers.ValidationError({
+                'dni': 'Ya existe un/a tutor/familia con este/a dni.'
+            })
         return padre
 
     def update(self, instance, validated_data):
@@ -797,10 +851,10 @@ class PreceptorSerializer(serializers.ModelSerializer):
                 # cuenta), create() reutilizará esos datos existentes.
                 return attrs
             if self.instance:
-                if Preceptor.objects.filter(dni=dni).exclude(pk=self.instance.pk).exists():
+                if Preceptor.all_objects.filter(dni=dni).exclude(pk=self.instance.pk).exists():
                     raise serializers.ValidationError({'dni': 'Ya existe un/a preceptor con este/a dni.'})
             else:
-                if Preceptor.objects.filter(dni=dni).exists():
+                if Preceptor.all_objects.filter(dni=dni).exists():
                     raise serializers.ValidationError({'dni': 'Ya existe un/a preceptor con este/a dni.'})
         return attrs
 
@@ -894,23 +948,28 @@ class PreceptorSerializer(serializers.ModelSerializer):
                     role_name=self._role_name_from_context(),
                 )
 
-                preceptor_existente = Preceptor.objects.filter(id_usuario=usuario).first()
+                preceptor_existente = Preceptor.all_objects.filter(id_usuario=usuario).first()
                 dni = validated_data.get('dni')
                 if preceptor_existente is None and dni:
                     # Reutilizar un perfil existente solo si es del mismo usuario o
                     # si es una fila huérfana (sin usuario asignado). Nunca "robar" el
                     # perfil de otra persona: eso genera DNI duplicados o corrupción.
-                    perfil_por_dni = Preceptor.objects.filter(dni=dni).first()
+                    perfil_por_dni = Preceptor.all_objects.filter(dni=dni).first()
                     if perfil_por_dni is not None and perfil_por_dni.id_usuario_id is not None:
                         raise serializers.ValidationError({
                             'dni': 'Ya existe un/a preceptor con este/a dni asociado a otro usuario.'
                         })
                     preceptor_existente = perfil_por_dni
                 if preceptor_existente is not None:
+                    # `all_objects` incluye los perfiles dados de baja lógica: al
+                    # reutilizar uno hay que reactivarlo, ya que `id_usuario` es
+                    # OneToOne y no admite un segundo perfil del mismo usuario.
                     if preceptor_existente.id_usuario_id != usuario.id_usuario:
                         preceptor_existente.id_usuario = usuario
                     for attr, value in validated_data.items():
                         setattr(preceptor_existente, attr, value)
+                    preceptor_existente.estado = True
+                    preceptor_existente.fecha_eliminacion = None
                     preceptor_existente.save()
                     preceptor = preceptor_existente
                 else:
@@ -1212,6 +1271,10 @@ class DocenteSerializer(serializers.ModelSerializer):
     fecha_habilitacion_programada = serializers.DateTimeField(write_only=True, required=False, allow_null=True)
     id_usuario_existente = EnteroOpcionalField(write_only=True, required=False, allow_null=True)
     correo = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    # Declarado explícitamente para evitar el UniqueValidator automático de DRF:
+    # al agregar el rol a un usuario que ya posee un perfil de docente (sin rol),
+    # su mismo DNI no debe considerarse como conflicto (validate() ya lo excluye).
+    dni = serializers.CharField(max_length=20, required=True)
     curso_materia_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -1269,6 +1332,25 @@ class DocenteSerializer(serializers.ModelSerializer):
 
     def validate_dni(self, value):
         return normalizar_dni(value)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        dni = attrs.get('dni')
+        id_usuario_existente = attrs.get('id_usuario_existente')
+        if dni:
+            dni = normalizar_dni(dni)
+            attrs['dni'] = dni
+            if id_usuario_existente:
+                # Al agregar el rol a un usuario existente no se rechaza el DNI:
+                # create() reutiliza el perfil que ya tiene esa persona.
+                return attrs
+            if self.instance:
+                if Docente.all_objects.filter(dni=dni).exclude(pk=self.instance.pk).exists():
+                    raise serializers.ValidationError({'dni': 'Ya existe un/a docente con este/a dni.'})
+            else:
+                if Docente.all_objects.filter(dni=dni).exists():
+                    raise serializers.ValidationError({'dni': 'Ya existe un/a docente con este/a dni.'})
+        return attrs
 
     def _get_ddjj(self, obj):
         try:
@@ -1366,38 +1448,69 @@ class DocenteSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         curso_materia_ids = validated_data.pop('curso_materia_ids', [])
         id_usuario_existente = validated_data.get('id_usuario_existente')
-        
+
         # Si se está agregando el rol a un usuario existente (Agregar rol), validar asignaciones requeridas
         if id_usuario_existente is not None:
             if Alumno.objects.filter(id_usuario_id=id_usuario_existente).exists():
                 raise serializers.ValidationError({
                     'id_usuario_existente': 'El usuario seleccionado es un alumno y no puede recibir otro rol.'
                 })
-            if Docente.objects.filter(id_usuario_id=id_usuario_existente).exists():
-                raise serializers.ValidationError({
-                    'id_usuario_existente': 'El usuario seleccionado ya tiene perfil de docente.'
-                })
             if not curso_materia_ids:
                 raise serializers.ValidationError({
                     'curso_materia_ids': 'Debe asignar al menos una relación curso-materia al agregar el rol de docente.'
                 })
+        # No se rechaza que la persona ya tenga perfil de docente: en ese caso el
+        # perfil se reutiliza (ver más abajo). Solo se impedía duplicarlo, que era
+        # justo el error que veía el usuario al reasignar un rol.
         # Sin `id_usuario_existente` se crea una cuenta nueva: filtrar por None
         # se traduce a `id_usuario_id IS NULL` y producía el error falso
         # "El usuario seleccionado ya tiene perfil de docente". El duplicado de
         # usuario_nombre lo valida `_build_usuario_account`.
 
-        usuario, validated_data = _build_usuario_account(
-            instance=self.instance or Docente(),
-            validated_data=validated_data,
-            username_key='usuario_nombre',
-            role_name='docente',
-        )
-        docente = Docente.objects.create(id_usuario=usuario, **validated_data)
-        
-        # Asignar curso_materia si se proporcionaron
-        if curso_materia_ids:
-            CursoMateria.objects.filter(id_curso_materia__in=curso_materia_ids).update(id_docente=docente)
-        
+        try:
+            with transaction.atomic():
+                usuario, validated_data = _build_usuario_account(
+                    instance=self.instance or Docente(),
+                    validated_data=validated_data,
+                    username_key='usuario_nombre',
+                    role_name='docente',
+                )
+
+                docente_existente = Docente.all_objects.filter(id_usuario=usuario).first()
+                dni = validated_data.get('dni')
+                if docente_existente is None and dni:
+                    # Reutilizar un perfil existente solo si es del mismo usuario o
+                    # si es una fila huérfana (sin usuario asignado). Nunca "robar" el
+                    # perfil de otra persona: eso genera DNI duplicados o corrupción.
+                    perfil_por_dni = Docente.all_objects.filter(dni=dni).first()
+                    if perfil_por_dni is not None and perfil_por_dni.id_usuario_id is not None:
+                        raise serializers.ValidationError({
+                            'dni': 'Ya existe un/a docente con este/a dni asociado a otro usuario.'
+                        })
+                    docente_existente = perfil_por_dni
+                if docente_existente is not None:
+                    # `all_objects` incluye los perfiles dados de baja lógica: si el
+                    # perfil se reutiliza hay que reactivarlo, porque `id_usuario` es
+                    # OneToOne y una fila nueva con el mismo usuario sería duplicada.
+                    if docente_existente.id_usuario_id != usuario.id_usuario:
+                        docente_existente.id_usuario = usuario
+                    for attr, value in validated_data.items():
+                        setattr(docente_existente, attr, value)
+                    docente_existente.estado = True
+                    docente_existente.fecha_eliminacion = None
+                    docente_existente.save()
+                    docente = docente_existente
+                else:
+                    docente = Docente.objects.create(id_usuario=usuario, **validated_data)
+
+                # Asignar curso_materia si se proporcionaron
+                if curso_materia_ids:
+                    CursoMateria.objects.filter(id_curso_materia__in=curso_materia_ids).update(id_docente=docente)
+        except IntegrityError:
+            raise serializers.ValidationError({
+                'dni': 'Ya existe un/a docente con este/a dni.'
+            })
+
         return docente
 
     def update(self, instance, validated_data):

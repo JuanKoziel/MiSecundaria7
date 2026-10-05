@@ -29,7 +29,8 @@ export const menuItems = [
       { id: 'horarios', label: 'Horarios', icon: 'fa-calendar-alt' },
       { id: 'comunicados', label: 'Comunicados', icon: 'fa-bullhorn' },
       { id: 'calendario', label: 'Calendario Institucional', icon: 'fa-calendar-alt' },
-      { id: 'info', label: 'Diagnósticos', icon: 'fa-info-circle' },
+      // "Diagnósticos" se saco del menu del Alumno: los diagnosticos son grupales
+      // (del curso) y el alumno no debe verlos.
     ],
   },
 ];
