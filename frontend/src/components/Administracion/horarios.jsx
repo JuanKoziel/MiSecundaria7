@@ -201,20 +201,6 @@ const HorarioSemanal = function HorarioSemanal({ cursoIdExterno = '', onRegister
 </tbody>
                 </table>
               </div>
-
-<div className="form-actions mt-16" style={{ justifyContent: 'flex-end' }}>
-                {!soloLectura && (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={guardando}
-                    onClick={handleGuardar}
-                    style={{ height: '38px', minWidth: '120px' }}
-                  >
-                    {guardando ? 'Guardando...' : 'Guardar'}
-                  </button>
-                )}
-              </div>
             </div>
           )}
         </div>
