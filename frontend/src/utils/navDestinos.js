@@ -77,6 +77,13 @@ const MAPA_POR_ROL = {
     comunicados: 'comunicados',
     eventos: 'calendario',
     perfil: 'perfil',
+    // Avisos de "falta un dato maestro" (Shared/AvisoDatosMaestros): llevan a
+    // la pestaña correspondiente de Administración → Configuración.
+    ciclos_lectivos: 'ciclos-lectivos',
+    modulos_horarios: 'modulos-horarios',
+    periodos_evaluacion: 'periodos-evaluacion',
+    estados_asistencia: 'estados-asistencia',
+    tipos_acta: 'tipos-acta',
   },
 };
 
@@ -92,6 +99,19 @@ export function viewDesdeDestino(destino, rol) {
   if (!mapa || !destino) return null;
   return mapa[destino] || null;
 }
+
+// Destinos de los avisos de "falta un dato maestro" (Shared/AvisoDatosMaestros).
+// No son notificaciones del backend: los emite el frontend cuando un catálogo
+// está vacío. Ya están mapeados en `MAPA_POR_ROL.admin` (y `director` se
+// normaliza a `admin` por `ROL_EQUIV`), así que acá solo se listan para que los
+// consumidores no escriban las cadenas a mano.
+export const DESTINO_DATOS_MAESTROS = {
+  ciclos_lectivos: 'ciclos-lectivos',
+  modulos_horarios: 'modulos-horarios',
+  periodos_evaluacion: 'periodos-evaluacion',
+  estados_asistencia: 'estados-asistencia',
+  tipos_acta: 'tipos-acta',
+};
 
 export function tieneVistaParaDestino(destino, rol) {
   return viewDesdeDestino(destino, rol) !== null;

@@ -25,6 +25,7 @@ import {
   cambiosIntensificaciones,
 } from '../../utils/intensificaciones';
 import { mensajeErrorAmigable } from '../../utils/errores';
+import AvisoDatosMaestros from '../Shared/AvisoDatosMaestros';
 
 function PanelEstudiantes({ cursoMateriaId, cursoId, cursoNombre, materiaNombre, docenteId, puedeEditar = true, mostrarBannerSuplencia = true }) {
   const { estudiantes, calificacionesCompletas, periodos, refreshData } = useData();
@@ -450,6 +451,17 @@ return (
             Cerrar
           </button>
         </div>
+      )}
+
+      {/* Sin períodos cargados no hay dónde guardar las notas: se avisa en vez
+          de dejar una planilla que fallaría al guardar. */}
+      {periodos.length === 0 && (
+        <AvisoDatosMaestros
+          mensaje="No hay períodos de evaluación registrados."
+          detalle="Cree al menos un período de evaluación para poder cargar calificaciones."
+          accion="Crear período de evaluación"
+          destino="periodos_evaluacion"
+        />
       )}
 
       <div className="table-responsive">

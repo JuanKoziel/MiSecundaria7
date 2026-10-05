@@ -307,9 +307,27 @@ export async function createAsistencia(payload) {
   return data;
 }
 
+// ---------- Configuración: datos maestros ----------
+// CRUD de los catálogos de Administración → Configuración. Los listados
+// aceptan `incluir_inactivos` para mostrar también los desactivados.
+
 export async function getEstadosAsistencia() {
   const { data } = await api.get('/estados-asistencia/');
   return data;
+}
+
+export async function createEstadoAsistencia(payload) {
+  const { data } = await api.post('/estados-asistencia/', payload);
+  return data;
+}
+
+export async function updateEstadoAsistencia(id, payload) {
+  const { data } = await api.patch(`/estados-asistencia/${id}/`, payload);
+  return data;
+}
+
+export async function deleteEstadoAsistencia(id) {
+  await api.delete(`/estados-asistencia/${id}/`);
 }
 
 export async function getRoles() {
@@ -369,6 +387,20 @@ export async function getTiposActa() {
   return data;
 }
 
+export async function createTipoActa(payload) {
+  const { data } = await api.post('/tipos-acta/', payload);
+  return data;
+}
+
+export async function updateTipoActa(id, payload) {
+  const { data } = await api.patch(`/tipos-acta/${id}/`, payload);
+  return data;
+}
+
+export async function deleteTipoActa(id) {
+  await api.delete(`/tipos-acta/${id}/`);
+}
+
 export async function createActa(payload) {
   const { data } = await api.post('/actas/', payload);
   return data;
@@ -425,6 +457,20 @@ export async function getModulos() {
   return data;
 }
 
+export async function createModulo(payload) {
+  const { data } = await api.post('/modulos/', payload);
+  return data;
+}
+
+export async function updateModulo(id, payload) {
+  const { data } = await api.patch(`/modulos/${id}/`, payload);
+  return data;
+}
+
+export async function deleteModulo(id) {
+  await api.delete(`/modulos/${id}/`);
+}
+
 export async function getHorarios(params) {
   const { data } = await api.get('/horarios/', { params });
   return data;
@@ -463,14 +509,44 @@ export async function deleteHorarioEspecial(id) {
   await api.delete(`/horarios-especiales/${id}/`);
 }
 
-export async function getCiclosLectivos() {
-  const { data } = await api.get('/ciclos-lectivos/');
+export async function getCiclosLectivos(params) {
+  const { data } = await api.get('/ciclos-lectivos/', { params });
   return data;
 }
 
-export async function getPeriodos() {
-  const { data } = await api.get('/periodos/');
+export async function createCicloLectivo(payload) {
+  const { data } = await api.post('/ciclos-lectivos/', payload);
   return data;
+}
+
+export async function updateCicloLectivo(id, payload) {
+  const { data } = await api.patch(`/ciclos-lectivos/${id}/`, payload);
+  return data;
+}
+
+// Desactiva el ciclo (borrado lógico). No borra la fila: los ciclos
+// desactivados se recuperan con `updateCicloLectivo(id, { estado: true })`.
+export async function deleteCicloLectivo(id) {
+  await api.delete(`/ciclos-lectivos/${id}/`);
+}
+
+export async function getPeriodos(params) {
+  const { data } = await api.get('/periodos/', { params });
+  return data;
+}
+
+export async function createPeriodo(payload) {
+  const { data } = await api.post('/periodos/', payload);
+  return data;
+}
+
+export async function updatePeriodo(id, payload) {
+  const { data } = await api.patch(`/periodos/${id}/`, payload);
+  return data;
+}
+
+export async function deletePeriodo(id) {
+  await api.delete(`/periodos/${id}/`);
 }
 
 export async function getNotificaciones(params) {

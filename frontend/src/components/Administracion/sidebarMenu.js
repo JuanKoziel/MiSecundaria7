@@ -50,6 +50,24 @@ export const menuItems = [
       { id: 'historial', label: 'Historial de Cambios', icon: 'fa-history', roles: ['admin', 'director'] },
     ],
   },
+
+  // Datos maestros. Sin esta sección, configurar un ciclo lectivo, un módulo
+  // horario o un período de evaluación exigía un INSERT SQL manual. La escritura
+  // está restringida a admin/director en el backend (`IsAdminOrDirectorForWrite`),
+  // y acá el grupo solo se muestra para esos mismos roles.
+  {
+    id: 'configuracion',
+    label: 'Configuración',
+    icon: 'fa-sliders-h',
+    roles: ['admin', 'director'],
+    children: [
+      { id: 'ciclos-lectivos', label: 'Ciclos lectivos', icon: 'fa-calendar-check', roles: ['admin', 'director'] },
+      { id: 'modulos-horarios', label: 'Módulos horarios', icon: 'fa-clock', roles: ['admin', 'director'] },
+      { id: 'periodos-evaluacion', label: 'Períodos de evaluación', icon: 'fa-list-ol', roles: ['admin', 'director'] },
+      { id: 'estados-asistencia', label: 'Estados de asistencia', icon: 'fa-user-check', roles: ['admin', 'director'] },
+      { id: 'tipos-acta', label: 'Tipos de acta', icon: 'fa-file-signature', roles: ['admin', 'director'] },
+    ],
+  },
 ];
 
 export const bottomItems = [

@@ -172,6 +172,18 @@ fecha_eliminacion DATETIME NULL
 
 En el esquema recuperado, el `AUTO_INCREMENT` estaba en 9.
 
+**`anio` es `YEAR(4)`, no `INT`.** Eso limita el rango útil a **1901-2155**
+(MariaDB ademas admite `0000`, que no es un anio lectivo). La API valida ese
+rango explicitamente en `CicloLectivoSerializer.validate_anio` y devuelve
+`HTTP 400` con el motivo: sin esa acotacion, un anio como `3000` pasaba la
+validacion de "4 digitos" y reventaba al insertar con un `DataError` (500).
+
+**No existe un concepto de "ciclo lectivo actual"**: la aplicacion no marca
+ningun ciclo como vigente. `cursos.turno` es una columna `VARCHAR` **muerta** que
+nadie escribe; el turno que muestra la interfaz se *calcula* a partir de los
+modulos de la tabla `modulos` asignados en `horarios`
+(`CursoSerializer.get_turno_calculado`).
+
 ## `cursos`
 
 Campos:
@@ -802,6 +814,57 @@ El análisis del proyecto indicó que:
 - La base real existe y funciona.
 
 Por eso, para cambios de datos, priorizar el esquema real recuperado de MySQL.
+
+## Columnas que los modelos necesitan y el SQL de referencia no tenía (corregido 2026-10-03)
+
+Los modelos son `managed = False`: Django nunca crea ni altera estas tablas. El
+esquema se provisionaba solo con `deploy/sql/sistema_escolar.mariadb.sql`, que es
+una foto antigua del MySQL original y **no** incluía las columnas que el backend
+ya usaba. Resultado: casi todos los listados devolvían HTTP 500 con
+
+```text
+django.db.utils.OperationalError:
+(1054, "Unknown column 'materias.activo' in 'SELECT'")
+```
+
+Columnas agregadas por `escuela/migrations/0007_sincronizar_esquema_managed_false.py`:
+
+| Tabla | Columnas |
+|-------|----------|
+| `alumnos`, `docentes`, `preceptores`, `directivos`, `padres_tutores`, `materias`, `cursos`, `curso_materia`, `periodos_evaluacion`, `actas`, `comunicados`, `diagnosticos_grupales` | `estado`, `fecha_eliminacion` |
+| `ciclos_lectivos` | `fecha_eliminacion` |
+| `planificaciones` | `contenido`, `objetivos`, `salidas`, `fundamentacion`, `estado` (Borrador/Publicado), `eliminado`, `fecha_ultima_modificacion`, `fecha_eliminacion` |
+| `materias`, `cursos`, `curso_materia` | `activo` |
+| `cursos` | `orientacion` |
+| `padres_tutores` | `correo`, `tipo` |
+| `asistencias` | `hora`, `justificado` |
+| `horarios` | `id_modulo` (+ índice y FK a `modulos`), derivado de `numero_modulo` |
+| `notificaciones` | `id_alumno` (+ índice y FK a `alumnos`) |
+
+Alineaciones de nulabilidad: `asistencias.hora`, `usuarios.estado`,
+`ciclos_lectivos.estado` y `notificaciones.leida` pasan a `NOT NULL`;
+`comunicados.id_curso` pasa a admitir `NULL`.
+
+`planificaciones.estado` **no** es el flag de borrado lógico: ese rol lo cumple
+`planificaciones.eliminado` (ver `PlanificacionManager` y `utils.marcar_eliminado`).
+Las columnas físicas heredadas (`planificaciones.titulo`, `.descripcion`,
+`horarios.hora_inicio/hora_fin/numero_modulo`, `asistencias.numero_modulo`,
+`.observacion`, `cursos.turno`) **no** se eliminaron: se conservan los datos.
+
+La especificación completa vive en `backend/proyecto/escuela/schema.py` y se
+puede verificar o re-aplicar en cualquier momento:
+
+```bash
+# informar diferencias (código de salida 1 si hay desalineación)
+docker compose -f deploy/compose.yml exec -T api python manage.py verificar_esquema
+
+# aplicar el DDL faltante (idempotente, aditivo, no destructivo)
+docker compose -f deploy/compose.yml exec -T api python manage.py verificar_esquema --aplicar
+
+# emitir el SQL equivalente para instalaciones desde cero
+docker compose -f deploy/compose.yml exec -T api \
+    python manage.py generar_sql_esquema --salida deploy/sql/002_esquema.sql
+```
 
 ---
 
@@ -1616,3 +1679,94 @@ Registros definitivos:
 ## 7. Estado de referencia
 
 Este documento debe utilizarse como **contexto base de la BD** en futuras conversaciones del proyecto. Cuando se entregue junto con un pedido de SQL, primero se debe revisar este documento y utilizar sus IDs, relaciones, eliminaciones y reglas antes de solicitar información adicional.
+
+---
+
+# Catálogos de Configuración (2026-10-04)
+
+Los cinco catálogos de **Administración → Configuración** se administran desde la
+interfaz. A partir de esta fecha **no corresponde hacer `INSERT` SQL** para
+ciclos lectivos, módulos horarios, períodos de evaluación, estados de asistencia
+ni tipos de acta: las cargas manuales de estas tablas quedan reemplazadas por el
+módulo. Las reglas de carga de §6 ("respetar `curso_materia` como referencia de
+los horarios", "trabajar con 2 cuatrimestres", etc.) siguen vigentes para las
+tablas que **no** administra Configuración.
+
+## Esquema físico: no se agregó DDL
+
+El módulo **no modificó el esquema físico**. Los modelos ya existían y son
+`managed = False`; lo único nuevo es la lógica de aplicación. Por eso
+`verificar_esquema` sigue alineado y `0008_seed_estados_asistencia` es una
+migración **de datos, sin DDL**.
+
+| Tabla | PK | Columnas de borrado lógico | Modo de baja en la app |
+| --- | --- | --- | --- |
+| `ciclos_lectivos` | `id_ciclo` | `estado`, `fecha_eliminacion` | Lógico (desactivar/reactivar) |
+| `periodos_evaluacion` | `id_periodo` | `estado`, `fecha_eliminacion` | Lógico (desactivar/reactivar) |
+| `modulos` | `id_modulo` | **no tiene** | Físico, con guarda de uso |
+| `estados_asistencia` | `id_estado_asistencia` | **no tiene** | Físico, con guarda de uso |
+| `tipos_acta` | `id_tipo_acta` | **no tiene** | Físico, con guarda de uso |
+
+Las tres últimas responden `HTTP 400` (no 500) cuando el registro está en uso, y
+`modulos` además está protegida por la FK `RESTRICT` de `horarios.id_modulo`.
+
+## `estados_asistencia`: cinco estados base, garantizados
+
+`views.py` resuelve el estado de una asistencia por **nombre exacto** (tanto
+`asistencias` como `asistencias_docentes`), así que estos cinco nombres son
+contrato funcional y **no pueden faltar**:
+
+```text
+Presente
+Ausente
+Tarde
+Retirado
+Justificado
+```
+
+Se insertaron con `migraciones/0008_seed_estados_asistencia.py` (ids 5 a 9 en la
+base de producción; el `AUTO_INCREMENT` había quedado en 5). Para reponerlos:
+
+```bash
+python manage.py seed_estados_asistencia
+```
+
+Es **idempotente**: usa `get_or_create` sobre el índice único de
+`nombre_estado`, así que se puede correr tantas veces como haga falta sin
+duplicar ni pisar registros existentes. No se pueden eliminar ni renombrar desde
+la API (`HTTP 400`) ni desde la interfaz.
+
+> Ojo: el documento §12 de este archivo lista solo `Presente`, `Ausente` y
+> `Tarde` como estados conceptuales; esa lista estaba incompleta. Los cinco de
+> arriba son los que el código reconoce.
+
+## `periodos_evaluacion`: `orden_periodo` y los dos cuatrimestres
+
+La agregación de notas depende de `orden_periodo`:
+
+| `orden_periodo` | Significado |
+| --- | --- |
+| `1` | Primer cuatrimestre |
+| `2` | Segundo cuatrimestre |
+| `>= 3` | No entra en la agregación |
+
+El serializer acepta **cualquier entero positivo** como `orden_periodo` (el
+único debe quedar entre los activos), y no un máximo de 2, para no chocar con
+`seed_datos`, que crea 3 períodos. Solo los órdenes 1 y 2 alimentan el cálculo de
+promoción.
+
+## `modulos`: sin columnas de borrado lógico
+
+`modulos` no tiene `estado` ni `fecha_eliminacion`, así que el borrado es físico.
+La protección es la FK `horarios.id_modulo` (`RESTRICT`), pero el backend la
+intercepta **antes** de que la base devuelva un error de integridad: la API
+responde `HTTP 400` con el mensaje "No se puede eliminar este módulo porque está
+asignado a N horario(s)". Agregar `estado`/`fecha_eliminacion` a `modulos`,
+`estados_asistencia` y `tipos_acta` es una mejora **reportada para fase 2**
+(requiere DDL; ver `HISTORIAL.md` §16.7).
+
+## `historial_*` no dependen de `ciclos_lectivos`
+
+Las tablas de historial guardan el **año como entero**, no como FK a
+`ciclos_lectivos`. Por eso desactivar un ciclo lectivo **no rompe el historial** y
+no hace falta reasignar nada.

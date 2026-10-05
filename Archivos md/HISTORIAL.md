@@ -2,7 +2,7 @@
 
 > **Propósito:** Registro de todas las auditorías, correcciones y decisiones significativas tomadas en el proyecto. Este archivo preserva el trabajo ya realizado para referencia futura.
 >
-> **Última actualización:** 2026-09-04
+> **Última actualización:** 2026-10-03
 
 ---
 
@@ -750,4 +750,235 @@ solo notifica las que llegaron en la sesión.
 
 ---
 
-*Documento actualizado el 2026-09-04 · Proyecto Mi Secundaria 7*
+## 15. Corrección de HTTP 500 masivos por esquema desalineado + logo 404 (2026-10-03)
+
+### 15.1 Síntoma
+
+Casi todos los endpoints de la API devolvían **HTTP 500**. La causa raíz era
+una sola, repetida con distintas columnas:
+
+```text
+django.db.utils.OperationalError:
+(1054, "Unknown column 'materias.activo' in 'SELECT'")
+```
+
+Los modelos de `escuela` son `managed = False`, así que `migrate` nunca creaba
+sus columnas. La base se había provisionado con
+`deploy/sql/sistema_escolar.mariadb.sql`, una foto antigua del MySQL original a
+la que le faltaban **51 columnas/alineaciones** que el backend ya usaba:
+borrado lógico (`estado`, `fecha_eliminacion`), flags `activo`, y columnas de
+funcionalidad (`cursos.orientacion`, `padres_tutores.correo/tipo`,
+`asistencias.hora/justificado`, `horarios.id_modulo`,
+`notificaciones.id_alumno`, el contenido de `planificaciones`, etc.).
+
+### 15.2 Corrección
+
+No se quitó `managed = False` (la base es externa y esa decisión se respeta) y
+**no** se resolvió borrando columnas de los modelos (eso habría roto el borrado
+lógico y el historial). Se agregó una capa explícita y repetible:
+
+| Pieza | Rol |
+|-------|-----|
+| `backend/proyecto/escuela/schema.py` | Especificación declarativa: columnas, nulabilidad, índices/FK y rellenos. Fuente única de verdad. |
+| `escuela/migrations/0007_sincronizar_esquema_managed_false.py` | Aplica solo el DDL faltante. Reversible (suelta la FK antes de la columna). |
+| `manage.py verificar_esquema` | Compara el esquema físico con los modelos. `--aplicar` ejecuta el DDL. Sale con código 1 si hay desvío. |
+| `manage.py generar_sql_esquema` | Emite el SQL idempotente (`deploy/sql/002_esquema.sql`) para instalaciones/actualizaciones. |
+| `escuela/tests/test_esquema.py`, `test_api_sin_500.py` | Regresión: toda columna de todo modelo existe; ningún listado devuelve 5xx; sin autenticar todo sigue rechazado. |
+
+Propiedades del DDL: **aditivo** (solo ADD/MODIFY de alineación; nunca DROP ni
+TRUNCATE), **idempotente** (cada sentencia se valida contra
+`information_schema`), y **conservador con los datos** (rellena NULLs con el
+valor por defecto del modelo; solo endurece a NOT NULL si no quedan NULLs).
+
+Decisiones de modelado:
+- `horarios`: se agregó `id_modulo` (FK a `modulos`) y se backfilleó desde la
+  columna denormalizada `numero_modulo`, que se conserva.
+- `planificaciones`: `estado` es `Borrador`/`Publicado` (no borrado lógico); el
+  flag de borrado es `eliminado`. Se conservan `titulo`/`descripcion`.
+- `asistencias.hora` se crea NULL, se rellena y se endurece a NOT NULL.
+- Se conservan sin tocar las columnas físicas heredadas
+  (`cursos.turno`, `asistencias.numero_modulo/observacion`,
+  `horarios.numero_modulo/hora_inicio/hora_fin`, `*.ruta_archivo`).
+
+### 15.3 Procedimiento aplicado (verificado)
+
+1. Backup verificado con `mariadb-dump --single-transaction --routines
+   --triggers --events` y restauración de prueba en una base aparte.
+2. `docker compose build api && up -d api` (el código va horneado en la imagen).
+3. `manage.py migrate` → `Applying escuela.0007... OK`.
+4. `manage.py verificar_esquema` → salida 0.
+5. Barrido de los 43 endpoints: **todos 200** con JWT; **todos 401** (o 404 en
+   una ruta de detalle) sin autenticar. No se abrió ninguna ruta ni permiso.
+6. Diff de datos `--no-create-info` antes/después: idéntico salvo la fila nueva
+   de `django_migrations`.
+7. Reversión probada en una copia: `migrate escuela 0006` y re-aplicación
+   dejan el esquema alineado.
+8. Tests: **15 OK**. `manage.py check` limpio.
+
+### 15.4 Logo 404
+
+`frontend/src/components/Shared/Logo.jsx` usaba `src="/logo-escuela.png"`
+absoluto desde la raíz del dominio, pero Vite publica bajo `base:
+'/misecundaria7/'` → el navegador pedía `/logo-escuela.png` (404). Se cambió a
+`` `${import.meta.env.BASE_URL}logo-escuela.png` `` y se regeneraron `dist/` y
+`frontend/misecundaria7-frontend.zip`. El frontend se sirve desde un host
+externo: hay que re-subir el contenido de `dist/` (o el zip) a la raíz del sitio.
+
+### 15.5 Limitación conocida
+
+El volcado `deploy/sql/sistema_escolar.mariadb.sql` es **incompleto**: define 42
+tablas y la base real tiene 67 (faltan, entre otras, `modulos`,
+`historial_academico`, `cargos_*`, `suplencias_docentes`, `actividades_docentes`).
+`deploy/sql/002_esquema.sql` es seguro sobre un esquema parcial (cada ALTER/FK
+verifica que existan la tabla y la referenciada), pero una instalación
+verdaderamente desde cero necesita también esas 25 tablas, que hoy solo existen
+en la base de producción. Documentado aquí para no dar por sentado que el dump
+basta.
+
+## 16. Administración → Configuración: datos maestros sin SQL (2026-10-04)
+
+### 16.1 Problema
+
+El sistema no podía administrarse desde cero. Con la base vacía, **no existía
+forma de crear un ciclo lectivo, un módulo horario ni un período de evaluación**
+desde la interfaz: había que hacer `INSERT` a mano en MariaDB. Como los modelos
+son `managed = False` y varios catálogos solo se leían, la consecuencia práctica
+era que el paso de "crear el primer curso" exigía conocer el esquema.
+
+Auditoría previa: 12 secciones, 5 catálogos priorizados como v1.
+
+### 16.2 Alcance de v1
+
+Cinco catálogos, deliberadamente sin tabla genérica `categorias`:
+
+| Catálogo | Vista | Modo de baja |
+| --- | --- | --- |
+| Ciclos lectivos | `/api/ciclos-lectivos/` | Lógico (`estado`) + `?incluir_inactivos=1` |
+| Módulos horarios | `/api/modulos/` | Físico, con guarda de uso |
+| Períodos de evaluación | `/api/periodos/` | Lógico (`estado`) + `?incluir_inactivos=1` |
+| Estados de asistencia | `/api/estados-asistencia/` | Físico, con guarda de uso |
+| Tipos de acta | `/api/tipos-acta/` | Físico, con guarda de uso |
+
+`roles` y `tipos_accion` quedaron fuera: el primero está cableado en
+`permissions.py`/`auth_backend.py` y no debe exponerse como CRUD; el segundo es
+catálogo interno cableado en `views.py`.
+
+### 16.3 Backend
+
+**Convertidos de solo lectura a editables** (con escritura restringida):
+`EstadoAsistenciaViewSet` y `TipoActaViewSet` pasaron de `ReadOnlyModelViewSet` a
+`ModelViewSet` bajo `IsAdminOrDirectorForWrite`. `ModuloViewSet` conserva su CRUD
+y suma guarda de eliminación.
+
+**Borrado lógico vs. físico.** Para `ciclos_lectivos` y `periodos_evaluacion`
+el DELETE es un borrado lógico (el registro desaparece del listado pero se
+conserva) y la interfaz dice **"Desactivar"**, con opción de **"Reactivar"**.
+Para `modulos`, `estados_asistencia` y `tipos_acta` el borrado es físico, con
+`HTTP 400` y mensaje explicativo cuando el registro está en uso — nunca un 500
+por violación de `RESTRICT`.
+
+**Guardas de borrado** (todas `HTTP 400`, nunca 500):
+
+| Operación | Mensaje |
+| --- | --- |
+| Desactivar ciclo con cursos activos | "...porque N curso(s) activo(s) dependen de este ciclo lectivo." |
+| Desactivar período usado por calificaciones | "...tiene N calificación(es) asociada(s)." |
+| Eliminar módulo asignado a horarios | "...está asignado a N horario(s). Quite primero esos horarios." |
+| Eliminar estado en uso | "...tiene N asistencia(s) asociada(s)." |
+| Eliminar tipo de acta con actas | "...tiene N acta(s) asociada(s)." |
+
+**Validaciones nuevas** en los serializers: `anio` obligatorio y de 4 dígitos
+(dentro del rango 1901–2155 de la columna `YEAR(4)`, con mensaje explícito),
+`fecha_fin >= fecha_inicio`, `orden_periodo` entero positivo y único entre
+activos, `hora_fin > hora_inicio`, nombres obligatorios y únicos, y
+`fecha_eliminacion` de solo lectura.
+
+**Estados de asistencia base.** `views.py` resuelve el estado de una asistencia
+por **nombre exacto**, así que los cinco estados (`Presente`, `Ausente`, `Tarde`,
+`Retirado`, `Justificado`) son parte del contrato funcional: si falta alguno, el
+registro de asistencias falla. Se garantizan con un seed **idempotente** en tres
+puntos coherentes con los patrones ya establecidos:
+
+- `utils.ESTADOS_ASISTENCIA_BASE` / `seed_estados_asistencia_base()`;
+- comando `python manage.py seed_estados_asistencia`;
+- migración de datos `escuela.0008_seed_estados_asistencia` (sin DDL).
+
+No se pueden eliminar ni renombrar, y el serializer expone `es_base` (campo
+calculado, sin columna) para que la interfaz pueda protegerlos.
+
+### 16.4 Frontend
+
+Nuevo grupo `configuracion` en el menú lateral (5 entradas, visible solo para
+`admin` y `director`) y carpeta
+`components/Administracion/configuracion/`, con un armazón compartido
+(`CatalogoConfiguracion.jsx`) que replica el patrón de `Administracion/materias.jsx`
+sobre el que se construyeron los cinco catálogos.
+
+`Configuracion.jsx` es un componente **controlado**: la pestaña activa *es* el
+nombre de vista del dashboard. Así el submenú lateral, las pestañas internas y la
+navegación por `navIntent` no pueden desincronizarse (un bug que sí se había
+detectado en una primera versión, que llevaba su propia `pestanaConfiguracion`).
+
+**Refresco global de catálogos.** `DataContext` suma
+`refreshCatalogosMaestros()`, que vuelve a pedir los cuatro endpoints de catálogo
+y recalcula `horariosClase` y `notasDocenteAdmin`. Se llama tras **cada** alta,
+edición, desactivación, reactivación o eliminación, de modo que los select del
+resto de la aplicación reflejan el cambio sin recargar la página.
+
+**Aviso de datos maestros faltantes.** El componente
+`Shared/AvisoDatosMaestros.jsx` sustituye los selects vacíos por un mensaje
+accionable ("No hay ciclos lectivos registrados. Cree un ciclo lectivo antes de
+crear un curso.") con botón que lleva a la pestaña correspondiente de
+Configuración, reutilizando el `navIntent` del `DataContext`. El botón solo se
+muestra si `viewDesdeDestino(destino, rol)` resuelve para el rol actual: docentes
+y preceptores ven el mensaje sin un enlace muerto. Se aplicó a cursos, horarios,
+adelantos de horas, períodos de evaluación (docentes), estados de asistencia
+(docentes y preceptores) y tipos de acta (preceptores y docentes).
+
+### 16.5 Dos bugs reales encontrados durante la verificación
+
+Ambos preexistentes, ambos descubiertos por la verificación manual, ambos
+corregidos con regresión automatizada:
+
+1. **`HTTP 500` al crear cursos vía API.** `utils.activar_o_crear` es la dueña
+   del flag `activo` pero lo interpolaba a ciegas en
+   `objects.create(**lookup, **defaults, activo=True)`. Como `activo` es un campo
+   escribible de `CursoSerializer`, un cliente que mandara `"activo": true`
+   reventaba con `TypeError: got multiple values for keyword argument 'activo'`.
+   La interfaz nunca lo mandaba, por eso llevaba tiempo oculto. Se descarta
+   `activo` de `defaults` al entrar a la función.
+
+2. **`HTTP 500` con años fuera del rango de la columna.** `ciclos_lectivos.anio`
+   es un `YEAR(4)` físico, que en MariaDB solo admite 1901–2155. La validación
+   aceptaba cualquier número de 4 dígitos, así que un año como 3000 pasaba la
+   validación y fallaba al insertar con un `DataError` (500) en vez de un 400.
+   El rango se acotó en el serializer, con mensaje que explica el límite, y en el
+   formulario (el `input` marca `min`/`max` y filtra la entrada).
+
+### 16.6 Verificación
+
+- `manage.py check` limpio, `verificar_esquema` alineado, migración `0008`
+  aplicada.
+- **84 tests OK** (81 del módulo + 3 de regresión de `activar_o_crear`).
+- `npm run build` OK (223 módulos).
+- Flujo manual completo contra la base real con
+  `manage.py verificar_flujo_configuracion` (nuevo comando de diagnóstico):
+  crear ciclo → crear curso que lo usa → crear módulo → crear período →
+  confirmar los 5 estados base protegidos → crear tipo de acta → confirmar que
+  el catálogo ya aparece en el listado de los select; más las guardas de borrado
+  (400, no 500) y los permisos (preceptor 403, anónimo 401). Todo OK, y el
+  comando **borra lo que crea**: la base quedó exactamente como estaba.
+
+### 16.7 Reportado para fase 2 (requiere DDL, no implementado)
+
+- Columnas de borrado lógico (`estado`, `fecha_eliminacion`) para `modulos`,
+  `estados_asistencia` y `tipos_acta`, para igualarlos al resto y poder
+  desactivar en vez de eliminar.
+- `CHECK` en `modulos` para `hora_fin > hora_inicio` (hoy solo en el serializer).
+- Índice único parcial sobre `(nombre)` para estados base y tipos de acta.
+- FK de `historial_*` hacia `ciclos_lectivos` (hoy guardan el año como entero).
+- Tabla de parámetros para el "ciclo lectivo actual", si alguna vez se necesita.
+
+---
+
+*Documento actualizado el 2026-10-04 · Proyecto Mi Secundaria 7*

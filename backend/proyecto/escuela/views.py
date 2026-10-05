@@ -70,6 +70,7 @@ from escuela.utils import (
     ACCION_FINALIZAR,
     ACCION_HABILITAR,
     ACCION_MODIFICAR,
+    es_estado_asistencia_base,
     marcar_eliminado,
     obtener_docente_activo,
     registrar_historial,
@@ -241,6 +242,19 @@ def _preceptor_cursos_ids(request):
     return set(
         Curso.objects.filter(id_preceptor=preceptor).values_list('id_curso', flat=True),
     )
+
+
+def _incluir_inactivos(request):
+    """`?incluir_inactivos=1|true` — pide el listado completo del catálogo.
+
+    Acepta las dos formas porque el frontend histórico ya envía `1`
+    (`refreshAdminCursos`/`refreshAdminMaterias`) y los catálogos de
+    Configuración usan `true`.
+    """
+    valor = request.query_params.get('incluir_inactivos')
+    if valor is None:
+        return False
+    return str(valor).strip().lower() in ('1', 'true', 't', 'yes', 'si', 'sí')
 
 
 def _es_preceptor_operativo(request, roles):
@@ -2533,11 +2547,51 @@ class PadreTutorViewSet(HistorialMixin, viewsets.ModelViewSet):
 
 
 class CicloLectivoViewSet(viewsets.ModelViewSet):
+    """Ciclos lectivos — módulo Administración → Configuración.
+
+    No se borran físicamente: `DELETE` desactiva (borrado lógico) y `PATCH`
+    con `{"estado": true}` reactiva. Sin `estado` ni `fecha_eliminacion` no se
+    podría deshacer la operación ni conservar el histórico de cursos.
+    """
+
     queryset = CicloLectivo.objects.all()
     serializer_class = CicloLectivoSerializer
     permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
+    def get_queryset(self):
+        # `objects` (ActivoManager) oculta los ciclos desactivados, lo que hace
+        # inalcanzable un ciclo inactivo para editarlo o reactivarlo. Por eso
+        # detalle/edición/reactivación y el listado con `incluir_inactivos`
+        # consultan `all_objects`.
+        if self.action != 'list' or _incluir_inactivos(self.request):
+            return CicloLectivo.all_objects.all()
+        return super().get_queryset()
+
     def perform_destroy(self, instance):
+        """`DELETE` = Desactivar. Nunca borra la fila."""
+        if not instance.estado:
+            return
+
+        cursos = Curso.objects.filter(id_ciclo=instance).count()
+        alcances = ComunicadoAlcance.objects.filter(id_ciclo=instance).count()
+        if cursos or alcances:
+            detalles = []
+            if cursos:
+                detalles.append(
+                    f'{cursos} curso(s) activo(s) dependen de este ciclo lectivo'
+                )
+            if alcances:
+                detalles.append(
+                    f'{alcances} alcance(s) de comunicado(s) lo referencian'
+                )
+            raise ValidationError({
+                'detalle': (
+                    'No se puede desactivar este ciclo lectivo porque '
+                    + ' y '.join(detalles)
+                    + '. Desactive o reasigne esas relaciones primero.'
+                ),
+            })
+
         marcar_eliminado(instance)
 
 
@@ -2912,9 +2966,27 @@ class AdelantoHorasViewSet(HistorialMixin, viewsets.ModelViewSet):
 
 
 class ModuloViewSet(viewsets.ModelViewSet):
+    """Módulos horarios — módulo Administración → Configuración.
+
+    `modulos` no tiene columna `estado`, así que el borrado es físico. Como
+    `horarios.id_modulo` es RESTRICT, un módulo en uso haría fallar el DELETE
+    con un `IntegrityError` (HTTP 500). Por eso se verifica el uso antes.
+    """
+
     queryset = Modulos.objects.all()
     serializer_class = ModuloSerializer
     permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+
+    def perform_destroy(self, instance):
+        horarios = Horario.objects.filter(id_modulo=instance).count()
+        if horarios:
+            raise ValidationError({
+                'detalle': (
+                    'No se puede eliminar este módulo porque está asignado a '
+                    f'{horarios} horario(s). Quite primero esos horarios.'
+                ),
+            })
+        super().perform_destroy(instance)
 
 
 class HorarioEspecialViewSet(viewsets.ModelViewSet):
@@ -3058,11 +3130,38 @@ class InscripcionMateriaViewSet(viewsets.ModelViewSet):
 
 
 class PeriodoEvaluacionViewSet(viewsets.ModelViewSet):
+    """Períodos de evaluación — módulo Administración → Configuración.
+
+    `DELETE` desactiva (borrado lógico) y `PATCH` con `{"estado": true}`
+    reactiva. `orden_periodo` define la posición del período en el consolidado
+    de calificaciones, por eso no puede repetirse entre períodos activos.
+    """
+
     queryset = PeriodoEvaluacion.objects.all()
     serializer_class = PeriodoEvaluacionSerializer
     permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
 
+    def get_queryset(self):
+        # Igual que ciclos lectivos: sin esto un período desactivado quedaría
+        # inalcanzable y no se podría reactivar.
+        if self.action != 'list' or _incluir_inactivos(self.request):
+            return PeriodoEvaluacion.all_objects.all()
+        return super().get_queryset()
+
     def perform_destroy(self, instance):
+        if not instance.estado:
+            return
+
+        calificaciones = Calificacion.objects.filter(id_periodo=instance).count()
+        if calificaciones:
+            raise ValidationError({
+                'detalle': (
+                    'No se puede desactivar este período de evaluación porque '
+                    f'has {calificaciones} calificación(es) cargadas. '
+                    'Desactivarlo dejaría notas sin consolidar.'
+                ),
+            })
+
         marcar_eliminado(instance)
 
 
@@ -3193,9 +3292,42 @@ class CalificacionViewSet(viewsets.ModelViewSet):
         super().perform_destroy(instance)
 
 
-class EstadoAsistenciaViewSet(viewsets.ReadOnlyModelViewSet):
+class EstadoAsistenciaViewSet(viewsets.ModelViewSet):
+    """Estados de asistencia — módulo Administración → Configuración.
+
+    Escritura restringida a admin/director (`IsAdminOrDirectorForWrite`).
+    Los cinco estados base (`utils.ESTADOS_ASISTENCIA_BASE`) no se pueden
+    eliminar: la lógica de asistencia los resuelve por nombre exacto.
+    """
+
     queryset = EstadoAsistencia.objects.all()
     serializer_class = EstadoAsistenciaSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+
+    def perform_destroy(self, instance):
+        if es_estado_asistencia_base(instance.nombre_estado):
+            raise ValidationError({
+                'detalle': (
+                    f'"{instance.nombre_estado}" es un estado base del sistema: '
+                    'el registro de asistencias lo reconoce por su nombre, '
+                    'por lo que no se puede eliminar.'
+                ),
+            })
+
+        asistencias = Asistencia.objects.filter(id_estado_asistencia=instance).count()
+        asistencias_docentes = AsistenciaDocente.objects.filter(
+            id_estado_asistencia=instance,
+        ).count()
+        total = asistencias + asistencias_docentes
+        if total:
+            raise ValidationError({
+                'detalle': (
+                    'No se puede eliminar este estado de asistencia porque '
+                    f'está asignado a {total} asistencia(s).'
+                ),
+            })
+
+        super().perform_destroy(instance)
 
 
 DIAS_SEMANA_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
@@ -4533,9 +4665,27 @@ class EventoInstitucionalViewSet(HistorialMixin, viewsets.ModelViewSet):
         self._historial_modificacion(serializer, valor_anterior)
 
 
-class TipoActaViewSet(viewsets.ReadOnlyModelViewSet):
+class TipoActaViewSet(viewsets.ModelViewSet):
+    """Tipos de acta — módulo Administración → Configuración.
+
+    Escritura restringida a admin/director (`IsAdminOrDirectorForWrite`).
+    Solo se elimina cuando no tiene actas asociadas.
+    """
+
     queryset = TipoActa.objects.all()
     serializer_class = TipoActaSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrDirectorForWrite]
+
+    def perform_destroy(self, instance):
+        actas = Acta.objects.filter(id_tipo_acta=instance).count()
+        if actas:
+            raise ValidationError({
+                'detalle': (
+                    'No se puede eliminar este tipo de acta porque '
+                    f'está asignado a {actas} acta(s).'
+                ),
+            })
+        super().perform_destroy(instance)
 
 
 # Roles autorizados para crear actas (y sus relaciones). Admin y Director

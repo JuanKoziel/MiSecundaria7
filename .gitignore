@@ -41,3 +41,12 @@ pnpm-debug.log*
 .DS_Store
 # Local files
 
+
+# Django - archivos generados y datos persistentes
+backend/media/
+backend/staticfiles/
+backend/.env
+
+# Deployment
+.env
+frontend/misecundaria7-frontend.zip

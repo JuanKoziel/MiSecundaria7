@@ -1,7 +1,8 @@
-import { useState, useRef, Fragment } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { validarCambioFecha, hoy, esFinDeSemana, proximaLaborable } from '../../utils/fechas';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import AvisoDatosMaestros from '../Shared/AvisoDatosMaestros';
 import {
   createActa,
   createActaCurso,
@@ -266,6 +267,24 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, onlyCursos = f
   const [showDocentes, setShowDocentes] = useState(true);
   const [showCurso, setShowCurso] = useState(true);
 
+  /* ¿Hay tipos de acta cargados? `null` mientras se consulta, para no
+     mostrar el aviso antes de saber. El alta de un acta siempre resuelve un
+     tipo (`resolverTipoActa`), así que sin catálogo no se puede cargar nada. */
+  const [hayTiposActa, setHayTiposActa] = useState(null);
+
+  useEffect(() => {
+    let vigente = true;
+    getTiposActa()
+      .then((tipos) => {
+        if (vigente) setHayTiposActa(Array.isArray(tipos) && tipos.length > 0);
+      })
+      .catch(() => {
+        // Si no se puede consultar, no se bloquea la pantalla con un aviso.
+        if (vigente) setHayTiposActa(true);
+      });
+    return () => { vigente = false; };
+  }, []);
+
   // 5.6: `curso` puede llegar como array (multiselección del header). `cursoObj`
   // sigue resolviendo el primero porque las acciones de esta vista (crear acta de
   // curso, etc.) son de a un curso; las listas de abajo sí usan `cursosSel`.
@@ -484,6 +503,17 @@ function Actas({ anioLectivo, curso, onAnioChange, onCursoChange, onlyCursos = f
   return (
     <div className="card">
       <h3><i className="fas fa-file-signature" aria-hidden="true" /> Actas</h3>
+
+      {/* Toda acta necesita un tipo. Sin tipos cargados, `resolverTipoActa()`
+          cae al id 1 por defecto y el alta falla: se avisa antes. */}
+      {hayTiposActa === false && (
+        <AvisoDatosMaestros
+          mensaje="No hay tipos de acta registrados."
+          detalle="Cree al menos un tipo de acta para poder cargar actas."
+          accion="Crear tipo de acta"
+          destino="tipos_acta"
+        />
+      )}
 
       {mensaje && !editando && !showNewForm && (
         <div className={`alert ${mensaje.startsWith('Error') ? 'alert-danger' : 'alert-success'}`}>

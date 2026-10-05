@@ -5,6 +5,7 @@ import { createCurso, updateCurso } from '../../services/api';
 import FormModal from '../../components/Shared/FormModal';
 import AccionesCelda from '../../components/Shared/AccionesCelda';
 import NumericInput from '../../components/Shared/NumericInput';
+import AvisoDatosMaestros from '../../components/Shared/AvisoDatosMaestros';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import { mensajeErrorAmigable } from '../../utils/errores';
 
@@ -21,6 +22,10 @@ function mensajeError(err) {
 }
 
 function FormCurso({ formData, setFormData, editing, guardando, onSubmit, onCancel, ciclosLectivos, preceptores, error, onClearError }) {
+  // Sin ciclos lectivos cargados el select queda vacío y no hay a dónde ir:
+  // se muestra el aviso con acceso directo a Configuración en su lugar.
+  const sinCiclos = (ciclosLectivos || []).length === 0;
+
   return (
     <FormModal title={editing ? 'Editar curso' : 'Nuevo curso'} onClose={onCancel} error={error} onClearError={onClearError}>
       <form onSubmit={onSubmit} style={{ position: 'relative' }}>
@@ -65,18 +70,26 @@ function FormCurso({ formData, setFormData, editing, guardando, onSubmit, onCanc
           <div className="preceptor-form-row">
             <div className="form-group-filter">
               <label htmlFor="curso-ciclo">Ciclo lectivo</label>
-              <select id="curso-ciclo" value={formData.id_ciclo} onChange={(e) => setFormData((p) => ({ ...p, id_ciclo: e.target.value }))} required>
-                <option value="">Seleccionar...</option>
-                {(ciclosLectivos || []).map((c) => (
-                  <option key={c.id_ciclo} value={c.id_ciclo}>{c.anio}</option>
-                ))}
-              </select>
+              {sinCiclos ? (
+                <AvisoDatosMaestros
+                  mensaje="No hay ciclos lectivos registrados. Cree un ciclo lectivo antes de crear un curso."
+                  accion="Crear ciclo lectivo"
+                  destino="ciclos_lectivos"
+                />
+              ) : (
+                <select id="curso-ciclo" value={formData.id_ciclo} onChange={(e) => setFormData((p) => ({ ...p, id_ciclo: e.target.value }))} required>
+                  <option value="">Seleccionar...</option>
+                  {(ciclosLectivos || []).map((c) => (
+                    <option key={c.id_ciclo} value={c.id_ciclo}>{c.anio}</option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>
         <div className="standard-modal-footer">
           <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={guardando}>
+          <button type="submit" className="btn btn-primary" disabled={guardando || sinCiclos}>
             {guardando ? 'Guardando...' : (editing ? 'Actualizar' : 'Crear')}
           </button>
         </div>
