@@ -13,6 +13,27 @@ from escuela.models import Usuario, Alumno, Docente, PadreTutor, CursoMateria, T
 
 ROLES_AMPLIOS = {'admin', 'director', 'jefe_preceptores', 'preceptor'}
 
+# ---------------------------------------------------------------------------
+# Jerarquía para la gestión de roles. Quitar un rol nunca puede darle a alguien
+# más alcance del que ya tiene: cada rol se quita por un actor de rango igual o
+# superior. Los roles que no figuran acá no se pueden quitar por la vía de la
+# API (denegar por defecto).
+# ---------------------------------------------------------------------------
+
+ROLES_SOLO_DIRECTOR = {'admin', 'director'}
+ROLES_SOLO_ADMIN_O_DIRECTOR = {'jefe_preceptores'}
+ROLES_GESTIONABLES_POR_CUALQUIERA = {'preceptor', 'docente', 'familia', 'alumno'}
+
+
+def puede_quitar_rol(roles_actor, nombre_rol):
+    """¿Un actor con `roles_actor` puede quitarle `nombre_rol` a alguien?"""
+    roles_actor = set(roles_actor or ())
+    if nombre_rol in ROLES_SOLO_DIRECTOR:
+        return 'director' in roles_actor
+    if nombre_rol in ROLES_SOLO_ADMIN_O_DIRECTOR:
+        return bool(roles_actor & {'admin', 'director'})
+    return nombre_rol in ROLES_GESTIONABLES_POR_CUALQUIERA
+
 
 def alumno_ids_de_tutor(tutor):
     """Ids de alumnos vinculados a un tutor/familia (relación N:M)."""

@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 import re
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
@@ -53,6 +54,7 @@ from escuela.permissions import (
     PuedeGestionarAmbitoDocente,
     PuedePublicarComunicados,
     alumnos_permitidos,
+    puede_quitar_rol,
     alumno_del_usuario,
     alumno_ids_familia,
     alumno_ids_de_tutor,
@@ -1718,6 +1720,21 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # Un preceptor o jefe de preceptores no puede quitar roles privilegiados
+        # (admin/director/jefe) ni escalar el alcance de nadie.
+        roles_actor = set(get_roles_for_usuario(username))
+        if not puede_quitar_rol(roles_actor, nombre_rol):
+            return Response(
+                {
+                    'error': (
+                        f'No tenés permiso para quitar el rol "{nombre_rol}". '
+                        'Los roles privilegiados solo se quitan por un director '
+                        '(admin, director) o por un administrador (jefe de preceptores).'
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         # La persona debe conservar al menos un rol: no se puede quitar el único rol
         total_roles = UsuarioRol.objects.filter(id_usuario=usuario).count()
         if total_roles <= 1:
@@ -3175,6 +3192,9 @@ class CalificacionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        permitidos = alumnos_permitidos(self.request)
+        if permitidos is not None:
+            qs = qs.filter(id_alumno__in=permitidos)
         alumno = self.request.query_params.get('alumno')
         curso = self.request.query_params.get('curso')
         materia = self.request.query_params.get('materia')
@@ -3254,6 +3274,8 @@ class CalificacionViewSet(viewsets.ModelViewSet):
             'updated': [CalificacionSerializer(c).data for c in updated],
             'total': len(created) + len(updated),
         }, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer):
         cm = serializer.validated_data.get('id_curso_materia')
         if cm is not None:
             _verificar_docente_activo_materia(self.request, cm.id_curso_materia)
@@ -3347,6 +3369,9 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        permitidos = alumnos_permitidos(self.request)
+        if permitidos is not None:
+            qs = qs.filter(id_alumno__in=permitidos)
         alumno = self.request.query_params.get('alumno')
         curso = self.request.query_params.get('curso')
         fecha = self.request.query_params.get('fecha')
@@ -3363,6 +3388,18 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         if materia:
             qs = qs.filter(id_curso_materia__id_materia__nombre_materia=materia)
         return qs
+
+    def perform_create(self, serializer):
+        """Red de seguridad del alta: el día suspendido es solo lectura.
+
+        `create()` ya valida rol, ventana de carga, horario y docente activo; acá
+        se repite únicamente el bloqueo por evento institucional, que es la regla
+        que no puede esquivarse bajo ningún flujo.
+        """
+        _bloquear_si_evento_institucional(
+            serializer.validated_data.get('fecha'), serializer.validated_data.get('hora'),
+        )
+        super().perform_create(serializer)
 
     def perform_update(self, serializer):
         cm = serializer.instance.id_curso_materia
@@ -3876,7 +3913,12 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         if not cm_id:
             return Response({'error': 'id_curso_materia es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        fecha_registro = request.data.get('fecha') or ahora.date()
+        fecha_enviada = request.data.get('fecha')
+        fecha_registro = parse_date(fecha_enviada) if fecha_enviada else None
+        if fecha_enviada and fecha_registro is None:
+            return Response({'error': 'Fecha inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+        if fecha_registro is None:
+            fecha_registro = ahora.date()
 
         # Punto 2.2: el bloqueo por evento institucional se valida SIEMPRE, incluso
         # dentro de la ventana de carga que otorga el preceptor. Antes solo se
@@ -3933,7 +3975,7 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
             'id_alumno': request.data.get('id_alumno'),
             'id_curso_materia': cm_id,
             'id_estado_asistencia': request.data.get('id_estado_asistencia'),
-            'fecha': request.data.get('fecha') or ahora.date(),
+            'fecha': fecha_registro,
             'hora': ahora.time(),
             'id_usuario': usuario_actual.id_usuario,
         }
