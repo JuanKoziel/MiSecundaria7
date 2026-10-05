@@ -20,9 +20,18 @@ import AdelantosHoras from '../Shared/AdelantosHoras';
 import { useData } from '../../context/DataContext';
 import { useMemo } from 'react';
 import { viewDesdeDestino } from '../../utils/navDestinos';
+import { resolverCursosSeleccionados, firmaSeleccion } from '../../utils/seleccionCurso';
 
 function JefePreceptorDashboard({ user, onLogout }) {
-  const { preceptores, administradores, navIntent, cursosObj, selectedCursoIds, setSeleccionCursos } = useData();
+  const {
+preceptores,
+administradores,
+navIntent,
+cursosObj,
+selectedCursos,
+selectedCursoIds,
+setSeleccionCursos,
+} = useData();
 
   const userId = user?.id_usuario ?? user?.id ?? null;
   const miPreceptor = useMemo(() => {
@@ -127,23 +136,25 @@ function JefePreceptorDashboard({ user, onLogout }) {
     setCurso(nombres[0] || '');
   }, []);
 
-  // 5.6 — Se publica la selección en el contexto global (igual que hace el panel
-  // de Administración) para que las vistas que leen del contexto en vez de por
-  // props —Asistencias, Adelantos de Horas— filtren por todas las divisiones
-  // marcadas y no queden sin filtro.
+// Un curso incompleto ("1°", año sin división) no corresponde a ningún curso
+  // real: se publica como "sin selección" y se les pasa vacío a las vistas, para
+  // que ninguna filtre por un nombre que no está en los datos.
+  const cursosResueltos = useMemo(() => {
+    const candidatos = cursos.length > 0 ? cursos : (curso ? [curso] : []);
+    return resolverCursosSeleccionados(candidatos, cursosObj);
+  }, [cursos, curso, cursosObj]);
+
   useEffect(() => {
-    const nombres = cursos.length > 0 ? cursos : (curso ? [curso] : []);
-    const ids = nombres
-      .map((n) => (cursosObj || []).find((c) => c.nombre_curso === n)?.id_curso)
-      .filter((x) => x !== undefined && x !== null);
-    if (ids.join(',') === selectedCursoIds.join(',')) return;
+    const { nombres, ids } = cursosResueltos;
+    const firma = firmaSeleccion(nombres, ids);
+    if (firma === firmaSeleccion(selectedCursos, selectedCursoIds)) return;
     setSeleccionCursos(nombres, ids);
-  }, [cursos, curso, cursosObj, selectedCursoIds, setSeleccionCursos]);
+  }, [cursosResueltos, selectedCursos, selectedCursoIds, setSeleccionCursos]);
 
   const filtrosProps = {
     anioLectivo,
-    curso,
-    cursos,
+    curso: cursosResueltos.nombres[0] || '',
+    cursos: cursosResueltos.nombres,
     onAnioChange: handleAnioChange,
     onCursoChange: setCurso,
     onCursosChange: handleCursosChange,

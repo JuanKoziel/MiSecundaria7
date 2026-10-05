@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Sidebar from './sidebar/sidebar';
 import Header from './header/header';
 import Estudiantes from './estudiantes';
@@ -24,15 +24,17 @@ import Configuracion from './configuracion/Configuracion';
 import { getDirectivos } from '../../services/api';
 import { useData } from '../../context/DataContext';
 import { viewDesdeDestino } from '../../utils/navDestinos';
+import { resolverCursosSeleccionados, firmaSeleccion } from '../../utils/seleccionCurso';
 
 function AdminDashboard({ user, onLogout }) {
-  const {
-    navIntent,
-    cursosObj,
-    selectedCursoIds,
-    setSeleccionCursoMateria,
-    setSeleccionCursos,
-  } = useData();
+const {
+navIntent,
+cursosObj,
+selectedCursos,
+selectedCursoIds,
+setSeleccionCursoMateria,
+setSeleccionCursos,
+} = useData();
   const [view, setView] = useState('perfil');
   const [directivos, setDirectivos] = useState([]);
 
@@ -125,21 +127,25 @@ function AdminDashboard({ user, onLogout }) {
     );
   }, [curso, cursosObj, setSeleccionCursoMateria]);
 
-  // 5.6 — se publica la lista completa de cursos elegidos, no solo el primero.
+  // Un curso incompleto ("1°", año sin división) no corresponde a ningún curso
+  // real: se publica como "sin selección" y se les pasa vacío a las vistas, para
+  // que ninguna filtre por un nombre que no está en los datos.
+  const cursosResueltos = useMemo(() => {
+    const candidatos = cursos.length > 0 ? cursos : (curso ? [curso] : []);
+    return resolverCursosSeleccionados(candidatos, cursosObj);
+  }, [cursos, curso, cursosObj]);
+
   useEffect(() => {
-    const nombres = cursos.length > 0 ? cursos : (curso ? [curso] : []);
-    const ids = nombres
-      .map((n) => (cursosObj || []).find((c) => c.nombre_curso === n)?.id_curso)
-      .filter((x) => x !== undefined && x !== null);
-    const firma = ids.join(',');
-    if (firma === selectedCursoIds.join(',')) return;
+    const { nombres, ids } = cursosResueltos;
+    const firma = firmaSeleccion(nombres, ids);
+    if (firma === firmaSeleccion(selectedCursos, selectedCursoIds)) return;
     setSeleccionCursos(nombres, ids);
-  }, [cursos, curso, cursosObj, selectedCursoIds, setSeleccionCursos]);
+  }, [cursosResueltos, selectedCursos, selectedCursoIds, setSeleccionCursos]);
 
   const filtrosProps = {
     anioLectivo,
-    curso,
-    cursos,
+    curso: cursosResueltos.nombres[0] || '',
+    cursos: cursosResueltos.nombres,
     onAnioChange: handleAnioChange,
     onCursoChange: setCurso,
     onCursosChange: handleCursosChange,
