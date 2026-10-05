@@ -50,3 +50,8 @@ backend/.env
 # Deployment
 .env
 frontend/misecundaria7-frontend.zip
+
+# Artefactos de análisis (no son documentación: no van al repo)
+panel.txt
+panel_full.txt
+reporte_*.txt

@@ -18,7 +18,7 @@
 - No revertir funcionalidades que ya funcionan.
 - No crear sistemas paralelos: reutilizar componentes, endpoints y utilidades existentes.
 - Los permisos importantes deben validarse en backend, no solo ocultando elementos en frontend.
-- Respetar `Archivos md/REGLAS_DESARROLLO.md` y `Archivos md/ESTANDARES_UI.md` (nomenclatura de botones, clases, tabla de acciones, accesibilidad).
+- Respetar `docs/REGLAS_DESARROLLO.md` y `docs/ESTANDARES_UI.md` (nomenclatura de botones, clases, tabla de acciones, accesibilidad).
 - Al terminar cada punto, informar: qué se encontró (causa raíz), qué se modificó y qué verificaciones se ejecutaron.
 - Al finalizar cada punto, registrar el avance en la sección **Estado / Registro de avance** de este mismo documento.
 
@@ -109,7 +109,7 @@ Los puntos 9, 10, 11, 12, 13, 14 y 15 fueron pedidos como un bloque compartido e
 
 - Aplicar el mismo criterio a acciones secundarias: "Programar", "Calendario", "Finalizar", "Borrar".
 - Unificar también el **tipo de acción** asociado a cada nombre (por ejemplo, si "Eliminar" siempre es destructivo, debe verse siempre igual: mismo color, mismo ícono, misma confirmación).
-- Considerar `Archivos md/ESTANDARES_UI.md` como referencia de íconos y clases por acción.
+- Considerar `docs/ESTANDARES_UI.md` como referencia de íconos y clases por acción.
 
 ### Criterio de cierre del punto 1
 
@@ -184,7 +184,7 @@ Fila 2:  Calendario / Programar  |  Eliminar
   - Ser consistentes entre tablas: una misma lógica visual en toda la aplicación.
 - La columna debe tener el ancho suficiente para que los botones no se partan, salten de línea ni se superpongan.
 - Debe comportarse bien con nombres largos (por ejemplo, "Deshabilitar") sin romper la grilla.
-- Respetar tamaños táctiles accesibles (área clicable) definidos en `Archivos md/ESTANDARES_UI.md`.
+- Respetar tamaños táctiles accesibles (área clicable) definidos en `docs/ESTANDARES_UI.md`.
 
 ### Criterio de cierre del punto 3
 
