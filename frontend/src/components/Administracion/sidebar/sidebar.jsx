@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { menuItems, bottomItems } from '../sidebarMenu';
 import { useAuth } from '../../../context/AuthContext';
 import Logo from '../../Shared/Logo';
+import robotPlataforma from '../../../assets/branding/misecundaria7-robot-sin-fondo.png';
 import CambiarRolButton from '../../Shared/CambiarRolButton';
 import CampanaNotificaciones from '../../Shared/CampanaNotificaciones';
 
@@ -116,6 +117,7 @@ function Sidebar({ setView, onLogout, view }) {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <Logo />
+        <img src={robotPlataforma} alt="" className="marca-robot" />
         <span>MiSecundaria 7</span>
       </div>
 

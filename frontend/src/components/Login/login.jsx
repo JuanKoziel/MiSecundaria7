@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Logo from '../Shared/Logo';
+import robotPlataforma from '../../assets/branding/misecundaria7-robot-sin-fondo.png';
 
 const REMEMBER_KEY = 'remembered_user';
 
@@ -44,7 +45,10 @@ function Login() {
           <Logo />
         </div>
 
-        <h2>MiSecundaria 7</h2>
+        <h2 className="login-titulo">
+          <img src={robotPlataforma} alt="" className="login-titulo-robot" />
+          MiSecundaria 7
+        </h2>
         <p>Ingresa tus credenciales para acceder</p>
 
         {error && (

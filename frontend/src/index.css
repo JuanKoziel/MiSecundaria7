@@ -220,6 +220,23 @@ body {
     color: var(--text-dark);
 }
 
+/* Marca de la plataforma: robot junto al nombre. El ancho del robot entra en
+   la caja de línea del h2 (35px con Poppins), por eso la tarjeta y el
+   formulario no se desplazan. */
+.login-card .login-titulo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.login-card .login-titulo-robot {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
 .login-card p {
     color: var(--text-light);
     margin-bottom: 25px;
@@ -390,6 +407,15 @@ body {
     font-size: 1.1rem;
     letter-spacing: 0.3px;
     color: #fff;
+}
+
+/* Robot de la plataforma en el bloque de marca: siempre más chico que el
+   logo escolar (38px) para no competir con la identidad institucional. */
+.sidebar-brand .marca-robot {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 .sidebar-menu-wrapper {
@@ -2509,6 +2535,8 @@ td .btn-sm + .btn-sm { margin-left: 6px; }
 @media (max-width: 992px) {
     .sidebar { width: 70px; padding: 20px 0; }
     .sidebar-brand span, .sidebar-menu li a span, .sidebar-menu-btn span, .sidebar-logout .sidebar-menu-btn span { display: none; }
+    /* Sidebar contraído / móvil: prima el logo escolar, el robot no cabe. */
+    .sidebar-brand .marca-robot { display: none; }
     .sidebar-brand { justify-content: center; padding: 0 0 20px; }
     .sidebar-menu li a, .sidebar-menu-btn { justify-content: center; padding: 15px 0; }
     .sidebar-logout .sidebar-menu-btn { justify-content: center; padding: 15px 0; }
