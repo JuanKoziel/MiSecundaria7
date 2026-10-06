@@ -582,7 +582,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
         # Create Directivo if fields are provided
         if nombre and apellido and dni:
-            directivo = Directivo.objects.filter(id_usuario=usuario).first()
+            directivo = Directivo.all_objects.filter(id_usuario=usuario).first()
             if directivo is not None:
                 directivo.nombre = nombre
                 directivo.apellido = apellido
@@ -591,6 +591,10 @@ class UsuarioSerializer(serializers.ModelSerializer):
                     directivo.telefono = telefono
                 if cargo:
                     directivo.cargo = cargo
+                # `all_objects` incluye perfiles dados de baja lógica: al reutilizar
+                # uno hay que reactivarlo (id_usuario es OneToOne, no admite dos).
+                directivo.estado = True
+                directivo.fecha_eliminacion = None
                 directivo.save()
             else:
                 Directivo.objects.create(
@@ -603,7 +607,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
                 )
         # Ensure admin users always have a Directivo profile
         elif 'admin' in roles:
-            directivo = Directivo.objects.filter(id_usuario=usuario).first()
+            directivo = Directivo.all_objects.filter(id_usuario=usuario).first()
             if directivo is None:
                 # Generate fallback data from username
                 parts = usuario.usuario.replace('_', ' ').split()
@@ -622,6 +626,11 @@ class UsuarioSerializer(serializers.ModelSerializer):
                     telefono='',
                     cargo='Administrador'
                 )
+            else:
+                # Reutilizar el perfil dado de baja lógica reactivándolo.
+                directivo.estado = True
+                directivo.fecha_eliminacion = None
+                directivo.save()
 
         return usuario
 

@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, time, timedelta
 from django.contrib.auth import authenticate
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -1675,8 +1675,11 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
         """Elimina la asignación de un rol a un usuario.
         
         Recibe: { id_usuario: int, nombre_rol: str }
-        Elimina únicamente la fila en UsuarioRol para ese usuario+rol.
-        No elimina el usuario, ni el perfil, ni otros roles.
+        Elimina la fila en UsuarioRol para ese usuario+rol y da de baja
+        lógica el perfil de la tabla correspondiente (docentes, preceptores,
+        padres_tutores, alumnos o directivos): estado 1 -> 0. Al quitar el
+        rol docente además se liberan sus asignaciones de curso_materia.
+        No elimina el usuario ni otros roles.
         """
         from escuela.auth_backend import get_roles_for_usuario
         from django.db import connection
@@ -1743,20 +1746,69 @@ class UsuarioViewSet(HistorialMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Eliminar la asignación usando SQL directo
-        # ya que UsuarioRol tiene PK compuesta (id_usuario, id_rol) pero el modelo
-        # declara solo id_usuario como PK (managed=False).
-        with connection.cursor() as cursor:
-            cursor.execute(
-                'DELETE FROM usuario_roles WHERE id_usuario = %s AND id_rol = %s',
-                [id_usuario, rol.id_rol]
-            )
-            if cursor.rowcount == 0:
-                return Response(
-                    {'error': f'El usuario no tiene asignado el rol "{nombre_rol}"'},
-                    status=status.HTTP_404_NOT_FOUND
+        # Tabla de perfil que corresponde a cada rol. Al quitar el rol se da de
+        # baja lógica ese perfil (estado 1 -> 0), igual que el resto de los
+        # borrados lógicos del sistema.
+        TABLA_PERFIL_POR_ROL = {
+            'docente': 'docentes',
+            'preceptor': 'preceptores',
+            'jefe_preceptores': 'preceptores',
+            'familia': 'padres_tutores',
+            'alumno': 'alumnos',
+            'admin': 'directivos',
+            'director': 'directivos',
+        }
+
+        with transaction.atomic():
+            # Eliminar la asignación usando SQL directo
+            # ya que UsuarioRol tiene PK compuesta (id_usuario, id_rol) pero el modelo
+            # declara solo id_usuario como PK (managed=False).
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    'DELETE FROM usuario_roles WHERE id_usuario = %s AND id_rol = %s',
+                    [id_usuario, rol.id_rol]
                 )
-        
+                if cursor.rowcount == 0:
+                    return Response(
+                        {'error': f'El usuario no tiene asignado el rol "{nombre_rol}"'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
+            # Dar de baja lógica el perfil de la tabla correspondiente al rol
+            # (docentes, preceptores, padres_tutores, alumnos o directivos),
+            # salvo que la persona conserve otro rol que comparta la misma tabla
+            # (p. ej. admin + director -> directivos se mantiene activo).
+            tabla_perfil = TABLA_PERFIL_POR_ROL.get(nombre_rol)
+            if tabla_perfil is not None:
+                roles_restantes = set(
+                    UsuarioRol.objects
+                    .filter(id_usuario=usuario)
+                    .values_list('id_rol__nombre_rol', flat=True)
+                )
+                conserva_misma_tabla = any(
+                    TABLA_PERFIL_POR_ROL.get(r) == tabla_perfil for r in roles_restantes
+                )
+                if not conserva_misma_tabla:
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            f'UPDATE {tabla_perfil} '
+                            'SET estado = 0, fecha_eliminacion = NOW() '
+                            'WHERE id_usuario = %s AND estado = 1',
+                            [id_usuario],
+                        )
+
+            # Al quitar el rol docente se liberan sus asignaciones de curso_materia:
+            # las materias quedan sin docente y disponibles para asignarle a otro.
+            if nombre_rol == 'docente':
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        'UPDATE curso_materia cm '
+                        'JOIN docentes d ON d.id_docente = cm.id_docente '
+                        'SET cm.id_docente = NULL '
+                        'WHERE d.id_usuario = %s',
+                        [id_usuario],
+                    )
+
         return Response({
             'success': True,
             'message': f'Rol "{nombre_rol}" quitado correctamente',
