@@ -148,7 +148,11 @@ function AgregarRolModal({
     if (delCurso.length > 0) {
       const vistos = new Set();
       return delCurso
-        .map((cm) => ({ id_materia: cm.id_materia, nombre_materia: cm.materia_nombre }))
+        .map((cm) => ({
+          id_materia: cm.id_materia,
+          nombre_materia: cm.materia_nombre,
+          docente_nombre: cm.docente_nombre,
+        }))
         .filter((m) => {
           const id = String(m.id_materia);
           if (m.id_materia == null || vistos.has(id)) return false;
@@ -273,7 +277,9 @@ function AgregarRolModal({
         id_curso_materia: existente.id_curso_materia,
         id_curso: existente.id_curso,
         id_materia: existente.id_materia,
-        label: `${existente.materia_nombre || 'Materia'} - ${existente.curso_nombre || 'Curso'}`,
+        label: existente.docente_nombre
+          ? `${existente.materia_nombre || 'Materia'} - ${existente.curso_nombre || 'Curso'} (Docente: ${existente.docente_nombre})`
+          : `${existente.materia_nombre || 'Materia'} - ${existente.curso_nombre || 'Curso'}`,
       },
     ]);
     setCursoSeleccionado('');
@@ -410,6 +416,7 @@ function AgregarRolModal({
           {cursoSeleccionado && materiasDisponibles.map((m) => (
             <option key={m.id_materia} value={String(m.id_materia)}>
               {m.nombre_materia}
+              {m.docente_nombre ? ` — ${m.docente_nombre}` : ' — Sin docente asignado'}
             </option>
           ))}
         </select>

@@ -1,12 +1,14 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { cursoConOrientacion } from '../../utils/orientacion';
-import { deleteMiDdjjDocente, verificarPlanificacion, verificarDdjj, enviarRecordatorioDdjj, createDocente, updateDocente, deleteDocente, BASE_URL } from '../../services/api';
+import { deleteMiDdjjDocente, verificarPlanificacion, verificarDdjj, enviarRecordatorioDdjj, createDocente, updateDocente, deleteDocente, getUsuariosConRol, getUsuariosSinRol, quitarRolUsuario, getCursoMateria, getCursos, getMaterias, BASE_URL } from '../../services/api';
 import { formatDNI, cleanDNI } from '../../utils/dni';
 import confirmarEliminacion from '../../utils/confirmarEliminacion';
 import FormModal from '../../components/Shared/FormModal';
+import AgregarRolModal from '../../components/Shared/AgregarRolModal';
+import QuitarRolModal from '../../components/Shared/QuitarRolModal';
 import { mensajeErrorAmigable } from '../../utils/errores';
 import { aInputDateTime as toInputDateTime, errorProgramacion } from '../../utils/programacionEstado';
 
@@ -360,6 +362,111 @@ function Docentes() {
   const [guardandoDocente, setGuardandoDocente] = useState(false);
   const [mensajeForm, setMensajeForm] = useState('');
   const [errorForm, setErrorForm] = useState('');
+  const [mostrarAgregarRol, setMostrarAgregarRol] = useState(false);
+  const [guardandoAgregarRol, setGuardandoAgregarRol] = useState(false);
+  const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
+  const [quitandoRol, setQuitandoRol] = useState(false);
+  const [personasConRol, setPersonasConRol] = useState([]);
+  const [personasParaAgregarRol, setPersonasParaAgregarRol] = useState([]);
+  const [cargandoPersonasSinRol, setCargandoPersonasSinRol] = useState(false);
+  const [idsDocentesSinRol, setIdsDocentesSinRol] = useState([]);
+
+  const cargarPersonasSinRol = async () => {
+    setCargandoPersonasSinRol(true);
+    try {
+      const data = await getUsuariosSinRol('docente');
+      setPersonasParaAgregarRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(formateaMensajeError(err));
+    } finally {
+      setCargandoPersonasSinRol(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarPersonasSinRol();
+  }, []);
+
+  const cargarPersonasConRol = async () => {
+    try {
+      const data = await getUsuariosConRol('docente');
+      setPersonasConRol(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(formateaMensajeError(err));
+    }
+  };
+
+  const fetchCursoMateriaParaDocente = async () => {
+    try {
+      const data = await getCursoMateria({ activo: '1', estado: '1', id_docente: '' });
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Error al cargar curso-materias:', err);
+      return [];
+    }
+  };
+
+  const fetchCursosParaDocente = async () => {
+    try {
+      const data = await getCursos({ activo: '1', estado: '1' });
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Error al cargar cursos:', err);
+      return [];
+    }
+  };
+
+  const fetchMateriasParaDocente = async () => {
+    try {
+      const data = await getMaterias({ activo: '1' });
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('Error al cargar materias:', err);
+      return [];
+    }
+  };
+
+  const handleAgregarRol = async ({ persona, asignaciones }) => {
+    setGuardandoAgregarRol(true);
+    try {
+      await createDocente({
+        id_usuario_existente: Number(persona.id_usuario ?? persona.id),
+        dni: persona.dni || '',
+        nombre: persona.nombre || '',
+        apellido: persona.apellido || '',
+        correo: persona.correo || persona.email || null,
+        telefono: persona.telefono || null,
+        curso_materia_ids: asignaciones.curso_materia_ids || [],
+      });
+      toast.success('Rol "Docente" asignado correctamente.');
+      setMostrarAgregarRol(false);
+      setIdsDocentesSinRol((prev) =>
+        prev.filter((idu) => Number(idu) !== Number(persona.id_usuario ?? persona.id)),
+      );
+      await refreshData();
+      await cargarPersonasSinRol();
+    } catch (err) {
+      toast.error(formateaMensajeError(err));
+    } finally {
+      setGuardandoAgregarRol(false);
+    }
+  };
+
+  const handleQuitarRol = async (persona) => {
+    setQuitandoRol(true);
+    try {
+      await quitarRolUsuario(Number(persona.id_usuario), 'docente');
+      toast.success('Rol "Docente" quitado correctamente.');
+      setMostrarQuitarRol(false);
+      setIdsDocentesSinRol((prev) => [...prev, Number(persona.id_usuario)]);
+      await refreshData();
+      await cargarPersonasSinRol();
+    } catch (err) {
+      toast.error(formateaMensajeError(err));
+    } finally {
+      setQuitandoRol(false);
+    }
+  };
 
   const abrirCrearDocente = () => {
     setEditingDocente(null);
@@ -494,16 +601,19 @@ function Docentes() {
   };
 
   const filteredDocentes = useMemo(() => {
-    if (!searchTerm) return docentes;
+    const visibles = docentes.filter(
+      (d) => !idsDocentesSinRol.includes(Number(d.id_usuario)),
+    );
+    if (!searchTerm) return visibles;
     const q = normalize(searchTerm);
-    return docentes.filter(
+    return visibles.filter(
       (d) =>
         normalize(d.nombre).includes(q) ||
         normalize(d.apellido).includes(q) ||
         normalize(`${d.nombre} ${d.apellido}`).includes(q) ||
         normalize(cleanDNI(d.dni)).includes(q),
     );
-  }, [docentes, searchTerm]);
+  }, [docentes, searchTerm, idsDocentesSinRol]);
 
   const handleEliminarDdjj = async (docente) => {
     await confirmarEliminacion('¿Está seguro de eliminar esta D.D.J.J.?\n\nEsta acción no se puede deshacer.', {
@@ -557,6 +667,20 @@ function Docentes() {
       <div className="card-header-flex">
         <h3><i className="fas fa-chalkboard-teacher" aria-hidden="true" /> Docentes</h3>
         <div className="header-actions">
+          <button type="button" className="btn btn-outline-primary" onClick={() => setMostrarAgregarRol(true)}>
+            <i className="fas fa-user-tag" aria-hidden="true" /> Agregar rol
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-danger"
+            onClick={() => {
+              cargarPersonasConRol();
+              setMostrarQuitarRol(true);
+            }}
+          >
+            <i className="fas fa-user-minus" aria-hidden="true" /> Quitar rol
+          </button>
+          <span className="header-actions-sep" aria-hidden="true" />
           <button type="button" className="btn btn-primary" onClick={abrirCrearDocente}>
             <i className="fas fa-plus" aria-hidden="true" /> Nuevo Docente
           </button>
@@ -910,6 +1034,32 @@ function Docentes() {
             </div>
           </form>
         </FormModal>
+      )}
+
+      {mostrarAgregarRol && (
+        <AgregarRolModal
+          titulo="Agregar rol: docente"
+          subtitulo="Seleccioná una persona existente para asignarle el rol. Se reutilizará su mismo usuario: no se crean usuarios y no se sobrescriben roles."
+          personas={personasParaAgregarRol}
+          onClose={() => setMostrarAgregarRol(false)}
+          onAgregar={handleAgregarRol}
+          guardando={guardandoAgregarRol}
+          rol="docente"
+          fetchAssignmentsFn={fetchCursoMateriaParaDocente}
+          fetchCursosFn={fetchCursosParaDocente}
+          fetchMateriasFn={fetchMateriasParaDocente}
+        />
+      )}
+
+      {mostrarQuitarRol && (
+        <QuitarRolModal
+          titulo="Quitar rol: docente"
+          subtitulo="Seleccioná una persona para quitarle el rol. Se eliminará únicamente la asignación de este rol; el usuario, la persona y sus otros roles permanecerán intactos."
+          personas={personasConRol}
+          onClose={() => setMostrarQuitarRol(false)}
+          onQuitar={handleQuitarRol}
+          quitando={quitandoRol}
+        />
       )}
     </div>
   );
