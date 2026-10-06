@@ -83,6 +83,7 @@ function Administradores() {
   const [guardandoAgregarRol, setGuardandoAgregarRol] = useState(false);
   const [mostrarQuitarRol, setMostrarQuitarRol] = useState(false);
   const [quitandoRol, setQuitandoRol] = useState(false);
+  const [guardandoUsuario, setGuardandoUsuario] = useState(false);
   const [personasConRol, setPersonasConRol] = useState([]);
 
   // Fetch personas disponibles para Admin (Docentes, Preceptores, Directivos)
@@ -266,6 +267,7 @@ function Administradores() {
     e.preventDefault();
     setError('');
     setSuccess();
+    setGuardandoUsuario(true);
 
     // 5.9 — si se cargan las dos fechas, la primera de la línea de tiempo tiene
     // que ser la opuesta al estado que se está guardando; si no, la primera de
@@ -278,6 +280,7 @@ function Administradores() {
     });
     if (errorFechas && (formData.fecha_deshabilitacion_programada || formData.fecha_habilitacion_programada)) {
       toast.warning(errorFechas);
+      setGuardandoUsuario(false);
       return;
     }
 
@@ -322,6 +325,8 @@ function Administradores() {
       await refrescar();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Error al guardar administrador');
+    } finally {
+      setGuardandoUsuario(false);
     }
   };
 

@@ -257,6 +257,7 @@ function PreceptorDashboard({ user, onLogout }) {
           curso={curso}
           onAnioChange={handleAnioChange}
           onCursoChange={setCurso}
+          miPreceptor={miPreceptor}
         />
 
         {/* ===================================================== */}

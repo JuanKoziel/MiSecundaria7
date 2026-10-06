@@ -12,16 +12,23 @@ function inicialesDesdeNombre(nombreCompleto, user) {
   return user.username ? user.username.charAt(0).toUpperCase() : 'U';
 }
 
-function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCursoChange }) {
+function Header({ user, nombreCompleto, anioLectivo, curso, onAnioChange, onCursoChange, miPreceptor }) {
   const { cursosObj, aniosLectivos } = useData();
 
   const iniciales = inicialesDesdeNombre(nombreCompleto, user);
   const nombreMostrar = nombreCompleto || user.username || 'Usuario';
   const rol = (user.role || 'PRECEPTOR').toUpperCase();
 
-  const cursosDelCiclo = (cursosObj || []).filter(
-    (c) => String(c.ciclo_anio) === String(anioLectivo),
-  );
+  const esPreceptorActivo = user.role === 'preceptor';
+  const cursosPreceptor = esPreceptorActivo && miPreceptor?.cursos ? miPreceptor.cursos : [];
+
+  const cursosDelCiclo = (cursosObj || []).filter((c) => {
+    if (String(c.ciclo_anio) !== String(anioLectivo)) return false;
+    if (esPreceptorActivo && cursosPreceptor.length > 0) {
+      return cursosPreceptor.some((cp) => cp.id_curso === c.id_curso || cp.nombre_curso === c.nombre_curso);
+    }
+    return true;
+  });
 
   const aniosDisponibles = [
     ...new Set(
