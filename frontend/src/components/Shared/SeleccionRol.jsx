@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Logo from './Logo';
+import robotPlataforma from '../../assets/branding/misecundaria7-robot-sin-fondo.png';
 import { getRoleInfo } from '../../utils/roles';
 
 function SeleccionRol() {
@@ -34,7 +35,10 @@ function SeleccionRol() {
           <div className="login-icon">
             <Logo />
           </div>
-          <h2>MiSecundaria 7</h2>
+          <h2 className="login-titulo">
+            <img src={robotPlataforma} alt="" className="login-titulo-robot" />
+            MiSecundaria 7
+          </h2>
           <p>Hola, {user?.nombreCompleto || user?.username}</p>
           <div className="rol-sin-roles">
             Tu usuario no tiene ningún rol asignado.
